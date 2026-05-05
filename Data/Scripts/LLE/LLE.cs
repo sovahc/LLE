@@ -1,4 +1,5 @@
 ﻿using System;
+using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 
 using VRage.Game;
@@ -12,6 +13,58 @@ using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LargeLanguageEngineer
 {
+	public class BitField
+	{
+		private readonly long[] _data;
+		private readonly int _bits, _mask;
+
+		public BitField(int count, int bits)
+		{
+			if (bits != 1 && bits != 2 && bits != 4)
+				throw new ArgumentException("Only 1, 2 or 4 bits are supported.");
+
+			_bits = bits;
+			_mask = (1 << bits) - 1;
+			_data = new long[(count * bits + 63) >> 6];
+		}
+
+		public void Set(int index, byte value)
+		{
+			int pos = index * _bits;
+			int word = pos >> 6;
+			int shift = pos & 63;
+
+			long mask = ~((long)_mask << shift);
+			_data[word] = (_data[word] & mask) | ((long)(value & _mask) << shift);
+		}
+
+		public byte Get(int index)
+		{
+			int pos = index * _bits;
+			return (byte)((_data[pos >> 6] >> (pos & 63)) & _mask);
+		}
+	}
+
+	public class MapChunk
+	{
+		public const int Size = 5;
+		public const int Volume = Size * Size * Size;
+
+		public const byte Wall = byte.MaxValue;
+		public const byte Space = 0;
+
+		private readonly byte[] Field = new byte[Volume];
+
+		private static int Index(int localX, int localY, int localZ) =>
+			localX + (localY * Size) + (localZ * Size * Size);
+
+		public void Set(int x, int y, int z, byte value) =>
+			Field[Index(x, y, z)] = value;
+
+		public byte Get(int x, int y, int z) =>
+			Field[Index(x, y, z)];
+	}
+
 	class Utilities
 	{
 		public static void Log(string s)
@@ -47,7 +100,8 @@ namespace LargeLanguageEngineer
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
-		{	Log("Init");
+		{
+			Log("Init");
 		}
 
 		public override void Draw()
@@ -61,12 +115,20 @@ namespace LargeLanguageEngineer
 
 			IHitInfo hitInfo;
 
-			MyAPIGateway.Physics.CastRay(a, a+f, out hitInfo, CollisionLayers.VoxelCollisionLayer);
+			MyAPIGateway.Physics.CastRay(a, a + f, out hitInfo, CollisionLayers.VoxelCollisionLayer);
 
 			if (hitInfo != null)
-			{	
+			{
 				var color = new Color(127, 255, 255, 255);
-				Utilities.DrawPoint(a + f * hitInfo.Fraction, color);
+				var intersection = a + f * hitInfo.Fraction;
+				Utilities.DrawPoint(intersection, color);
+				var size = new Vector3D(1, 1, 1);
+
+				//var material = MyStringId.GetOrCompute("Square");
+				//var box = new BoundingBoxD(-size/2, size/2);
+				//var wm = MatrixD.CreateTranslation(intersection);
+				//var raster = MySimpleObjectRasterizer.Wireframe;
+				//MySimpleObjectDraw.DrawTransparentBox(ref wm, ref box, ref color, raster, 1, 0.01f, material, material);
 			}
 		}
 	}
