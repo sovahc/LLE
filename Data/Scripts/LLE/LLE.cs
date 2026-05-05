@@ -30,18 +30,18 @@ namespace LargeLanguageEngineer
 
 		public void Set(int index, byte value)
 		{
-			int pos = index * _bits;
-			int word = pos >> 6;
-			int shift = pos & 63;
+			int position = index * _bits;
+			int word = position >> 6;
+			int shift = position & 63;
 
-			long mask = ~((long)_mask << shift);
-			_data[word] = (_data[word] & mask) | ((long)(value & _mask) << shift);
+			long shifted_mask = ~((long)_mask << shift);
+			_data[word] = (_data[word] & shifted_mask) | ((long)(value & _mask) << shift);
 		}
 
 		public byte Get(int index)
 		{
-			int pos = index * _bits;
-			return (byte)((_data[pos >> 6] >> (pos & 63)) & _mask);
+			int position = index * _bits;
+			return (byte)((_data[position >> 6] >> (position & 63)) & _mask);
 		}
 	}
 
