@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <OutputPath>/tmp/LLE-build/</OutputPath>
+    <BaseIntermediateOutputPath>/tmp/LLE-build/obj/</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>/tmp/LLE-build/.nuget/</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
+</Project>

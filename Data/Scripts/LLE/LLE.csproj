@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- Don't try to build, just provide intellisense -->
+    <BuildDependsOn />
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+
+
+  <PropertyGroup>
+    <SeBinDir>/home/cat/Projects/SpaceEngineers/Bin64</SeBinDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="ProtoBuf.Net">
+      <HintPath>$(SeBinDir)/ProtoBuf.Net.dll</HintPath>
+    </Reference>
+    <Reference Include="Sandbox.Common">
+      <HintPath>$(SeBinDir)/Sandbox.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="Sandbox.Game">
+      <HintPath>$(SeBinDir)/Sandbox.Game.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage">
+      <HintPath>$(SeBinDir)/VRage.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Audio">
+      <HintPath>$(SeBinDir)/VRage.Audio.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Game">
+      <HintPath>$(SeBinDir)/VRage.Game.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Input">
+      <HintPath>$(SeBinDir)/VRage.Input.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Library">
+      <HintPath>$(SeBinDir)/VRage.Library.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Math">
+      <HintPath>$(SeBinDir)/VRage.Math.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Network">
+      <HintPath>$(SeBinDir)/VRage.Network.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Render">
+      <HintPath>$(SeBinDir)/VRage.Render.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Scripting">
+      <HintPath>$(SeBinDir)/VRage.Scripting.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.UserInterface">
+      <HintPath>$(SeBinDir)/VRage.UserInterface.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
