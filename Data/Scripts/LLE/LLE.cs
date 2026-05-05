@@ -19,11 +19,6 @@ namespace LargeLanguageEngineer
 			MyLog.Default.WriteLine("LLE " + s);
 		}
 
-		public static void LogException(string text, string subject, Exception e)
-		{
-			MyLog.Default.WriteLine($"LLE {text} '{subject}'\n{e.Message}\n\n{e.StackTrace}");
-		}
-
 		public static void DrawPoint(Vector3D point, Color color)
 		{
 			var camera = MyAPIGateway.Session.Camera;
@@ -54,11 +49,6 @@ namespace LargeLanguageEngineer
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{	Log("Init");
 		}
-		protected override void UnloadData() {}
-		public override void SaveData() {}
-		public override void LoadData() {}
-		public override void BeforeStart() {}
-		public override void UpdateBeforeSimulation() {}
 
 		public override void Draw()
 		{
