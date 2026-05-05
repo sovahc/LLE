@@ -1,28 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-
-using Sandbox.Definitions;
-using Sandbox.Game;
-
-using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 
 using VRage.Game;
 using VRage.Game.Components;
-using VRage.Game.Entity;
 using VRage.Game.ModAPI;
-using VRage.ModAPI;
-using VRage.ObjectBuilders;
 using VRage.Utils;
 
 using VRageMath;
 
-using ProtoBuf;
-using System.Linq;
-using Sandbox.ModAPI.Weapons;
-
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
-using Sandbox.Common.ObjectBuilders;
 
 namespace LargeLanguageEngineer
 {
@@ -35,7 +21,7 @@ namespace LargeLanguageEngineer
 
 		public static void LogException(string text, string subject, Exception e)
 		{
-			MyLog.Default.WriteLine($"LLE {text} '{subject}' \n{e.Message}\n\n{e.StackTrace}");
+			MyLog.Default.WriteLine($"LLE {text} '{subject}'\n{e.Message}\n\n{e.StackTrace}");
 		}
 
 		public static void DrawPoint(Vector3D point, Color color)
@@ -58,8 +44,6 @@ namespace LargeLanguageEngineer
 
 			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)cameraMatrix.Left, (Vector3)cameraMatrix.Up, radius: size);
 		}
-
-		//private bool InRange(float v, float min, float max) { return v >= min && v <= max; }
 	}
 
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
