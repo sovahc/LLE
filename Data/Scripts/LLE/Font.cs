@@ -47,26 +47,26 @@ namespace LLE
 		private void ParseXml(string[] lines)
 		{
 			var dict = lines.Where(l => l.Contains("<glyph ") && !l.TrimStart().StartsWith("<!--"))
-				            .Select(Attrs)
-				            .ToDictionary(
-							        a => DecodeChar(a["ch"]),
-							        a => 
-							        {
-								        var origin = a["origin"].Split(',');
-								        var sizeParts = a["size"].Split('x');
-								        int ox = int.Parse(origin[0]);
-								        int oy = int.Parse(origin[1]);
-								        int sx = int.Parse(sizeParts[0]);
-								        int sy = int.Parse(sizeParts[1]);
-								        return new Glyph
-								        {
-									        offset = new Vector2((float)ox / TexSize, (TexSize - oy - sy) / (float)TexSize),
-									        size = new Vector2(sx / (float)TexSize, sy / (float)TexSize),
-									        aw = float.Parse(a["aw"]),
-									        sx = sx,
-									        sy = sy
-								        };
-							        });
+							.Select(Attrs)
+							.ToDictionary(
+									a => DecodeChar(a["ch"]),
+									a =>
+									{
+										var origin = a["origin"].Split(',');
+										var sizeParts = a["size"].Split('x');
+										int ox = int.Parse(origin[0]);
+										int oy = int.Parse(origin[1]);
+										int sx = int.Parse(sizeParts[0]);
+										int sy = int.Parse(sizeParts[1]);
+										return new Glyph
+										{
+											offset = new Vector2((float)ox / TexSize, (TexSize - oy - sy) / (float)TexSize),
+											size = new Vector2(sx / (float)TexSize, sy / (float)TexSize),
+											aw = float.Parse(a["aw"]),
+											sx = sx,
+											sy = sy
+										};
+									});
 			_characters = dict;
 		}
 
@@ -82,16 +82,16 @@ namespace LLE
 
 			MatrixD camMatrix = camera.WorldMatrix;
 			Vector3 left = (Vector3)camMatrix.Left;
-			Vector3 up   = (Vector3)camMatrix.Up;
+			Vector3 up = (Vector3)camMatrix.Up;
 
 			const double zDistance = 0.5d;
 
-			// ViewProjectionInv — как в BuildInfo/PaintGun DrawUtils
+			// ViewProjectionInv - as in BuildInfo/PaintGun DrawUtils
 			float aspectRatio = (float)(camera.ViewportSize.X / camera.ViewportSize.Y);
 			MatrixD projMatrix = MatrixD.CreatePerspectiveFieldOfView(camera.FovWithZoom, aspectRatio, (float)zDistance, (float)camera.FarPlaneDistance);
 			MatrixD viewProjInv = MatrixD.Invert(camera.ViewMatrix * projMatrix);
 
-			// tan(FOV/2) — множитель для конвертации screen→world на расстоянии zDistance
+			// tan(FOV/2) - multiplier for screen->world conversion at zDistance
 			float scaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 
 			float cursorX = 0f;
@@ -102,18 +102,18 @@ namespace LLE
 				Glyph glyph;
 				if (!_characters.TryGetValue(ch, out glyph)) continue;
 
-				float screenCharWidth  = glyph.aw * scale;
+				float screenCharWidth = glyph.aw * scale;
 				float screenCharHeight = (float)glyph.sy / glyph.sx * glyph.aw * scale;
 
-				// Размеры в мировых единицах: screenUnits * tan(FOV/2) * distance * aspect(X)
-				float charWidth  = screenCharWidth * scaleFov * (float)zDistance * aspectRatio;
+				// World units size: screenUnits * tan(FOV/2) * distance * aspect(X)
+				float charWidth = screenCharWidth * scaleFov * (float)zDistance * aspectRatio;
 				float charHeight = screenCharHeight * scaleFov * (float)zDistance;
 
 				Vector2D charPos = new Vector2D(
 					origin.X + cursorX + screenCharWidth / 2,
 					origin.Y - screenCharHeight / 2);
 
-				// Screen→World через ViewProjectionInv — как в BuildInfo TextAPIHUDtoWorld
+				// Screen->World via ViewProjectionInv - as in BuildInfo TextAPIHUDtoWorld
 				Vector3D worldPos = ScreenToWorld(charPos, viewProjInv);
 
 				if (ch != ' ')
@@ -132,20 +132,20 @@ namespace LLE
 			MyUtils.GetBillboardQuadOriented(out quad, ref pos, width / 2f, height / 2f, ref left, ref up);
 
 			var billboard = new MyBillboard();
-			billboard.Material                = material;
-			billboard.UVOffset                = new Vector2(glyph.offset.X, 1f - glyph.offset.Y - glyph.size.Y);
-			billboard.UVSize                  = glyph.size;
-			billboard.Position0               = quad.Point0;
-			billboard.Position1               = quad.Point1;
-			billboard.Position2               = quad.Point2;
-			billboard.Position3               = quad.Point3;
-			billboard.Color                   = new Vector4(color.R, color.G, color.B, color.A) / 255f;
-			billboard.ColorIntensity          = 1f;
-			billboard.BlendType               = BlendTypeEnum.PostPP;
-			billboard.LocalType               = MyBillboard.LocalTypeEnum.Custom;
-			billboard.ParentID                = uint.MaxValue;
-			billboard.CustomViewProjection    = -1;
-			billboard.Reflectivity            = 0f;
+			billboard.Material = material;
+			billboard.UVOffset = new Vector2(glyph.offset.X, 1f - glyph.offset.Y - glyph.size.Y);
+			billboard.UVSize = glyph.size;
+			billboard.Position0 = quad.Point0;
+			billboard.Position1 = quad.Point1;
+			billboard.Position2 = quad.Point2;
+			billboard.Position3 = quad.Point3;
+			billboard.Color = new Vector4(color.R, color.G, color.B, color.A) / 255f;
+			billboard.ColorIntensity = 1f;
+			billboard.BlendType = BlendTypeEnum.PostPP;
+			billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
+			billboard.ParentID = uint.MaxValue;
+			billboard.CustomViewProjection = -1;
+			billboard.Reflectivity = 0f;
 			billboard.SoftParticleDistanceScale = 0f;
 
 			MyTransparentGeometry.AddBillboard(billboard, false);
@@ -163,23 +163,23 @@ namespace LLE
 		private static Dictionary<string, string> Attrs(string line)
 		{
 			var d = new Dictionary<string, string>();
-			for (int i = 0; ; )
+			for (int i = 0; ;)
 			{
 				int start = line.IndexOf('"', i); if (start < 0) break;
 				int end = line.IndexOf('"', start + 1); if (end < 0) break;
 
 				int kEnd = start - 1; while (kEnd >= 0 && char.IsWhiteSpace(line[kEnd])) kEnd--;
-				int kStart = kEnd; 
-				while (kStart > 0 && line[kStart-1] != ' ' && line[kStart-1] != '>' && line[kStart-1] != '<') kStart--;
+				int kStart = kEnd;
+				while (kStart > 0 && line[kStart - 1] != ' ' && line[kStart - 1] != '>' && line[kStart - 1] != '<') kStart--;
 
 				string key = line.Substring(kStart, kEnd - kStart);
-				if (!string.IsNullOrEmpty(key)) 
+				if (!string.IsNullOrEmpty(key))
 				{
 					var val = line.Substring(start + 1, end - start - 1)
 						.Replace("&amp;", "&").Replace("&lt;", "<").Replace("&gt;", ">").Replace("&quot;", "\"");
 					d[key] = val;
 				}
-				
+
 				i = end + 1;
 			}
 			return d;
