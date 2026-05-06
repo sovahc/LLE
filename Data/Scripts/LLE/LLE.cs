@@ -15,87 +15,17 @@ using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LargeLanguageEngineer
 {
-	public class BitField
-	{
-		private readonly long[] _data;
-		private readonly int _bits, _mask;
-
-		public BitField(int count, int bits)
-		{
-			if (bits != 1 && bits != 2 && bits != 4)
-				throw new ArgumentException("Only 1, 2 or 4 bits are supported.");
-
-			_bits = bits;
-			_mask = (1 << bits) - 1;
-			_data = new long[(count * bits + 63) >> 6];
-		}
-
-		public void Set(int index, byte value)
-		{
-			int position = index * _bits;
-			int word = position >> 6;
-			int shift = position & 63;
-
-			long shifted_mask = ~((long)_mask << shift);
-			_data[word] = (_data[word] & shifted_mask) | ((long)(value & _mask) << shift);
-		}
-
-		public byte Get(int index)
-		{
-			int position = index * _bits;
-			return (byte)((_data[position >> 6] >> (position & 63)) & _mask);
-		}
-	}
-
-	public class MapChunk
-	{
-		public const int Size = 5;
-		public const int Volume = Size * Size * Size;
-
-		public const byte Solid = byte.MaxValue;
-
-		private readonly byte[] Field = new byte[Volume];
-
-		private static int Index(int x, int y, int z) =>
-			x + (y * Size) + (z * Size * Size);
-
-		public void Set(int x, int y, int z, byte value) =>
-			Field[Index(x, y, z)] = value;
-
-		public byte Get(int x, int y, int z) =>
-			Field[Index(x, y, z)];
-	}
-
-	public class SuperChunk
-	{
-		public const int Size = MapChunk.Size;
-		public const int Volume = Size * Size * Size;
-
-		public const byte Void = 0;
-		public const byte HasMap = 1;
-		public const byte Solid = 3;
-
-		private readonly BitField _data = new BitField(Volume, 2);
-		private readonly MapChunk[] _maps = new MapChunk[Volume];
-
-		private static int Index(int x, int y, int z) =>
-			x + (y * Size) + (z * Size * Size);
-
-		// public void Set(int x, int y, int z, byte value)
-		//public byte Get(int x, int y, int z)
-	}
-
 	class Vision
 	{
-		private static float FovAngle = (float)Math.PI / 6;
-		private static float Tan_HalfFovAngle = (float)Math.Tan(FovAngle/2);
-		private static float Cos_HalfFovAngle = (float)Math.Cos(FovAngle/2);
+		private static readonly float FovAngle = (float)Math.PI / 6;
+		private static readonly float Tan_HalfFovAngle = (float)Math.Tan(FovAngle/2);
+		private static readonly float Cos_HalfFovAngle = (float)Math.Cos(FovAngle/2);
 
-		public static void HighlightVissible(Vector3D botPos, Vector3D botForward, float range = 5000)
+		public static void HighlightVissible(Vector3D at, Vector3D forward, float range = 5000)
 		{
 			BoundingBoxD searchBox;
 			{
-				Vector3D center = botPos + botForward * (range / 2);
+				Vector3D center = at + forward * (range / 2);
 				float radius = Math.Max(range / 2, range * Tan_HalfFovAngle);
 
 				searchBox = new BoundingBoxD(center - new Vector3(radius), center + new Vector3(radius));
@@ -107,12 +37,17 @@ namespace LargeLanguageEngineer
 
 			foreach (var entity in candidates)
 			{
+				IMyCubeGrid grid = entity as IMyCubeGrid;
+
+				if (grid == null) continue;
+				if (grid.Physics == null) continue; // grid is a projection
+
 				Vector3D targetPos = entity.PositionComp.WorldMatrixRef.Translation;
-				Vector3D dir = targetPos - botPos;
+				Vector3D direction = targetPos - at;
 
-				if (dir.LengthSquared() > range * range) continue;
+				if (direction.LengthSquared() > range * range) continue;
 
-				double dot = Vector3D.Dot(Vector3D.Normalize(dir), botForward);
+				double dot = Vector3D.Dot(Vector3D.Normalize(direction), forward);
 				if (dot < Cos_HalfFovAngle) continue;
 
 				Utilities.DrawPoint(targetPos);
