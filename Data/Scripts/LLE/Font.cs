@@ -22,6 +22,7 @@ namespace LLE
 		}
 
 		private const int TextureSize = 1024;
+		private readonly List<MyBillboard> _billboards = new List<MyBillboard>();
 		private Dictionary<char, Glyph> _characters = new Dictionary<char, Glyph>();
 		private MyStringId _atlas;
 
@@ -96,6 +97,8 @@ namespace LLE
 
 			float cursorX = 0f;
 
+			_billboards.Clear();
+
 			for (int i = 0; i < text.Length; i++)
 			{
 				char ch = text[i];
@@ -118,20 +121,26 @@ namespace LLE
 
 				if (ch != ' ')
 				{
-					DrawGlyph(_atlas, glyph, color, worldPos, left, up, charWidth, charHeight);
+					var billboard = new MyBillboard();
+					DrawGlyph(_atlas, glyph, color, worldPos, left, up, charWidth, charHeight, ref billboard);
+					_billboards.Add(billboard);
 				}
 
 				cursorX += glyph.aw * scale;
 			}
+
+			if (_billboards.Count > 0)
+			{
+				MyTransparentGeometry.AddBillboards(_billboards, false);
+			}
 		}
 
 		private void DrawGlyph(MyStringId material, Glyph glyph, Color color,
-			Vector3D pos, Vector3 left, Vector3 up, float width, float height)
+			Vector3D pos, Vector3 left, Vector3 up, float width, float height, ref MyBillboard billboard)
 		{
 			MyQuadD quad;
 			MyUtils.GetBillboardQuadOriented(out quad, ref pos, width / 2f, height / 2f, ref left, ref up);
 
-			var billboard = new MyBillboard();
 			billboard.Material = material;
 			billboard.UVOffset = glyph.offset;
 			billboard.UVSize = glyph.size;
@@ -147,8 +156,6 @@ namespace LLE
 			billboard.CustomViewProjection = -1;
 			billboard.Reflectivity = 0f;
 			billboard.SoftParticleDistanceScale = 0f;
-
-			MyTransparentGeometry.AddBillboard(billboard, false);
 		}
 
 		private static Vector3D ScreenToWorld(Vector2D screenPos, MatrixD viewProjInv)
