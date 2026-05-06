@@ -22,58 +22,25 @@ namespace LLE
 		}
 
 		private const int TextureSize = 1024;
-		private readonly List<MyBillboard> _billboards = new List<MyBillboard>();
+
 		private Dictionary<char, Glyph> _characters = new Dictionary<char, Glyph>();
 		private MyStringId _atlas;
 
-		public bool Parse(string xmlPath)
-		{
-			try
-			{
-				using (var reader = MyAPIGateway.Utilities.ReadBinaryFileInGameContent(xmlPath))
-				{
-					byte[] bytes = reader.ReadBytes((int)reader.BaseStream.Length);
-					string content = System.Text.Encoding.UTF8.GetString(bytes);
-					ParseXml(content.Split('\n'));
-				}
-				return true;
-			}
-			catch (Exception e)
-			{
-				MyLog.Default.WriteLine("Font parser error: " + e.Message);
-				return false;
-			}
-		}
+		private readonly List<MyBillboard> _billboards = new List<MyBillboard>();
 
-		private void ParseXml(string[] lines)
-		{
-			var dict = lines.Where(l => l.Contains("<glyph ") && !l.TrimStart().StartsWith("<!--"))
-				.Select(Attrs)
-				.ToDictionary(
-						a => DecodeChar(a["ch"]),
-						a =>
-						{
-							var origin = a["origin"].Split(',');
-							var sizeParts = a["size"].Split('x');
-							int ox = int.Parse(origin[0]);
-							int oy = int.Parse(origin[1]);
-							int sx = int.Parse(sizeParts[0]);
-							int sy = int.Parse(sizeParts[1]);
-							return new Glyph
-							{
-								offset = new Vector2((float)ox / TextureSize, (float)oy / TextureSize),
-								size = new Vector2((float)sx / TextureSize, (float)sy / TextureSize),
-								aw = float.Parse(a["aw"]),
-								sx = sx,
-								sy = sy
-							};
-						});
-			_characters = dict;
-		}
+		private MatrixD _cachedViewProjInv;
+		private float _cachedScaleFov, _cachedAspectRatio;
 
-		public void LoadAtlas(string atlasPath)
+		public void UpdateCamera()
 		{
-			_atlas = MyStringId.GetOrCompute(atlasPath);
+			var camera = MyAPIGateway.Session.Camera;
+			if (camera == null) return;
+
+			const double zDistance = 0.5d;
+			_cachedAspectRatio = (float)(camera.ViewportSize.X / camera.ViewportSize.Y);
+			MatrixD projMatrix = MatrixD.CreatePerspectiveFieldOfView(camera.FovWithZoom, _cachedAspectRatio, (float)zDistance, (float)camera.FarPlaneDistance);
+			_cachedViewProjInv = MatrixD.Invert(camera.ViewMatrix * projMatrix);
+			_cachedScaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 		}
 
 		public void DrawString(string text, Vector2D origin, float scale, Color color)
@@ -81,19 +48,10 @@ namespace LLE
 			var camera = MyAPIGateway.Session.Camera;
 			if (camera == null) return;
 
-			MatrixD camMatrix = camera.WorldMatrix;
-			Vector3 left = (Vector3)camMatrix.Left;
-			Vector3 up = (Vector3)camMatrix.Up;
+			Vector3 left = (Vector3)camera.WorldMatrix.Left;
+			Vector3 up = (Vector3)camera.WorldMatrix.Up;
 
 			const double zDistance = 0.5d;
-
-			// ViewProjectionInv - as in BuildInfo/PaintGun DrawUtils
-			float aspectRatio = (float)(camera.ViewportSize.X / camera.ViewportSize.Y);
-			MatrixD projMatrix = MatrixD.CreatePerspectiveFieldOfView(camera.FovWithZoom, aspectRatio, (float)zDistance, (float)camera.FarPlaneDistance);
-			MatrixD viewProjInv = MatrixD.Invert(camera.ViewMatrix * projMatrix);
-
-			// tan(FOV/2) - multiplier for screen->world conversion at zDistance
-			float scaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 
 			float cursorX = 0f;
 
@@ -109,15 +67,15 @@ namespace LLE
 				float screenCharHeight = (float)glyph.sy / glyph.sx * glyph.aw * scale;
 
 				// World units size: screenUnits * tan(FOV/2) * distance * aspect(X)
-				float charWidth = screenCharWidth * scaleFov * (float)zDistance * aspectRatio;
-				float charHeight = screenCharHeight * scaleFov * (float)zDistance;
+				float charWidth = screenCharWidth * _cachedScaleFov * (float)zDistance * _cachedAspectRatio;
+				float charHeight = screenCharHeight * _cachedScaleFov * (float)zDistance;
 
 				Vector2D charPos = new Vector2D(
 					origin.X + cursorX + screenCharWidth / 2,
 					origin.Y - screenCharHeight / 2);
 
 				// Screen->World via ViewProjectionInv - as in BuildInfo TextAPIHUDtoWorld
-				Vector3D worldPos = ScreenToWorld(charPos, viewProjInv);
+				Vector3D worldPos = ScreenToWorld(charPos, _cachedViewProjInv);
 
 				if (ch != ' ')
 				{
@@ -190,6 +148,57 @@ namespace LLE
 				i = end + 1;
 			}
 			return d;
+		}
+
+
+		public bool Parse(string xmlPath)
+		{
+			try
+			{
+				using (var reader = MyAPIGateway.Utilities.ReadBinaryFileInGameContent(xmlPath))
+				{
+					byte[] bytes = reader.ReadBytes((int)reader.BaseStream.Length);
+					string content = System.Text.Encoding.UTF8.GetString(bytes);
+					ParseXml(content.Split('\n'));
+				}
+				return true;
+			}
+			catch (Exception e)
+			{
+				MyLog.Default.WriteLine("Font parser error: " + e.Message);
+				return false;
+			}
+		}
+
+		private void ParseXml(string[] lines)
+		{
+			var dict = lines.Where(l => l.Contains("<glyph ") && !l.TrimStart().StartsWith("<!--"))
+				.Select(Attrs)
+				.ToDictionary(
+						a => DecodeChar(a["ch"]),
+						a =>
+						{
+							var origin = a["origin"].Split(',');
+							var sizeParts = a["size"].Split('x');
+							int ox = int.Parse(origin[0]);
+							int oy = int.Parse(origin[1]);
+							int sx = int.Parse(sizeParts[0]);
+							int sy = int.Parse(sizeParts[1]);
+							return new Glyph
+							{
+								offset = new Vector2((float)ox / TextureSize, (float)oy / TextureSize),
+								size = new Vector2((float)sx / TextureSize, (float)sy / TextureSize),
+								aw = float.Parse(a["aw"]),
+								sx = sx,
+								sy = sy
+							};
+						});
+			_characters = dict;
+		}
+
+		public void LoadAtlas(string atlasPath)
+		{
+			_atlas = MyStringId.GetOrCompute(atlasPath);
 		}
 
 		private static char DecodeChar(string text)
