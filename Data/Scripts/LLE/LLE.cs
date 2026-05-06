@@ -85,8 +85,7 @@ namespace LLE
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
-		private static readonly FontParser _font = new FontParser();
-		private static FontRenderer _renderer;
+		private static Font _font;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -94,12 +93,11 @@ namespace LLE
 		{
 			Log("Init");
 
+			_font = new Font();
 			if (_font.Parse(@"Fonts\monospace\FontDataPA.xml"))
 			{
-				Log("DBG: Font parsed. Glyphs count: " + _font.Characters.Count);
-				_renderer = new FontRenderer(_font);
 				// Material IDs must match SubtypeId in TransparentMaterials.sbc
-				_renderer.LoadAtlas("LLE_FontAtlas_0");
+				_font.LoadAtlas("LLE_FontAtlas_0");
 			}
 			else
 			{
@@ -114,7 +112,7 @@ namespace LLE
 
 			var p = player.Character.GetHeadMatrix(false);
 			Vision.HighlightVissible(p.Translation, p.Forward);
-			_renderer?.DrawString("LLE v0.1", new Vector2D(-0.5d, -0.35d), 0.0005f, Color.White);
+			_font?.DrawString("LLE v0.1", new Vector2D(-0.5d, -0.35d), 0.0005f, Color.White);
 		}
 	}
 }
