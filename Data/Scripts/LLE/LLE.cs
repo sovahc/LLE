@@ -85,11 +85,53 @@ namespace LargeLanguageEngineer
 		//public byte Get(int x, int y, int z)
 	}
 
+	class Vision
+	{
+		private static float FovAngle = (float)Math.PI / 6;
+		private static float Tan_HalfFovAngle = (float)Math.Tan(FovAngle/2);
+		private static float Cos_HalfFovAngle = (float)Math.Cos(FovAngle/2);
+
+		public static void HighlightVissible(Vector3D botPos, Vector3D botForward, float range = 5000)
+		{
+			BoundingBoxD searchBox;
+			{
+				Vector3D center = botPos + botForward * (range / 2);
+				float radius = Math.Max(range / 2, range * Tan_HalfFovAngle);
+
+				searchBox = new BoundingBoxD(center - new Vector3(radius), center + new Vector3(radius));
+			}
+
+			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref searchBox);
+
+			//Log($"{botPos} {botForward} {candidates.Count}");
+
+			foreach (var entity in candidates)
+			{
+				Vector3D targetPos = entity.PositionComp.WorldMatrixRef.Translation;
+				Vector3D dir = targetPos - botPos;
+
+				if (dir.LengthSquared() > range * range) continue;
+
+				double dot = Vector3D.Dot(Vector3D.Normalize(dir), botForward);
+				if (dot < Cos_HalfFovAngle) continue;
+
+				Utilities.DrawPoint(targetPos);
+
+				//MyAPIGateway.Physics.CastRay(botPos, targetPos, out var hit);
+				//if (hit.HitEntity == null || hit.HitEntity.EntityId == entity.EntityId)
+				//{
+				//	BotSeesTarget(entity);
+				//}
+			}
+		}
+	}
+
 	class Utilities
 	{
-		public static void Log(string s)
-		{
-			MyLog.Default.WriteLine("LLE " + s);
+		private static Color DefaultColor = new Color(255, 255, 127, 255);
+
+		public static void DrawPoint(Vector3D point)
+		{	DrawPoint(point, DefaultColor);
 		}
 
 		public static void DrawPoint(Vector3D point, Color color)
@@ -112,6 +154,11 @@ namespace LargeLanguageEngineer
 
 			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)cameraMatrix.Left, (Vector3)cameraMatrix.Up, radius: size);
 		}
+
+		public static void Log(string s)
+		{
+			MyLog.Default.WriteLine("LLE " + s);
+		}
 	}
 
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
@@ -124,8 +171,6 @@ namespace LargeLanguageEngineer
 			Log("Init");
 		}
 
-		private static Color DebugColor = new Color(127, 255, 255, 255);
-
 		public override void Draw()
 		{
 			var player = MyAPIGateway.Session.Player;
@@ -133,41 +178,7 @@ namespace LargeLanguageEngineer
 
 			var p = player.Character.GetHeadMatrix(false);
 
-			HighlightVissible(p.Translation, p.Forward);
-		}
-
-		void HighlightVissible(Vector3D botPos, Vector3D botForward, float range = 5000, float fovHalfAngle = (float)Math.PI / 6)
-		{
-			BoundingBoxD searchBox;
-			{
-				Vector3D center = botPos + botForward * (range / 2);
-				float radius = Math.Max(range / 2, range * (float)Math.Tan(fovHalfAngle));
-
-				searchBox = new BoundingBoxD(center - new Vector3(radius), center + new Vector3(radius));
-			}
-
-			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref searchBox);
-
-			//Log($"{botPos} {botForward} {candidates.Count}");
-
-			foreach (var entity in candidates)
-			{
-				Vector3D targetPos = entity.PositionComp.WorldMatrix.Translation;
-				Vector3D dir = targetPos - botPos;
-
-				if (dir.LengthSquared() > range * range) continue;
-
-				double dot = Vector3D.Dot(Vector3D.Normalize(dir), botForward);
-				if (dot < Math.Cos(fovHalfAngle)) continue;
-
-				Utilities.DrawPoint(targetPos, DebugColor);
-
-				//MyAPIGateway.Physics.CastRay(botPos, targetPos, out var hit);
-				//if (hit.HitEntity == null || hit.HitEntity.EntityId == entity.EntityId)
-				//{
-				//	BotSeesTarget(entity);
-				//}
-			}
+			Vision.HighlightVissible(p.Translation, p.Forward);
 		}
 	}
 }
