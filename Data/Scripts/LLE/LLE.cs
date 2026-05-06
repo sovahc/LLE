@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 
 using VRage.Game;
 using VRage.Game.Components;
+using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.Utils;
 
@@ -50,19 +52,37 @@ namespace LargeLanguageEngineer
 		public const int Size = 5;
 		public const int Volume = Size * Size * Size;
 
-		public const byte Wall = byte.MaxValue;
-		public const byte Space = 0;
+		public const byte Solid = byte.MaxValue;
 
 		private readonly byte[] Field = new byte[Volume];
 
-		private static int Index(int localX, int localY, int localZ) =>
-			localX + (localY * Size) + (localZ * Size * Size);
+		private static int Index(int x, int y, int z) =>
+			x + (y * Size) + (z * Size * Size);
 
 		public void Set(int x, int y, int z, byte value) =>
 			Field[Index(x, y, z)] = value;
 
 		public byte Get(int x, int y, int z) =>
 			Field[Index(x, y, z)];
+	}
+
+	public class SuperChunk
+	{
+		public const int Size = MapChunk.Size;
+		public const int Volume = Size * Size * Size;
+
+		public const byte Void = 0;
+		public const byte HasMap = 1;
+		public const byte Solid = 3;
+
+		private readonly BitField _data = new BitField(Volume, 2);
+		private readonly MapChunk[] _maps = new MapChunk[Volume];
+
+		private static int Index(int x, int y, int z) =>
+			x + (y * Size) + (z * Size * Size);
+
+		// public void Set(int x, int y, int z, byte value)
+		//public byte Get(int x, int y, int z)
 	}
 
 	class Utilities
@@ -104,31 +124,49 @@ namespace LargeLanguageEngineer
 			Log("Init");
 		}
 
+		private static Color DebugColor = new Color(127, 255, 255, 255);
+
 		public override void Draw()
 		{
 			var player = MyAPIGateway.Session.Player;
 			if (player == null || player.Character == null) return;
 
-			var m = player.Character.GetHeadMatrix(false);
-			var a = m.Translation;
-			var f = m.Forward * 50;
+			var p = player.Character.GetHeadMatrix(false);
 
-			IHitInfo hitInfo;
+			HighlightVissible(p.Translation, p.Forward);
+		}
 
-			MyAPIGateway.Physics.CastRay(a, a + f, out hitInfo, CollisionLayers.VoxelCollisionLayer);
-
-			if (hitInfo != null)
+		void HighlightVissible(Vector3D botPos, Vector3D botForward, float range = 5000, float fovHalfAngle = (float)Math.PI / 6)
+		{
+			BoundingBoxD searchBox;
 			{
-				var color = new Color(127, 255, 255, 255);
-				var intersection = a + f * hitInfo.Fraction;
-				Utilities.DrawPoint(intersection, color);
-				var size = new Vector3D(1, 1, 1);
+				Vector3D center = botPos + botForward * (range / 2);
+				float radius = Math.Max(range / 2, range * (float)Math.Tan(fovHalfAngle));
 
-				//var material = MyStringId.GetOrCompute("Square");
-				//var box = new BoundingBoxD(-size/2, size/2);
-				//var wm = MatrixD.CreateTranslation(intersection);
-				//var raster = MySimpleObjectRasterizer.Wireframe;
-				//MySimpleObjectDraw.DrawTransparentBox(ref wm, ref box, ref color, raster, 1, 0.01f, material, material);
+				searchBox = new BoundingBoxD(center - new Vector3(radius), center + new Vector3(radius));
+			}
+
+			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref searchBox);
+
+			//Log($"{botPos} {botForward} {candidates.Count}");
+
+			foreach (var entity in candidates)
+			{
+				Vector3D targetPos = entity.PositionComp.WorldMatrix.Translation;
+				Vector3D dir = targetPos - botPos;
+
+				if (dir.LengthSquared() > range * range) continue;
+
+				double dot = Vector3D.Dot(Vector3D.Normalize(dir), botForward);
+				if (dot < Math.Cos(fovHalfAngle)) continue;
+
+				Utilities.DrawPoint(targetPos, DebugColor);
+
+				//MyAPIGateway.Physics.CastRay(botPos, targetPos, out var hit);
+				//if (hit.HitEntity == null || hit.HitEntity.EntityId == entity.EntityId)
+				//{
+				//	BotSeesTarget(entity);
+				//}
 			}
 		}
 	}
