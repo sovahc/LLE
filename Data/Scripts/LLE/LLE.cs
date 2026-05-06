@@ -112,7 +112,7 @@ namespace LLE
 
 			var p = player.Character.GetHeadMatrix(false);
 			Vision.HighlightVissible(p.Translation, p.Forward);
-			_font?.DrawString("LLE v0.1", new Vector2D(-0.5d, -0.35d), 0.0005f, Color.White);
+			_font?.DrawString("LLE v0.1", new Vector2D(-0.5d, -0.35d), 0.00075f, Color.White);
 		}
 	}
 }

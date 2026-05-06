@@ -21,7 +21,7 @@ namespace LLE
 			public int sy;
 		}
 
-		private const int TexSize = 1024;
+		private const int TextureSize = 1024;
 		private Dictionary<char, Glyph> _characters = new Dictionary<char, Glyph>();
 		private MyStringId _atlas;
 
@@ -60,8 +60,8 @@ namespace LLE
 							int sy = int.Parse(sizeParts[1]);
 							return new Glyph
 							{
-								offset = new Vector2((float)ox / TexSize, (TexSize - oy - sy) / (float)TexSize),
-								size = new Vector2(sx / (float)TexSize, sy / (float)TexSize),
+								offset = new Vector2((float)ox / TextureSize, (float)oy / TextureSize),
+								size = new Vector2((float)sx / TextureSize, (float)sy / TextureSize),
 								aw = float.Parse(a["aw"]),
 								sx = sx,
 								sy = sy
@@ -133,7 +133,7 @@ namespace LLE
 
 			var billboard = new MyBillboard();
 			billboard.Material = material;
-			billboard.UVOffset = new Vector2(glyph.offset.X, 1f - glyph.offset.Y - glyph.size.Y);
+			billboard.UVOffset = glyph.offset;
 			billboard.UVSize = glyph.size;
 			billboard.Position0 = quad.Point0;
 			billboard.Position1 = quad.Point1;
