@@ -12,8 +12,6 @@ namespace LLE
 	{
 		private readonly FontParser _font;
 		private MyStringId _atlas;
-		private static bool _drawLogDone = false;
-		private static bool _uvLogDone = false;
 
 		public FontRenderer(FontParser font) { _font = font; }
 
@@ -42,7 +40,6 @@ namespace LLE
 			float scaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 
 			float cursorX = 0f;
-			int drawnCount = 0;
 
 			for (int i = 0; i < text.Length; i++)
 			{
@@ -67,24 +64,9 @@ namespace LLE
 				if (ch != ' ')
 				{
 					DrawGlyph(_atlas, glyph, color, worldPos, left, up, charWidth, charHeight);
-					drawnCount++;
-
-					// Log first character data for debugging
-					if (!_uvLogDone)
-					{
-						MyLog.Default.WriteLine("LLE DBG: 1st char '" + ch + "' UV=" + glyph.offset.X + "," + glyph.offset.Y + " Size=" + glyph.size.X + "," + glyph.size.Y);
-						MyLog.Default.WriteLine("LLE DBG: 1st char WorldPos=" + worldPos.X + "," + worldPos.Y + "," + worldPos.Z + " Dim=" + charWidth + "x" + charHeight);
-						_uvLogDone = true;
-					}
 				}
 
 				cursorX += glyph.aw * scale;
-			}
-
-			if (!_drawLogDone)
-			{
-				MyLog.Default.WriteLine("LLE DBG: DrawString -> matched=" + drawnCount + " quads added.");
-				_drawLogDone = true;
 			}
 		}
 

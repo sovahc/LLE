@@ -26,7 +26,6 @@ namespace LLE
 				{
 					byte[] bytes = reader.ReadBytes((int)reader.BaseStream.Length);
 					string content = System.Text.Encoding.UTF8.GetString(bytes);
-					MyLog.Default.WriteLine("LLE DBG: Read " + bytes.Length + " bytes from font xml.");
 					ParseXml(content);
 				}
 				return true;
@@ -71,7 +70,6 @@ namespace LLE
 				glyph.sy = sy;
 				Characters[ch] = glyph;
 			}
-			MyLog.Default.WriteLine("LLE DBG: Parsed glyphs=" + Characters.Count);
 		}
 
 		private static int FindTag(string xml, string tag, int startIndex)
