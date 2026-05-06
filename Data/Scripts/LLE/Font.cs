@@ -39,7 +39,7 @@ namespace LLE
 			}
 			catch (Exception e)
 			{
-				MyLog.Default.WriteLine("FontParser Error: " + e.Message);
+				MyLog.Default.WriteLine("Font parser error: " + e.Message);
 				return false;
 			}
 		}
@@ -47,26 +47,26 @@ namespace LLE
 		private void ParseXml(string[] lines)
 		{
 			var dict = lines.Where(l => l.Contains("<glyph ") && !l.TrimStart().StartsWith("<!--"))
-							.Select(Attrs)
-							.ToDictionary(
-									a => DecodeChar(a["ch"]),
-									a =>
-									{
-										var origin = a["origin"].Split(',');
-										var sizeParts = a["size"].Split('x');
-										int ox = int.Parse(origin[0]);
-										int oy = int.Parse(origin[1]);
-										int sx = int.Parse(sizeParts[0]);
-										int sy = int.Parse(sizeParts[1]);
-										return new Glyph
-										{
-											offset = new Vector2((float)ox / TexSize, (TexSize - oy - sy) / (float)TexSize),
-											size = new Vector2(sx / (float)TexSize, sy / (float)TexSize),
-											aw = float.Parse(a["aw"]),
-											sx = sx,
-											sy = sy
-										};
-									});
+				.Select(Attrs)
+				.ToDictionary(
+						a => DecodeChar(a["ch"]),
+						a =>
+						{
+							var origin = a["origin"].Split(',');
+							var sizeParts = a["size"].Split('x');
+							int ox = int.Parse(origin[0]);
+							int oy = int.Parse(origin[1]);
+							int sx = int.Parse(sizeParts[0]);
+							int sy = int.Parse(sizeParts[1]);
+							return new Glyph
+							{
+								offset = new Vector2((float)ox / TexSize, (TexSize - oy - sy) / (float)TexSize),
+								size = new Vector2(sx / (float)TexSize, sy / (float)TexSize),
+								aw = float.Parse(a["aw"]),
+								sx = sx,
+								sy = sy
+							};
+						});
 			_characters = dict;
 		}
 
