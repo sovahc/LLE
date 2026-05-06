@@ -78,7 +78,7 @@ namespace LLE
 		public void DrawString(string text, Vector2D origin, float scale, Color color)
 		{
 			var camera = MyAPIGateway.Session.Camera;
-			if (camera == null || _atlas == null) return;
+			if (camera == null) return;
 
 			MatrixD camMatrix = camera.WorldMatrix;
 			Vector3 left = (Vector3)camMatrix.Left;

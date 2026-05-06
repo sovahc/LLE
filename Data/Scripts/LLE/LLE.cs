@@ -23,7 +23,7 @@ namespace LLE
 		private static readonly float Tan_HalfFovAngle = (float)Math.Tan(FovAngle/2);
 		private static readonly float Cos_HalfFovAngle = (float)Math.Cos(FovAngle/2);
 
-		public static void HighlightVissible(Vector3D at, Vector3D forward, float range = 5000)
+		public static void HighlightVisible(Vector3D at, Vector3D forward, float range = 5000)
 		{
 			BoundingBoxD searchBox;
 			{
@@ -111,7 +111,7 @@ namespace LLE
 			if (player == null || player.Character == null) return;
 
 			var p = player.Character.GetHeadMatrix(false);
-			Vision.HighlightVissible(p.Translation, p.Forward);
+			Vision.HighlightVisible(p.Translation, p.Forward);
 			_font?.DrawString("LLE v0.1", new Vector2D(-0.5d, -0.35d), 0.00075f, Color.White);
 		}
 	}
