@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -12,6 +12,8 @@ using VRage.Utils;
 using VRageMath;
 
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
+
+using VRage.Game.ModAPI.Ingame.Utilities;  
 
 namespace LargeLanguageEngineer
 {
@@ -38,25 +40,16 @@ namespace LargeLanguageEngineer
 			foreach (var entity in candidates)
 			{
 				IMyCubeGrid grid = entity as IMyCubeGrid;
-
-				if (grid == null) continue;
-				if (grid.Physics == null) continue; // grid is a projection
+				if (grid == null || grid.Physics == null) continue;
 
 				Vector3D targetPos = entity.PositionComp.WorldMatrixRef.Translation;
 				Vector3D direction = targetPos - at;
 
 				if (direction.LengthSquared() > range * range) continue;
-
 				double dot = Vector3D.Dot(Vector3D.Normalize(direction), forward);
 				if (dot < Cos_HalfFovAngle) continue;
 
 				Utilities.DrawPoint(targetPos);
-
-				//MyAPIGateway.Physics.CastRay(botPos, targetPos, out var hit);
-				//if (hit.HitEntity == null || hit.HitEntity.EntityId == entity.EntityId)
-				//{
-				//	BotSeesTarget(entity);
-				//}
 			}
 		}
 	}
@@ -65,9 +58,7 @@ namespace LargeLanguageEngineer
 	{
 		private static Color DefaultColor = new Color(255, 255, 127, 255);
 
-		public static void DrawPoint(Vector3D point)
-		{	DrawPoint(point, DefaultColor);
-		}
+		public static void DrawPoint(Vector3D point) { DrawPoint(point, DefaultColor); }
 
 		public static void DrawPoint(Vector3D point, Color color)
 		{
@@ -75,35 +66,45 @@ namespace LargeLanguageEngineer
 			if (camera == null) return;
 
 			var cameraMatrix = camera.WorldMatrix;
-
-			var material = MyStringId.GetOrCompute("LLE-Marker");
+			var material = MyStringId.GetOrCompute("LLE_FontAtlas_0"); //var material = MyStringId.GetOrCompute("LLE-Marker");
 
 			Vector3D viewDir = Vector3D.Normalize(point - camera.Position);
-			var distance = (point - camera.Position).Normalize();
-
+			Vector3D distance = point - camera.Position;
 			point = camera.Position + viewDir;
 
-			float size = (float)(0.25 / (distance + 0.0001));
+			float size = (float)(0.25 / (distance.Length() + 0.0001));
 			if (size < 0.001f) size = 0.001f;
 			if (size > 0.25f) size = 0.25f;
 
 			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)cameraMatrix.Left, (Vector3)cameraMatrix.Up, radius: size);
 		}
 
-		public static void Log(string s)
-		{
-			MyLog.Default.WriteLine("LLE " + s);
-		}
+		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 	}
 
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
+		private static readonly FontParser _font = new FontParser();
+		private static FontRenderer _renderer;
+
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
 			Log("Init");
+
+			if (_font.Parse(@"Fonts\monospace\FontDataPA.xml"))
+			{
+				Log("DBG: Font parsed. Glyphs count: " + _font.Characters.Count);
+				_renderer = new FontRenderer(_font);
+				// Material IDs must match SubtypeId in TransparentMaterials.sbc
+				_renderer.LoadAtlases("LLE_FontAtlas_0", "LLE_FontAtlas_1", "LLE_FontAtlas_2");
+			}
+			else
+			{
+				Log("DBG: Failed to parse font!");
+			}
 		}
 
 		public override void Draw()
@@ -112,8 +113,8 @@ namespace LargeLanguageEngineer
 			if (player == null || player.Character == null) return;
 
 			var p = player.Character.GetHeadMatrix(false);
-
 			Vision.HighlightVissible(p.Translation, p.Forward);
+			_renderer?.DrawString("LLE v0.1", new Vector2D(-0.5d, -0.35d), 0.004f, Color.White);
 		}
 	}
 }
