@@ -6,28 +6,26 @@ using VRageRender;
 using BlendTypeEnum = VRageRender.MyBillboard.BlendTypeEnum;
 using VRageMath;
 
-namespace LargeLanguageEngineer
+namespace LLE
 {
 	public class FontRenderer
 	{
 		private readonly FontParser _font;
-		private MyStringId[] _atlases;
+		private MyStringId _atlas;
 		private static bool _drawLogDone = false;
 		private static bool _uvLogDone = false;
 
 		public FontRenderer(FontParser font) { _font = font; }
 
-		public void LoadAtlases(params string[] atlasPaths)
+		public void LoadAtlas(string atlasPath)
 		{
-			_atlases = new MyStringId[atlasPaths.Length];
-			for (int i = 0; i < atlasPaths.Length; i++)
-				_atlases[i] = MyStringId.GetOrCompute(atlasPaths[i]);
+			_atlas = MyStringId.GetOrCompute(atlasPath);
 		}
 
 		public void DrawString(string text, Vector2D origin, float scale, Color color)
 		{
 			var camera = MyAPIGateway.Session.Camera;
-			if (camera == null || _atlases == null) return;
+			if (camera == null || _atlas == null) return;
 
 			MatrixD camMatrix = camera.WorldMatrix;
 			Vector3 left = (Vector3)camMatrix.Left;
@@ -49,12 +47,11 @@ namespace LargeLanguageEngineer
 			for (int i = 0; i < text.Length; i++)
 			{
 				char ch = text[i];
-				FontParser.GlyphInfo glyph;
+				FontParser.Glyph glyph;
 				if (!_font.Characters.TryGetValue(ch, out glyph)) continue;
-				if (glyph.Bm >= _atlases.Length) continue;
 
-				float screenCharWidth  = glyph.Aw * scale;
-				float screenCharHeight = (float)glyph.SizeY / glyph.SizeX * glyph.Aw * scale;
+				float screenCharWidth  = glyph.aw * scale;
+				float screenCharHeight = (float)glyph.sy / glyph.sx * glyph.aw * scale;
 
 				// Размеры в мировых единицах: screenUnits * tan(FOV/2) * distance * aspect(X)
 				float charWidth  = screenCharWidth * scaleFov * (float)zDistance * aspectRatio;
@@ -69,19 +66,19 @@ namespace LargeLanguageEngineer
 
 				if (ch != ' ')
 				{
-					DrawGlyph(_atlases[glyph.Bm], glyph, color, worldPos, left, up, charWidth, charHeight);
+					DrawGlyph(_atlas, glyph, color, worldPos, left, up, charWidth, charHeight);
 					drawnCount++;
 
 					// Log first character data for debugging
 					if (!_uvLogDone)
 					{
-						MyLog.Default.WriteLine("LLE DBG: 1st char '" + ch + "' UV=" + glyph.UVOffset.X + "," + glyph.UVOffset.Y + " Size=" + glyph.UVSize.X + "," + glyph.UVSize.Y);
+						MyLog.Default.WriteLine("LLE DBG: 1st char '" + ch + "' UV=" + glyph.offset.X + "," + glyph.offset.Y + " Size=" + glyph.size.X + "," + glyph.size.Y);
 						MyLog.Default.WriteLine("LLE DBG: 1st char WorldPos=" + worldPos.X + "," + worldPos.Y + "," + worldPos.Z + " Dim=" + charWidth + "x" + charHeight);
 						_uvLogDone = true;
 					}
 				}
 
-				cursorX += glyph.Aw * scale;
+				cursorX += glyph.aw * scale;
 			}
 
 			if (!_drawLogDone)
@@ -91,7 +88,7 @@ namespace LargeLanguageEngineer
 			}
 		}
 
-		private void DrawGlyph(MyStringId material, FontParser.GlyphInfo glyph, Color color,
+		private void DrawGlyph(MyStringId material, FontParser.Glyph glyph, Color color,
 			Vector3D pos, Vector3 left, Vector3 up, float width, float height)
 		{
 			MyQuadD quad;
@@ -99,8 +96,8 @@ namespace LargeLanguageEngineer
 
 			var billboard = new MyBillboard();
 			billboard.Material                = material;
-			billboard.UVOffset                = new Vector2(glyph.UVOffset.X, 1f - glyph.UVOffset.Y - glyph.UVSize.Y);
-			billboard.UVSize                  = glyph.UVSize;
+			billboard.UVOffset                = new Vector2(glyph.offset.X, 1f - glyph.offset.Y - glyph.size.Y);
+			billboard.UVSize                  = glyph.size;
 			billboard.Position0               = quad.Point0;
 			billboard.Position1               = quad.Point1;
 			billboard.Position2               = quad.Point2;

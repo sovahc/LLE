@@ -15,7 +15,7 @@ using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 using VRage.Game.ModAPI.Ingame.Utilities;  
 
-namespace LargeLanguageEngineer
+namespace LLE
 {
 	class Vision
 	{
@@ -66,7 +66,7 @@ namespace LargeLanguageEngineer
 			if (camera == null) return;
 
 			var cameraMatrix = camera.WorldMatrix;
-			var material = MyStringId.GetOrCompute("LLE_FontAtlas_0"); //var material = MyStringId.GetOrCompute("LLE-Marker");
+			var material = MyStringId.GetOrCompute("LLE-Marker");
 
 			Vector3D viewDir = Vector3D.Normalize(point - camera.Position);
 			Vector3D distance = point - camera.Position;
@@ -99,7 +99,7 @@ namespace LargeLanguageEngineer
 				Log("DBG: Font parsed. Glyphs count: " + _font.Characters.Count);
 				_renderer = new FontRenderer(_font);
 				// Material IDs must match SubtypeId in TransparentMaterials.sbc
-				_renderer.LoadAtlases("LLE_FontAtlas_0", "LLE_FontAtlas_1", "LLE_FontAtlas_2");
+				_renderer.LoadAtlas("LLE_FontAtlas_0");
 			}
 			else
 			{
@@ -114,7 +114,7 @@ namespace LargeLanguageEngineer
 
 			var p = player.Character.GetHeadMatrix(false);
 			Vision.HighlightVissible(p.Translation, p.Forward);
-			_renderer?.DrawString("LLE v0.1", new Vector2D(-0.5d, -0.35d), 0.004f, Color.White);
+			_renderer?.DrawString("LLE v0.1", new Vector2D(-0.5d, -0.35d), 0.001f, Color.White);
 		}
 	}
 }

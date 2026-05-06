@@ -1,27 +1,22 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Sandbox.ModAPI;
 using VRage.Utils;
 using VRageMath;
 
-namespace LargeLanguageEngineer
+namespace LLE
 {
 	public class FontParser
 	{
-		public struct GlyphInfo
+		public struct Glyph
 		{
-			public int Bm;
-			public Vector2 UVOffset;
-			public Vector2 UVSize;
-			public float Aw;
-			public int SizeX;
-			public int SizeY;
+			public Vector2 offset;
+			public Vector2 size;
+			public float aw;
+			public int sx;
+			public int sy;
 		}
-
-		private readonly List<string> _atlasNames = new List<string>();
-		private int[] _atlasSizes;
-		public Dictionary<char, GlyphInfo> Characters { get; } = new Dictionary<char, GlyphInfo>();
+		public Dictionary<char, Glyph> Characters { get; } = new Dictionary<char, Glyph>();
 
 		public bool Parse(string xmlPath)
 		{
@@ -45,38 +40,15 @@ namespace LargeLanguageEngineer
 
 		private void ParseXml(string xml)
 		{
+			const int texSize = 1024;
+
 			int idx = 0;
-			while (true)
-			{
-				idx = FindTag(xml, "bitmap", idx);
-				if (idx == -1) break;
-				string idStr = GetAttributeValue(xml, idx, "id");
-				string name = GetAttributeValue(xml, idx, "name");
-				int id = int.Parse(idStr);
-				while (_atlasNames.Count <= id) _atlasNames.Add(null);
-				_atlasNames[id] = name;
-			}
-			MyLog.Default.WriteLine("LLE DBG: Parsed bitmaps=" + _atlasNames.Count);
-
-			int maxBm = 0;
-			idx = 0;
-			while (true)
-			{
-				idx = FindTag(xml, "bitmap", idx);
-				if (idx == -1) break;
-				int id = int.Parse(GetAttributeValue(xml, idx, "id"));
-				if (id > maxBm) maxBm = id;
-			}
-			_atlasSizes = new int[maxBm + 1];
-
-			idx = 0;
 			while (true)
 			{
 				idx = FindTag(xml, "glyph", idx);
 				if (idx == -1) break;
 				string chStr = GetAttributeValue(xml, idx, "ch");
 				char ch = ParseHtmlChar(chStr);
-				int bmId = int.Parse(GetAttributeValue(xml, idx, "bm"));
 
 				string originVal = GetAttributeValue(xml, idx, "origin");
 				string[] originParts = originVal.Split(',');
@@ -90,17 +62,13 @@ namespace LargeLanguageEngineer
 
 				float aw = float.Parse(GetAttributeValue(xml, idx, "aw"));
 
-				if (_atlasSizes[bmId] == 0) _atlasSizes[bmId] = 1024;
-				int texSize = _atlasSizes[bmId];
-
-				GlyphInfo glyph = new GlyphInfo();
-				glyph.Bm = bmId;
+				Glyph glyph = new Glyph();
 				// Flip Y: SE textures use bottom-left origin, XNA fonts use top-left
-				glyph.UVOffset = new Vector2((float)ox / texSize, (float)(texSize - oy - sy) / texSize);
-				glyph.UVSize = new Vector2((float)sx / texSize, (float)sy / texSize);
-				glyph.Aw = aw;
-				glyph.SizeX = sx;
-				glyph.SizeY = sy;
+				glyph.offset = new Vector2((float)ox / texSize, (float)(texSize - oy - sy) / texSize);
+				glyph.size = new Vector2((float)sx / texSize, (float)sy / texSize);
+				glyph.aw = aw;
+				glyph.sx = sx;
+				glyph.sy = sy;
 				Characters[ch] = glyph;
 			}
 			MyLog.Default.WriteLine("LLE DBG: Parsed glyphs=" + Characters.Count);
@@ -134,17 +102,12 @@ namespace LargeLanguageEngineer
 		private static char ParseHtmlChar(string text)
 		{
 			if (text.Length == 1) return text[0];
-			if (text == "&amp;") return '&';
 			if (text == "&quot;") return '"';
-			if (text == "&apos;") return '\'';
+			if (text == "&amp;") return '&';
 			if (text == "&gt;") return '>';
 			if (text == "&lt;") return '<';
-			if (text == "&tab;") return '\t';
-			if (text == "&newline;") return '\n';
-			if (text == "&nbsp;") return ' ';
 			throw new Exception("Unknown XML escaped character: " + text);
 		}
 
-		public List<string> AtlasNames => _atlasNames;
 	}
 }
