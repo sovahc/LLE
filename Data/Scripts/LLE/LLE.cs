@@ -28,7 +28,7 @@ namespace LLE
 		}
 
 		private static readonly List<LineData> _lines = new List<LineData>();
-		const int MaxLines = 30;
+		const int MaxLines = 50;
 
 		private static readonly Color[] Palette = {
 			Color.White,
@@ -55,8 +55,8 @@ namespace LLE
 
 			for (int i = 0; i < _lines.Count; ++i)
 			{
-				var line = _lines[i];
-				float y = -0.55f + i * lineStep;
+				var line = _lines[_lines.Count - i - 1];
+				float y = 0.05f + i * lineStep;
 
 				font.DrawString(line.Text, new Vector2D(x, y), scale, Palette[line.ColorIndex]);
 			}
@@ -133,7 +133,49 @@ namespace LLE
 	{
 		private static TextRendering _font;
 
+		private static double _nextFakeLogTime;
+		private static readonly System.Random _random = new System.Random();
+
+		private static readonly string[] FakePrefixes = {
+			"SYS", "NET", "MEM", "CPU", "IO ", "GPU", "DMA", "IRQ",
+			"PCI", "USB", "ETH", "TLS", "DNS", "FS ", "KRN", "DBG"
+		};
+
+		private static readonly string[] FakeActions = {
+			"initialized", "allocated", "synced", "flushed",
+			"verified", "routed", "mapped", "queued",
+			"dispatched", "resolved", "bound", "committed"
+		};
+
 		public static void Log(string s) { Utilities.Log(s); }
+
+		public override void UpdateBeforeSimulation()
+		{
+			double now = MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds;
+			if (now >= _nextFakeLogTime)
+			{
+				_nextFakeLogTime = now + 0.1 + _random.NextDouble() * 0.5;
+				MyConsole.Log(GenFakeLine(), PickRandomPalette());
+			}
+		}
+
+		private static string GenFakeLine()
+		{
+			int hexLen = 4 + _random.Next(8);
+			char[] buf = new char[hexLen];
+			const string hex = "0123456789ABCDEF";
+			for (int i = 0; i < hexLen; i++)
+				buf[i] = hex[_random.Next(hex.Length)];
+
+			return $"[{FakePrefixes[_random.Next(FakePrefixes.Length)]}] {hexLen:X4}:{new string(buf)} " +
+			       $"{FakeActions[_random.Next(FakeActions.Length)]}";
+		}
+
+		private static Palette PickRandomPalette()
+		{
+			var values = (Palette[])Enum.GetValues(typeof(Palette));
+			return values[_random.Next(values.Length)];
+		}
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
@@ -149,6 +191,8 @@ namespace LLE
 			{
 				Log("DBG: Failed to parse font!");
 			}
+
+			_nextFakeLogTime = MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds + 1.0;
 
 			MyConsole.Log("System initialized");
     		MyConsole.Log("Player connected", Palette.Yellow);
