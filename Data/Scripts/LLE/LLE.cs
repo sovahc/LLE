@@ -13,15 +13,61 @@ using VRageMath;
 
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
-using VRage.Game.ModAPI.Ingame.Utilities;  
+using VRage.Game.ModAPI.Ingame.Utilities;
 
 namespace LLE
 {
+	public enum Palette { Default, Gray, Silver, Red, Yellow, Blue }
+
+	class MyConsole
+	{
+		struct LineData
+		{
+			public string Text;
+			public int ColorIndex;
+		}
+
+		private static readonly List<LineData> _lines = new List<LineData>();
+		const int MaxLines = 30;
+
+		private static readonly Color[] Palette = {
+			VRageMath.Color.White,
+			VRageMath.Color.Gray,
+			VRageMath.Color.Silver,
+			VRageMath.Color.Red,
+			VRageMath.Color.Yellow,
+			VRageMath.Color.Blue,
+		};
+
+		public static void Log(string text, Palette color = global::LLE.Palette.Default)
+		{
+			_lines.Add(new LineData { Text = text, ColorIndex = (int)color });
+			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
+		}
+
+		public static void Draw(TextRendering font)
+		{
+			if (font == null || _lines.Count == 0) return;
+
+			float scale = 0.00075f;
+			float lineStep = 0.02f;
+			float x = -0.99f;
+
+			for (int i = 0; i < _lines.Count; ++i)
+			{
+				var line = _lines[i];
+				float y = -0.55f + i * lineStep;
+
+				font.DrawString(line.Text, new Vector2D(x, y), scale, Palette[line.ColorIndex]);
+			}
+		}
+	}
+
 	class Vision
 	{
 		private static readonly float FovAngle = (float)Math.PI / 6;
-		private static readonly float Tan_HalfFovAngle = (float)Math.Tan(FovAngle/2);
-		private static readonly float Cos_HalfFovAngle = (float)Math.Cos(FovAngle/2);
+		private static readonly float Tan_HalfFovAngle = (float)Math.Tan(FovAngle / 2);
+		private static readonly float Cos_HalfFovAngle = (float)Math.Cos(FovAngle / 2);
 
 		public static void HighlightVisible(Vector3D at, Vector3D forward, float range = 5000)
 		{
@@ -103,6 +149,9 @@ namespace LLE
 			{
 				Log("DBG: Failed to parse font!");
 			}
+
+			MyConsole.Log("System initialized");
+    		MyConsole.Log("Player connected", Palette.Yellow);
 		}
 
 		public override void Draw()
@@ -115,6 +164,8 @@ namespace LLE
 
 			_font?.StartFrame();
 			_font?.DrawString("LLE v0.1", new Vector2D(-0.5d, -0.35d), 0.00075f, Color.White);
+
+			MyConsole.Draw(_font);
 		}
 	}
 }
