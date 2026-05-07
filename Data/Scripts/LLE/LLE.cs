@@ -85,7 +85,7 @@ namespace LLE
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
-		private static Font _font;
+		private static TextRendering _font;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -93,7 +93,7 @@ namespace LLE
 		{
 			Log("Init");
 
-			_font = new Font();
+			_font = new TextRendering();
 			if (_font.Parse(@"Fonts\monospace\FontDataPA.xml"))
 			{
 				// Material IDs must match SubtypeId in TransparentMaterials.sbc

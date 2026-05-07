@@ -10,7 +10,7 @@ using VRageMath;
 
 namespace LLE
 {
-	public class Font
+	public class TextRendering
 	{
 		public struct Glyph
 		{
