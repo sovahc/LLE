@@ -62,20 +62,18 @@ namespace LLE
 				float screenCharWidth = glyph.aw * scale;
 				float screenCharHeight = (float)glyph.sy / glyph.sx * glyph.aw * scale;
 
-				Vector2 charCenter = new Vector2(
-					(float)(origin.X + cursorX + screenCharWidth / 2),
-					(float)(origin.Y - screenCharHeight / 2));
+				Vector2 charTopLeft     = new Vector2((float)origin.X + cursorX, (float)origin.Y);
+				Vector2 charBottomRight = new Vector2((float)origin.X + cursorX + screenCharWidth, (float)origin.Y - screenCharHeight);
 
 				if (ch != ' ')
 				{
-					var billboard = DrawRectangle(charCenter,
-						new Vector2(screenCharWidth, screenCharHeight),
+					var billboard = DrawRectangle(charTopLeft, charBottomRight,
 						_atlas, glyph.offset, glyph.size, color, false);
 					_billboards.Add(billboard);
 				}
 
 				cursorX += glyph.aw * scale;
-			}
+		}
 
 			if (_billboards.Count > 0)
 			{
@@ -83,15 +81,18 @@ namespace LLE
 			}
 		}
 
-		public MyBillboard DrawRectangle(Vector2 xy, Vector2 wh, // Screen space -1 to 1
+		public MyBillboard DrawRectangle(Vector2 topLeft, Vector2 bottomRight, // Screen space -1 to 1
 			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Color color,
 			bool callAddBillboard = true)
 		{
 			var billboard = _pool.Get();
-			Vector3D worldPos = ScreenToWorld((Vector2D)xy, _cachedViewProjInv);
+			Vector2 center = new Vector2((topLeft.X + bottomRight.X) / 2f, (topLeft.Y + bottomRight.Y) / 2f);
+			Vector2 size   = new Vector2(bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
+
+			Vector3D worldPos = ScreenToWorld((Vector2D)center, _cachedViewProjInv);
 			var camera = MyAPIGateway.Session.Camera;
-			float halfW = Math.Abs(wh.X * _cachedScaleFov * _cachedNearPlane * _cachedAspectRatio / 2f);
-			float halfH = Math.Abs(wh.Y * _cachedScaleFov * _cachedNearPlane / 2f);
+			float halfW = Math.Abs(size.X * _cachedScaleFov * _cachedNearPlane * _cachedAspectRatio / 2f);
+			float halfH = Math.Abs(size.Y * _cachedScaleFov * _cachedNearPlane / 2f);
 			Vector3 left = (Vector3)camera.WorldMatrix.Left;
 			Vector3 up = (Vector3)camera.WorldMatrix.Up;
 

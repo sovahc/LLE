@@ -52,7 +52,7 @@ namespace LLE
 		{
 			if (font == null || _lines.Count == 0) return;
 
-			font.DrawRectangle(new Vector2(-0.5f, 0.5f), new Vector2(0.98f, 0.98f),
+			font.DrawRectangle(new Vector2(-0.5f, 0.5f), new Vector2(0.48f, -0.48f),
 				MyStringId.GetOrCompute("Square"),
 				Vector2.Zero, Vector2.One, textBackground);
 
@@ -212,7 +212,7 @@ namespace LLE
 			Vision.HighlightVisible(p.Translation, p.Forward);
 
 			_font?.StartFrame();
-			_font?.DrawString("LLE v0.1", new Vector2D(-0.5d, -0.35d), 0.00075f, Color.White);
+			_font?.DrawString("LLE v0.2", new Vector2D(-0.5d, -0.35d), 0.00075f, Color.White);
 
 			MyConsole.Draw(_font);
 		}
