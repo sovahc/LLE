@@ -29,7 +29,7 @@ namespace LLE
 		private readonly ObjectPooling<MyBillboard> _pool = new ObjectPooling<MyBillboard>();
 		private readonly List<MyBillboard> _billboards = new List<MyBillboard>();
 
-		private const float NearPlaneZ = 0.5f;
+		private float _cachedNearPlane;
 		private MatrixD _cachedViewProjInv;
 		private float _cachedScaleFov, _cachedAspectRatio;
 
@@ -40,8 +40,9 @@ namespace LLE
 
 			_pool.StartFrame();
 
+			_cachedNearPlane = camera.NearPlaneDistance;
 			_cachedAspectRatio = (float)(camera.ViewportSize.X / camera.ViewportSize.Y);
-			MatrixD projMatrix = MatrixD.CreatePerspectiveFieldOfView(camera.FovWithZoom, _cachedAspectRatio, NearPlaneZ, (float)camera.FarPlaneDistance);
+			MatrixD projMatrix = MatrixD.CreatePerspectiveFieldOfView(camera.FovWithZoom, _cachedAspectRatio, _cachedNearPlane, (float)camera.FarPlaneDistance);
 			_cachedViewProjInv = MatrixD.Invert(camera.ViewMatrix * projMatrix);
 			_cachedScaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 		}
@@ -89,8 +90,8 @@ namespace LLE
 			var billboard = _pool.Get();
 			Vector3D worldPos = ScreenToWorld((Vector2D)xy, _cachedViewProjInv);
 			var camera = MyAPIGateway.Session.Camera;
-			float halfW = Math.Abs(wh.X * _cachedScaleFov * NearPlaneZ * _cachedAspectRatio / 2f);
-			float halfH = Math.Abs(wh.Y * _cachedScaleFov * NearPlaneZ / 2f);
+			float halfW = Math.Abs(wh.X * _cachedScaleFov * _cachedNearPlane * _cachedAspectRatio / 2f);
+			float halfH = Math.Abs(wh.Y * _cachedScaleFov * _cachedNearPlane / 2f);
 			Vector3 left = (Vector3)camera.WorldMatrix.Left;
 			Vector3 up = (Vector3)camera.WorldMatrix.Up;
 
