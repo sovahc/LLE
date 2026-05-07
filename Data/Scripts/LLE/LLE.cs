@@ -31,12 +31,12 @@ namespace LLE
 		const int MaxLines = 30;
 
 		private static readonly Color[] Palette = {
-			VRageMath.Color.White,
-			VRageMath.Color.Gray,
-			VRageMath.Color.Silver,
-			VRageMath.Color.Red,
-			VRageMath.Color.Yellow,
-			VRageMath.Color.Blue,
+			Color.White,
+			Color.Gray,
+			Color.Silver,
+			Color.Red,
+			Color.Yellow,
+			Color.Blue
 		};
 
 		public static void Log(string text, Palette color = global::LLE.Palette.Default)
