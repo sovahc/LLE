@@ -32,10 +32,12 @@ namespace LLE
 		private MatrixD _cachedViewProjInv;
 		private float _cachedScaleFov, _cachedAspectRatio;
 
-		public void UpdateCamera()
+		public void StartFrame()
 		{
 			var camera = MyAPIGateway.Session.Camera;
 			if (camera == null) return;
+
+			_pool.StartFrame();
 
 			const double zDistance = 0.5d;
 			_cachedAspectRatio = (float)(camera.ViewportSize.X / camera.ViewportSize.Y);
@@ -56,7 +58,6 @@ namespace LLE
 
 			float cursorX = 0f;
 
-			_pool.StartFrame(text.Length);
 			_billboards.Clear();
 
 			for (int i = 0; i < text.Length; i++)
