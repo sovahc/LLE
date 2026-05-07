@@ -26,6 +26,7 @@ namespace LLE
 		private Dictionary<char, Glyph> _characters = new Dictionary<char, Glyph>();
 		private MyStringId _atlas;
 
+		private readonly ObjectPooling<MyBillboard> _pool = new ObjectPooling<MyBillboard>();
 		private readonly List<MyBillboard> _billboards = new List<MyBillboard>();
 
 		private MatrixD _cachedViewProjInv;
@@ -55,6 +56,7 @@ namespace LLE
 
 			float cursorX = 0f;
 
+			_pool.StartFrame(text.Length);
 			_billboards.Clear();
 
 			for (int i = 0; i < text.Length; i++)
@@ -79,7 +81,7 @@ namespace LLE
 
 				if (ch != ' ')
 				{
-					var billboard = new MyBillboard();
+					var billboard = _pool.Get();
 					DrawGlyph(_atlas, glyph, color, worldPos, left, up, charWidth, charHeight, ref billboard);
 					_billboards.Add(billboard);
 				}
