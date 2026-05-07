@@ -29,6 +29,7 @@ namespace LLE
 		private readonly ObjectPooling<MyBillboard> _pool = new ObjectPooling<MyBillboard>();
 		private readonly List<MyBillboard> _billboards = new List<MyBillboard>();
 
+		private const float NearPlaneZ = 0.5f;
 		private MatrixD _cachedViewProjInv;
 		private float _cachedScaleFov, _cachedAspectRatio;
 
@@ -39,22 +40,14 @@ namespace LLE
 
 			_pool.StartFrame();
 
-			const double zDistance = 0.5d;
 			_cachedAspectRatio = (float)(camera.ViewportSize.X / camera.ViewportSize.Y);
-			MatrixD projMatrix = MatrixD.CreatePerspectiveFieldOfView(camera.FovWithZoom, _cachedAspectRatio, (float)zDistance, (float)camera.FarPlaneDistance);
+			MatrixD projMatrix = MatrixD.CreatePerspectiveFieldOfView(camera.FovWithZoom, _cachedAspectRatio, NearPlaneZ, (float)camera.FarPlaneDistance);
 			_cachedViewProjInv = MatrixD.Invert(camera.ViewMatrix * projMatrix);
 			_cachedScaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 		}
 
 		public void DrawString(string text, Vector2D origin, float scale, Color color)
 		{
-			var camera = MyAPIGateway.Session.Camera;
-
-			Vector3 left = (Vector3)camera.WorldMatrix.Left;
-			Vector3 up = (Vector3)camera.WorldMatrix.Up;
-
-			const double zDistance = 0.5d;
-
 			float cursorX = 0f;
 
 			_billboards.Clear();
@@ -68,21 +61,15 @@ namespace LLE
 				float screenCharWidth = glyph.aw * scale;
 				float screenCharHeight = (float)glyph.sy / glyph.sx * glyph.aw * scale;
 
-				// World units size: screenUnits * tan(FOV/2) * distance * aspect(X)
-				float charWidth = screenCharWidth * _cachedScaleFov * (float)zDistance * _cachedAspectRatio;
-				float charHeight = screenCharHeight * _cachedScaleFov * (float)zDistance;
-
-				Vector2D charPos = new Vector2D(
-					origin.X + cursorX + screenCharWidth / 2,
-					origin.Y - screenCharHeight / 2);
-
-				// Screen->World via ViewProjectionInv - as in BuildInfo TextAPIHUDtoWorld
-				Vector3D worldPos = ScreenToWorld(charPos, _cachedViewProjInv);
+				Vector2 charCenter = new Vector2(
+					(float)(origin.X + cursorX + screenCharWidth / 2),
+					(float)(origin.Y - screenCharHeight / 2));
 
 				if (ch != ' ')
 				{
-					var billboard = _pool.Get();
-					DrawGlyph(_atlas, glyph, color, worldPos, left, up, charWidth, charHeight, ref billboard);
+					var billboard = DrawRectangle(charCenter,
+						new Vector2(screenCharWidth, screenCharHeight),
+						_atlas, glyph.offset, glyph.size, color, false);
 					_billboards.Add(billboard);
 				}
 
@@ -95,15 +82,15 @@ namespace LLE
 			}
 		}
 
-		public void DrawRectangle(Vector2 xy, Vector2 wh, // Screen space -1 to 1
-			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Color color)
+		public MyBillboard DrawRectangle(Vector2 xy, Vector2 wh, // Screen space -1 to 1
+			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Color color,
+			bool callAddBillboard = true)
 		{
 			var billboard = _pool.Get();
 			Vector3D worldPos = ScreenToWorld((Vector2D)xy, _cachedViewProjInv);
 			var camera = MyAPIGateway.Session.Camera;
-			float dist = (float)(worldPos - camera.Position).Length();
-			float halfW = Math.Abs(wh.X * _cachedScaleFov * dist * _cachedAspectRatio / 2f);
-			float halfH = Math.Abs(wh.Y * _cachedScaleFov * dist / 2f);
+			float halfW = Math.Abs(wh.X * _cachedScaleFov * NearPlaneZ * _cachedAspectRatio / 2f);
+			float halfH = Math.Abs(wh.Y * _cachedScaleFov * NearPlaneZ / 2f);
 			Vector3 left = (Vector3)camera.WorldMatrix.Left;
 			Vector3 up = (Vector3)camera.WorldMatrix.Up;
 
@@ -127,32 +114,10 @@ namespace LLE
 			billboard.SoftParticleDistanceScale = 0f;
 			billboard.DistanceSquared = (float)Vector3D.DistanceSquared(worldPos, camera.Position);
 
-			var list = new List<MyBillboard>(1) { billboard };
-			MyTransparentGeometry.AddBillboards(list, false);
-		}
+			if(callAddBillboard)
+				MyTransparentGeometry.AddBillboard(billboard, false);
 
-		private void DrawGlyph(MyStringId material, Glyph glyph, Color color,
-			Vector3D pos, Vector3 left, Vector3 up, float width, float height, ref MyBillboard billboard)
-		{
-			MyQuadD quad;
-			MyUtils.GetBillboardQuadOriented(out quad, ref pos, width / 2f, height / 2f, ref left, ref up);
-
-			billboard.Material = material;
-			billboard.UVOffset = glyph.offset;
-			billboard.UVSize = glyph.size;
-			billboard.Position0 = quad.Point0;
-			billboard.Position1 = quad.Point1;
-			billboard.Position2 = quad.Point2;
-			billboard.Position3 = quad.Point3;
-			billboard.Color = new Vector4(color.R, color.G, color.B, color.A) / 255f;
-			billboard.ColorIntensity = 1f;
-			billboard.BlendType = BlendTypeEnum.PostPP;
-			billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
-			billboard.ParentID = uint.MaxValue;
-			billboard.CustomViewProjection = -1;
-			billboard.Reflectivity = 0f;
-			billboard.SoftParticleDistanceScale = 0f;
-			billboard.DistanceSquared = (float)Vector3D.DistanceSquared(pos, MyAPIGateway.Session.Camera.Position);
+			return billboard;
 		}
 
 		private static Vector3D ScreenToWorld(Vector2D screenPos, MatrixD viewProjInv)
