@@ -117,6 +117,7 @@ namespace LLE
 			billboard.CustomViewProjection = -1;
 			billboard.Reflectivity = 0f;
 			billboard.SoftParticleDistanceScale = 0f;
+			billboard.DistanceSquared = (float)Vector3D.DistanceSquared(pos, MyAPIGateway.Session.Camera.Position);
 		}
 
 		private static Vector3D ScreenToWorld(Vector2D screenPos, MatrixD viewProjInv)
@@ -177,6 +178,7 @@ namespace LLE
 		{
 			var dict = lines.Where(l => l.Contains("<glyph ") && !l.TrimStart().StartsWith("<!--"))
 				.Select(Attrs)
+				.Where(a => !a.ContainsKey("bm") || a["bm"] == "0")
 				.ToDictionary(
 						a => DecodeChar(a["ch"]),
 						a =>
