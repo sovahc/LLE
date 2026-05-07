@@ -14,6 +14,7 @@ using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 using VRage.Game.ModAPI.Ingame.Utilities;
+using System.Diagnostics.Tracing;
 
 namespace LLE
 {
@@ -39,6 +40,8 @@ namespace LLE
 			Color.Blue
 		};
 
+		private static readonly Color textBackground = new Color(0, 0, 0, 100);
+
 		public static void Log(string text, Palette color = global::LLE.Palette.Default)
 		{
 			_lines.Add(new LineData { Text = text, ColorIndex = (int)color });
@@ -49,16 +52,18 @@ namespace LLE
 		{
 			if (font == null || _lines.Count == 0) return;
 
+			font.DrawRectangle(new Vector2(-0.5f, 0.5f), new Vector2(0.98f, 0.98f),
+				MyStringId.GetOrCompute("Square"),
+				Vector2.Zero, Vector2.One, textBackground);
+
 			float scale = 0.00075f;
 			float lineStep = 0.02f;
-			float x = -0.99f;
 
 			for (int i = 0; i < _lines.Count; ++i)
 			{
 				var line = _lines[_lines.Count - i - 1];
 				float y = 0.05f + i * lineStep;
-
-				font.DrawString(line.Text, new Vector2D(x, y), scale, Palette[line.ColorIndex]);
+				font.DrawString(line.Text, new Vector2D(-0.99f, y), scale, Palette[line.ColorIndex]);
 			}
 		}
 	}

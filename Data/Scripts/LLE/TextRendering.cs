@@ -49,7 +49,6 @@ namespace LLE
 		public void DrawString(string text, Vector2D origin, float scale, Color color)
 		{
 			var camera = MyAPIGateway.Session.Camera;
-			if (camera == null) return;
 
 			Vector3 left = (Vector3)camera.WorldMatrix.Left;
 			Vector3 up = (Vector3)camera.WorldMatrix.Up;
@@ -94,6 +93,42 @@ namespace LLE
 			{
 				MyTransparentGeometry.AddBillboards(_billboards, false);
 			}
+		}
+
+		public void DrawRectangle(Vector2 xy, Vector2 wh, // Screen space -1 to 1
+			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Color color)
+		{
+			var billboard = _pool.Get();
+			Vector3D worldPos = ScreenToWorld((Vector2D)xy, _cachedViewProjInv);
+			var camera = MyAPIGateway.Session.Camera;
+			float dist = (float)(worldPos - camera.Position).Length();
+			float halfW = Math.Abs(wh.X * _cachedScaleFov * dist * _cachedAspectRatio / 2f);
+			float halfH = Math.Abs(wh.Y * _cachedScaleFov * dist / 2f);
+			Vector3 left = (Vector3)camera.WorldMatrix.Left;
+			Vector3 up = (Vector3)camera.WorldMatrix.Up;
+
+			MyQuadD quad;
+			MyUtils.GetBillboardQuadOriented(out quad, ref worldPos, halfW, halfH, ref left, ref up);
+
+			billboard.Material = material;
+			billboard.UVOffset = UVOffset;
+			billboard.UVSize = UVSize;
+			billboard.Position0 = quad.Point0;
+			billboard.Position1 = quad.Point1;
+			billboard.Position2 = quad.Point2;
+			billboard.Position3 = quad.Point3;
+			billboard.Color = new Vector4(color.R, color.G, color.B, color.A) / 255f;
+			billboard.ColorIntensity = 1f;
+			billboard.BlendType = BlendTypeEnum.PostPP;
+			billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
+			billboard.ParentID = uint.MaxValue;
+			billboard.CustomViewProjection = -1;
+			billboard.Reflectivity = 0f;
+			billboard.SoftParticleDistanceScale = 0f;
+			billboard.DistanceSquared = (float)Vector3D.DistanceSquared(worldPos, camera.Position);
+
+			var list = new List<MyBillboard>(1) { billboard };
+			MyTransparentGeometry.AddBillboards(list, false);
 		}
 
 		private void DrawGlyph(MyStringId material, Glyph glyph, Color color,
