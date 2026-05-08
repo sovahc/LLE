@@ -54,8 +54,8 @@ namespace LLE
 				MyStringId.GetOrCompute("Square"),
 				Vector2.Zero, Vector2.One, textBackground);
 
-			float scale = 0.00075f;
-			float lineStep = 0.02f;
+			float scale = 0.001f;
+			float lineStep = 0.03f;
 
 			for (int i = 0; i < _lines.Count; ++i)
 			{
@@ -138,8 +138,6 @@ namespace LLE
 		private static SocketClient _socket = new SocketClient();
 		private static readonly byte[] _rxBuffer = new byte[4096];
 
-		private static double _nextMessage;
-
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void UpdateBeforeSimulation()
@@ -153,30 +151,25 @@ namespace LLE
 				string msg = System.Text.Encoding.UTF8.GetString(_rxBuffer, 0, bytes);
 				MyConsole.Log("RX: " + msg.Trim(), Palette.Yellow);
 			}
-			if (now >= _nextMessage)
-			{
-				_nextMessage = now + 2.5;
-				MyConsole.Log(LoaderBridge.GetStatus(), Palette.Blue);
 		}
-	}
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
 			Log("Init");
 
 			_font = new TextRendering();
 			if (_font.Parse(@"Fonts\monospace\FontDataPA.xml"))
+			//if (_font.Parse(@"Fonts\white\FontDataPA.xml"))
 			{
-				_font.LoadAtlas("LLE_FontAtlas_0");
+				//_font.LoadAtlas("LLE_white");
+				_font.LoadAtlas("LLE_monospace");
 			}
 			else
 			{
 				Log("DBG: Failed to parse font!");
 			}
 
-			_nextMessage = MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds + 5.0;
-
-			MyConsole.Log("System initialized");
-		    MyConsole.Log(LoaderBridge.GetStatus(), Palette.Yellow);
+			//_nextMessage = MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds + 5.0;
+	        MyConsole.Log("LLE_Loader.IsPresent: " + LLE_Loader.IsPresent().ToString());
 		}
 
 		public override void Draw()
@@ -194,9 +187,10 @@ namespace LLE
 		}
 	}
 
-	public static class LoaderBridge
+	public static class LLE_Loader
 	{
-		public static string GetStatus() => "No loader detected";
+		public static bool IsPresent() => false;
+
 		public static bool Connect() => false;
 		public static void Disconnect() { }
 		public static bool Send(byte[] data, int length) => false;
@@ -218,14 +212,14 @@ namespace LLE
 		{
 			if (_state == State.Disconnected && now >= _nextReconnectTime)
 			{
-				bool ok = LoaderBridge.Connect();
+				bool ok = LLE_Loader.Connect();
 				_state = ok ? State.Connected : State.Disconnected;
 			}
 
 			if (_state == State.Connected)
 			{
 				// Check if socket is still alive by attempting a non-blocking receive probe
-				int bytes = LoaderBridge.Receive(null, 0);
+				int bytes = LLE_Loader.Receive(null, 0);
 				if (bytes < 0) HandleDisconnect(now);
 			}
 		}
@@ -233,7 +227,7 @@ namespace LLE
 		public bool Send(byte[] data, int length)
 		{
 			if (_state != State.Connected) return false;
-			bool ok = LoaderBridge.Send(data, length);
+			bool ok = LLE_Loader.Send(data, length);
 			if (!ok) HandleDisconnect(MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds);
 			return ok;
 		}
@@ -241,14 +235,14 @@ namespace LLE
 		public int Receive(byte[] buffer, int maxLength)
 		{
 			if (_state != State.Connected || buffer == null) return 0;
-			int bytes = LoaderBridge.Receive(buffer, maxLength);
+			int bytes = LLE_Loader.Receive(buffer, maxLength);
 			if (bytes < 0) HandleDisconnect(MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds);
 			return Math.Max(0, bytes);
 		}
 
 		private void HandleDisconnect(double now)
 		{
-			LoaderBridge.Disconnect();
+			LLE_Loader.Disconnect();
 			_state = State.Disconnected;
 			_nextReconnectTime = now + (float)_reconnectDelay;
 			_reconnectDelay = Math.Min(_reconnectDelay * 2, MaxReconnectDelay);

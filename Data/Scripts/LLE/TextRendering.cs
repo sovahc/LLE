@@ -177,8 +177,9 @@ namespace LLE
 			var dict = lines.Where(l => l.Contains("<glyph ") && !l.TrimStart().StartsWith("<!--"))
 				.Select(Attrs)
 				.Where(a => !a.ContainsKey("bm") || a["bm"] == "0")
+				.Where(a => a.ContainsKey("ch") && DecodeChar(a["ch"]) != null)
 				.ToDictionary(
-						a => DecodeChar(a["ch"]),
+						a => (char)DecodeChar(a["ch"]),
 						a =>
 						{
 							var origin = a["origin"].Split(',');
@@ -204,10 +205,21 @@ namespace LLE
 			_atlas = MyStringId.GetOrCompute(atlasPath);
 		}
 
-		private static char DecodeChar(string text)
+		private static char? DecodeChar(string text)
 		{
 			if (text.Length == 1) return text[0];
-			throw new Exception("Unknown XML escaped character: " + text);
+			int code;
+			try
+			{
+				string num = text.Substring(2);
+				if (num.StartsWith("x", StringComparison.OrdinalIgnoreCase))
+					code = Convert.ToInt32(num.Substring(1), 16);
+				else
+					code = Convert.ToInt32(num, 10);
+			}
+			catch { return null; }
+			if (code > 256) return null; // ASCII + Latin Extended
+			return (char)code;
 		}
 	}
 }
