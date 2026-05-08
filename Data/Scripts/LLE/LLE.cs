@@ -135,6 +135,8 @@ namespace LLE
 	public class LLE : MySessionComponentBase
 	{
 		private static TextRendering _font;
+		private static SocketClient _socket = new SocketClient();
+		private static readonly byte[] _rxBuffer = new byte[4096];
 
 		private static double _nextMessage;
 
@@ -143,13 +145,20 @@ namespace LLE
 		public override void UpdateBeforeSimulation()
 		{
 			double now = MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds;
+			_socket.Update(now);
+
+			int bytes = _socket.Receive(_rxBuffer, _rxBuffer.Length);
+			if (bytes > 0)
+			{
+				string msg = System.Text.Encoding.UTF8.GetString(_rxBuffer, 0, bytes);
+				MyConsole.Log("RX: " + msg.Trim(), Palette.Yellow);
+			}
 			if (now >= _nextMessage)
 			{
 				_nextMessage = now + 2.5;
 				MyConsole.Log(LoaderBridge.GetStatus(), Palette.Blue);
-			}
 		}
-
+	}
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
 			Log("Init");
@@ -188,5 +197,66 @@ namespace LLE
 	public static class LoaderBridge
 	{
 		public static string GetStatus() => "No loader detected";
+		public static bool Connect() => false;
+		public static void Disconnect() { }
+		public static bool Send(byte[] data, int length) => false;
+		public static int Receive(byte[] buffer, int maxLength) => 0;
+	}
+
+	class SocketClient
+	{
+		enum State { Disconnected, Connecting, Connected }
+
+		private State _state = State.Disconnected;
+		private double _nextReconnectTime;
+		private float _reconnectDelay = 0.5f;
+		private const float MaxReconnectDelay = 16.0f;
+
+		public bool IsConnected => _state == State.Connected;
+
+		public void Update(double now)
+		{
+			if (_state == State.Disconnected && now >= _nextReconnectTime)
+			{
+				bool ok = LoaderBridge.Connect();
+				_state = ok ? State.Connected : State.Disconnected;
+			}
+
+			if (_state == State.Connected)
+			{
+				// Check if socket is still alive by attempting a non-blocking receive probe
+				int bytes = LoaderBridge.Receive(null, 0);
+				if (bytes < 0) HandleDisconnect(now);
+			}
+		}
+
+		public bool Send(byte[] data, int length)
+		{
+			if (_state != State.Connected) return false;
+			bool ok = LoaderBridge.Send(data, length);
+			if (!ok) HandleDisconnect(MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds);
+			return ok;
+		}
+
+		public int Receive(byte[] buffer, int maxLength)
+		{
+			if (_state != State.Connected || buffer == null) return 0;
+			int bytes = LoaderBridge.Receive(buffer, maxLength);
+			if (bytes < 0) HandleDisconnect(MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds);
+			return Math.Max(0, bytes);
+		}
+
+		private void HandleDisconnect(double now)
+		{
+			LoaderBridge.Disconnect();
+			_state = State.Disconnected;
+			_nextReconnectTime = now + (float)_reconnectDelay;
+			_reconnectDelay = Math.Min(_reconnectDelay * 2, MaxReconnectDelay);
+		}
+
+		public void ResetBackoff()
+		{
+			_reconnectDelay = 0.5f;
+		}
 	}
 }
