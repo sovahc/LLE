@@ -49,7 +49,8 @@ namespace LLE
 		{
 			if (font == null || _lines.Count == 0) return;
 
-			font.DrawRectangle(new Vector2(-0.5f, 0.5f), new Vector2(0.48f, -0.48f),
+			float B = 0.01f;
+			font.DrawRectangle(new Vector2(-1+B, B), new Vector2(-0.5f-B, 1f-B),
 				MyStringId.GetOrCompute("Square"),
 				Vector2.Zero, Vector2.One, textBackground);
 
