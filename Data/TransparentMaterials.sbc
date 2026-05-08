@@ -29,7 +29,7 @@
             <UVSize><X>1</X><Y>1</Y></UVSize>
         </TransparentMaterial>
         <TransparentMaterial>
-            <Id><TypeId>TransparentMaterialDefinition</TypeId><SubtypeId>LLE_white</SubtypeId></Id>
+            <Id><TypeId>TransparentMaterialDefinition</TypeId><SubtypeId>LLE_monospace2048</SubtypeId></Id>
             <AlphaMistingEnable>false</AlphaMistingEnable>
             <CanBeAffectedByOtherLights>false</CanBeAffectedByOtherLights>
             <AlphaSaturation>1</AlphaSaturation>
@@ -37,7 +37,7 @@
             <IgnoreDepth>false</IgnoreDepth>
             <NeedSort>false</NeedSort>
             <SoftParticleDistanceScale>0</SoftParticleDistanceScale>
-            <Texture>Fonts\white\FontDataPA-0.dds</Texture>
+            <Texture>Data\Textures\monospace2048.dds</Texture>
             <Reflectivity>0</Reflectivity>
             <UseAtlas>false</UseAtlas>
             <UVOffset><X>0</X><Y>0</Y></UVOffset>

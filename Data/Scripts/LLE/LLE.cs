@@ -54,8 +54,8 @@ namespace LLE
 				MyStringId.GetOrCompute("Square"),
 				Vector2.Zero, Vector2.One, textBackground);
 
-			float scale = 0.001f;
-			float lineStep = 0.03f;
+			float scale = 0.00075f;
+			float lineStep = 0.025f;
 
 			for (int i = 0; i < _lines.Count; ++i)
 			{
@@ -158,10 +158,8 @@ namespace LLE
 
 			_font = new TextRendering();
 			if (_font.Parse(@"Fonts\monospace\FontDataPA.xml"))
-			//if (_font.Parse(@"Fonts\white\FontDataPA.xml"))
 			{
-				//_font.LoadAtlas("LLE_white");
-				_font.LoadAtlas("LLE_monospace");
+				_font.LoadAtlas("LLE_monospace2048");
 			}
 			else
 			{
