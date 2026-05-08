@@ -11,11 +11,6 @@ using VRage.Utils;
 
 using VRageMath;
 
-using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
-
-using VRage.Game.ModAPI.Ingame.Utilities;
-using System.Diagnostics.Tracing;
-
 namespace LLE
 {
 	public enum Palette { Default, Gray, Silver, Red, Yellow, Blue }
@@ -44,6 +39,8 @@ namespace LLE
 
 		public static void Log(string text, Palette color = global::LLE.Palette.Default)
 		{
+			Utilities.Log(text);
+
 			_lines.Add(new LineData { Text = text, ColorIndex = (int)color });
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
 		}
@@ -138,48 +135,18 @@ namespace LLE
 	{
 		private static TextRendering _font;
 
-		private static double _nextFakeLogTime;
-		private static readonly System.Random _random = new System.Random();
-
-		private static readonly string[] FakePrefixes = {
-			"SYS", "NET", "MEM", "CPU", "IO ", "GPU", "DMA", "IRQ",
-			"PCI", "USB", "ETH", "TLS", "DNS", "FS ", "KRN", "DBG"
-		};
-
-		private static readonly string[] FakeActions = {
-			"initialized", "allocated", "synced", "flushed",
-			"verified", "routed", "mapped", "queued",
-			"dispatched", "resolved", "bound", "committed"
-		};
+		private static double _nextMessage;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void UpdateBeforeSimulation()
 		{
 			double now = MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds;
-			if (now >= _nextFakeLogTime)
+			if (now >= _nextMessage)
 			{
-				_nextFakeLogTime = now + 0.1 + _random.NextDouble() * 0.5;
-				MyConsole.Log(GenFakeLine(), PickRandomPalette());
+				_nextMessage = now + 2.5;
+				MyConsole.Log(LoaderBridge.GetStatus(), Palette.Blue);
 			}
-		}
-
-		private static string GenFakeLine()
-		{
-			int hexLen = 4 + _random.Next(8);
-			char[] buf = new char[hexLen];
-			const string hex = "0123456789ABCDEF";
-			for (int i = 0; i < hexLen; i++)
-				buf[i] = hex[_random.Next(hex.Length)];
-
-			return $"[{FakePrefixes[_random.Next(FakePrefixes.Length)]}] {hexLen:X4}:{new string(buf)} " +
-			       $"{FakeActions[_random.Next(FakeActions.Length)]}";
-		}
-
-		private static Palette PickRandomPalette()
-		{
-			var values = (Palette[])Enum.GetValues(typeof(Palette));
-			return values[_random.Next(values.Length)];
 		}
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
@@ -189,7 +156,6 @@ namespace LLE
 			_font = new TextRendering();
 			if (_font.Parse(@"Fonts\monospace\FontDataPA.xml"))
 			{
-				// Material IDs must match SubtypeId in TransparentMaterials.sbc
 				_font.LoadAtlas("LLE_FontAtlas_0");
 			}
 			else
@@ -197,10 +163,10 @@ namespace LLE
 				Log("DBG: Failed to parse font!");
 			}
 
-			_nextFakeLogTime = MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds + 1.0;
+			_nextMessage = MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds + 5.0;
 
 			MyConsole.Log("System initialized");
-    		MyConsole.Log("Player connected", Palette.Yellow);
+		    MyConsole.Log(LoaderBridge.GetStatus(), Palette.Yellow);
 		}
 
 		public override void Draw()
@@ -216,5 +182,10 @@ namespace LLE
 
 			MyConsole.Draw(_font);
 		}
+	}
+
+	public static class LoaderBridge
+	{
+		public static string GetStatus() => "No loader detected";
 	}
 }

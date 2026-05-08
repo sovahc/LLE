@@ -73,12 +73,9 @@ namespace LLE
 				}
 
 				cursorX += glyph.aw * scale;
-		}
-
-			if (_billboards.Count > 0)
-			{
-				MyTransparentGeometry.AddBillboards(_billboards, false);
 			}
+
+			if (_billboards.Count > 0) MyTransparentGeometry.AddBillboards(_billboards, false);
 		}
 
 		public MyBillboard DrawRectangle(Vector2 topLeft, Vector2 bottomRight, // Screen space -1 to 1
@@ -155,7 +152,6 @@ namespace LLE
 			}
 			return d;
 		}
-
 
 		public bool Parse(string xmlPath)
 		{
