@@ -1,3 +1,5 @@
 # VS / OmniSharp local artifacts
 *.user
 .vscode/
+Loader/bin
+Loader/obj
