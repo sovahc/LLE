@@ -218,7 +218,6 @@ namespace LLE
 					code = Convert.ToInt32(num, 10);
 			}
 			catch { return null; }
-			if (code > 0x100) return null; // Keep ASCII + Latin Extended
 			return (char)code;
 		}
 	}

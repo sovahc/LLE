@@ -179,7 +179,7 @@ namespace LLE
 			Vision.HighlightVisible(p.Translation, p.Forward);
 
 			_font?.StartFrame();
-			_font?.DrawString("LLE v0.2", new Vector2D(-0.5d, -0.35d), 0.00075f, Color.White);
+			_font?.DrawString("LLE v0.2 ☻", new Vector2D(-0.5d, -0.35d), 0.00075f, Color.White);
 
 			MyConsole.Draw(_font);
 		}
