@@ -57,7 +57,10 @@ namespace LLE
 			{
 				char ch = text[i];
 				Glyph glyph;
-				if (!_characters.TryGetValue(ch, out glyph)) continue;
+				if (!_characters.TryGetValue(ch, out glyph))
+				{
+					glyph = _characters['\u25A1']; // Keen unknown character
+				}
 
 				float screenCharWidth = glyph.aw * scale;
 				float screenCharHeight = (float)glyph.sy / glyph.sx * glyph.aw * scale;
