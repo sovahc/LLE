@@ -21,7 +21,7 @@ namespace LLE
 			public int sy;
 		}
 
-		private const int TextureSize = 1024;
+		private const int OriginalTextureSize = 1024;
 
 		private Dictionary<char, Glyph> _characters = new Dictionary<char, Glyph>();
 		private MyStringId _atlas;
@@ -190,8 +190,8 @@ namespace LLE
 							int sy = int.Parse(sizeParts[1]);
 							return new Glyph
 							{
-								offset = new Vector2((float)ox / TextureSize, (float)oy / TextureSize),
-								size = new Vector2((float)sx / TextureSize, (float)sy / TextureSize),
+								offset = new Vector2((float)ox / OriginalTextureSize, (float)oy / OriginalTextureSize),
+								size = new Vector2((float)sx / OriginalTextureSize, (float)sy / OriginalTextureSize),
 								aw = float.Parse(a["aw"]),
 								sx = sx,
 								sy = sy
@@ -218,7 +218,7 @@ namespace LLE
 					code = Convert.ToInt32(num, 10);
 			}
 			catch { return null; }
-			if (code > 0x100) return null; // ASCII + Latin Extended
+			if (code > 0x100) return null; // Keep ASCII + Latin Extended
 			return (char)code;
 		}
 	}
