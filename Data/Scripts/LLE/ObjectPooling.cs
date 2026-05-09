@@ -1,4 +1,5 @@
 using System;
+using LLE;
 
 public class ObjectPooling<T> where T : class, new()
 {
@@ -16,43 +17,51 @@ public class ObjectPooling<T> where T : class, new()
         _buffers = new T[BufferCount][];
     }
 
-    public void StartFrame(int initialCapacity = 1024)
+    public void StartFrame(int initialCapacity = 0x100)
     {
         _activeBuffer = _buffers[_ringIndex];
-        _ringIndex = (_ringIndex + 1) % BufferCount;
 
-        if (_activeBuffer == null || _peakUsage >= _activeBuffer.Length)
+        if (_activeBuffer == null || _peakUsage > _activeBuffer.Length)
         {
-            int newSize = Math.Max(initialCapacity, _peakUsage * 2);
+            var oldSize = _activeBuffer == null ? 0 : _activeBuffer.Length;
+            var newSize = initialCapacity;
+            while(newSize < _peakUsage) newSize <<= 1;
+
+            Utilities.Log($"ObjectPooling reallocation: index {_ringIndex} oldSize {oldSize} newSize {newSize}");
+
             Array.Resize(ref _activeBuffer, newSize);
 
-            int prevIndex = (_ringIndex + BufferCount - 1) % BufferCount;
-            _buffers[prevIndex] = _activeBuffer;
+            _buffers[_ringIndex] = _activeBuffer;
         }
+
+        _ringIndex = (_ringIndex + 1) % BufferCount;
 
         _currentIndex = 0;
     }
 
     public T Get()
     {
+        T item;
+
         if (_currentIndex < _activeBuffer.Length)
         {
-            var item = _activeBuffer[_currentIndex];
+            item = _activeBuffer[_currentIndex];
 
             if (item == null)
             {
                 item = new T();
                 _activeBuffer[_currentIndex] = item;
             }
-
-            if (_currentIndex + 1 > _peakUsage)
-                _peakUsage = _currentIndex + 1;
-
-            _currentIndex++;
-
-            return item;
         }
+        else
+        {   item = new T();            
+        }
+        
+        ++_currentIndex;
 
-        return new T();
+        if (_currentIndex > _peakUsage)
+            _peakUsage = _currentIndex;
+
+        return item;
     }
 }
