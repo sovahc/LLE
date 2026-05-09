@@ -144,12 +144,26 @@ namespace LLE
 		{
 			_socket.Update();
 
-			int bytes = _socket.Receive(_rxBuffer, _rxBuffer.Length);
-			if (bytes > 0)
+			var player = MyAPIGateway.Session.Player;
+			if (player == null || player.Character == null) return;
+
+			var headMatrix = player.Character.GetHeadMatrix(false);
+			var dto = new PlayerStateDto
 			{
-				string msg = System.Text.Encoding.UTF8.GetString(_rxBuffer, 0, bytes);
-				MyConsole.Log("RX: " + msg.Trim(), Palette.Yellow);
-			}
+				PositionX = headMatrix.Translation.X,
+				PositionY = headMatrix.Translation.Y,
+				PositionZ = headMatrix.Translation.Z
+			};
+
+			byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(dto);
+			int totalLength = 4 + payload.Length;
+			byte[] frame = new byte[totalLength];
+			frame[0] = (byte)(payload.Length & 0xFF);
+			frame[1] = (byte)((payload.Length >> 8) & 0xFF);
+			frame[2] = (byte)((payload.Length >> 16) & 0xFF);
+			frame[3] = (byte)((payload.Length >> 24) & 0xFF);
+			System.Array.Copy(payload, 0, frame, 4, payload.Length);
+			_socket.Send(frame, totalLength);
 		}
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
