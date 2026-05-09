@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 
@@ -26,7 +27,7 @@ namespace LLE
 		private static readonly List<LineData> _lines = new List<LineData>();
 		const int MaxLines = 50;
 
-		private static readonly Color[] Palette = {
+		private static readonly Color[] MyColors = {
 			Color.White,
 			Color.Gray,
 			Color.Silver,
@@ -35,7 +36,7 @@ namespace LLE
 			Color.Blue
 		};
 
-		private static readonly Color textBackground = new Color(0, 0, 0, 100);
+		private static readonly Color textBackground = new Color(0, 0, 0, 127);
 
 		public static void Log(string text, Palette color = global::LLE.Palette.Default)
 		{
@@ -43,6 +44,10 @@ namespace LLE
 
 			_lines.Add(new LineData { Text = text, ColorIndex = (int)color });
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
+		}
+
+		public static void Clear()
+		{	_lines.Clear();			
 		}
 
 		public static void Draw(TextRendering font)
@@ -61,7 +66,7 @@ namespace LLE
 			{
 				var line = _lines[_lines.Count - i - 1];
 				float y = 0.05f + i * lineStep;
-				font.DrawString(line.Text, new Vector2D(-0.99f, y), scale, Palette[line.ColorIndex]);
+				font.DrawString(line.Text, new Vector2D(-0.99f, y), scale, MyColors[line.ColorIndex]);
 			}
 		}
 	}
@@ -72,33 +77,49 @@ namespace LLE
 		private static readonly float Tan_HalfFovAngle = (float)Math.Tan(FovAngle / 2);
 		private static readonly float Cos_HalfFovAngle = (float)Math.Cos(FovAngle / 2);
 
-		public static void HighlightVisible(Vector3D at, Vector3D forward, float range = 5000)
+		public static void HighlightVisible(Vector3D at, float range = 1000)
 		{
-			BoundingBoxD searchBox;
-			{
-				Vector3D center = at + forward * (range / 2);
-				float radius = Math.Max(range / 2, range * Tan_HalfFovAngle);
+			BoundingSphereD pruneSphere = new BoundingSphereD(at, range);
 
-				searchBox = new BoundingBoxD(center - new Vector3(radius), center + new Vector3(radius));
-			}
-
-			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref searchBox);
-
-			//Log($"{botPos} {botForward} {candidates.Count}");
+			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
 
 			foreach (var entity in candidates)
 			{
-				IMyCubeGrid grid = entity as IMyCubeGrid;
-				if (grid == null || grid.Physics == null) continue;
-
 				Vector3D targetPos = entity.PositionComp.WorldMatrixRef.Translation;
-				Vector3D direction = targetPos - at;
-
-				if (direction.LengthSquared() > range * range) continue;
-				double dot = Vector3D.Dot(Vector3D.Normalize(direction), forward);
-				if (dot < Cos_HalfFovAngle) continue;
-
 				Utilities.DrawPoint(targetPos);
+				var distance = (entity.WorldMatrix.Translation - at).Length();
+
+				IMyCubeGrid grid = entity as IMyCubeGrid;
+				if (grid != null)
+				{	if(grid.Physics == null) continue;
+					//if (mgrid.Physics == null && !mgrid.IsStatic)
+					MyConsole.Log($"G: {entity.DisplayName} {entity.Name} {distance}");
+					continue;
+				}
+				IMyFloatingObject fo = entity as IMyFloatingObject;
+				if (fo != null)
+				{	MyConsole.Log($"fo: {entity.DisplayName} {entity.Name} {distance}");
+					continue;
+				}
+				MyVoxelBase vb = entity as MyVoxelBase;
+				if (vb != null)
+				{	MyConsole.Log($"fo: {entity.DisplayName} {entity.Name} {distance}");
+					continue;
+				}
+
+				MyCubeBlock cb = entity as MyCubeBlock;
+				if (cb != null)
+				{	MyConsole.Log($"cb: {entity.DisplayName} {entity.Name} {distance}");
+					continue;
+				}
+
+				IMyCharacter ch = entity as IMyCharacter;
+				if (ch != null)
+				{	MyConsole.Log($"character: {entity.DisplayName} {entity.Name} {distance}");
+					continue;
+				}
+
+				MyConsole.Log($"UNK: {entity.DisplayName} {entity.Name} {distance}", Palette.Red);
 			}
 		}
 	}
@@ -173,21 +194,23 @@ namespace LLE
 
 			if (!_font.Load(@"Fonts\monospace\FontDataPA.xml", "LLE_monospace2048"))
 				Log("DBG: Failed to parse font!");
-
-
-	        MyConsole.Log("LLE_Loader.IsPresent: " + LLE_Loader.IsPresent().ToString());
 		}
 
 		public override void Draw()
 		{
+			_font?.StartFrame();
+
+			var lp = LLE_Loader.IsPresent();
+			_font?.DrawString("LLE_Loader.IsPresent: " + lp.ToString(),
+				new Vector2D(0, -0.35d), 0.00075f, lp ? Color.White : Color.Red);
+
+			MyConsole.Clear();
+
 			var player = MyAPIGateway.Session.Player;
 			if (player == null || player.Character == null) return;
 
 			var p = player.Character.GetHeadMatrix(false);
-			Vision.HighlightVisible(p.Translation, p.Forward);
-
-			_font?.StartFrame();
-			_font?.DrawString("LLE v0.2 ☻", new Vector2D(-0.5d, -0.35d), 0.00075f, Color.White);
+			Vision.HighlightVisible(p.Translation);
 
 			MyConsole.Draw(_font);
 		}
