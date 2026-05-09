@@ -142,8 +142,7 @@ namespace LLE
 
 		public override void UpdateBeforeSimulation()
 		{
-			double now = MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds;
-			_socket.Update(now);
+			_socket.Update();
 
 			int bytes = _socket.Receive(_rxBuffer, _rxBuffer.Length);
 			if (bytes > 0)
@@ -197,53 +196,57 @@ namespace LLE
 
 	class SocketClient
 	{
-		enum State { Disconnected, Connecting, Connected }
-
-		private State _state = State.Disconnected;
 		private double _nextReconnectTime;
 		private float _reconnectDelay = 0.5f;
-		private const float MaxReconnectDelay = 16.0f;
+		private const float MaxReconnectDelay = 10f;
 
-		public bool IsConnected => _state == State.Connected;
+		public bool IsConnected = false;
 
-		public void Update(double now)
+		double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds;
+
+		public void Update()
 		{
-			if (_state == State.Disconnected && now >= _nextReconnectTime)
+			if (!IsConnected && Now >= _nextReconnectTime)
 			{
-				bool ok = LLE_Loader.Connect();
-				_state = ok ? State.Connected : State.Disconnected;
-				if (ok) ResetBackoff();
+				IsConnected = LLE_Loader.Connect();
+				if (IsConnected)
+				{	LLE.Log("SocketClient.Connected");
+					ResetBackoff();
+				}
 			}
 
-			if (_state == State.Connected)
+			if (IsConnected)
 			{
 				// Check if socket is still alive by attempting a non-blocking receive probe
 				int bytes = LLE_Loader.Receive(null, 0);
-				if (bytes < 0) HandleDisconnect(now);
+				if (bytes < 0) HandleDisconnect();
 			}
 		}
 
 		public bool Send(byte[] data, int length)
 		{
-			if (_state != State.Connected) return false;
+			if (!IsConnected) return false;
 			bool ok = LLE_Loader.Send(data, length);
-			if (!ok) HandleDisconnect(MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds);
+			if (!ok) HandleDisconnect();
 			return ok;
 		}
 
 		public int Receive(byte[] buffer, int maxLength)
 		{
-			if (_state != State.Connected || buffer == null) return 0;
+			if (!IsConnected || buffer == null) return 0;
 			int bytes = LLE_Loader.Receive(buffer, maxLength);
-			if (bytes < 0) HandleDisconnect(MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds);
+			if (bytes < 0) HandleDisconnect();
 			return Math.Max(0, bytes);
 		}
 
-		private void HandleDisconnect(double now)
+		private void HandleDisconnect()
 		{
+			LLE.Log("SocketClient.HandleDisconnect");
+
 			LLE_Loader.Disconnect();
-			_state = State.Disconnected;
-			_nextReconnectTime = now + (float)_reconnectDelay;
+			IsConnected = false;
+
+			_nextReconnectTime = Now + _reconnectDelay;
 			_reconnectDelay = Math.Min(_reconnectDelay * 2, MaxReconnectDelay);
 		}
 
