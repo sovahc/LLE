@@ -156,7 +156,7 @@ namespace LLE
 			return d;
 		}
 
-		public bool Parse(string xmlPath)
+		public bool Load(string xmlPath, string atlas)
 		{
 			try
 			{
@@ -166,6 +166,9 @@ namespace LLE
 					string content = System.Text.Encoding.UTF8.GetString(bytes);
 					ParseXml(content.Split('\n'));
 				}
+
+				_atlas = MyStringId.GetOrCompute(atlas);
+
 				return true;
 			}
 			catch (Exception e)
@@ -201,11 +204,6 @@ namespace LLE
 							};
 						});
 			_characters = dict;
-		}
-
-		public void LoadAtlas(string atlasPath)
-		{
-			_atlas = MyStringId.GetOrCompute(atlasPath);
 		}
 
 		private static char? DecodeChar(string text)

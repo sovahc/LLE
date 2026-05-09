@@ -170,16 +170,11 @@ namespace LLE
 			Log("Init");
 
 			_font = new TextRendering();
-			if (_font.Parse(@"Fonts\monospace\FontDataPA.xml"))
-			{
-				_font.LoadAtlas("LLE_monospace2048");
-			}
-			else
-			{
-				Log("DBG: Failed to parse font!");
-			}
 
-			//_nextMessage = MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds + 5.0;
+			if (!_font.Load(@"Fonts\monospace\FontDataPA.xml", "LLE_monospace2048"))
+				Log("DBG: Failed to parse font!");
+
+
 	        MyConsole.Log("LLE_Loader.IsPresent: " + LLE_Loader.IsPresent().ToString());
 		}
 
