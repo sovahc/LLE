@@ -40,7 +40,10 @@ public class ObjectPooling<T> where T : class, new()
             var item = _activeBuffer[_currentIndex];
 
             if (item == null)
+            {
                 item = new T();
+                _activeBuffer[_currentIndex] = item;
+            }
 
             if (_currentIndex + 1 > _peakUsage)
                 _peakUsage = _currentIndex + 1;
