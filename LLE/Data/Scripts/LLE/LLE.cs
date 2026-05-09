@@ -73,10 +73,6 @@ namespace LLE
 
 	class Vision
 	{
-		private static readonly float FovAngle = (float)Math.PI / 6;
-		private static readonly float Tan_HalfFovAngle = (float)Math.Tan(FovAngle / 2);
-		private static readonly float Cos_HalfFovAngle = (float)Math.Cos(FovAngle / 2);
-
 		public static void HighlightVisible(Vector3D at, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(at, range);
