@@ -218,7 +218,7 @@ namespace LLE
 					code = Convert.ToInt32(num, 10);
 			}
 			catch { return null; }
-			if (code > 256) return null; // ASCII + Latin Extended
+			if (code > 0x100) return null; // ASCII + Latin Extended
 			return (char)code;
 		}
 	}

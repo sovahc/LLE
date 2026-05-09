@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
-    <LangVersion>latest</LangVersion>
+    <LangVersion>6</LangVersion>
     <Nullable>disable</Nullable>
     <!-- Don't try to build, just provide intellisense -->
     <BuildDependsOn />
