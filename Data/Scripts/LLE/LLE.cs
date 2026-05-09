@@ -212,6 +212,7 @@ namespace LLE
 			{
 				bool ok = LLE_Loader.Connect();
 				_state = ok ? State.Connected : State.Disconnected;
+				if (ok) ResetBackoff();
 			}
 
 			if (_state == State.Connected)
