@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Xml.Serialization;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 
@@ -8,6 +9,7 @@ using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using VRage.ModAPI;
 using VRage.Utils;
 
 using VRageMath;
@@ -38,7 +40,7 @@ namespace LLE
 
 		private static readonly Color textBackground = new Color(0, 0, 0, 127);
 
-		public static void Log(string text, Palette color = global::LLE.Palette.Default)
+		public static void Add(string text, Palette color = global::LLE.Palette.Default)
 		{
 			Utilities.Log(text);
 
@@ -73,6 +75,15 @@ namespace LLE
 
 	class Vision
 	{
+		class LastKnownState
+		{
+			public string DisplayName;
+			public Vector3D Position;
+		}
+
+		private static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
+		private const double minimalPositionDelta = 0.05;
+
 		public static void HighlightVisible(Vector3D at, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(at, range);
@@ -81,7 +92,32 @@ namespace LLE
 
 			foreach (var entity in candidates)
 			{
-				Vector3D targetPos = entity.PositionComp.WorldMatrixRef.Translation;
+				if(entity.Closed) continue;
+
+				LastKnownState state;
+				if(lks.TryGetValue(entity.EntityId, out state))
+				{
+					if((state.Position - entity.GetPosition()).LengthSquared() >
+						minimalPositionDelta*minimalPositionDelta)
+					{	state.Position = entity.GetPosition();
+
+						MyConsole.Add($"POS {state.DisplayName} {state.Position}", Palette.Silver);
+					}
+				}
+				else
+				{
+                    state = new LastKnownState
+                    {
+                        DisplayName = entity.DisplayName,
+                        Position = entity.GetPosition()
+                    };
+
+                    lks.Add(entity.EntityId, state);
+
+					MyConsole.Add($"ADD {state.DisplayName} {state.Position}", Palette.Yellow);
+				}
+
+				/*Vector3D targetPos = entity.PositionComp.WorldMatrixRef.Translation;
 				Utilities.DrawPoint(targetPos);
 				var distance = (entity.WorldMatrix.Translation - at).Length();
 
@@ -116,7 +152,12 @@ namespace LLE
 				}
 
 				MyConsole.Log($"UNK: {entity.DisplayName} {entity.Name} {distance}", Palette.Red);
+				*/
 			}
+		}
+
+		public static void OnClose(IMyEntity e)
+		{	MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Palette.Blue);
 		}
 	}
 
@@ -200,8 +241,6 @@ namespace LLE
 			_font?.DrawString("LLE_Loader.IsPresent: " + lp.ToString(),
 				new Vector2D(0, -0.35d), 0.00075f, lp ? Color.White : Color.Red);
 
-			MyConsole.Clear();
-
 			var player = MyAPIGateway.Session.Player;
 			if (player == null || player.Character == null) return;
 
@@ -209,6 +248,18 @@ namespace LLE
 			Vision.HighlightVisible(p.Translation);
 
 			MyConsole.Draw(_font);
+		}
+
+		public override void BeforeStart()
+    	{	MyEntities.OnEntityAdd += OnEntityAdd;
+		}
+
+		protected override void UnloadData()
+		{	MyEntities.OnEntityAdd -= OnEntityAdd;
+		}
+
+		void OnEntityAdd(IMyEntity entity)
+		{	entity.OnClose += Vision.OnClose;
 		}
 	}
 
