@@ -10,8 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="../LLE/Data/Scripts/LLE/PlayerStateDto.cs" Link="Shared\PlayerStateDto.cs" />
+    <Compile Include="../LLE/Data/Scripts/LLE/DTO.cs" Link="Shared\DTO.cs" />
     <PackageReference Include="protobuf-net" Version="3.2.30" />
   </ItemGroup>
-
 </Project>

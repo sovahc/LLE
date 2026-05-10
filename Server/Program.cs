@@ -33,8 +33,8 @@ namespace LLE.Server
 						byte[] payload = new byte[length];
 						ReadExactly(stream, payload);
 
-						var dto = Serializer.Deserialize<LLE.PlayerStateDto>(new System.IO.MemoryStream(payload));
-						Console.WriteLine($"Position: X={dto.PositionX:F2} Y={dto.PositionY:F2} Z={dto.PositionZ:F2}");
+						var dto = Serializer.Deserialize<LLE.LastKnownState>(new System.IO.MemoryStream(payload));
+						Console.WriteLine($"Position: X={dto.X:F2} Y={dto.Y:F2} Z={dto.Z:F2}");
 					}
 				}
 				catch (Exception ex)

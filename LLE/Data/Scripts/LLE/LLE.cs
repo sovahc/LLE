@@ -75,16 +75,34 @@ namespace LLE
 
 	class Vision
 	{
-		class LastKnownState
-		{
-			public string DisplayName;
-			public Vector3D Position;
-		}
-
 		private static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
 		private const double minimalPositionDelta = 0.05;
 
-		public static void HighlightVisible(Vector3D at, float range = 1000)
+		private static void SetFromEntity(LastKnownState s, IMyEntity e)
+		{	s.DisplayName = e.DisplayName;
+			var p = e.GetPosition();
+			s.X = p.X;
+			s.Y = p.Y;
+			s.Z = p.Z;
+		}
+
+		private static double DistanceSquared(LastKnownState s, IMyEntity e)
+		{	return (e.GetPosition() - new Vector3(s.X, s.Y, s.Z)).LengthSquared();
+		}
+
+		private static void SendState(SocketClient socket, LastKnownState state)
+		{	byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(state);
+			int totalLength = 4 + payload.Length;
+			byte[] frame = new byte[totalLength];
+			frame[0] = (byte)(payload.Length & 0xFF);
+			frame[1] = (byte)((payload.Length >> 8) & 0xFF);
+			frame[2] = (byte)((payload.Length >> 16) & 0xFF);
+			frame[3] = (byte)((payload.Length >> 24) & 0xFF);
+			System.Array.Copy(payload, 0, frame, 4, payload.Length);
+			socket.Send(frame, totalLength);
+		}
+
+		public static void HighlightVisible(SocketClient socket, Vector3D at, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(at, range);
 
@@ -97,67 +115,29 @@ namespace LLE
 				LastKnownState state;
 				if(lks.TryGetValue(entity.EntityId, out state))
 				{
-					if((state.Position - entity.GetPosition()).LengthSquared() >
+					if(DistanceSquared(state, entity) >
 						minimalPositionDelta*minimalPositionDelta)
-					{	state.Position = entity.GetPosition();
-
-						MyConsole.Add($"POS {state.DisplayName} {state.Position}", Palette.Silver);
+					{	
+						SetFromEntity(state, entity);
+						SendState(socket, state);
+						MyConsole.Add($"POS {state.DisplayName} {state.Position()}", Palette.Silver);
 					}
 				}
 				else
 				{
-                    state = new LastKnownState
-                    {
-                        DisplayName = entity.DisplayName,
-                        Position = entity.GetPosition()
-                    };
+                    state = new LastKnownState();
+					SetFromEntity(state, entity);
 
                     lks.Add(entity.EntityId, state);
-
-					MyConsole.Add($"ADD {state.DisplayName} {state.Position}", Palette.Yellow);
+					SendState(socket, state);
+					MyConsole.Add($"ADD {state.DisplayName} {state.Position()}", Palette.Yellow);
 				}
-
-				/*Vector3D targetPos = entity.PositionComp.WorldMatrixRef.Translation;
-				Utilities.DrawPoint(targetPos);
-				var distance = (entity.WorldMatrix.Translation - at).Length();
-
-				IMyCubeGrid grid = entity as IMyCubeGrid;
-				if (grid != null)
-				{	if(grid.Physics == null) continue;
-					//if (mgrid.Physics == null && !mgrid.IsStatic)
-					MyConsole.Log($"G: {entity.DisplayName} {entity.Name} {distance}");
-					continue;
-				}
-				IMyFloatingObject fo = entity as IMyFloatingObject;
-				if (fo != null)
-				{	MyConsole.Log($"fo: {entity.DisplayName} {entity.Name} {distance}");
-					continue;
-				}
-				MyVoxelBase vb = entity as MyVoxelBase;
-				if (vb != null)
-				{	MyConsole.Log($"fo: {entity.DisplayName} {entity.Name} {distance}");
-					continue;
-				}
-
-				MyCubeBlock cb = entity as MyCubeBlock;
-				if (cb != null)
-				{	MyConsole.Log($"cb: {entity.DisplayName} {entity.Name} {distance}");
-					continue;
-				}
-
-				IMyCharacter ch = entity as IMyCharacter;
-				if (ch != null)
-				{	MyConsole.Log($"character: {entity.DisplayName} {entity.Name} {distance}");
-					continue;
-				}
-
-				MyConsole.Log($"UNK: {entity.DisplayName} {entity.Name} {distance}", Palette.Red);
-				*/
 			}
 		}
 
 		public static void OnClose(IMyEntity e)
 		{	MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Palette.Blue);
+			//SendState(socket, state); ///////////////////////
 		}
 	}
 
@@ -201,27 +181,6 @@ namespace LLE
 		public override void UpdateBeforeSimulation()
 		{
 			_socket.Update();
-
-			var player = MyAPIGateway.Session.Player;
-			if (player == null || player.Character == null) return;
-
-			var headMatrix = player.Character.GetHeadMatrix(false);
-			var dto = new PlayerStateDto
-			{
-				PositionX = headMatrix.Translation.X,
-				PositionY = headMatrix.Translation.Y,
-				PositionZ = headMatrix.Translation.Z
-			};
-
-			byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(dto);
-			int totalLength = 4 + payload.Length;
-			byte[] frame = new byte[totalLength];
-			frame[0] = (byte)(payload.Length & 0xFF);
-			frame[1] = (byte)((payload.Length >> 8) & 0xFF);
-			frame[2] = (byte)((payload.Length >> 16) & 0xFF);
-			frame[3] = (byte)((payload.Length >> 24) & 0xFF);
-			System.Array.Copy(payload, 0, frame, 4, payload.Length);
-			_socket.Send(frame, totalLength);
 		}
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
@@ -245,7 +204,7 @@ namespace LLE
 			if (player == null || player.Character == null) return;
 
 			var p = player.Character.GetHeadMatrix(false);
-			Vision.HighlightVisible(p.Translation);
+			Vision.HighlightVisible(_socket, p.Translation);
 
 			MyConsole.Draw(_font);
 		}
