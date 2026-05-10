@@ -24,28 +24,19 @@ namespace LLE
 		struct LineData
 		{
 			public string Text;
-			public int ColorIndex;
+			public Color Color;
 		}
 
 		private static readonly List<LineData> _lines = new List<LineData>();
 		const int MaxLines = 50;
 
-		private static readonly Color[] MyColors = {
-			Color.White,
-			Color.Gray,
-			Color.Silver,
-			Color.Red,
-			Color.Yellow,
-			Color.Blue
-		};
-
 		private static readonly Color textBackground = new Color(0, 0, 0, 127);
 
-		public static void Add(string text, Palette color = global::LLE.Palette.Default)
+		public static void Add(string text, Color color)
 		{
 			Utilities.Log(text);
 
-			_lines.Add(new LineData { Text = text, ColorIndex = (int)color });
+			_lines.Add(new LineData { Text = text, Color = color });
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
 		}
 
@@ -69,7 +60,7 @@ namespace LLE
 			{
 				var line = _lines[_lines.Count - i - 1];
 				float y = 0.05f + i * lineStep;
-				font.DrawString(line.Text, new Vector2D(-0.99f, y), scale, MyColors[line.ColorIndex]);
+				font.DrawString(line.Text, new Vector2D(-0.99f, y), scale, line.Color);
 			}
 		}
 	}
@@ -129,7 +120,7 @@ namespace LLE
 						minimalPositionDelta*minimalPositionDelta)
 					{	
 						SetFromEntity(state, entity);
-						MyConsole.Add($"POS {state.DisplayName} {state.Position()}", Palette.Silver);
+						MyConsole.Add($"POS {state.DisplayName} {state.Position()}", Color.Silver);
 					}
 				}
 				else
@@ -138,13 +129,13 @@ namespace LLE
 					SetFromEntity(state, entity);
 
                     lks.Add(entity.EntityId, state);
-					MyConsole.Add($"ADD {state.DisplayName} {state.Position()}", Palette.Yellow);
+					MyConsole.Add($"ADD {state.DisplayName} {state.Position()}", Color.Yellow);
 				}
 			}
 		}
 
 		public static void OnClose(IMyEntity e)
-		{	MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Palette.Blue);
+		{	MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Color.Blue);
 			//SendState(socket, state); ///////////////////////
 		}
 

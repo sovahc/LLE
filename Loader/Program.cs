@@ -265,7 +265,10 @@ namespace LLELoader
             {
                 // Start Space Engineers — late patches fire during script loading
                 Logger.Write("[LLELoader] Calling MyProgram.Main...");
-                MyProgram.Main(args);
+                string[] gameArgs = new string[args.Length + 1];
+                Array.Copy(args, gameArgs, args.Length);
+                gameArgs[args.Length] = "-skipintro";
+                MyProgram.Main(gameArgs);
                 Logger.Write("[LLELoader] MyProgram.Main returned.");
             }
             catch (Exception ex)
