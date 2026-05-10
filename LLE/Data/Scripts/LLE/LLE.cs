@@ -83,15 +83,61 @@ namespace LLE
 		{	return (e.GetPosition() - new Vector3(s.X, s.Y, s.Z)).LengthSquared();
 		}
 
+		public static void DrawAABB(MatrixD worldMatrix, BoundingBox localBB, Color color, MySimpleObjectRasterizer raster = MySimpleObjectRasterizer.Wireframe, float thickness = 0.002f)
+		{
+			var material = MyStringId.GetOrCompute("Square");
+			// Центр локального AABB в мировых координатах
+			Vector3 centerLocal = (localBB.Min + localBB.Max) * 0.5f;
+			Vector3 extentsLocal = (localBB.Max - localBB.Min) * 0.5f;
+			var worldCenter = Vector3.Transform(centerLocal, worldMatrix);
+			
+			// Матрица: только поворот из worldMatrix + позиция центра
+			MatrixD drawMatrix = MatrixD.CreateFromQuaternion(Quaternion.CreateFromRotationMatrix(worldMatrix));
+			drawMatrix.Translation = new Vector3D(worldCenter);
+			
+			var bbD = new BoundingBoxD(-extentsLocal, extentsLocal);
+			MySimpleObjectDraw.DrawTransparentBox(ref drawMatrix, ref bbD, ref color, raster, 1, thickness, material, material);
+		}
 		public static void DrawAABB(MatrixD worldMatrix, BoundingBoxD localBB, Color color, MySimpleObjectRasterizer raster = MySimpleObjectRasterizer.Wireframe, float thickness = 0.002f)
 		{
 			var material = MyStringId.GetOrCompute("Square");
-			MySimpleObjectDraw.DrawTransparentBox(ref worldMatrix, ref localBB, ref color, raster, 1, thickness, material, material);
+			Vector3D centerLocal = (localBB.Min + localBB.Max) * 0.5;
+			Vector3D extentsLocal = (localBB.Max - localBB.Min) * 0.5;
+			var worldCenter = Vector3D.Transform(centerLocal, ref worldMatrix);
+			
+			MatrixD drawMatrix = MatrixD.CreateFromQuaternion(QuaternionD.CreateFromRotationMatrix(worldMatrix));
+			drawMatrix.Translation = worldCenter;
+			
+			var bbD = new BoundingBoxD(-extentsLocal, extentsLocal);
+			MySimpleObjectDraw.DrawTransparentBox(ref drawMatrix, ref bbD, ref color, raster, 1, thickness, material, material);
 		}
 
-		public static void HighlightVisible(SocketClient socket, Vector3D at, float range = 1000)
+		private static bool RayIntersectsEllipsoid(Vector3D rayOrigin, Vector3D rayDir, MatrixD worldMatrix, BoundingBoxD localBB)
 		{
-			BoundingSphereD pruneSphere = new BoundingSphereD(at, range);
+			var center = (localBB.Min + localBB.Max) * 0.5;
+			var radii = (localBB.Max - localBB.Min) * 0.5;
+
+			if (radii.LengthSquared() == 0) return false;
+
+			MatrixD invWorld;
+			MatrixD.Invert(ref worldMatrix, out invWorld);
+
+			var localOrigin = Vector3D.Transform(rayOrigin, ref invWorld);
+			var localDir = Vector3D.TransformNormal(rayDir, ref invWorld);
+
+			var E = (localOrigin - center) / radii;
+			var D = localDir / radii;
+
+			double a = D.Dot(D);
+			double b = 2.0 * E.Dot(D);
+			double c = E.Dot(E) - 1.0;
+
+			return b * b - 4.0 * a * c >= 0;
+		}
+
+		public static void HighlightVisible(SocketClient socket, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
+		{
+			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
 
 			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
 
@@ -102,7 +148,8 @@ namespace LLE
 				var grid = entity as IMyCubeGrid;
 				if (grid != null)
 				{
-					DrawAABB(grid.WorldMatrix, grid.PositionComp.LocalAABB, Color.Red);
+					bool intersects = RayIntersectsEllipsoid(rayOrigin, rayDir, grid.WorldMatrix, grid.PositionComp.LocalAABB);
+					DrawAABB(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Magenta : Color.Red);
 				}
 
 				var voxel = entity as MyVoxelBase;
@@ -112,7 +159,8 @@ namespace LLE
 
 					var size = voxel.SizeInMetres;
 					var box = new BoundingBoxD(-size/2, size/2);
-					DrawAABB(voxel.WorldMatrix, box, Color.Yellow);
+					bool intersects = RayIntersectsEllipsoid(rayOrigin, rayDir, voxel.WorldMatrix, box);
+					DrawAABB(voxel.WorldMatrix, box, intersects ? Color.Magenta : Color.Yellow);
 				}
 
 				LastKnownState state;
@@ -120,17 +168,17 @@ namespace LLE
 				{
 					if(DistanceSquared(state, entity) >
 						minimalPositionDelta*minimalPositionDelta)
-					{	
+					{ 	
 						SetFromEntity(state, entity);
 						MyConsole.Add($"POS {state.DisplayName} {state.Position()}", Color.Silver);
 					}
 				}
 				else
 				{
-                    state = new LastKnownState();
+					state = new LastKnownState();
 					SetFromEntity(state, entity);
 
-                    lks.Add(entity.EntityId, state);
+					lks.Add(entity.EntityId, state);
 					MyConsole.Add($"ADD {state.DisplayName} {state.Position()}", Color.Yellow);
 				}
 			}
@@ -230,7 +278,7 @@ namespace LLE
 			if (player == null || player.Character == null) return;
 
 			var p = player.Character.GetHeadMatrix(false);
-			Vision.HighlightVisible(_socket, p.Translation);
+			Vision.HighlightVisible(_socket, p.Translation, p.Forward);
 
 			MyConsole.Draw(_font);
 		}
