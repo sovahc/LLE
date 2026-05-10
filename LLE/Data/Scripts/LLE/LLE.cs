@@ -84,22 +84,11 @@ namespace LLE
 			s.X = p.X;
 			s.Y = p.Y;
 			s.Z = p.Z;
+			s.Changed = true;
 		}
 
 		private static double DistanceSquared(LastKnownState s, IMyEntity e)
 		{	return (e.GetPosition() - new Vector3(s.X, s.Y, s.Z)).LengthSquared();
-		}
-
-		private static void SendState(SocketClient socket, LastKnownState state)
-		{	byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(state);
-			int totalLength = 4 + payload.Length;
-			byte[] frame = new byte[totalLength];
-			frame[0] = (byte)(payload.Length & 0xFF);
-			frame[1] = (byte)((payload.Length >> 8) & 0xFF);
-			frame[2] = (byte)((payload.Length >> 16) & 0xFF);
-			frame[3] = (byte)((payload.Length >> 24) & 0xFF);
-			System.Array.Copy(payload, 0, frame, 4, payload.Length);
-			socket.Send(frame, totalLength);
 		}
 
 		public static void HighlightVisible(SocketClient socket, Vector3D at, float range = 1000)
@@ -119,7 +108,6 @@ namespace LLE
 						minimalPositionDelta*minimalPositionDelta)
 					{	
 						SetFromEntity(state, entity);
-						SendState(socket, state);
 						MyConsole.Add($"POS {state.DisplayName} {state.Position()}", Palette.Silver);
 					}
 				}
@@ -129,7 +117,6 @@ namespace LLE
 					SetFromEntity(state, entity);
 
                     lks.Add(entity.EntityId, state);
-					SendState(socket, state);
 					MyConsole.Add($"ADD {state.DisplayName} {state.Position()}", Palette.Yellow);
 				}
 			}
@@ -138,6 +125,27 @@ namespace LLE
 		public static void OnClose(IMyEntity e)
 		{	MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Palette.Blue);
 			//SendState(socket, state); ///////////////////////
+		}
+
+		private static void SendState(SocketClient socket, LastKnownState state)
+		{	byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(state);
+			int totalLength = 4 + payload.Length;
+			byte[] frame = new byte[totalLength];
+			frame[0] = (byte)(payload.Length & 0xFF);
+			frame[1] = (byte)((payload.Length >> 8) & 0xFF);
+			frame[2] = (byte)((payload.Length >> 16) & 0xFF);
+			frame[3] = (byte)((payload.Length >> 24) & 0xFF);
+			System.Array.Copy(payload, 0, frame, 4, payload.Length);
+			socket.Send(frame, totalLength);
+		}
+
+		public static void Send(SocketClient sc, bool changedOnly)
+		{	foreach(var state in lks.Values)
+			{	if(changedOnly && !state.Changed) continue;
+				state.Changed = false;
+
+				SendState(sc, state);
+			}
 		}
 	}
 
@@ -174,13 +182,17 @@ namespace LLE
 	{
 		private static TextRendering _font;
 		private static SocketClient _socket = new SocketClient();
-		private static readonly byte[] _rxBuffer = new byte[4096];
 
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void UpdateBeforeSimulation()
 		{
+			bool before = _socket.IsConnected;
 			_socket.Update();
+			bool after = _socket.IsConnected;
+
+			if(!before && after) Vision.Send(_socket, false);
+			else if(after) Vision.Send(_socket, true);
 		}
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{

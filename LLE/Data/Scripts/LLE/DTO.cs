@@ -18,5 +18,8 @@ namespace LLE
 		public string Position()
 		{	return $"{X:F2} {Y:F2} {Z:F2}";
 		}
+
+		// Mod fields
+		public bool Changed;
     }
 }
