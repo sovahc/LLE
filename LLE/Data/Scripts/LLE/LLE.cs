@@ -13,6 +13,7 @@ using VRage.ModAPI;
 using VRage.Utils;
 
 using VRageMath;
+using static VRageRender.MyBillboard;
 
 namespace LLE
 {
@@ -91,15 +92,35 @@ namespace LLE
 		{	return (e.GetPosition() - new Vector3(s.X, s.Y, s.Z)).LengthSquared();
 		}
 
+		public static void DrawAABB(BoundingBoxD bb, Color color, MySimpleObjectRasterizer raster = MySimpleObjectRasterizer.Wireframe, float thickness = 0.002f)
+		{
+			var material = MyStringId.GetOrCompute("Square");
+			var box = new BoundingBoxD(-bb.HalfExtents, bb.HalfExtents);
+			var wm = MatrixD.CreateTranslation(bb.Center);
+			MySimpleObjectDraw.DrawTransparentBox(ref wm, ref box, ref color, raster, 1, thickness, material, material);
+		}
+		public static void DrawSphere(BoundingSphereD sphere, Color color, MySimpleObjectRasterizer draw = MySimpleObjectRasterizer.SolidAndWireframe, BlendTypeEnum blend = BlendTypeEnum.PostPP)
+		{
+			MyStringId square = MyStringId.GetOrCompute("Square");
+			MatrixD wm = MatrixD.CreateTranslation(sphere.Center);
+			MySimpleObjectDraw.DrawTransparentSphere(ref wm, (float)sphere.Radius, ref color, draw, 24, square, square, 0.02f, blendType: blend);
+		}
+
 		public static void HighlightVisible(SocketClient socket, Vector3D at, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(at, range);
 
 			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
 
-			foreach (var entity in candidates)
+			foreach (IMyEntity entity in candidates)
 			{
 				if(entity.Closed) continue;
+
+				if(!(entity is IMyCharacter))
+				{	DrawAABB(entity.WorldAABB, Color.Red);
+					var sphere = new BoundingSphereD(entity.WorldAABB.Center, entity.LocalVolume.Radius);
+					DrawSphere(sphere, Color.Yellow, MySimpleObjectRasterizer.Wireframe);
+				}
 
 				LastKnownState state;
 				if(lks.TryGetValue(entity.EntityId, out state))
