@@ -84,19 +84,9 @@ namespace LLE
 
 		public static void DrawAABB(MatrixD worldMatrix, BoundingBox localBB, Color color, MySimpleObjectRasterizer raster = MySimpleObjectRasterizer.Wireframe, float thickness = 0.002f)
 		{
-			var material = MyStringId.GetOrCompute("Square");
-			// Центр локального AABB в мировых координатах
-			Vector3 centerLocal = (localBB.Min + localBB.Max) * 0.5f;
-			Vector3 extentsLocal = (localBB.Max - localBB.Min) * 0.5f;
-			var worldCenter = Vector3.Transform(centerLocal, worldMatrix);
-			
-			// Матрица: только поворот из worldMatrix + позиция центра
-			MatrixD drawMatrix = MatrixD.CreateFromQuaternion(Quaternion.CreateFromRotationMatrix(worldMatrix));
-			drawMatrix.Translation = new Vector3D(worldCenter);
-			
-			var bbD = new BoundingBoxD(-extentsLocal, extentsLocal);
-			MySimpleObjectDraw.DrawTransparentBox(ref drawMatrix, ref bbD, ref color, raster, 1, thickness, material, material);
+			DrawAABB(worldMatrix, new BoundingBoxD(localBB.Min, localBB.Max), color, raster, thickness);
 		}
+
 		public static void DrawAABB(MatrixD worldMatrix, BoundingBoxD localBB, Color color, MySimpleObjectRasterizer raster = MySimpleObjectRasterizer.Wireframe, float thickness = 0.002f)
 		{
 			var material = MyStringId.GetOrCompute("Square");
