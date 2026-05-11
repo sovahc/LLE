@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Tracing;
 using System.Runtime.InteropServices;
 using System.Xml.Serialization;
 using Sandbox.Game.Entities;
@@ -282,10 +283,15 @@ namespace LLE
 		{
 			if (!IsConnected && Now >= _nextReconnectTime)
 			{
+				LLE.Log("SocketClient: connecting...");
+
 				IsConnected = LLE_Loader.Connect();
 				if (IsConnected)
-				{	LLE.Log("SocketClient.Connected");
+				{	LLE.Log("SocketClient: connected");
 					ResetBackoff();
+				}
+				else
+				{	IncreaseBackoff();
 				}
 			}
 
@@ -315,11 +321,16 @@ namespace LLE
 
 		private void HandleDisconnect()
 		{
-			LLE.Log("SocketClient.HandleDisconnect");
+			LLE.Log("SocketClient: disconnect");
 
 			LLE_Loader.Disconnect();
 			IsConnected = false;
+			
+			IncreaseBackoff();
+		}
 
+		public void IncreaseBackoff()
+		{
 			_nextReconnectTime = Now + _reconnectDelay;
 			_reconnectDelay = Math.Min(_reconnectDelay * 2, MaxReconnectDelay);
 		}
