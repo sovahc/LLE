@@ -115,14 +115,6 @@ namespace LLE
 				if (double.IsNaN(start.X) || double.IsNaN(end.X)) continue;
 				var diff = end - start;
 
-				var billboard = _pool.Get();
-				billboard.Material = square;
-				billboard.Color = color;
-				billboard.BlendType = BlendTypeEnum.PostPP;
-				billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
-				billboard.UVOffset = Vector2.Zero;
-				billboard.UVSize = Vector2.One;
-
 				MyPolyLineD polyLine;
 				polyLine.LineDirectionNormalized = diff.Normalized();
 				polyLine.Point0 = start;
@@ -132,16 +124,25 @@ namespace LLE
 				MyQuadD quad;
 				MyUtils.GetPolyLineQuad(out quad, ref polyLine, camera.Position);
 
+				var billboard = _pool.Get();
+
+				billboard.Material = square;
+				billboard.BlendType = BlendTypeEnum.PostPP;
 				billboard.Position0 = quad.Point0;
 				billboard.Position1 = quad.Point1;
 				billboard.Position2 = quad.Point2;
 				billboard.Position3 = quad.Point3;
-				billboard.DistanceSquared = (float)Vector3D.DistanceSquared(camera.Position, start);
-				billboard.ParentID = uint.MaxValue;
-				billboard.CustomViewProjection = -1;
-				billboard.Reflectivity = 0f;
-				billboard.SoftParticleDistanceScale = 0f;
+				billboard.Color = color;
 				billboard.ColorIntensity = 1f;
+				billboard.SoftParticleDistanceScale = 0f;
+				billboard.UVOffset = Vector2.Zero;
+				billboard.UVSize = Vector2.One;
+				billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
+				billboard.ParentID = uint.MaxValue;
+				billboard.DistanceSquared = (float)Vector3D.DistanceSquared(camera.Position, start);
+				billboard.Reflectivity = 0f;
+				billboard.AlphaCutout = 0f;
+				billboard.CustomViewProjection = -1;
 
 				_billboards.Add(billboard);
 			}
@@ -155,7 +156,6 @@ namespace LLE
 		{
 			if(!Enabled) return null;
 
-			var billboard = _pool.Get();
 			Vector2 center = new Vector2((topLeft.X + bottomRight.X) / 2f, (topLeft.Y + bottomRight.Y) / 2f);
 			Vector2 size   = new Vector2(bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
 
@@ -169,22 +169,25 @@ namespace LLE
 			MyQuadD quad;
 			MyUtils.GetBillboardQuadOriented(out quad, ref worldPos, halfW, halfH, ref left, ref up);
 
+			var billboard = _pool.Get();
+
 			billboard.Material = material;
-			billboard.UVOffset = UVOffset;
-			billboard.UVSize = UVSize;
+			billboard.BlendType = BlendTypeEnum.PostPP;
 			billboard.Position0 = quad.Point0;
 			billboard.Position1 = quad.Point1;
 			billboard.Position2 = quad.Point2;
 			billboard.Position3 = quad.Point3;
-			billboard.Color = new Vector4(color.R, color.G, color.B, color.A) / 255f;
+			billboard.Color = new Vector4(color.R, color.G, color.B, color.A) / 255f; // XXXXXXXXXXXXXXX
 			billboard.ColorIntensity = 1f;
-			billboard.BlendType = BlendTypeEnum.PostPP;
+			billboard.SoftParticleDistanceScale = 0f;
+			billboard.UVOffset = UVOffset;
+			billboard.UVSize = UVSize;
 			billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
 			billboard.ParentID = uint.MaxValue;
-			billboard.CustomViewProjection = -1;
-			billboard.Reflectivity = 0f;
-			billboard.SoftParticleDistanceScale = 0f;
 			billboard.DistanceSquared = (float)Vector3D.DistanceSquared(worldPos, camera.Position);
+			billboard.Reflectivity = 0f;
+			billboard.AlphaCutout = 0f;
+			billboard.CustomViewProjection = -1;
 
 			if(callAddBillboard)
 				MyTransparentGeometry.AddBillboard(billboard, false);
