@@ -101,29 +101,6 @@ namespace LLE
 			MySimpleObjectDraw.DrawTransparentBox(ref drawMatrix, ref bbD, ref color, raster, 1, thickness, material, material);
 		}
 
-		private static bool RayIntersectsEllipsoid(Vector3D rayOrigin, Vector3D rayDir, MatrixD worldMatrix, BoundingBoxD localBB)
-		{
-			var center = (localBB.Min + localBB.Max) * 0.5;
-			var radii = (localBB.Max - localBB.Min) * 0.5;
-
-			if (radii.LengthSquared() == 0) return false;
-
-			MatrixD invWorld;
-			MatrixD.Invert(ref worldMatrix, out invWorld);
-
-			var localOrigin = Vector3D.Transform(rayOrigin, ref invWorld);
-			var localDir = Vector3D.TransformNormal(rayDir, ref invWorld);
-
-			var E = (localOrigin - center) / radii;
-			var D = localDir / radii;
-
-			double a = D.Dot(D);
-			double b = 2.0 * E.Dot(D);
-			double c = E.Dot(E) - 1.0;
-
-			return b * b - 4.0 * a * c >= 0;
-		}
-
 		public static void HighlightVisible(SocketClient socket, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
@@ -137,7 +114,7 @@ namespace LLE
 				var grid = entity as IMyCubeGrid;
 				if (grid != null)
 				{
-					bool intersects = RayIntersectsEllipsoid(rayOrigin, rayDir, grid.WorldMatrix, grid.PositionComp.LocalAABB);
+					bool intersects = Ellipsoid.RayIntersectsEllipsoid(rayOrigin, rayDir, grid.WorldMatrix, grid.PositionComp.LocalAABB);
 					DrawAABB(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Magenta : Color.Red);
 				}
 
@@ -148,7 +125,7 @@ namespace LLE
 
 					var size = voxel.SizeInMetres;
 					var box = new BoundingBoxD(-size/2, size/2);
-					bool intersects = RayIntersectsEllipsoid(rayOrigin, rayDir, voxel.WorldMatrix, box);
+					bool intersects = Ellipsoid.RayIntersectsEllipsoid(rayOrigin, rayDir, voxel.WorldMatrix, box);
 					DrawAABB(voxel.WorldMatrix, box, intersects ? Color.Magenta : Color.Yellow);
 				}
 
