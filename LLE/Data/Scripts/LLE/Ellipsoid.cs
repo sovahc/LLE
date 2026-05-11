@@ -27,19 +27,17 @@ public static class Ellipsoid
 		return b * b - 4.0 * a * c >= 0;
 	}
 
-    public static List<Vector2> ProjectEllipsoid(Vector3D center, Vector3D axisU, Vector3D axisV, Vector3D axisW, MatrixD viewMatrix, int segments = 32)
+    public static void ProjectEllipsoid(List<Vector2> result, Vector3D center, Vector3D axisU, Vector3D axisV, Vector3D axisW, MatrixD viewMatrix, int segments = 32)
     {
-        var points = new List<Vector2>(segments + 1);
-
         Vector3D viewCenter = Vector3D.Transform(center, viewMatrix);
         Vector3D viewU = Vector3D.TransformNormal(axisU, viewMatrix);
         Vector3D viewV = Vector3D.TransformNormal(axisV, viewMatrix);
         Vector3D viewW = Vector3D.TransformNormal(axisW, viewMatrix);
 
-        return GenerateProjectedEllipsePoints(viewCenter, viewU, viewV, viewW, segments);
+        GenerateProjectedEllipsePoints(result, viewCenter, viewU, viewV, viewW, segments);
     }
 
-    private static List<Vector2> GenerateProjectedEllipsePoints(Vector3D center, Vector3D u, Vector3D v, Vector3D w, int segments)
+    private static void GenerateProjectedEllipsePoints(List<Vector2> result, Vector3D center, Vector3D u, Vector3D v, Vector3D w, int segments)
     {
         double ux = u.X, uy = u.Y;
         double vx = v.X, vy = v.Y;
@@ -69,7 +67,8 @@ public static class Ellipsoid
             angle = Math.PI / 2;
         }
 
-        var points = new List<Vector2>(segments + 1);
+        result.Clear();
+
         for (int i = 0; i <= segments; i++)
         {
             double t = i * MathHelper.TwoPi / segments;
@@ -85,9 +84,7 @@ public static class Ellipsoid
             double rx = x * cosA - y * sinA;
             double ry = x * sinA + y * cosA;
 
-            points.Add(new Vector2((float)(center.X + rx), (float)(center.Y + ry)));
+            result.Add(new Vector2((float)(center.X + rx), (float)(center.Y + ry)));
         }
-
-        return points;
     }
 }

@@ -87,25 +87,6 @@ namespace LLE
 		{	return (e.GetPosition() - new Vector3(s.X, s.Y, s.Z)).LengthSquared();
 		}
 
-		public static void DrawAABB(MatrixD worldMatrix, BoundingBox localBB, Color color, MySimpleObjectRasterizer raster = MySimpleObjectRasterizer.Wireframe, float thickness = 0.002f)
-		{
-			DrawAABB(worldMatrix, new BoundingBoxD(localBB.Min, localBB.Max), color, raster, thickness);
-		}
-
-		public static void DrawAABB(MatrixD worldMatrix, BoundingBoxD localBB, Color color, MySimpleObjectRasterizer raster = MySimpleObjectRasterizer.Wireframe, float thickness = 0.002f)
-		{
-			var material = MyStringId.GetOrCompute("Square");
-			Vector3D centerLocal = (localBB.Min + localBB.Max) * 0.5;
-			Vector3D extentsLocal = (localBB.Max - localBB.Min) * 0.5;
-			var worldCenter = Vector3D.Transform(centerLocal, ref worldMatrix);
-			
-			MatrixD drawMatrix = MatrixD.CreateFromQuaternion(QuaternionD.CreateFromRotationMatrix(worldMatrix));
-			drawMatrix.Translation = worldCenter;
-			
-			var bbD = new BoundingBoxD(-extentsLocal, extentsLocal);
-			MySimpleObjectDraw.DrawTransparentBox(ref drawMatrix, ref bbD, ref color, raster, 1, thickness, material, material);
-		}
-
 		public static void HighlightVisible(SocketClient socket, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
@@ -120,7 +101,7 @@ namespace LLE
 				if (grid != null)
 				{
 					bool intersects = Ellipsoid.RayIntersectsEllipsoid(rayOrigin, rayDir, grid.WorldMatrix, grid.PositionComp.LocalAABB);
-					DrawAABB(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Magenta : Color.Red);
+					Drawing.AABB(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Magenta : Color.Red);
 				}
 
 				var voxel = entity as MyVoxelBase;
@@ -131,7 +112,7 @@ namespace LLE
 					var size = voxel.SizeInMetres;
 					var box = new BoundingBoxD(-size/2, size/2);
 					bool intersects = Ellipsoid.RayIntersectsEllipsoid(rayOrigin, rayDir, voxel.WorldMatrix, box);
-					DrawAABB(voxel.WorldMatrix, box, intersects ? Color.Magenta : Color.Yellow);
+					Drawing.AABB(voxel.WorldMatrix, box, intersects ? Color.Magenta : Color.Yellow);
 				}
 
 				LastKnownState state;
