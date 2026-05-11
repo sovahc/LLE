@@ -104,6 +104,8 @@ namespace LLE
 			_billboards.Clear();
 			int count = closed ? worldPoints.Length : worldPoints.Length - 1;
 
+			var square = MyStringId.GetOrCompute("Square");
+
 			for (int i = 0; i < count; i++)
 			{
 				Vector3D start = worldPoints[i];
@@ -111,7 +113,7 @@ namespace LLE
 				var diff = end - start;
 
 				var billboard = _pool.Get();
-				billboard.Material = MyStringId.GetOrCompute("Square");
+				billboard.Material = square;
 				billboard.Color = color;
 				billboard.BlendType = BlendTypeEnum.PostPP;
 				billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
