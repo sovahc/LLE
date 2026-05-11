@@ -307,5 +307,39 @@ namespace LLE
 			var bbD = new BoundingBoxD(-extentsLocal, extentsLocal);
 			MySimpleObjectDraw.DrawTransparentBox(ref drawMatrix, ref bbD, ref color, raster, 1, thickness, material, material);
 		}
+
+		public void EllipsoidContour(MatrixD worldMatrix, BoundingBoxD localBB, Color color)
+		{
+			if (!Enabled) return;
+
+			var centerLocal = (localBB.Min + localBB.Max) * 0.5;
+			var extents = (localBB.Max - localBB.Min) * 0.5;
+
+			Vector3D worldCenter = Vector3D.Transform(centerLocal, ref worldMatrix);
+		
+			var wAxisU = extents.X * new Vector3D(worldMatrix.M11, worldMatrix.M21, worldMatrix.M31);
+			var wAxisV = extents.Y * new Vector3D(worldMatrix.M12, worldMatrix.M22, worldMatrix.M32);
+			var wAxisW = extents.Z * new Vector3D(worldMatrix.M13, worldMatrix.M23, worldMatrix.M33);
+
+			var points = new List<Vector2>();
+			Ellipsoid.ProjectEllipsoid(points, worldCenter, wAxisU, wAxisV, wAxisW, camera.ViewMatrix);
+
+			if (points.Count < 2) return;
+
+			Vector3D viewCenter = Vector3D.Transform(worldCenter, camera.ViewMatrix);
+			float z = (float)-viewCenter.Z;
+			if (z < 0.1f) return;
+
+			var screenPoints = new Vector2D[points.Count];
+			float invTanFov = 1f / _cachedScaleFov;
+			for(int i=0; i<points.Count; i++) {
+				screenPoints[i] = new Vector2D(
+					points[i].X / z * invTanFov / _cachedAspectRatio,
+					points[i].Y / z * invTanFov
+				);
+			}
+
+			Contour(screenPoints, true, 5e-5f, new Vector4(color.R/255f, color.G/255f, color.B/255f, color.A/255f));
+		}
 	}
 }

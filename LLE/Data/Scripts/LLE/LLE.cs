@@ -87,7 +87,7 @@ namespace LLE
 		{	return (e.GetPosition() - new Vector3(s.X, s.Y, s.Z)).LengthSquared();
 		}
 
-		public static void HighlightVisible(SocketClient socket, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
+		public static void HighlightVisible(Drawing draw, SocketClient socket, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
 
@@ -102,6 +102,7 @@ namespace LLE
 				{
 					bool intersects = Ellipsoid.RayIntersectsEllipsoid(rayOrigin, rayDir, grid.WorldMatrix, grid.PositionComp.LocalAABB);
 					Drawing.AABB(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Magenta : Color.Red);
+					draw.EllipsoidContour(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Cyan : Color.Gray);
 				}
 
 				var voxel = entity as MyVoxelBase;
@@ -113,6 +114,7 @@ namespace LLE
 					var box = new BoundingBoxD(-size/2, size/2);
 					bool intersects = Ellipsoid.RayIntersectsEllipsoid(rayOrigin, rayDir, voxel.WorldMatrix, box);
 					Drawing.AABB(voxel.WorldMatrix, box, intersects ? Color.Magenta : Color.Yellow);
+					draw.EllipsoidContour(voxel.WorldMatrix, box, intersects ? Color.Cyan : Color.Gray);
 				}
 
 				LastKnownState state;
@@ -194,15 +196,6 @@ namespace LLE
 		{
 			draw.StartFrame();
 
-			const int circleSegments = 64;
-			var circlePoints = new Vector2D[circleSegments];
-			for (int i = 0; i < circleSegments; i++)
-			{
-				double angle = i * Math.PI * 2.0 / circleSegments;
-				circlePoints[i] = new Vector2D(Math.Cos(angle) * 0.3, Math.Sin(angle) * 0.3);
-			}
-			draw.Contour(circlePoints, true, 5e-5f, new Vector4(1, 0, 0, 1));
-
 			var lp = LLE_Loader.IsPresent();
 			draw.String("LLE_Loader.IsPresent: " + lp.ToString(),
 				new Vector2D(0, -0.35d), 0.00075f, lp ? Color.White : Color.Red);
@@ -211,7 +204,7 @@ namespace LLE
 			if (player == null || player.Character == null) return;
 
 			var p = player.Character.GetHeadMatrix(false);
-			Vision.HighlightVisible(_socket, p.Translation, p.Forward);
+			Vision.HighlightVisible(draw, _socket, p.Translation, p.Forward);
 
 			MyConsole.Render(draw);
 		}
