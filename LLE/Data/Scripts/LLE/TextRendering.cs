@@ -81,23 +81,25 @@ namespace LLE
 			if (_billboards.Count > 0) MyTransparentGeometry.AddBillboards(_billboards, false);
 		}
 		
-		public void DrawContour(Vector3D[] points, bool closed, float thickness, Vector4 color)
+		public void DrawContour(Vector2D[] points, bool closed, float thickness, Vector4 color)
 		{
 			if (points == null || points.Length < 2) return;
 			
 			var camera = MyAPIGateway.Session.Camera;
 			if (camera == null) return;
 
+			var worldPoints = new Vector3D[points.Length];
+			for (int i = 0; i < points.Length; i++)
+				worldPoints[i] = ScreenToWorld(points[i], _cachedViewProjInv);
+
 			_billboards.Clear();
-			int count = closed ? points.Length : points.Length - 1;
+			int count = closed ? worldPoints.Length : worldPoints.Length - 1;
 
 			for (int i = 0; i < count; i++)
 			{
-				Vector3D start = points[i];
-				Vector3D end = points[(i + 1) % points.Length];
+				Vector3D start = worldPoints[i];
+				Vector3D end = worldPoints[(i + 1) % worldPoints.Length];
 				var diff = end - start;
-				var len = diff.Length();
-				if (len < 0.1) continue;
 
 				var billboard = _pool.Get();
 				billboard.Material = MyStringId.GetOrCompute("Square");

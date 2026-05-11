@@ -212,29 +212,6 @@ namespace LLE
 
 	class Utilities
 	{
-		private static Color DefaultColor = new Color(255, 255, 127, 255);
-
-		public static void DrawPoint(Vector3D point) { DrawPoint(point, DefaultColor); }
-
-		public static void DrawPoint(Vector3D point, Color color)
-		{
-			var camera = MyAPIGateway.Session.Camera;
-			if (camera == null) return;
-
-			var cameraMatrix = camera.WorldMatrix;
-			var material = MyStringId.GetOrCompute("LLE-Marker");
-
-			Vector3D viewDir = Vector3D.Normalize(point - camera.Position);
-			Vector3D distance = point - camera.Position;
-			point = camera.Position + viewDir;
-
-			float size = (float)(0.25 / (distance.Length() + 0.0001));
-			if (size < 0.001f) size = 0.001f;
-			if (size > 0.25f) size = 0.25f;
-
-			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)cameraMatrix.Left, (Vector3)cameraMatrix.Up, radius: size);
-		}
-
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 	}
 
@@ -269,24 +246,24 @@ namespace LLE
 		{
 			_font?.StartFrame();
 
-		// Test: circle around origin
+		// Test: circle around screen center
 		const int circleSegments = 32;
-		var circlePoints = new Vector3D[circleSegments];
+		var circlePoints = new Vector2D[circleSegments];
 		for (int i = 0; i < circleSegments; i++)
 		{
 			double angle = i * Math.PI * 2.0 / circleSegments;
-			circlePoints[i] = new Vector3D(Math.Cos(angle) * 10, 0, Math.Sin(angle) * 10);
+			circlePoints[i] = new Vector2D(Math.Cos(angle) * 0.3, Math.Sin(angle) * 0.3);
 		}
-		_font?.DrawContour(circlePoints, true, 0.5f, new Vector4(1, 0, 0, 1));
+		_font?.DrawContour(circlePoints, true, 5e-5f, new Vector4(1, 0, 0, 1));
 
-		// Test: triangle around origin
+		// Test: triangle around screen center
 		var triPoints = new[]
 		{
-			new Vector3D(0, 0, 8),
-			new Vector3D(-7, 0, -4),
-			new Vector3D(7, 0, -4)
+			new Vector2D(0, -0.4),
+			new Vector2D(-0.35, 0.2),
+			new Vector2D(0.35, 0.2)
 		};
-		_font?.DrawContour(triPoints, true, 0.5f, new Vector4(0, 1, 0, 1));
+		_font?.DrawContour(triPoints, true, 0.00005f, new Vector4(0, 1, 0, 1));
 
 			var lp = LLE_Loader.IsPresent();
 			_font?.DrawString("LLE_Loader.IsPresent: " + lp.ToString(),
