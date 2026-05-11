@@ -31,6 +31,7 @@ namespace LLE
 
 		private float _cachedNearPlane;
 		private MatrixD _cachedViewProjInv;
+		private MatrixD _cachedViewProj;
 		private float _cachedScaleFov, _cachedAspectRatio;
 
 		private bool Enabled;
@@ -49,7 +50,8 @@ namespace LLE
 			_cachedNearPlane = camera.NearPlaneDistance;
 			_cachedAspectRatio = (float)(camera.ViewportSize.X / camera.ViewportSize.Y);
 			MatrixD projMatrix = MatrixD.CreatePerspectiveFieldOfView(camera.FovWithZoom, _cachedAspectRatio, _cachedNearPlane, (float)camera.FarPlaneDistance);
-			_cachedViewProjInv = MatrixD.Invert(camera.ViewMatrix * projMatrix);
+			_cachedViewProj = camera.ViewMatrix * projMatrix;
+			_cachedViewProjInv = MatrixD.Invert(_cachedViewProj);
 			_cachedScaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 		}
 
@@ -110,6 +112,7 @@ namespace LLE
 			{
 				Vector3D start = worldPoints[i];
 				Vector3D end = worldPoints[(i + 1) % worldPoints.Length];
+				if (double.IsNaN(start.X) || double.IsNaN(end.X)) continue;
 				var diff = end - start;
 
 				var billboard = _pool.Get();
@@ -312,34 +315,48 @@ namespace LLE
 		{
 			if (!Enabled) return;
 
-			var centerLocal = (localBB.Min + localBB.Max) * 0.5;
-			var extents = (localBB.Max - localBB.Min) * 0.5;
 
-			Vector3D worldCenter = Vector3D.Transform(centerLocal, ref worldMatrix);
-		
-			var wAxisU = extents.X * new Vector3D(worldMatrix.M11, worldMatrix.M21, worldMatrix.M31);
-			var wAxisV = extents.Y * new Vector3D(worldMatrix.M12, worldMatrix.M22, worldMatrix.M32);
-			var wAxisW = extents.Z * new Vector3D(worldMatrix.M13, worldMatrix.M23, worldMatrix.M33);
+			Vector3D centerLocal = (localBB.Min + localBB.Max) * 0.5;
+			Vector3D extents = (localBB.Max - localBB.Min) * 0.5;
 
-			var points = new List<Vector2>();
-			Ellipsoid.ProjectEllipsoid(points, worldCenter, wAxisU, wAxisV, wAxisW, camera.ViewMatrix);
 
-			if (points.Count < 2) return;
+			Vector3D localX = new Vector3D(extents.X, 0, 0);
+			Vector3D localY = new Vector3D(0, extents.Y, 0);
+			Vector3D localZ = new Vector3D(0, 0, extents.Z);
 
-			Vector3D viewCenter = Vector3D.Transform(worldCenter, camera.ViewMatrix);
-			float z = (float)-viewCenter.Z;
-			if (z < 0.1f) return;
 
-			var screenPoints = new Vector2D[points.Count];
-			float invTanFov = 1f / _cachedScaleFov;
-			for(int i=0; i<points.Count; i++) {
-				screenPoints[i] = new Vector2D(
-					points[i].X / z * invTanFov / _cachedAspectRatio,
-					points[i].Y / z * invTanFov
-				);
+			const int segments = 64;
+			Vector2D[] screenPoints = new Vector2D[segments];
+			Vector4 c = new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+			float thickness = 5e-5f;
+
+
+			for (int ring = 0; ring < 3; ring++)
+			{
+				for (int i = 0; i < segments; i++)
+				{
+					double t = i * MathHelper.TwoPi / segments;
+					Vector3D local;
+					switch (ring)
+					{
+						case 0: local = centerLocal + Math.Cos(t) * localX + Math.Sin(t) * localY; break;
+						case 1: local = centerLocal + Math.Cos(t) * localX + Math.Sin(t) * localZ; break;
+						default: local = centerLocal + Math.Cos(t) * localY + Math.Sin(t) * localZ; break;
+					}
+
+					Vector3D world = Vector3D.Transform(local, worldMatrix);
+					Vector4D clip = Vector4D.Transform(world, _cachedViewProj);
+					if (clip.W > 0.001)
+					{
+						screenPoints[i] = new Vector2D(clip.X / clip.W, clip.Y / clip.W);
+					}
+					else
+					{
+						screenPoints[i] = new Vector2D(double.NaN, double.NaN);
+					}
+				}
+				Contour(screenPoints, true, thickness, c);
 			}
-
-			Contour(screenPoints, true, 5e-5f, new Vector4(color.R/255f, color.G/255f, color.B/255f, color.A/255f));
 		}
 	}
 }
