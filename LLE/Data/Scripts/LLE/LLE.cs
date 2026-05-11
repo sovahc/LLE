@@ -204,7 +204,6 @@ namespace LLE
 				_headerLength += r;
 			}
 			if(_headerLength < need) return;
-			if(_headerLength != need) throw new Exception("code bug");
 
 			need = _header[0] | (_header[1] << 8);
 			
@@ -215,7 +214,6 @@ namespace LLE
 			}
 
 			if(_dataLength < need) return;
-			if(_dataLength != need) throw new Exception("code bug");
 			
 			byte[] payload = new byte[_dataLength];
 			Array.Copy(_data, 0, payload, 0, _dataLength);
