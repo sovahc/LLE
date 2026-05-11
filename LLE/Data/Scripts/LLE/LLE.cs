@@ -1,8 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.Tracing;
-using System.Runtime.InteropServices;
-using System.Xml.Serialization;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 
@@ -14,7 +11,6 @@ using VRage.ModAPI;
 using VRage.Utils;
 
 using VRageMath;
-using static VRageRender.MyBillboard;
 
 namespace LLE
 {
