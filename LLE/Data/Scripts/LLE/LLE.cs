@@ -17,7 +17,6 @@ using static VRageRender.MyBillboard;
 
 namespace LLE
 {
-	public enum Palette { Default, Gray, Silver, Red, Yellow, Blue }
 
 	class MyConsole
 	{
@@ -269,6 +268,25 @@ namespace LLE
 		public override void Draw()
 		{
 			_font?.StartFrame();
+
+		// Test: circle around origin
+		const int circleSegments = 32;
+		var circlePoints = new Vector3D[circleSegments];
+		for (int i = 0; i < circleSegments; i++)
+		{
+			double angle = i * Math.PI * 2.0 / circleSegments;
+			circlePoints[i] = new Vector3D(Math.Cos(angle) * 10, 0, Math.Sin(angle) * 10);
+		}
+		_font?.DrawContour(circlePoints, true, 0.5f, new Vector4(1, 0, 0, 1));
+
+		// Test: triangle around origin
+		var triPoints = new[]
+		{
+			new Vector3D(0, 0, 8),
+			new Vector3D(-7, 0, -4),
+			new Vector3D(7, 0, -4)
+		};
+		_font?.DrawContour(triPoints, true, 0.5f, new Vector4(0, 1, 0, 1));
 
 			var lp = LLE_Loader.IsPresent();
 			_font?.DrawString("LLE_Loader.IsPresent: " + lp.ToString(),

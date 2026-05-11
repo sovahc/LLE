@@ -80,6 +80,58 @@ namespace LLE
 
 			if (_billboards.Count > 0) MyTransparentGeometry.AddBillboards(_billboards, false);
 		}
+		
+		public void DrawContour(Vector3D[] points, bool closed, float thickness, Vector4 color)
+		{
+			if (points == null || points.Length < 2) return;
+			
+			var camera = MyAPIGateway.Session.Camera;
+			if (camera == null) return;
+
+			_billboards.Clear();
+			int count = closed ? points.Length : points.Length - 1;
+
+			for (int i = 0; i < count; i++)
+			{
+				Vector3D start = points[i];
+				Vector3D end = points[(i + 1) % points.Length];
+				var diff = end - start;
+				var len = diff.Length();
+				if (len < 0.1) continue;
+
+				var billboard = _pool.Get();
+				billboard.Material = MyStringId.GetOrCompute("Square");
+				billboard.Color = color;
+				billboard.BlendType = BlendTypeEnum.PostPP;
+				billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
+				billboard.UVOffset = Vector2.Zero;
+				billboard.UVSize = Vector2.One;
+
+				MyPolyLineD polyLine;
+				polyLine.LineDirectionNormalized = diff.Normalized();
+				polyLine.Point0 = start;
+				polyLine.Point1 = end;
+				polyLine.Thickness = thickness;
+
+				MyQuadD quad;
+				MyUtils.GetPolyLineQuad(out quad, ref polyLine, camera.Position);
+
+				billboard.Position0 = quad.Point0;
+				billboard.Position1 = quad.Point1;
+				billboard.Position2 = quad.Point2;
+				billboard.Position3 = quad.Point3;
+				billboard.DistanceSquared = (float)Vector3D.DistanceSquared(camera.Position, start);
+				billboard.ParentID = uint.MaxValue;
+				billboard.CustomViewProjection = -1;
+				billboard.Reflectivity = 0f;
+				billboard.SoftParticleDistanceScale = 0f;
+				billboard.ColorIntensity = 1f;
+
+				_billboards.Add(billboard);
+			}
+
+			if (_billboards.Count > 0) MyTransparentGeometry.AddBillboards(_billboards, false);
+		}
 
 		public MyBillboard DrawRectangle(Vector2 topLeft, Vector2 bottomRight, // Screen space -1 to 1
 			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Color color,
