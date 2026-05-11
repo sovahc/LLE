@@ -151,7 +151,7 @@ namespace LLE
 		}
 
 		public MyBillboard Rectangle(Vector2 topLeft, Vector2 bottomRight, // Screen space -1 to 1
-			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Color color,
+			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Vector4 color,
 			bool callAddBillboard = true)
 		{
 			if(!Enabled) return null;
@@ -177,7 +177,7 @@ namespace LLE
 			billboard.Position1 = quad.Point1;
 			billboard.Position2 = quad.Point2;
 			billboard.Position3 = quad.Point3;
-			billboard.Color = new Vector4(color.R, color.G, color.B, color.A) / 255f; // XXXXXXXXXXXXXXX
+			billboard.Color = color;
 			billboard.ColorIntensity = 1f;
 			billboard.SoftParticleDistanceScale = 0f;
 			billboard.UVOffset = UVOffset;
