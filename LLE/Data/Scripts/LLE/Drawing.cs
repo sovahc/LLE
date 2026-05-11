@@ -10,7 +10,7 @@ using VRageMath;
 
 namespace LLE
 {
-	public class TextRendering
+	public class Drawing
 	{
 		public struct Glyph
 		{
@@ -47,7 +47,7 @@ namespace LLE
 			_cachedScaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 		}
 
-		public void DrawString(string text, Vector2D origin, float scale, Color color)
+		public void String(string text, Vector2D origin, float scale, Color color)
 		{
 			float cursorX = 0f;
 
@@ -70,7 +70,7 @@ namespace LLE
 
 				if (ch != ' ')
 				{
-					var billboard = DrawRectangle(charTopLeft, charBottomRight,
+					var billboard = Rectangle(charTopLeft, charBottomRight,
 						_atlas, glyph.offset, glyph.size, color, false);
 					_billboards.Add(billboard);
 				}
@@ -81,7 +81,7 @@ namespace LLE
 			if (_billboards.Count > 0) MyTransparentGeometry.AddBillboards(_billboards, false);
 		}
 		
-		public void DrawContour(Vector2D[] points, bool closed, float thickness, Vector4 color)
+		public void Contour(Vector2D[] points, bool closed, float thickness, Vector4 color)
 		{
 			if (points == null || points.Length < 2) return;
 			
@@ -135,7 +135,7 @@ namespace LLE
 			if (_billboards.Count > 0) MyTransparentGeometry.AddBillboards(_billboards, false);
 		}
 
-		public MyBillboard DrawRectangle(Vector2 topLeft, Vector2 bottomRight, // Screen space -1 to 1
+		public MyBillboard Rectangle(Vector2 topLeft, Vector2 bottomRight, // Screen space -1 to 1
 			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Color color,
 			bool callAddBillboard = true)
 		{
@@ -210,7 +210,7 @@ namespace LLE
 			return d;
 		}
 
-		public bool Load(string xmlPath, string atlas)
+		public bool LoadFont(string xmlPath, string atlas)
 		{
 			try
 			{

@@ -44,12 +44,12 @@ namespace LLE
 		{	_lines.Clear();			
 		}
 
-		public static void Draw(TextRendering font)
+		public static void Render(Drawing draw)
 		{
-			if (font == null || _lines.Count == 0) return;
+			if (draw == null || _lines.Count == 0) return;
 
 			float B = 0.01f;
-			font.DrawRectangle(new Vector2(-1+B, B), new Vector2(-0.5f-B, 1f-B),
+			draw.Rectangle(new Vector2(-1+B, B), new Vector2(-0.5f-B, 1f-B),
 				MyStringId.GetOrCompute("Square"),
 				Vector2.Zero, Vector2.One, textBackground);
 
@@ -60,7 +60,7 @@ namespace LLE
 			{
 				var line = _lines[_lines.Count - i - 1];
 				float y = 0.05f + i * lineStep;
-				font.DrawString(line.Text, new Vector2D(-0.99f, y), scale, line.Color);
+				draw.String(line.Text, new Vector2D(-0.99f, y), scale, line.Color);
 			}
 		}
 	}
@@ -186,7 +186,7 @@ namespace LLE
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
-		private static TextRendering _font;
+		private static Drawing draw;
 		private static SocketClient _socket = new SocketClient();
 
 		public static void Log(string s) { Utilities.Log(s); }
@@ -204,37 +204,27 @@ namespace LLE
 		{
 			Log("Init");
 
-			_font = new TextRendering();
+			draw = new Drawing();
 
-			if (!_font.Load(@"Fonts\monospace\FontDataPA.xml", "LLE_monospace2048"))
+			if (!draw.LoadFont(@"Fonts\monospace\FontDataPA.xml", "LLE_monospace2048"))
 				Log("DBG: Failed to parse font!");
 		}
 
 		public override void Draw()
 		{
-			_font?.StartFrame();
+			draw?.StartFrame();
 
-		// Test: circle around screen center
-		const int circleSegments = 32;
-		var circlePoints = new Vector2D[circleSegments];
-		for (int i = 0; i < circleSegments; i++)
-		{
-			double angle = i * Math.PI * 2.0 / circleSegments;
-			circlePoints[i] = new Vector2D(Math.Cos(angle) * 0.3, Math.Sin(angle) * 0.3);
-		}
-		_font?.DrawContour(circlePoints, true, 5e-5f, new Vector4(1, 0, 0, 1));
-
-		// Test: triangle around screen center
-		var triPoints = new[]
-		{
-			new Vector2D(0, -0.4),
-			new Vector2D(-0.35, 0.2),
-			new Vector2D(0.35, 0.2)
-		};
-		_font?.DrawContour(triPoints, true, 0.00005f, new Vector4(0, 1, 0, 1));
+			const int circleSegments = 64;
+			var circlePoints = new Vector2D[circleSegments];
+			for (int i = 0; i < circleSegments; i++)
+			{
+				double angle = i * Math.PI * 2.0 / circleSegments;
+				circlePoints[i] = new Vector2D(Math.Cos(angle) * 0.3, Math.Sin(angle) * 0.3);
+			}
+			draw?.Contour(circlePoints, true, 5e-5f, new Vector4(1, 0, 0, 1));
 
 			var lp = LLE_Loader.IsPresent();
-			_font?.DrawString("LLE_Loader.IsPresent: " + lp.ToString(),
+			draw?.String("LLE_Loader.IsPresent: " + lp.ToString(),
 				new Vector2D(0, -0.35d), 0.00075f, lp ? Color.White : Color.Red);
 
 			var player = MyAPIGateway.Session.Player;
@@ -243,7 +233,7 @@ namespace LLE
 			var p = player.Character.GetHeadMatrix(false);
 			Vision.HighlightVisible(_socket, p.Translation, p.Forward);
 
-			MyConsole.Draw(_font);
+			MyConsole.Render(draw);
 		}
 
 		public override void BeforeStart()
