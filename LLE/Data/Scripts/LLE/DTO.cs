@@ -3,6 +3,8 @@ using ProtoBuf;
 
 namespace LLE
 {
+    enum MsgType { Vision = 0, Chat = 1, Command = 2 }
+
     [ProtoContract]
     class LastKnownState
     {
@@ -21,5 +23,19 @@ namespace LLE
 
 		// Mod fields
 		public bool Changed;
+    }
+
+    [ProtoContract]
+    class ChatMessage
+    {
+        [ProtoMember(1)] public string Author;
+        [ProtoMember(2)] public string Text;
+    }
+
+    [ProtoContract]
+    class ServerCommand
+    {
+        [ProtoMember(1)] public int CommandType;
+        [ProtoMember(2)] public string Payload;
     }
 }

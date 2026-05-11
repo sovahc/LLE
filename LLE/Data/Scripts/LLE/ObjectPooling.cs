@@ -27,7 +27,7 @@ public class ObjectPooling<T> where T : class, new()
             var newSize = initialCapacity;
             while(newSize < _peakUsage) newSize <<= 1;
 
-            Utilities.Log($"ObjectPooling reallocation: index {_ringIndex} oldSize {oldSize} newSize {newSize}");
+            //Utilities.Log($"ObjectPooling reallocation: index {_ringIndex} oldSize {oldSize} newSize {newSize}");
 
             Array.Resize(ref _activeBuffer, newSize);
 

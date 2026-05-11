@@ -1,7 +1,10 @@
 using System;
+using System.IO;
 using System.Collections.Generic;
+using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
+using ProtoBuf;
 
 using VRage.Game;
 using VRage.Game.Components;
@@ -17,6 +20,18 @@ namespace LLE
 	class Utilities
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
+
+		public static void SendFrame(SocketClient sc, MsgType type, byte[] payload) {
+			if(!sc.IsConnected || payload == null) return;
+			int len = payload.Length;
+			int total = 3 + len;
+			byte[] frame = new byte[total];
+			frame[0] = (byte)(len & 0xFF);
+			frame[1] = (byte)((len >> 8) & 0xFF);
+			frame[2] = (byte)type;
+			System.Array.Copy(payload, 0, frame, 3, len);
+			sc.Send(frame, total);
+		}
 	}
 
 	class MyConsole
@@ -141,14 +156,7 @@ namespace LLE
 
 		private static void SendState(SocketClient socket, LastKnownState state)
 		{	byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(state);
-			int totalLength = 4 + payload.Length;
-			byte[] frame = new byte[totalLength];
-			frame[0] = (byte)(payload.Length & 0xFF);
-			frame[1] = (byte)((payload.Length >> 8) & 0xFF);
-			frame[2] = (byte)((payload.Length >> 16) & 0xFF);
-			frame[3] = (byte)((payload.Length >> 24) & 0xFF);
-			System.Array.Copy(payload, 0, frame, 4, payload.Length);
-			socket.Send(frame, totalLength);
+			Utilities.SendFrame(socket, MsgType.Vision, payload);
 		}
 
 		public static void Send(SocketClient sc, bool changedOnly)
@@ -167,6 +175,11 @@ namespace LLE
 		private static Drawing draw;
 		private static SocketClient _socket = new SocketClient();
 
+		private byte[] _header = new byte[3];
+		private byte[] _data = new byte[0x10000];
+		int _headerLength;
+		int _dataLength;
+
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void UpdateBeforeSimulation()
@@ -177,7 +190,55 @@ namespace LLE
 
 			if(!before && after) Vision.Send(_socket, false);
 			else if(after) Vision.Send(_socket, true);
+
+			if (after) ProcessIncoming();
 		}
+
+		void ProcessIncoming() {
+			
+			int need = _header.Length;
+
+			if(_headerLength < need)
+			{	var r = _socket.Receive(_header, _headerLength, need-_headerLength);
+				if(r <= 0) return;
+				_headerLength += r;
+			}
+			if(_headerLength < need) return;
+			if(_headerLength != need) throw new Exception("code bug");
+
+			need = _header[0] | (_header[1] << 8);
+			
+			if(_dataLength < need)
+			{	var r = _socket.Receive(_data, _dataLength, need-_dataLength);
+				if(r <= 0) return;
+				_dataLength += r;				
+			}
+
+			if(_dataLength < need) return;
+			if(_dataLength != need) throw new Exception("code bug");
+			
+			byte[] payload = new byte[_dataLength];
+			Array.Copy(_data, 0, payload, 0, _dataLength);
+			HandleMessage(payload);
+
+			_headerLength = _dataLength = 0;
+		}
+
+		void HandleMessage(byte[] data)
+		{
+			int messageType = _header[2];
+			
+			if(messageType == (int)MsgType.Command)
+			{	
+				ServerCommand c = MyAPIGateway.Utilities.SerializeFromBinary<ServerCommand>(data);
+
+				MyVisualScriptLogicProvider.SendChatMessage(c.Payload, "LLM", font: "Blue");
+			}
+			else
+			{	Log($"Error: unknown message type {messageType}");
+			}
+		}
+
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
 			Log("Init");
@@ -206,15 +267,27 @@ namespace LLE
 		}
 
 		public override void BeforeStart()
-    	{	MyEntities.OnEntityAdd += OnEntityAdd;
+		{	MyEntities.OnEntityAdd += OnEntityAdd;
+			MyAPIGateway.Utilities.MessageEntered += OnChatMessage;
 		}
 
 		protected override void UnloadData()
 		{	MyEntities.OnEntityAdd -= OnEntityAdd;
+			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
 
 		void OnEntityAdd(IMyEntity entity)
 		{	entity.OnClose += Vision.OnClose;
+		}
+
+		void OnChatMessage(string message, ref bool sendToOthers) {
+			if(!_socket.IsConnected) return;
+			var player = MyAPIGateway.Session.Player;
+			if(player == null) return;
+			
+			var msg = new ChatMessage { Author = player.DisplayName, Text = message };
+			byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(msg);
+			Utilities.SendFrame(_socket, MsgType.Chat, payload);
 		}
 	}
 
@@ -225,7 +298,7 @@ namespace LLE
 		public static bool Connect() => false;
 		public static void Disconnect() { }
 		public static bool Send(byte[] data, int length) => false;
-		public static int Receive(byte[] buffer, int maxLength) => 0;
+		public static int Receive(byte[] buffer, int offset, int maxLength) => 0;
 	}
 
 	class SocketClient
@@ -257,7 +330,7 @@ namespace LLE
 			if (IsConnected)
 			{
 				// Check if socket is still alive by attempting a non-blocking receive probe
-				int bytes = LLE_Loader.Receive(null, 0);
+				int bytes = LLE_Loader.Receive(null, 0, 0);
 				if (bytes < 0) HandleDisconnect();
 			}
 		}
@@ -270,12 +343,13 @@ namespace LLE
 			return ok;
 		}
 
-		public int Receive(byte[] buffer, int maxLength)
+		public int Receive(byte[] buffer, int offset, int maxLength)
 		{
 			if (!IsConnected || buffer == null) return 0;
-			int bytes = LLE_Loader.Receive(buffer, maxLength);
+			int bytes = LLE_Loader.Receive(buffer, offset, maxLength);
 			if (bytes < 0) HandleDisconnect();
-			return Math.Max(0, bytes);
+			if (bytes > 0) Utilities.Log($"Receive {bytes}");
+			return bytes;
 		}
 
 		private void HandleDisconnect()

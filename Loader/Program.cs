@@ -8,6 +8,7 @@ using Sandbox.Engine.Utils;
 using SpaceEngineers;
 using VRage.FileSystem;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 
 namespace LLELoader
 {
@@ -103,7 +104,7 @@ namespace LLELoader
             }
         }
 
-        public static int Receive(byte[] buffer, int maxLength)
+        public static int Receive(byte[] buffer, int offset, int maxLength)
         {
             try
             {
@@ -122,7 +123,7 @@ namespace LLELoader
 
                 if (!_stream.DataAvailable) return 0;
 
-                int read = _stream.Read(buffer, 0, maxLength);
+                int read = _stream.Read(buffer, offset, maxLength);
                 return read >= 0 ? read : -1;
             }
             catch (Exception ex)
@@ -242,9 +243,9 @@ namespace LLELoader
             return false;
         }
 
-        static bool Prefix_Receive(byte[] buffer, int maxLength, ref int __result)
+        static bool Prefix_Receive(byte[] buffer, int offset, int maxLength, ref int __result)
         {
-            __result = SocketImpl.Receive(buffer, maxLength);
+            __result = SocketImpl.Receive(buffer, offset, maxLength);
             return false;
         }
     }
