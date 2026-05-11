@@ -21,16 +21,15 @@ namespace LLE
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
-		public static void SendFrame(SocketClient sc, MsgType type, byte[] payload) {
-			if(!sc.IsConnected || payload == null) return;
+		public static void SendFrame(MsgType type, byte[] payload) {
+			if(!LLE_Loader.IsConnected() || payload == null) return;
 			int len = payload.Length;
-			int total = 3 + len;
-			byte[] frame = new byte[total];
+			byte[] frame = new byte[3 + len];
 			frame[0] = (byte)(len & 0xFF);
 			frame[1] = (byte)((len >> 8) & 0xFF);
 			frame[2] = (byte)type;
 			System.Array.Copy(payload, 0, frame, 3, len);
-			sc.Send(frame, total);
+			LLE_Loader.Send(frame, frame.Length);
 		}
 	}
 
@@ -98,7 +97,7 @@ namespace LLE
 		{	return (e.GetPosition() - new Vector3(s.X, s.Y, s.Z)).LengthSquared();
 		}
 
-		public static void HighlightVisible(Drawing draw, SocketClient socket, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
+		public static void HighlightVisible(Drawing draw, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
 
@@ -151,20 +150,15 @@ namespace LLE
 
 		public static void OnClose(IMyEntity e)
 		{	MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Color.Blue);
-			//SendState(socket, state); ///////////////////////
 		}
 
-		private static void SendState(SocketClient socket, LastKnownState state)
-		{	byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(state);
-			Utilities.SendFrame(socket, MsgType.Vision, payload);
-		}
-
-		public static void Send(SocketClient sc, bool changedOnly)
+		public static void Send(bool changedOnly)
 		{	foreach(var state in lks.Values)
 			{	if(changedOnly && !state.Changed) continue;
 				state.Changed = false;
 
-				SendState(sc, state);
+				byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(state);
+				Utilities.SendFrame(MsgType.Vision, payload);
 			}
 		}
 	}
@@ -173,23 +167,22 @@ namespace LLE
 	public class LLE : MySessionComponentBase
 	{
 		private static Drawing draw;
-		private static SocketClient _socket = new SocketClient();
 
-		private byte[] _header = new byte[3];
-		private byte[] _data = new byte[0x10000];
-		int _headerLength;
-		int _dataLength;
+		private static byte[] _header = new byte[3];
+		private static byte[] _data = new byte[0x10000];
+		private static int _headerLength;
+		private static int _dataLength;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void UpdateBeforeSimulation()
 		{
-			bool before = _socket.IsConnected;
-			_socket.Update();
-			bool after = _socket.IsConnected;
+			bool before = LLE_Loader.IsConnected();
+			LLE_Loader.Update();
+			bool after = LLE_Loader.IsConnected();
 
-			if(!before && after) Vision.Send(_socket, false);
-			else if(after) Vision.Send(_socket, true);
+			if(!before && after) Vision.Send(false);
+			else if(after) Vision.Send(true);
 
 			if (after) ProcessIncoming();
 		}
@@ -199,7 +192,7 @@ namespace LLE
 			int need = _header.Length;
 
 			if(_headerLength < need)
-			{	var r = _socket.Receive(_header, _headerLength, need-_headerLength);
+			{	var r = LLE_Loader.Receive(_header, _headerLength, need-_headerLength);
 				if(r <= 0) return;
 				_headerLength += r;
 			}
@@ -208,7 +201,7 @@ namespace LLE
 			need = _header[0] | (_header[1] << 8);
 			
 			if(_dataLength < need)
-			{	var r = _socket.Receive(_data, _dataLength, need-_dataLength);
+			{	var r = LLE_Loader.Receive(_data, _dataLength, need-_dataLength);
 				if(r <= 0) return;
 				_dataLength += r;				
 			}
@@ -258,7 +251,7 @@ namespace LLE
 			if (player == null || player.Character == null) return;
 
 			var p = player.Character.GetHeadMatrix(false);
-			Vision.HighlightVisible(draw, _socket, p.Translation, p.Forward);
+			Vision.HighlightVisible(draw, p.Translation, p.Forward);
 
 			MyConsole.Render(draw);
 		}
@@ -278,13 +271,13 @@ namespace LLE
 		}
 
 		void OnChatMessage(string message, ref bool sendToOthers)
-		{	if(!_socket.IsConnected) return;
+		{	if(!LLE_Loader.IsConnected()) return;
 			var player = MyAPIGateway.Session.Player;
 			if(player == null) return;
 			
 			var msg = new ChatMessage { Author = player.DisplayName, Text = message };
 			byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(msg);
-			Utilities.SendFrame(_socket, MsgType.Chat, payload);
+			Utilities.SendFrame(MsgType.Chat, payload);
 		}
 	}
 
@@ -292,75 +285,9 @@ namespace LLE
 	{
 		public static bool IsPresent() => false;
 
-		public static bool Connect() => false;
-		public static void Disconnect() { }
+		public static void Update() { }
 		public static bool Send(byte[] data, int length) => false;
 		public static int Receive(byte[] buffer, int offset, int maxLength) => 0;
 		public static bool IsConnected() => false;
-	}
-
-	class SocketClient
-	{
-		private double _nextReconnectTime;
-		private float _reconnectDelay = 0.5f;
-		private const float MaxReconnectDelay = 10f;
-
-		double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds;
-
-		public bool IsConnected => LLE_Loader.IsConnected();
-
-		public void Update()
-		{
-			if (!IsConnected && Now >= _nextReconnectTime)
-			{
-				LLE.Log("SocketClient: connecting...");
-
-				LLE_Loader.Connect();
-				if (IsConnected)
-				{	LLE.Log("SocketClient: connected");
-					ResetBackoff();
-				}
-				else
-				{	IncreaseBackoff();
-				}
-			}
-		}
-
-		public bool Send(byte[] data, int length)
-		{
-			if (!IsConnected) return false;
-			bool ok = LLE_Loader.Send(data, length);
-			if (!ok) HandleDisconnect();
-			return ok;
-		}
-
-		public int Receive(byte[] buffer, int offset, int maxLength)
-		{
-			if (!IsConnected || buffer == null) return 0;
-			int bytes = LLE_Loader.Receive(buffer, offset, maxLength);
-			if (bytes < 0) HandleDisconnect();
-			if (bytes > 0) Utilities.Log($"Receive {bytes}");
-			return bytes;
-		}
-
-		private void HandleDisconnect()
-		{
-			LLE.Log("SocketClient: disconnect");
-
-			LLE_Loader.Disconnect();
-			
-			IncreaseBackoff();
-		}
-
-		public void IncreaseBackoff()
-		{
-			_nextReconnectTime = Now + _reconnectDelay;
-			_reconnectDelay = Math.Min(_reconnectDelay * 2, MaxReconnectDelay);
-		}
-
-		public void ResetBackoff()
-		{
-			_reconnectDelay = 0.5f;
-		}
 	}
 }

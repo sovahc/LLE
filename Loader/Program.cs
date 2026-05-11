@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Diagnostics;
 using HarmonyLib;
 using Sandbox.Engine.Utils;
 using SpaceEngineers;
@@ -52,40 +53,44 @@ namespace LLELoader
         private static TcpClient _client;
         private static NetworkStream _stream;
 
-        public static bool Connect()
+        private static readonly Stopwatch _clock = Stopwatch.StartNew();
+        private static double _nextReconnectTime;
+        private static float _reconnectDelay = 0.5f;
+        private const float MaxReconnectDelay = 10f;
+
+        private static double Now => _clock.Elapsed.TotalSeconds;
+
+        public static void Update()
+        {
+            if (!IsConnected() && Now >= _nextReconnectTime)
+            {
+                if (TryConnect()) ResetBackoff();
+                else IncreaseBackoff();
+            }
+        }
+
+        private static bool TryConnect()
         {
             try
             {
-                if (_client != null && _client.Connected) return true;
-
-                Disconnect();
-
+                CloseInternal();
                 _client = new TcpClient(Host, Port);
                 _client.NoDelay = true;
                 _stream = _client.GetStream();
-
-                Logger.Write("[SocketImpl] Connected to " + Host + ":" + Port);
+                Logger.Write("[SocketImpl] Connected");
                 return true;
             }
             catch (Exception ex)
             {
                 Logger.Write("[SocketImpl] Connect failed: " + ex.Message);
-                Disconnect();
                 return false;
             }
         }
 
-        public static void Disconnect()
+        private static void CloseInternal()
         {
-            try
-            {
-                if (_stream != null) { _stream.Close(); _stream = null; }
-                if (_client != null) { _client.Close(); _client = null; }
-            }
-            catch (Exception ex)
-            {
-                Logger.Write("[SocketImpl] Disconnect error: " + ex.Message);
-            }
+            try { _stream?.Close(); _client?.Close(); } catch {}
+            _stream = null; _client = null;
         }
 
         public static bool Send(byte[] data, int length)
@@ -96,12 +101,7 @@ namespace LLELoader
                 _stream.Write(data, 0, length);
                 return true;
             }
-            catch (Exception ex)
-            {
-                Logger.Write("[SocketImpl] Send failed: " + ex.Message);
-                Disconnect();
-                return false;
-            }
+            catch { HandleDisconnect(); return false; }
         }
 
         public static int Receive(byte[] buffer, int offset, int maxLength)
@@ -109,39 +109,29 @@ namespace LLELoader
             try
             {
                 if (_stream == null) return -1;
-
-                // Probe mode — check connectivity without consuming data
-                if (buffer == null || maxLength == 0)
-                {
-                    if (!_client.Connected)
-                    {
-                        Disconnect();
-                        return -1;
-                    }
-                    return _stream.DataAvailable ? 1 : 0;
-                }
-
                 if (!_stream.DataAvailable) return 0;
-
                 int read = _stream.Read(buffer, offset, maxLength);
                 return read >= 0 ? read : -1;
             }
-            catch (Exception ex)
-            {
-                Logger.Write("[SocketImpl] Receive failed: " + ex.Message);
-                Disconnect();
-                return -1;
-            }
+            catch { HandleDisconnect(); return -1; }
         }
 
-        public static bool IsConnected()
+        public static bool IsConnected() => _client != null && _client.Connected;
+
+        private static void HandleDisconnect()
         {
-            try
-            {
-                return _client != null && _client.Connected;
-            }
-            catch { return false; }
+            Logger.Write("[SocketImpl] Disconnect");
+            CloseInternal();
+            IncreaseBackoff();
         }
+
+        private static void IncreaseBackoff()
+        {
+            _nextReconnectTime = Now + _reconnectDelay;
+            _reconnectDelay = Math.Min(_reconnectDelay * 2, MaxReconnectDelay);
+        }
+
+        private static void ResetBackoff() => _reconnectDelay = 0.5f;
     }
 
     [HarmonyPatchCategory("Early")]
@@ -167,7 +157,7 @@ namespace LLELoader
     [HarmonyPatchCategory("Late")]
     static class Patch_ScriptManagerLoadData
     {
-        private static readonly string[] BridgeMethods = { "IsPresent", "Connect", "Disconnect", "Send", "Receive", "IsConnected" };
+        private static readonly string[] BridgeMethods = { "IsPresent", "Update", "Send", "Receive", "IsConnected" };
         private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
         [HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -200,8 +190,7 @@ namespace LLELoader
                             switch (methodName)
                             {
                                 case "IsPresent":    prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsPresent)); break;
-                                case "Connect":      prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Connect)); break;
-                                case "Disconnect":   prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Disconnect)); break;
+                                case "Update":      prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Update)); break;
                                 case "Send":         prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Send)); break;
                                 case "Receive":      prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Receive)); break;
                                 case "IsConnected":  prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsConnected)); break;
@@ -229,21 +218,15 @@ namespace LLELoader
         }
 
         // Prefix patches — intercept calls before stubs execute, set __result, return false to skip original
+        static bool Prefix_Update()
+        {
+            SocketImpl.Update();
+            return false;
+        }
+
         static bool Prefix_IsPresent(ref bool __result)
         {
             __result = LoaderImpl.IsPresent();
-            return false;
-        }
-
-        static bool Prefix_Connect(ref bool __result)
-        {
-            __result = SocketImpl.Connect();
-            return false;
-        }
-
-        static bool Prefix_Disconnect()
-        {
-            SocketImpl.Disconnect();
             return false;
         }
 
