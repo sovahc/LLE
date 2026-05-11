@@ -1,6 +1,6 @@
 using System;
-using LLE;
 
+namespace LLE {
 public class ObjectPooling<T> where T : class, new()
 {
     private const int BufferCount = 4;
@@ -64,4 +64,5 @@ public class ObjectPooling<T> where T : class, new()
 
         return item;
     }
+}
 }

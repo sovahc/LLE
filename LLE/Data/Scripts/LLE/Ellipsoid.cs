@@ -2,6 +2,7 @@ using VRageMath;
 using System.Collections.Generic;
 using System;
 
+namespace LLE {
 public static class Ellipsoid
 {
     public static bool RayIntersectsEllipsoid(Vector3D rayOrigin, Vector3D rayDir, MatrixD worldMatrix, BoundingBoxD localBB)
@@ -87,4 +88,5 @@ public static class Ellipsoid
             result.Add(new Vector2((float)(center.X + rx), (float)(center.Y + ry)));
         }
     }
+}
 }
