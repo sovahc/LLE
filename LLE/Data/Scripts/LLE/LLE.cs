@@ -18,6 +18,10 @@ using static VRageRender.MyBillboard;
 
 namespace LLE
 {
+	class Utilities
+	{
+		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
+	}
 
 	class MyConsole
 	{
@@ -178,11 +182,6 @@ namespace LLE
 		}
 	}
 
-	class Utilities
-	{
-		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
-	}
-
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
@@ -207,12 +206,12 @@ namespace LLE
 			draw = new Drawing();
 
 			if (!draw.LoadFont(@"Fonts\monospace\FontDataPA.xml", "LLE_monospace2048"))
-				Log("DBG: Failed to parse font!");
+				Log("ERROR: Failed to parse font!");
 		}
 
 		public override void Draw()
 		{
-			draw?.StartFrame();
+			draw.StartFrame();
 
 			const int circleSegments = 64;
 			var circlePoints = new Vector2D[circleSegments];
@@ -221,10 +220,10 @@ namespace LLE
 				double angle = i * Math.PI * 2.0 / circleSegments;
 				circlePoints[i] = new Vector2D(Math.Cos(angle) * 0.3, Math.Sin(angle) * 0.3);
 			}
-			draw?.Contour(circlePoints, true, 5e-5f, new Vector4(1, 0, 0, 1));
+			draw.Contour(circlePoints, true, 5e-5f, new Vector4(1, 0, 0, 1));
 
 			var lp = LLE_Loader.IsPresent();
-			draw?.String("LLE_Loader.IsPresent: " + lp.ToString(),
+			draw.String("LLE_Loader.IsPresent: " + lp.ToString(),
 				new Vector2D(0, -0.35d), 0.00075f, lp ? Color.White : Color.Red);
 
 			var player = MyAPIGateway.Session.Player;

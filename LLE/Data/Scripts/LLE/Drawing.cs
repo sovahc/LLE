@@ -33,10 +33,16 @@ namespace LLE
 		private MatrixD _cachedViewProjInv;
 		private float _cachedScaleFov, _cachedAspectRatio;
 
+		private bool Enabled;
+
 		public void StartFrame()
 		{
 			var camera = MyAPIGateway.Session.Camera;
-			if (camera == null) return;
+			if (camera == null)
+			{	Enabled = false;
+				return;
+			}
+			Enabled = true;
 
 			_pool.StartFrame();
 
@@ -49,6 +55,8 @@ namespace LLE
 
 		public void String(string text, Vector2D origin, float scale, Color color)
 		{
+			if(!Enabled) return;
+
 			float cursorX = 0f;
 
 			_billboards.Clear();
@@ -83,6 +91,7 @@ namespace LLE
 		
 		public void Contour(Vector2D[] points, bool closed, float thickness, Vector4 color)
 		{
+			if(!Enabled) return;
 			if (points == null || points.Length < 2) return;
 			
 			var camera = MyAPIGateway.Session.Camera;
@@ -139,6 +148,8 @@ namespace LLE
 			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Color color,
 			bool callAddBillboard = true)
 		{
+			if(!Enabled) return null;
+
 			var billboard = _pool.Get();
 			Vector2 center = new Vector2((topLeft.X + bottomRight.X) / 2f, (topLeft.Y + bottomRight.Y) / 2f);
 			Vector2 size   = new Vector2(bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
