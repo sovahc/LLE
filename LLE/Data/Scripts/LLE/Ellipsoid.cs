@@ -2,7 +2,7 @@ using VRageMath;
 using System.Collections.Generic;
 using System;
 
-public static class EllipsoidProjector
+public static class Ellipsoid
 {
     public static List<Vector2> ProjectEllipsoid(Vector3D center, Vector3D axisU, Vector3D axisV, Vector3D axisW, MatrixD viewMatrix, int segments = 32)
     {
