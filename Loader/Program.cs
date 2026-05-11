@@ -133,6 +133,15 @@ namespace LLELoader
                 return -1;
             }
         }
+
+        public static bool IsConnected()
+        {
+            try
+            {
+                return _client != null && _client.Connected;
+            }
+            catch { return false; }
+        }
     }
 
     [HarmonyPatchCategory("Early")]
@@ -158,7 +167,7 @@ namespace LLELoader
     [HarmonyPatchCategory("Late")]
     static class Patch_ScriptManagerLoadData
     {
-        private static readonly string[] BridgeMethods = { "IsPresent", "Connect", "Disconnect", "Send", "Receive" };
+        private static readonly string[] BridgeMethods = { "IsPresent", "Connect", "Disconnect", "Send", "Receive", "IsConnected" };
         private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
         [HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -195,6 +204,7 @@ namespace LLELoader
                                 case "Disconnect":   prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Disconnect)); break;
                                 case "Send":         prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Send)); break;
                                 case "Receive":      prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Receive)); break;
+                                case "IsConnected":  prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsConnected)); break;
                                 default:             continue;
                             }
 
@@ -246,6 +256,12 @@ namespace LLELoader
         static bool Prefix_Receive(byte[] buffer, int offset, int maxLength, ref int __result)
         {
             __result = SocketImpl.Receive(buffer, offset, maxLength);
+            return false;
+        }
+
+        static bool Prefix_IsConnected(ref bool __result)
+        {
+            __result = SocketImpl.IsConnected();
             return false;
         }
     }

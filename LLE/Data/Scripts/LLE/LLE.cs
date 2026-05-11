@@ -212,7 +212,6 @@ namespace LLE
 				if(r <= 0) return;
 				_dataLength += r;				
 			}
-
 			if(_dataLength < need) return;
 			
 			byte[] payload = new byte[_dataLength];
@@ -278,8 +277,8 @@ namespace LLE
 		{	entity.OnClose += Vision.OnClose;
 		}
 
-		void OnChatMessage(string message, ref bool sendToOthers) {
-			if(!_socket.IsConnected) return;
+		void OnChatMessage(string message, ref bool sendToOthers)
+		{	if(!_socket.IsConnected) return;
 			var player = MyAPIGateway.Session.Player;
 			if(player == null) return;
 			
@@ -297,6 +296,7 @@ namespace LLE
 		public static void Disconnect() { }
 		public static bool Send(byte[] data, int length) => false;
 		public static int Receive(byte[] buffer, int offset, int maxLength) => 0;
+		public static bool IsConnected() => false;
 	}
 
 	class SocketClient
@@ -305,9 +305,9 @@ namespace LLE
 		private float _reconnectDelay = 0.5f;
 		private const float MaxReconnectDelay = 10f;
 
-		public bool IsConnected = false;
-
 		double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds;
+
+		public bool IsConnected => LLE_Loader.IsConnected();
 
 		public void Update()
 		{
@@ -315,7 +315,7 @@ namespace LLE
 			{
 				LLE.Log("SocketClient: connecting...");
 
-				IsConnected = LLE_Loader.Connect();
+				LLE_Loader.Connect();
 				if (IsConnected)
 				{	LLE.Log("SocketClient: connected");
 					ResetBackoff();
@@ -323,13 +323,6 @@ namespace LLE
 				else
 				{	IncreaseBackoff();
 				}
-			}
-
-			if (IsConnected)
-			{
-				// Check if socket is still alive by attempting a non-blocking receive probe
-				int bytes = LLE_Loader.Receive(null, 0, 0);
-				if (bytes < 0) HandleDisconnect();
 			}
 		}
 
@@ -355,7 +348,6 @@ namespace LLE
 			LLE.Log("SocketClient: disconnect");
 
 			LLE_Loader.Disconnect();
-			IsConnected = false;
 			
 			IncreaseBackoff();
 		}
