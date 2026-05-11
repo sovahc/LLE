@@ -318,21 +318,17 @@ namespace LLE
 		{
 			if (!Enabled) return;
 
-
 			Vector3D centerLocal = (localBB.Min + localBB.Max) * 0.5;
 			Vector3D extents = (localBB.Max - localBB.Min) * 0.5;
-
 
 			Vector3D localX = new Vector3D(extents.X, 0, 0);
 			Vector3D localY = new Vector3D(0, extents.Y, 0);
 			Vector3D localZ = new Vector3D(0, 0, extents.Z);
 
-
 			const int segments = 64;
 			Vector2D[] screenPoints = new Vector2D[segments];
 			Vector4 c = new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
 			float thickness = 5e-5f;
-
 
 			for (int ring = 0; ring < 3; ring++)
 			{
