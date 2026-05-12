@@ -168,8 +168,8 @@ namespace LLE
 	{
 		private static Drawing draw;
 
-		private static byte[] _header = new byte[3];
-		private static byte[] _data = new byte[0x10000];
+		private static readonly byte[] _header = new byte[3];
+		private static byte[] _data;
 		private static int _headerLength;
 		private static int _dataLength;
 
@@ -199,6 +199,8 @@ namespace LLE
 			if(_headerLength < need) return;
 
 			need = _header[0] | (_header[1] << 8);
+
+			if(_data == null) _data = new byte[need];
 			
 			if(_dataLength < need)
 			{	var r = LLE_Loader.Receive(_data, _dataLength, need-_dataLength);
@@ -207,20 +209,19 @@ namespace LLE
 			}
 			if(_dataLength < need) return;
 			
-			byte[] payload = new byte[_dataLength];
-			Array.Copy(_data, 0, payload, 0, _dataLength);
-			HandleMessage(payload);
+			HandleMessage();
 
 			_headerLength = _dataLength = 0;
+			_data = null;
 		}
 
-		void HandleMessage(byte[] data)
+		void HandleMessage()
 		{
 			int messageType = _header[2];
 			
 			if(messageType == (int)MsgType.Command)
 			{	
-				ServerCommand c = MyAPIGateway.Utilities.SerializeFromBinary<ServerCommand>(data);
+				ServerCommand c = MyAPIGateway.Utilities.SerializeFromBinary<ServerCommand>(_data);
 
 				MyVisualScriptLogicProvider.SendChatMessage(c.Payload, "LLM", font: "Blue");
 			}
