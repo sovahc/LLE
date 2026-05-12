@@ -110,7 +110,7 @@ namespace LLE
 				var grid = entity as IMyCubeGrid;
 				if (grid != null)
 				{
-					bool intersects = Ellipsoid.RayIntersectsEllipsoid(rayOrigin, rayDir, grid.WorldMatrix, grid.PositionComp.LocalAABB);
+					bool intersects = RayIntersectsEllipsoid(rayOrigin, rayDir, grid.WorldMatrix, grid.PositionComp.LocalAABB);
 					Drawing.AABB(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Magenta : Color.Red);
 				}
 
@@ -121,7 +121,7 @@ namespace LLE
 
 					var size = voxel.SizeInMetres;
 					var box = new BoundingBoxD(-size/2, size/2);
-					bool intersects = Ellipsoid.RayIntersectsEllipsoid(rayOrigin, rayDir, voxel.WorldMatrix, box);
+					bool intersects = RayIntersectsEllipsoid(rayOrigin, rayDir, voxel.WorldMatrix, box);
 					Drawing.AABB(voxel.WorldMatrix, box, intersects ? Color.Magenta : Color.Yellow);
 				}
 
@@ -188,6 +188,29 @@ namespace LLE
 		{
 			if (lks.ContainsKey(grid.EntityId))
 				lks[grid.EntityId].Changed = true;
+		}
+
+		public static bool RayIntersectsEllipsoid(Vector3D rayOrigin, Vector3D rayDir, MatrixD worldMatrix, BoundingBoxD localBB)
+		{
+			var center = (localBB.Min + localBB.Max) * 0.5;
+			var radii = (localBB.Max - localBB.Min) * 0.5;
+
+			if (radii.LengthSquared() == 0) return false;
+
+			MatrixD invWorld;
+			MatrixD.Invert(ref worldMatrix, out invWorld);
+
+			var localOrigin = Vector3D.Transform(rayOrigin, ref invWorld);
+			var localDir = Vector3D.TransformNormal(rayDir, ref invWorld);
+
+			var E = (localOrigin - center) / radii;
+			var D = localDir / radii;
+
+			double a = D.Dot(D);
+			double b = 2.0 * E.Dot(D);
+			double c = E.Dot(E) - 1.0;
+
+			return b * b - 4.0 * a * c >= 0;
 		}
 	}
 
