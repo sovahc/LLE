@@ -34,6 +34,7 @@ namespace LLE.Server
         {
             var stream = client.GetStream();
             var chatBuffer = new Queue<string>();
+            var writeLock = new object();
 
             try
             {
@@ -68,13 +69,7 @@ namespace LLE.Server
                             if (chatBuffer.Count > 50) chatBuffer.Dequeue();
 
                             string context = "\n" + string.Join("\n", chatBuffer);
-                            string llmReply = await AskLlm(context);
-                            Console.WriteLine($"[LLM] {llmReply}");
-
-                            SendFrame(stream, 2, new LLE.ServerCommand {
-                                CommandType = 0,
-                                Payload = llmReply
-                            });
+                            var _ = RespondToChatAsync(stream, writeLock, context);
                             break;
                     }
                 }
@@ -87,6 +82,19 @@ namespace LLE.Server
             {
                 client.Close();
             }
+        }
+
+        static async Task RespondToChatAsync(NetworkStream stream, object writeLock, string context)
+        {
+            try
+            {
+                string llmReply = await AskLlm(context);
+                if (string.IsNullOrEmpty(llmReply)) return;
+                Console.WriteLine($"[LLM] {llmReply}");
+                var cmd = new LLE.ServerCommand { CommandType = 0, Payload = llmReply };
+                lock (writeLock) { SendFrame(stream, 2, cmd); }
+            }
+            catch (Exception ex) { Console.WriteLine("[LLM] error: " + ex.Message); }
         }
 
 	static async Task<string> AskLlm(string chatContext)

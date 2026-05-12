@@ -76,6 +76,10 @@ namespace LLELoader
                 CloseInternal();
                 _client = new TcpClient(Host, Port);
                 _client.NoDelay = true;
+                _client.SendBufferSize = 256 * 1024;
+                _client.SendTimeout = 100;
+                _client.ReceiveTimeout = 100;
+                _client.LingerState = new LingerOption(true, 0);
                 _stream = _client.GetStream();
                 Logger.Write("[SocketImpl] Connected");
                 return true;
@@ -101,7 +105,13 @@ namespace LLELoader
                 _stream.Write(data, 0, length);
                 return true;
             }
-            catch { Disconnect(); return false; }
+            catch (Exception ex)
+            {   Logger.Write("[SocketImpl] Send failed: " + ex.Message);
+                Disconnect();
+                _reconnectDelay = 5f;
+                _nextReconnectTime = Now + _reconnectDelay;
+                return false;
+            }
         }
 
         public static int Receive(byte[] buffer, int offset, int maxLength)
