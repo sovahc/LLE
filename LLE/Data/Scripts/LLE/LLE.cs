@@ -104,7 +104,7 @@ namespace LLE
 
 	class Vision
 	{
-		private static readonly Random random = new Random();
+		private static Random random = new Random();
 
 		private static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
 		private const double minimalPositionDelta = 0.05;
@@ -125,6 +125,8 @@ namespace LLE
 
 		public static void HighlightVisible(Drawing draw, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
 		{
+			random = new Random((int)Math.Floor(Time.Now));
+
 			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
 
 			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
