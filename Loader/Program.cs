@@ -48,7 +48,7 @@ namespace LLELoader
     static class SocketImpl
     {
         private const string Host = "127.0.0.1";
-        private const int Port = 8080;
+        private const int Port = 8081;
 
         private static TcpClient _client;
         private static NetworkStream _stream;
