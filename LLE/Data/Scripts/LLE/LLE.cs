@@ -149,7 +149,8 @@ namespace LLE
 		}
 
 		public static void OnClose(IMyEntity e)
-		{	MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Color.Blue);
+		{	lks.Remove(e.EntityId);
+			MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Color.Blue);
 		}
 
 		public static void Send(bool changedOnly)
@@ -280,7 +281,13 @@ namespace LLE
 		}
 
 		public override void BeforeStart()
-		{	MyEntities.OnEntityAdd += OnEntityAdd;
+		{	
+			var entities = new HashSet<IMyEntity>();
+			MyAPIGateway.Entities.GetEntities(entities);
+
+			foreach (var e in entities) OnEntityAdd(e);
+
+			MyEntities.OnEntityAdd += OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered += OnChatMessage;
 		}
 
