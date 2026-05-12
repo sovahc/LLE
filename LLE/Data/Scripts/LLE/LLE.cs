@@ -149,7 +149,16 @@ namespace LLE
 		}
 
 		public static void OnClose(IMyEntity e)
-		{	lks.Remove(e.EntityId);
+		{
+			var grid = e as IMyCubeGrid;
+			if (grid != null)
+			{
+				grid.OnBlockAdded -= Vision.Grid_OnBlockAdded;
+				grid.OnBlockRemoved -= Vision.Grid_OnBlockRemoved;
+				grid.OnGridChanged -= Vision.Grid_OnGridChanged;
+			}
+
+			lks.Remove(e.EntityId);
 			MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Color.Blue);
 		}
 
@@ -161,6 +170,26 @@ namespace LLE
 				byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(state);
 				Utilities.SendFrame(MsgType.Vision, payload);
 			}
+		}
+
+		public static void Grid_OnBlockAdded(IMySlimBlock block)
+		{
+			var grid = block.CubeGrid;
+			if (grid != null && lks.ContainsKey(grid.EntityId))
+				lks[grid.EntityId].Changed = true;
+		}
+
+		public static void Grid_OnBlockRemoved(IMySlimBlock block)
+		{
+			var grid = block.CubeGrid;
+			if (grid != null && lks.ContainsKey(grid.EntityId))
+				lks[grid.EntityId].Changed = true;
+		}
+
+		public static void Grid_OnGridChanged(IMyCubeGrid grid)
+		{
+			if (lks.ContainsKey(grid.EntityId))
+				lks[grid.EntityId].Changed = true;
 		}
 	}
 
@@ -297,7 +326,16 @@ namespace LLE
 		}
 
 		void OnEntityAdd(IMyEntity entity)
-		{	entity.OnClose += Vision.OnClose;
+		{
+			entity.OnClose += Vision.OnClose;
+
+			var grid = entity as IMyCubeGrid;
+			if (grid != null)
+			{
+				grid.OnBlockAdded += Vision.Grid_OnBlockAdded;
+				grid.OnBlockRemoved += Vision.Grid_OnBlockRemoved;
+				grid.OnGridChanged += Vision.Grid_OnGridChanged;
+			}
 		}
 
 		void OnChatMessage(string message, ref bool sendToOthers)
