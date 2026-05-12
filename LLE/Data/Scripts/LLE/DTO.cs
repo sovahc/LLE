@@ -1,20 +1,23 @@
-using System.Dynamic;
 using ProtoBuf;
 
 namespace LLE
 {
-    enum MsgType { Vision = 0, Chat = 1, Command = 2 }
+    enum MsgType { Vision, Chat, Command }
+
+    enum ObjectType { Asteroid, LargeShip, SmallShip, Floating }
 
     [ProtoContract]
     class LastKnownState
     {
         [ProtoMember(1)]
-        public string DisplayName;
+        public ObjectType Type;
         [ProtoMember(2)]
-        public double X;
+        public string DisplayName;
         [ProtoMember(3)]
-        public double Y;
+        public double X;
         [ProtoMember(4)]
+        public double Y;
+        [ProtoMember(5)]
         public double Z;
 
 		public string Position()

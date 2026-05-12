@@ -94,7 +94,7 @@ namespace LLE
 			for (int i = 0; i < _lines.Count; ++i)
 			{
 				var line = _lines[_lines.Count - i - 1];
-				float y = -0.6f + i * lineStep;
+				float y = -0.45f + i * lineStep;
 				draw.String(line.Text, new Vector2D(-0.99f, y), scale, line.Color);
 			}
 		}
@@ -113,12 +113,14 @@ namespace LLE
 		{	return (e.GetPosition() - new Vector3(s.X, s.Y, s.Z)).LengthSquared();
 		}
 
-		private static void SetLKS(IMyEntity entity, bool isVisible)
+		private static void SetLKS(IMyEntity entity, ObjectType type, bool isVisible)
 		{
 			LastKnownState state;
 			if(!lks.TryGetValue(entity.EntityId, out state))
 			{
 				state = new LastKnownState();
+
+				state.Type = type;
 				state.DisplayName = entity.DisplayName;
 				var p = entity.GetPosition();
 				state.X = p.X;
@@ -155,6 +157,8 @@ namespace LLE
 
 			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
 
+			int raycasts = 0;
+
 			foreach (IMyEntity entity in candidates)
 			{
 				if(entity.Closed) continue;
@@ -169,12 +173,14 @@ namespace LLE
 					if(!r) continue;
 					
 					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
+					++raycasts;
 					
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					Utilities.DrawPoint(p, isBlocked ? Color.Red : Color.Yellow);
+					Utilities.DrawPoint(p, isBlocked ? Color.DimGray : Color.LimeGreen);
 					if(isBlocked) continue;
 
-					SetLKS(entity, true);
+					var type = grid.GridSizeEnum == MyCubeSize.Large ? ObjectType.LargeShip : ObjectType.SmallShip;
+					SetLKS(entity, type, true);
 				}
 
 				var voxel = entity as MyVoxelBase;
@@ -186,21 +192,37 @@ namespace LLE
 					if(!r) continue;
 					
 					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
+					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					Utilities.DrawPoint(p, isBlocked ? Color.Red : Color.Yellow);
+					Utilities.DrawPoint(p, isBlocked ? Color.DimGray : Color.YellowGreen);
 					if(isBlocked) continue;
 
-					SetLKS(entity, true);
+					SetLKS(entity, ObjectType.Asteroid, true);
+				}
+
+				var floater = entity as IMyFloatingObject;
+				if(floater != null)
+				{
+					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
+					++raycasts;
+
+					bool isBlocked = hit != null && hit.HitEntity != entity;
+
+					Utilities.DrawPoint(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
+					if(isBlocked) continue;
+
+					SetLKS(entity, ObjectType.Floating, true);
 				}
 			}
 
 			MyConsole.Clear();
+			MyConsole.Add($"raycasts: {raycasts} ", Color.Red);
 			foreach(var v in lks.Values)
 			{	var delta = Time.Now - v.LastSeenAt;
-				if(delta > 5) continue;
+				if(delta > 2.5) continue;
 				double distance = (rayOrigin - new Vector3D(v.X, v.Y, v.Z)).Length();
-				MyConsole.Add($"V {distance:F1} {delta:F1} {v.DisplayName} ", Color.White);
+				MyConsole.Add($"{v.Type} {distance:F1} {delta:F1} {v.DisplayName} ", Color.White);
 			}
 		}
 
