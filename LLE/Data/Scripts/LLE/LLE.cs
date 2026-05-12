@@ -104,6 +104,8 @@ namespace LLE
 
 	class Vision
 	{
+		private static readonly Random random = new Random();
+
 		private static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
 		private const double minimalPositionDelta = 0.05;
 
@@ -136,6 +138,17 @@ namespace LLE
 				{
 					bool intersects = RayIntersectsEllipsoid(rayOrigin, rayDir, grid.WorldMatrix, grid.PositionComp.LocalAABB);
 					Drawing.AABB(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Magenta : Color.Red);
+
+					if(intersects)
+					{	Vector3D p;
+
+						for(int i = 0; i < 5; ++i)
+						{	bool r = SurfaceSampler.TryGetRandomBlockOnSurface(grid, random, out p);
+							if(r) Utilities.DrawPoint(p, Color.Yellow);
+
+							MyConsole.Add($"{r} {p}", Color.Yellow);
+						}
+					}
 				}
 
 				var voxel = entity as MyVoxelBase;
@@ -151,14 +164,13 @@ namespace LLE
 					MyConsole.Clear();
 
 					if(intersects)
-					{	Random random = new Random();
-						Vector3D p;
+					{	Vector3D p;
 
 						for(int i = 0; i < 5; ++i)
-						{	bool r = VoxelSurfaceSampler.TryGetRandomSurfacePoint(voxel, random, out p);
-							Utilities.DrawPoint(p, Color.Yellow);
+						{	bool r = SurfaceSampler.TryGetRandomSurfacePoint(voxel, random, out p);
+							if(r) Utilities.DrawPoint(p, Color.Yellow);
 
-							MyConsole.Add($"{r} {p}", Color.Yellow);
+							//MyConsole.Add($"{r} {p}", Color.Yellow);
 						}
 					}
 				}
