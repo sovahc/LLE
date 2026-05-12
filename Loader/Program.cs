@@ -101,7 +101,7 @@ namespace LLELoader
                 _stream.Write(data, 0, length);
                 return true;
             }
-            catch { HandleDisconnect(); return false; }
+            catch { Disconnect(); return false; }
         }
 
         public static int Receive(byte[] buffer, int offset, int maxLength)
@@ -113,14 +113,13 @@ namespace LLELoader
                 int read = _stream.Read(buffer, offset, maxLength);
                 return read >= 0 ? read : -1;
             }
-            catch { HandleDisconnect(); return -1; }
+            catch { Disconnect(); return -1; }
         }
 
         public static bool IsConnected() => _client != null && _client.Connected;
 
-        private static void HandleDisconnect()
-        {
-            Logger.Write("[SocketImpl] Disconnect");
+        public static void Disconnect()
+        {   Logger.Write("[SocketImpl] Disconnect");
             CloseInternal();
             IncreaseBackoff();
         }
@@ -190,10 +189,11 @@ namespace LLELoader
                             switch (methodName)
                             {
                                 case "IsPresent":    prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsPresent)); break;
-                                case "Update":      prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Update)); break;
+                                case "Update":       prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Update)); break;
                                 case "Send":         prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Send)); break;
                                 case "Receive":      prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Receive)); break;
                                 case "IsConnected":  prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsConnected)); break;
+                                case "Disconnect":   prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Disconnect)); break;
                                 default:             continue;
                             }
 
@@ -245,6 +245,12 @@ namespace LLELoader
         static bool Prefix_IsConnected(ref bool __result)
         {
             __result = SocketImpl.IsConnected();
+            return false;
+        }
+
+        static bool Prefix_Disconnect()
+        {
+            SocketImpl.Disconnect();
             return false;
         }
     }

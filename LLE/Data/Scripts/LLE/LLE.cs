@@ -181,41 +181,63 @@ namespace LLE
 			LLE_Loader.Update();
 			bool after = LLE_Loader.IsConnected();
 
-			if(!before && after) Vision.Send(false);
-			else if(after) Vision.Send(true);
+			if(!before && after)
+			{	ResetParserState();
+				Vision.Send(false);
+			}
+			else if(after)
+			{	Vision.Send(true);
+			}
 
-			if (after) ProcessIncoming();
+			if (after)
+			{	try
+				{	ProcessIncoming();
+				}
+				catch(Exception e)
+				{	Log($"ProcessIncoming failed with exception {e}");
+					ResetParserState();
+					LLE_Loader.Disconnect();
+				}
+			}
 		}
 
-		void ProcessIncoming() {
-			
-			int need = _header.Length;
+		void ProcessIncoming()
+        {
+            int need = _header.Length;
 
-			if(_headerLength < need)
-			{	var r = LLE_Loader.Receive(_header, _headerLength, need-_headerLength);
-				if(r <= 0) return;
-				_headerLength += r;
-			}
-			if(_headerLength < need) return;
+            if (_headerLength < need)
+            {
+                var r = LLE_Loader.Receive(_header, _headerLength, need - _headerLength);
+                if (r <= 0) return;
+                _headerLength += r;
+            }
+            if (_headerLength < need) return;
 
-			need = _header[0] | (_header[1] << 8);
+            need = _header[0] | (_header[1] << 8);
 
-			if(_data == null) _data = new byte[need];
-			
-			if(_dataLength < need)
-			{	var r = LLE_Loader.Receive(_data, _dataLength, need-_dataLength);
-				if(r <= 0) return;
-				_dataLength += r;				
-			}
-			if(_dataLength < need) return;
-			
-			HandleMessage();
+            if (_data == null) _data = new byte[need];
+            if (_data.Length != need) throw new Exception("code bug");
 
-			_headerLength = _dataLength = 0;
-			_data = null;
-		}
+            if (_dataLength < need)
+            {
+                var r = LLE_Loader.Receive(_data, _dataLength, need - _dataLength);
+                if (r <= 0) return;
+                _dataLength += r;
+            }
+            if (_dataLength < need) return;
 
-		void HandleMessage()
+            HandleMessage();
+
+            ResetParserState();
+        }
+
+        private static void ResetParserState()
+        {
+            _headerLength = _dataLength = 0;
+            _data = null;
+        }
+
+        void HandleMessage()
 		{
 			int messageType = _header[2];
 			
@@ -290,5 +312,6 @@ namespace LLE
 		public static bool Send(byte[] data, int length) => false;
 		public static int Receive(byte[] buffer, int offset, int maxLength) => 0;
 		public static bool IsConnected() => false;
+		public static void Disconnect() { }
 	}
 }
