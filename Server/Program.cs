@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using ProtoBuf;
+using System.Text.Json;
 
 namespace LLE.Server
 {
@@ -88,43 +89,31 @@ namespace LLE.Server
             }
         }
 
-        static string EscapeJson(string s)
-        {
-            return s.Replace("\\", "\\\\")
-                     .Replace("\"", "\\\"")
-                     .Replace("\n", "\\n")
-                     .Replace("\r", "\\r");
-        }
+	static async Task<string> AskLlm(string chatContext)
+	{
+		// JsonSerializer.Serialize adds quotes and escapes per RFC 8259
+		var safeContext = JsonSerializer.Serialize(chatContext);
 
-        static async Task<string> AskLlm(string chatContext)
-        {
-            string safeContext = EscapeJson(chatContext);
-            string body = "{ \"model\": \"qwen\", \"messages\": [ "
-                + "{\"role\":\"system\",\"content\":\"Reply max 50 characters. No explanations.\"}, "
-                + $"{{\"role\":\"user\",\"content\":\"Chat history:{safeContext}\"}} "
-                + "], \"max_tokens\": 64, \"stream\": false }";
+		var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": \"Reply max 50 characters. No explanations.\" }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 64, \"stream\": false }}";
 
-            var response = await _http.PostAsync(LlmUrl, new StringContent(body, Encoding.UTF8, "application/json"));
-            string text = await response.Content.ReadAsStringAsync();
+		var response = await _http.PostAsync(LlmUrl, new StringContent(body, Encoding.UTF8, "application/json"));
+		var text = await response.Content.ReadAsStringAsync();
 
-            // Extract content from choices[0].message.content via simple substring search
-            int idx = text.IndexOf("\"content\":\"");
-            if (idx < 0) return "";
-            idx += 11; // skip '"content":"'
-            var sb = new StringBuilder();
-            while (idx < text.Length)
-            {
-                char c = text[idx++];
-                if (c == '\\') {
-                    char next = text[idx++];
-                    sb.Append(next == '"' ? '"' : next == '/' ? '/' : next == 'n' ? '\n' : next);
-                } else if (c == '"') break;
-                else sb.Append(c);
-            }
+		try
+		{
+			using var doc = JsonDocument.Parse(text);
+			var root = doc.RootElement;
+			if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
+			    && choices[0].TryGetProperty("message", out var message)
+			    && message.TryGetProperty("content", out var content))
+			{
+				return content.GetString()?.Trim() ?? "";
+			}
+		}
+		catch (JsonException) { }
 
-            return sb.ToString().Trim();
-        }
-
+		return "";
+	}
         static void SendFrame<T>(NetworkStream stream, int type, T obj)
         {
             byte[] payload;

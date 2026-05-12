@@ -156,7 +156,7 @@ namespace LLELoader
     [HarmonyPatchCategory("Late")]
     static class Patch_ScriptManagerLoadData
     {
-        private static readonly string[] BridgeMethods = { "IsPresent", "Update", "Send", "Receive", "IsConnected" };
+        private static readonly string[] BridgeMethods = { "IsPresent", "Update", "Send", "Receive", "IsConnected", "Disconnect" };
         private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
         [HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
