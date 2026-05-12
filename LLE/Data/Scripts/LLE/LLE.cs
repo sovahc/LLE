@@ -112,7 +112,6 @@ namespace LLE
 				{
 					bool intersects = Ellipsoid.RayIntersectsEllipsoid(rayOrigin, rayDir, grid.WorldMatrix, grid.PositionComp.LocalAABB);
 					Drawing.AABB(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Magenta : Color.Red);
-					draw.EllipsoidContour(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Cyan : Color.Gray);
 				}
 
 				var voxel = entity as MyVoxelBase;
@@ -124,7 +123,6 @@ namespace LLE
 					var box = new BoundingBoxD(-size/2, size/2);
 					bool intersects = Ellipsoid.RayIntersectsEllipsoid(rayOrigin, rayDir, voxel.WorldMatrix, box);
 					Drawing.AABB(voxel.WorldMatrix, box, intersects ? Color.Magenta : Color.Yellow);
-					draw.EllipsoidContour(voxel.WorldMatrix, box, intersects ? Color.Cyan : Color.Gray);
 				}
 
 				LastKnownState state;

@@ -313,49 +313,5 @@ namespace LLE
 			var bbD = new BoundingBoxD(-extentsLocal, extentsLocal);
 			MySimpleObjectDraw.DrawTransparentBox(ref drawMatrix, ref bbD, ref color, raster, 1, thickness, material, material);
 		}
-
-		public void EllipsoidContour(MatrixD worldMatrix, BoundingBoxD localBB, Color color)
-		{
-			if (!Enabled) return;
-
-			Vector3D centerLocal = (localBB.Min + localBB.Max) * 0.5;
-			Vector3D extents = (localBB.Max - localBB.Min) * 0.5;
-
-			Vector3D localX = new Vector3D(extents.X, 0, 0);
-			Vector3D localY = new Vector3D(0, extents.Y, 0);
-			Vector3D localZ = new Vector3D(0, 0, extents.Z);
-
-			const int segments = 64;
-			Vector2D[] screenPoints = new Vector2D[segments];
-			Vector4 c = new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
-			float thickness = 5e-5f;
-
-			for (int ring = 0; ring < 3; ring++)
-			{
-				for (int i = 0; i < segments; i++)
-				{
-					double t = i * MathHelper.TwoPi / segments;
-					Vector3D local;
-					switch (ring)
-					{
-						case 0: local = centerLocal + Math.Cos(t) * localX + Math.Sin(t) * localY; break;
-						case 1: local = centerLocal + Math.Cos(t) * localX + Math.Sin(t) * localZ; break;
-						default: local = centerLocal + Math.Cos(t) * localY + Math.Sin(t) * localZ; break;
-					}
-
-					Vector3D world = Vector3D.Transform(local, worldMatrix);
-					Vector4D clip = Vector4D.Transform(world, _cachedViewProj);
-					if (clip.W > 0.001)
-					{
-						screenPoints[i] = new Vector2D(clip.X / clip.W, clip.Y / clip.W);
-					}
-					else
-					{
-						screenPoints[i] = new Vector2D(double.NaN, double.NaN);
-					}
-				}
-				Contour(screenPoints, true, thickness, c);
-			}
-		}
 	}
 }
