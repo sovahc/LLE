@@ -23,6 +23,7 @@ namespace LLE
 
 		// Mod fields
 		public bool Changed;
+        public double LastSeenAt;
     }
 
     [ProtoContract]

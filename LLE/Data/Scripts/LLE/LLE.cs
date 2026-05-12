@@ -31,6 +31,27 @@ namespace LLE
 			System.Array.Copy(payload, 0, frame, 3, len);
 			LLE_Loader.Send(frame, frame.Length);
 		}
+		
+		public static void DrawPoint(Vector3D point, Color color)
+		{
+			var camera = MyAPIGateway.Session.Camera;
+			if (camera == null) return;
+
+			var cameraMatrix = camera.WorldMatrix;
+
+			var material = MyStringId.GetOrCompute("LLE-Marker");
+
+			Vector3D viewDir = Vector3D.Normalize(point - camera.Position);
+			var distance = (point - camera.Position).Normalize();
+
+			point = camera.Position + viewDir;
+
+			float size = (float)(0.25 / (distance + 0.0001));
+			if (size < 0.001f) size = 0.001f;
+			if (size > 0.25f) size = 0.25f;
+
+			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)cameraMatrix.Left, (Vector3)cameraMatrix.Up, radius: size);
+		}
 	}
 
 	class MyConsole
@@ -73,11 +94,13 @@ namespace LLE
 			for (int i = 0; i < _lines.Count; ++i)
 			{
 				var line = _lines[_lines.Count - i - 1];
-				float y = 0.05f + i * lineStep;
+				float y = -0.6f + i * lineStep;
 				draw.String(line.Text, new Vector2D(-0.99f, y), scale, line.Color);
 			}
 		}
 	}
+
+	class Time { public static double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds; }
 
 	class Vision
 	{
@@ -91,6 +114,7 @@ namespace LLE
 			s.Y = p.Y;
 			s.Z = p.Z;
 			s.Changed = true;
+			s.LastSeenAt = Time.Now;
 		}
 
 		private static double DistanceSquared(LastKnownState s, IMyEntity e)
@@ -123,6 +147,20 @@ namespace LLE
 					var box = new BoundingBoxD(-size/2, size/2);
 					bool intersects = RayIntersectsEllipsoid(rayOrigin, rayDir, voxel.WorldMatrix, box);
 					Drawing.AABB(voxel.WorldMatrix, box, intersects ? Color.Magenta : Color.Yellow);
+
+					MyConsole.Clear();
+
+					if(intersects)
+					{	Random random = new Random();
+						Vector3D p;
+
+						for(int i = 0; i < 5; ++i)
+						{	bool r = VoxelSurfaceSampler.TryGetRandomSurfacePoint(voxel, random, out p);
+							Utilities.DrawPoint(p, Color.Yellow);
+
+							MyConsole.Add($"{r} {p}", Color.Yellow);
+						}
+					}
 				}
 
 				LastKnownState state;
@@ -132,7 +170,7 @@ namespace LLE
 						minimalPositionDelta*minimalPositionDelta)
 					{ 	
 						SetFromEntity(state, entity);
-						MyConsole.Add($"POS {state.DisplayName} {state.Position()}", Color.Silver);
+						//MyConsole.Add($"POS {state.DisplayName} {state.Position()}", Color.Silver);
 					}
 				}
 				else
@@ -141,7 +179,7 @@ namespace LLE
 					SetFromEntity(state, entity);
 
 					lks.Add(entity.EntityId, state);
-					MyConsole.Add($"ADD {state.DisplayName} {state.Position()}", Color.Yellow);
+					//MyConsole.Add($"ADD {state.DisplayName} {state.Position()}", Color.Yellow);
 				}
 			}
 		}
@@ -157,7 +195,7 @@ namespace LLE
 			}
 
 			lks.Remove(e.EntityId);
-			MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Color.Blue);
+			//MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Color.Blue);
 		}
 
 		public static void Send(bool changedOnly)
