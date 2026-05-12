@@ -1,10 +1,8 @@
 using System;
-using System.IO;
 using System.Collections.Generic;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
-using ProtoBuf;
 
 using VRage.Game;
 using VRage.Game.Components;
@@ -14,6 +12,8 @@ using VRage.ModAPI;
 using VRage.Utils;
 
 using VRageMath;
+
+using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
@@ -47,7 +47,7 @@ namespace LLE
 			point = camera.Position + viewDir;
 
 			float size = (float)(0.25 / (distance + 0.0001));
-			if (size < 0.001f) size = 0.001f;
+			if (size < 0.005f) size = 0.005f;
 			if (size > 0.25f) size = 0.25f;
 
 			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)cameraMatrix.Left, (Vector3)cameraMatrix.Up, radius: size);
@@ -109,24 +109,48 @@ namespace LLE
 		private static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
 		private const double minimalPositionDelta = 0.05;
 
-		private static void SetFromEntity(LastKnownState s, IMyEntity e)
-		{	s.DisplayName = e.DisplayName;
-			var p = e.GetPosition();
-			s.X = p.X;
-			s.Y = p.Y;
-			s.Z = p.Z;
-			s.Changed = true;
-			s.LastSeenAt = Time.Now;
-		}
-
 		private static double DistanceSquared(LastKnownState s, IMyEntity e)
 		{	return (e.GetPosition() - new Vector3(s.X, s.Y, s.Z)).LengthSquared();
 		}
 
+		private static void SetLKS(IMyEntity entity, bool isVisible)
+		{
+			LastKnownState state;
+			if(!lks.TryGetValue(entity.EntityId, out state))
+			{
+				state = new LastKnownState();
+				state.DisplayName = entity.DisplayName;
+				var p = entity.GetPosition();
+				state.X = p.X;
+				state.Y = p.Y;
+				state.Z = p.Z;
+				state.LastSeenAt = 0;
+				state.Changed = true;
+
+				lks.Add(entity.EntityId, state);
+			}
+
+			if(isVisible)
+			{	
+				state.DisplayName = entity.DisplayName;
+				var p = entity.GetPosition();
+				state.X = p.X;
+				state.Y = p.Y;
+				state.Z = p.Z;
+				state.LastSeenAt = Time.Now;
+				state.Changed = true;
+			}
+
+			//if(DistanceSquared(state, entity) >
+			//	minimalPositionDelta*minimalPositionDelta)
+			//	{ 	
+			//		SetFromEntity(state, entity);
+			//	}
+			//}
+		}
+
 		public static void HighlightVisible(Drawing draw, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
 		{
-			random = new Random((int)Math.Floor(Time.Now));
-
 			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
 
 			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
@@ -135,66 +159,48 @@ namespace LLE
 			{
 				if(entity.Closed) continue;
 
+				Vector3D p;
+				IHitInfo hit;
+
 				var grid = entity as IMyCubeGrid;
 				if (grid != null)
 				{
-					bool intersects = RayIntersectsEllipsoid(rayOrigin, rayDir, grid.WorldMatrix, grid.PositionComp.LocalAABB);
-					Drawing.AABB(grid.WorldMatrix, grid.PositionComp.LocalAABB, intersects ? Color.Magenta : Color.Red);
+					bool r = SurfaceSampler.TryGetRandomBlockOnSurface(grid, random, out p);
+					if(!r) continue;
+					
+					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
+					
+					bool isBlocked = hit != null && hit.HitEntity != entity;
+					Utilities.DrawPoint(p, isBlocked ? Color.Red : Color.Yellow);
+					if(isBlocked) continue;
 
-					if(intersects)
-					{	Vector3D p;
-
-						for(int i = 0; i < 5; ++i)
-						{	bool r = SurfaceSampler.TryGetRandomBlockOnSurface(grid, random, out p);
-							if(r) Utilities.DrawPoint(p, Color.Yellow);
-
-							MyConsole.Add($"{r} {p}", Color.Yellow);
-						}
-					}
+					SetLKS(entity, true);
 				}
 
 				var voxel = entity as MyVoxelBase;
 				if (voxel != null)
 				{
 					if (voxel is MyPlanet) continue;
+					
+					bool r = SurfaceSampler.TryGetRandomSurfacePoint(voxel, random, out p);
+					if(!r) continue;
+					
+					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
 
-					var size = voxel.SizeInMetres;
-					var box = new BoundingBoxD(-size/2, size/2);
-					bool intersects = RayIntersectsEllipsoid(rayOrigin, rayDir, voxel.WorldMatrix, box);
-					Drawing.AABB(voxel.WorldMatrix, box, intersects ? Color.Magenta : Color.Yellow);
+					bool isBlocked = hit != null && hit.HitEntity != entity;
+					Utilities.DrawPoint(p, isBlocked ? Color.Red : Color.Yellow);
+					if(isBlocked) continue;
 
-					MyConsole.Clear();
-
-					if(intersects)
-					{	Vector3D p;
-
-						for(int i = 0; i < 5; ++i)
-						{	bool r = SurfaceSampler.TryGetRandomSurfacePoint(voxel, random, out p);
-							if(r) Utilities.DrawPoint(p, Color.Yellow);
-
-							//MyConsole.Add($"{r} {p}", Color.Yellow);
-						}
-					}
+					SetLKS(entity, true);
 				}
+			}
 
-				LastKnownState state;
-				if(lks.TryGetValue(entity.EntityId, out state))
-				{
-					if(DistanceSquared(state, entity) >
-						minimalPositionDelta*minimalPositionDelta)
-					{ 	
-						SetFromEntity(state, entity);
-						//MyConsole.Add($"POS {state.DisplayName} {state.Position()}", Color.Silver);
-					}
-				}
-				else
-				{
-					state = new LastKnownState();
-					SetFromEntity(state, entity);
-
-					lks.Add(entity.EntityId, state);
-					//MyConsole.Add($"ADD {state.DisplayName} {state.Position()}", Color.Yellow);
-				}
+			MyConsole.Clear();
+			foreach(var v in lks.Values)
+			{	var delta = Time.Now - v.LastSeenAt;
+				if(delta > 5) continue;
+				double distance = (rayOrigin - new Vector3D(v.X, v.Y, v.Z)).Length();
+				MyConsole.Add($"V {distance:F1} {delta:F1} {v.DisplayName} ", Color.White);
 			}
 		}
 
@@ -209,7 +215,6 @@ namespace LLE
 			}
 
 			lks.Remove(e.EntityId);
-			//MyConsole.Add($"REM {e.DisplayName} {e.GetPosition()}", Color.Blue);
 		}
 
 		public static void Send(bool changedOnly)
