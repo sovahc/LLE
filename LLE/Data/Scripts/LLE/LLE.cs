@@ -349,7 +349,6 @@ namespace LLE
 			if (LLE_Loader.IsPresent())
 				LLE_Loader.SetVision(Vision.lks);
 
-			// Navigation update
 			if (_navigation.Active)
 			{
 				var ch = MyAPIGateway.Session.Player?.Character;
