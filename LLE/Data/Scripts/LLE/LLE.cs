@@ -21,23 +21,10 @@ namespace LLE
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
-		public static void SendFrame(MsgType type, byte[] payload) {
-			if(!LLE_Loader.IsConnected() || payload == null) return;
-			int len = payload.Length;
-			byte[] frame = new byte[3 + len];
-			frame[0] = (byte)(len & 0xFF);
-			frame[1] = (byte)((len >> 8) & 0xFF);
-			frame[2] = (byte)type;
-			System.Array.Copy(payload, 0, frame, 3, len);
-			LLE_Loader.Send(frame, frame.Length);
-		}
-		
 		public static void DrawPoint(Vector3D point, Color color)
 		{
 			var camera = MyAPIGateway.Session.Camera;
 			if (camera == null) return;
-
-			var cameraMatrix = camera.WorldMatrix;
 
 			var material = MyStringId.GetOrCompute("LLE-Marker");
 
@@ -50,7 +37,7 @@ namespace LLE
 			if (size < 0.005f) size = 0.005f;
 			if (size > 0.25f) size = 0.25f;
 
-			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)cameraMatrix.Left, (Vector3)cameraMatrix.Up, radius: size);
+			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)camera.WorldMatrix.Left, (Vector3)camera.WorldMatrix.Up, radius: size);
 		}
 	}
 
@@ -106,12 +93,7 @@ namespace LLE
 	{
 		private static Random random = new Random();
 
-		private static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
-		private const double minimalPositionDelta = 0.05;
-
-		private static double DistanceSquared(LastKnownState s, IMyEntity e)
-		{	return (e.GetPosition() - new Vector3(s.X, s.Y, s.Z)).LengthSquared();
-		}
+		internal static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
 
 		private static void SetLKS(IMyEntity entity, ObjectType type, bool isVisible)
 		{
@@ -127,7 +109,6 @@ namespace LLE
 				state.Y = p.Y;
 				state.Z = p.Z;
 				state.LastSeenAt = 0;
-				state.Changed = true;
 
 				lks.Add(entity.EntityId, state);
 			}
@@ -140,15 +121,7 @@ namespace LLE
 				state.Y = p.Y;
 				state.Z = p.Z;
 				state.LastSeenAt = Time.Now;
-				state.Changed = true;
 			}
-
-			//if(DistanceSquared(state, entity) >
-			//	minimalPositionDelta*minimalPositionDelta)
-			//	{ 	
-			//		SetFromEntity(state, entity);
-			//	}
-			//}
 		}
 
 		public static void HighlightVisible(Drawing draw, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
@@ -239,35 +212,11 @@ namespace LLE
 			lks.Remove(e.EntityId);
 		}
 
-		public static void Send(bool changedOnly)
-		{	foreach(var state in lks.Values)
-			{	if(changedOnly && !state.Changed) continue;
-				state.Changed = false;
+		public static void Grid_OnBlockAdded(IMySlimBlock block) { }
 
-				byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(state);
-				Utilities.SendFrame(MsgType.Vision, payload);
-			}
-		}
+		public static void Grid_OnBlockRemoved(IMySlimBlock block) { }
 
-		public static void Grid_OnBlockAdded(IMySlimBlock block)
-		{
-			var grid = block.CubeGrid;
-			if (grid != null && lks.ContainsKey(grid.EntityId))
-				lks[grid.EntityId].Changed = true;
-		}
-
-		public static void Grid_OnBlockRemoved(IMySlimBlock block)
-		{
-			var grid = block.CubeGrid;
-			if (grid != null && lks.ContainsKey(grid.EntityId))
-				lks[grid.EntityId].Changed = true;
-		}
-
-		public static void Grid_OnGridChanged(IMyCubeGrid grid)
-		{
-			if (lks.ContainsKey(grid.EntityId))
-				lks[grid.EntityId].Changed = true;
-		}
+		public static void Grid_OnGridChanged(IMyCubeGrid grid) { }
 
 		public static bool RayIntersectsEllipsoid(Vector3D rayOrigin, Vector3D rayDir, MatrixD worldMatrix, BoundingBoxD localBB)
 		{
@@ -298,88 +247,18 @@ namespace LLE
 	{
 		private static Drawing draw;
 
-		private static readonly byte[] _header = new byte[3];
-		private static byte[] _data;
-		private static int _headerLength;
-		private static int _dataLength;
-
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void UpdateBeforeSimulation()
 		{
-			bool before = LLE_Loader.IsConnected();
 			LLE_Loader.Update();
-			bool after = LLE_Loader.IsConnected();
 
-			if(!before && after)
-			{	ResetParserState();
-				Vision.Send(false);
-			}
-			else if(after)
-			{	Vision.Send(true);
-			}
+			if (LLE_Loader.IsPresent())
+				LLE_Loader.SetVision(Vision.lks);
 
-			if (after)
-			{	try
-				{	ProcessIncoming();
-				}
-				catch(Exception e)
-				{	Log($"ProcessIncoming failed with exception {e}");
-					ResetParserState();
-					LLE_Loader.Disconnect();
-				}
-			}
-		}
-
-		void ProcessIncoming()
-        {
-            int need = _header.Length;
-
-            if (_headerLength < need)
-            {
-                var r = LLE_Loader.Receive(_header, _headerLength, need - _headerLength);
-                if (r <= 0) return;
-                _headerLength += r;
-            }
-            if (_headerLength < need) return;
-
-            need = _header[0] | (_header[1] << 8);
-
-            if (_data == null) _data = new byte[need];
-            if (_data.Length != need) throw new Exception("code bug");
-
-            if (_dataLength < need)
-            {
-                var r = LLE_Loader.Receive(_data, _dataLength, need - _dataLength);
-                if (r <= 0) return;
-                _dataLength += r;
-            }
-            if (_dataLength < need) return;
-
-            HandleMessage();
-
-            ResetParserState();
-        }
-
-        private static void ResetParserState()
-        {
-            _headerLength = _dataLength = 0;
-            _data = null;
-        }
-
-        void HandleMessage()
-		{
-			int messageType = _header[2];
-			
-			if(messageType == (int)MsgType.Command)
-			{	
-				ServerCommand c = MyAPIGateway.Utilities.SerializeFromBinary<ServerCommand>(_data);
-
-				MyVisualScriptLogicProvider.SendChatMessage(c.Payload, "LLM", font: "Blue");
-			}
-			else
-			{	Log($"Error: unknown message type {messageType}");
-			}
+			ServerCommand cmd;
+			if (LLE_Loader.GetCommand(out cmd))
+				MyVisualScriptLogicProvider.SendChatMessage(cmd.Payload, "LLM", font: "Blue");
 		}
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
@@ -439,24 +318,20 @@ namespace LLE
 		}
 
 		void OnChatMessage(string message, ref bool sendToOthers)
-		{	if(!LLE_Loader.IsConnected()) return;
+		{	if(!LLE_Loader.IsPresent()) return;
 			var player = MyAPIGateway.Session.Player;
 			if(player == null) return;
 			
-			var msg = new ChatMessage { Author = player.DisplayName, Text = message };
-			byte[] payload = MyAPIGateway.Utilities.SerializeToBinary(msg);
-			Utilities.SendFrame(MsgType.Chat, payload);
+			LLE_Loader.SetChat(player.DisplayName, message);
 		}
 	}
 
 	public static class LLE_Loader
 	{
 		public static bool IsPresent() => false;
-
 		public static void Update() { }
-		public static bool Send(byte[] data, int length) => false;
-		public static int Receive(byte[] buffer, int offset, int maxLength) => 0;
-		public static bool IsConnected() => false;
-		public static void Disconnect() { }
+		public static void SetVision(Dictionary<long, LastKnownState> states) { }
+		public static void SetChat(string author, string text) { }
+		public static bool GetCommand(out ServerCommand cmd) { cmd = null; return false; }
 	}
 }

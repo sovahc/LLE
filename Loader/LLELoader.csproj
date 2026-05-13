@@ -34,10 +34,39 @@
       <HintPath>/home/cat/Projects/SpaceEngineers/Bin64/VRage.Library.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="System.Net.Http">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Text.Json">
+      <HintPath>/home/cat/Projects/SpaceEngineers/Bin64/System.Text.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Lib.Harmony" Version="2.4.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="ProtoBuf.Net">
+      <HintPath>/home/cat/Projects/SpaceEngineers/Bin64/ProtoBuf.Net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ProtoBuf.Net.Core">
+      <HintPath>/home/cat/Projects/SpaceEngineers/Bin64/ProtoBuf.Net.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>/home/cat/Projects/SpaceEngineers/Bin64/System.Memory.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\LLE\Data\Scripts\LLE\DTO.cs" Link="DTO.cs" />
+  </ItemGroup>
+
+  <Target Name="CopyToBin64" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="/home/cat/Projects/SpaceEngineers/Bin64/" />
+  </Target>
 </Project>

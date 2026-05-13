@@ -2,18 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Reflection.Emit;
-using System.Diagnostics;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
 using HarmonyLib;
 using Sandbox.Engine.Utils;
 using SpaceEngineers;
 using VRage.FileSystem;
-using System.Net.Sockets;
 using System.Runtime.InteropServices;
 
 namespace LLELoader
 {
-    // Real implementation that replaces the stub at runtime
     static class Logger
     {
         public const string LogPath = "lle_loader.log";
@@ -22,9 +21,7 @@ namespace LLELoader
         private static void Init()
         {
             if (_writer == null)
-            {
                 _writer = new StreamWriter(LogPath, false);
-            }
         }
 
         public static void Write(string msg)
@@ -39,108 +36,84 @@ namespace LLELoader
         }
     }
 
-    // Real implementation that replaces the stub at runtime
     static class LoaderImpl
     {
         public static bool IsPresent() => true;
     }
 
-    static class SocketImpl
+    // In-memory broker: replaces SocketImpl + Server
+    static class MessageBroker
     {
-        private const string Host = "127.0.0.1";
-        private const int Port = 8081;
+        private static Dictionary<long, LLE.LastKnownState> _visionStates;
 
-        private static TcpClient _client;
-        private static NetworkStream _stream;
+        private static readonly Queue<string> _chatContext = new Queue<string>();
 
-        private static readonly Stopwatch _clock = Stopwatch.StartNew();
-        private static double _nextReconnectTime;
-        private static float _reconnectDelay = 0.5f;
-        private const float MaxReconnectDelay = 10f;
+        private static LLE.ServerCommand _pendingCommand;
 
-        private static double Now => _clock.Elapsed.TotalSeconds;
-
-        public static void Update()
+        public static void SetVision(Dictionary<long, LLE.LastKnownState> states)
         {
-            if (!IsConnected() && Now >= _nextReconnectTime)
-            {
-                if (TryConnect()) ResetBackoff();
-                else IncreaseBackoff();
-            }
+            _visionStates = states;
         }
 
-        private static bool TryConnect()
+        public static void SetChat(string author, string text)
         {
-            try
-            {
-                CloseInternal();
-                _client = new TcpClient(Host, Port);
-                _client.NoDelay = true;
-                _client.SendBufferSize = 256 * 1024;
-                _client.SendTimeout = 100;
-                _client.ReceiveTimeout = 100;
-                _client.LingerState = new LingerOption(true, 0);
-                _stream = _client.GetStream();
-                Logger.Write("[SocketImpl] Connected");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Write("[SocketImpl] Connect failed: " + ex.Message);
-                return false;
-            }
+            var entry = $"{author}: {text}";
+            Logger.Write("[CHAT] " + entry);
+            _chatContext.Enqueue(entry);
+            if (_chatContext.Count > 50) _chatContext.Dequeue();
+
+            var _ = RespondToChatAsync();
         }
 
-        private static void CloseInternal()
+        public static bool GetCommand(out LLE.ServerCommand cmd)
         {
-            try { _stream?.Close(); _client?.Close(); } catch {}
-            _stream = null; _client = null;
+            cmd = _pendingCommand;
+            _pendingCommand = null;
+            return cmd != null;
         }
 
-        public static bool Send(byte[] data, int length)
+        private static async Task RespondToChatAsync()
         {
             try
             {
-                if (_stream == null) return false;
-                _stream.Write(data, 0, length);
-                return true;
+                string context = "\n" + string.Join("\n", _chatContext);
+                string llmReply = await AskLlm(context);
+                if (string.IsNullOrEmpty(llmReply)) return;
+                Logger.Write("[LLM] " + llmReply);
+                _pendingCommand = new LLE.ServerCommand { CommandType = 0, Payload = llmReply };
             }
-            catch (Exception ex)
-            {   Logger.Write("[SocketImpl] Send failed: " + ex.Message);
-                Disconnect();
-                _reconnectDelay = 5f;
-                _nextReconnectTime = Now + _reconnectDelay;
-                return false;
-            }
+            catch (Exception ex) { Logger.Write("[LLM] error: " + ex.Message); }
         }
 
-        public static int Receive(byte[] buffer, int offset, int maxLength)
+        private static readonly HttpClient _http = new HttpClient();
+        const string LlmUrl = "http://localhost:8080/v1/chat/completions";
+
+        private static async Task<string> AskLlm(string chatContext)
         {
+            var safeContext = System.Text.Json.JsonSerializer.Serialize(chatContext);
+
+            var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": \"Reply max 50 characters. No explanations.\" }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 64, \"stream\": false }}";
+
+            var response = await _http.PostAsync(LlmUrl, new StringContent(body, Encoding.UTF8, "application/json"));
+            var text = await response.Content.ReadAsStringAsync();
+
             try
             {
-                if (_stream == null) return -1;
-                if (!_stream.DataAvailable) return 0;
-                int read = _stream.Read(buffer, offset, maxLength);
-                return read >= 0 ? read : -1;
+                using (var doc = System.Text.Json.JsonDocument.Parse(text))
+                {
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
+                        && choices[0].TryGetProperty("message", out var message)
+                        && message.TryGetProperty("content", out var content))
+                    {
+                        return content.GetString()?.Trim() ?? "";
+                    }
+                }
             }
-            catch { Disconnect(); return -1; }
+            catch (System.Text.Json.JsonException) { }
+
+            return "";
         }
-
-        public static bool IsConnected() => _client != null && _client.Connected;
-
-        public static void Disconnect()
-        {   Logger.Write("[SocketImpl] Disconnect");
-            CloseInternal();
-            IncreaseBackoff();
-        }
-
-        private static void IncreaseBackoff()
-        {
-            _nextReconnectTime = Now + _reconnectDelay;
-            _reconnectDelay = Math.Min(_reconnectDelay * 2, MaxReconnectDelay);
-        }
-
-        private static void ResetBackoff() => _reconnectDelay = 0.5f;
     }
 
     [HarmonyPatchCategory("Early")]
@@ -159,14 +132,14 @@ namespace LLELoader
             Environment.CurrentDirectory = bin64;
 
             Logger.Write("[LLELoader] Paths set: " + bin64);
-            return true; // continue into original Main
+            return true;
         }
     }
 
     [HarmonyPatchCategory("Late")]
     static class Patch_ScriptManagerLoadData
     {
-        private static readonly string[] BridgeMethods = { "IsPresent", "Update", "Send", "Receive", "IsConnected", "Disconnect" };
+        private static readonly string[] BridgeMethods = { "IsPresent", "Update", "SetVision", "SetChat", "GetCommand" };
         private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
         [HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -193,18 +166,17 @@ namespace LLELoader
                             string methodName = BridgeMethods[i];
                             MethodInfo original = AccessTools.Method(type, methodName);
                             if (original == null) continue;
-                            if (_patchedMethods.Contains(original)) continue; // Already patched in this assembly
+                            if (_patchedMethods.Contains(original)) continue;
 
                             HarmonyMethod prefix;
                             switch (methodName)
                             {
-                                case "IsPresent":    prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsPresent)); break;
-                                case "Update":       prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Update)); break;
-                                case "Send":         prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Send)); break;
-                                case "Receive":      prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Receive)); break;
-                                case "IsConnected":  prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsConnected)); break;
-                                case "Disconnect":   prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Disconnect)); break;
-                                default:             continue;
+                                case "IsPresent":   prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsPresent)); break;
+                                case "Update":      prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Update)); break;
+                                case "SetVision":   prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SetVision)); break;
+                                case "SetChat":     prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SetChat)); break;
+                                case "GetCommand":  prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_GetCommand)); break;
+                                default:            continue;
                             }
 
                             new Harmony("lle.loader.bridge." + methodName).Patch(
@@ -227,40 +199,30 @@ namespace LLELoader
             }
         }
 
-        // Prefix patches — intercept calls before stubs execute, set __result, return false to skip original
-        static bool Prefix_Update()
-        {
-            SocketImpl.Update();
-            return false;
-        }
-
         static bool Prefix_IsPresent(ref bool __result)
         {
             __result = LoaderImpl.IsPresent();
             return false;
         }
 
-        static bool Prefix_Send(byte[] data, int length, ref bool __result)
+        static bool Prefix_Update()
         {
-            __result = SocketImpl.Send(data, length);
             return false;
         }
 
-        static bool Prefix_Receive(byte[] buffer, int offset, int maxLength, ref int __result)
+        static void Prefix_SetVision(Dictionary<long, LLE.LastKnownState> states)
         {
-            __result = SocketImpl.Receive(buffer, offset, maxLength);
-            return false;
+            MessageBroker.SetVision(states);
         }
 
-        static bool Prefix_IsConnected(ref bool __result)
+        static void Prefix_SetChat(string author, string text)
         {
-            __result = SocketImpl.IsConnected();
-            return false;
+            MessageBroker.SetChat(author, text);
         }
 
-        static bool Prefix_Disconnect()
+        static bool Prefix_GetCommand(out LLE.ServerCommand cmd, ref bool __result)
         {
-            SocketImpl.Disconnect();
+            __result = MessageBroker.GetCommand(out cmd);
             return false;
         }
     }
@@ -273,13 +235,11 @@ namespace LLELoader
             Logger.Write("[LLELoader] Starting... applying early patches.");
             Logger.Write("Log file location: " + Path.GetFullPath(Logger.LogPath));
             
-            // Apply early patches (path setup before game starts)
             new Harmony("lle.loader.early").PatchCategory("Early");
             new Harmony("lle.loader.late").PatchCategory("Late");
 
             try
             {
-                // Start Space Engineers — late patches fire during script loading
                 Logger.Write("[LLELoader] Calling MyProgram.Main...");
                 string[] gameArgs = new string[args.Length + 1];
                 Array.Copy(args, gameArgs, args.Length);
