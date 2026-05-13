@@ -277,7 +277,7 @@ namespace LLE
 
 			var lp = LLE_Loader.IsPresent();
 			draw.String("LLE_Loader.IsPresent: " + lp.ToString(),
-				new Vector2D(0, -0.35d), 0.00075f, lp ? Color.White : Color.Red);
+				new Vector2D(0.5, -0.97), 0.00075f, lp ? Color.White : Color.Red);
 
 			var player = MyAPIGateway.Session.Player;
 			if (player == null || player.Character == null) return;

@@ -6,10 +6,8 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using HarmonyLib;
-using Sandbox.Engine.Utils;
 using SpaceEngineers;
 using VRage.FileSystem;
-using System.Runtime.InteropServices;
 
 namespace LLELoader
 {
