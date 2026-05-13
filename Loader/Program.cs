@@ -60,7 +60,14 @@ namespace LLELoader
             _chatContext.Enqueue(entry);
             if (_chatContext.Count > 50) _chatContext.Dequeue();
 
-            var _ = RespondToChatAsync();
+            if (text.Length > 0 && text[0] == '>')
+            {
+                _pendingCommand = new LLE.ServerCommand { CommandType = 0, Payload = text.Substring(1).Trim() };
+            }
+            else
+            {
+                var _ = RespondToChatAsync();
+            }
         }
 
         public static bool GetCommand(out LLE.ServerCommand cmd)

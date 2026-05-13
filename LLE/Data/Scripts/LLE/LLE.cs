@@ -56,8 +56,7 @@ namespace LLE
 
 		public static void Add(string text, Color color)
 		{
-			Utilities.Log(text);
-
+			//Utilities.Log(text);
 			_lines.Add(new LineData { Text = text, Color = color });
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
 		}
@@ -81,7 +80,7 @@ namespace LLE
 			for (int i = 0; i < _lines.Count; ++i)
 			{
 				var line = _lines[_lines.Count - i - 1];
-				float y = -0.45f + i * lineStep;
+				float y = B+B + i * lineStep;
 				draw.String(line.Text, new Vector2D(-0.99f, y), scale, line.Color);
 			}
 		}
@@ -242,10 +241,56 @@ namespace LLE
 		}
 	}
 
+	class Navigation
+	{
+		public bool Active;
+		public Vector3D Target;
+		const double MaxSpeed = 10.0;
+		const float TurnRate = 2.0f;
+		const double Decel = 5.0;
+
+		public void Update(IMyCharacter ch)
+		{
+			var pos = ch.GetPosition();
+			Vector3D toTarget = Target - pos;
+			double dist = toTarget.Length();
+			if (dist < 2.0) { Active = false; return; }
+
+			// Speed: accelerate linearly, brake when close
+			double brakeDist = MaxSpeed * MaxSpeed / (2.0 * Decel);
+			double speed;
+			if (dist < brakeDist)
+			{
+				speed = dist > 0 ? Math.Min(MaxSpeed, dist * Decel / MaxSpeed) : 0;
+			}
+			else
+			{
+				speed = MaxSpeed;
+			}
+
+			Vector3D targetDir = Vector3D.Normalize(toTarget);
+
+			// Rotation: compute yaw/pitch to face target from current forward
+			MatrixD rot = ch.WorldMatrix;
+			var fwd = rot.Forward;
+			var right = rot.Right;
+			var up = rot.Up;
+			Vector3 targetDir3 = (Vector3)targetDir;
+			float yaw = -(float)Math.Atan2(Vector3.Dot(targetDir3, right), Vector3.Dot(targetDir3, fwd));
+			float pitch = (float)Math.Asin(Vector3.Dot(targetDir3, up));
+
+			yaw = Math.Max(-TurnRate, Math.Min(TurnRate, yaw));
+			pitch = Math.Max(-TurnRate, Math.Min(TurnRate, pitch));
+
+			ch.MoveAndRotate((Vector3)targetDir * (float)speed, new Vector2(pitch, yaw), 0f);
+		}
+	}
+
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
 		private static Drawing draw;
+		private static readonly Navigation _navigation = new Navigation();
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -256,10 +301,31 @@ namespace LLE
 			if (LLE_Loader.IsPresent())
 				LLE_Loader.SetVision(Vision.lks);
 
+			// Navigation update
+			if (_navigation.Active)
+			{
+				var ch = MyAPIGateway.Session.Player?.Character;
+				if (ch != null) _navigation.Update(ch);
+			}
+
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
-				MyVisualScriptLogicProvider.SendChatMessage(cmd.Payload, "LLM", font: "Blue");
+			{
+				var payload = cmd.Payload.Trim();
+				LastKnownState target = null;
+				if (TryParseMoveTo(payload, out target))
+				{
+					_navigation.Target = new Vector3D(target.X, target.Y, target.Z);
+					_navigation.Active = true;
+					Log("Navigate to " + payload);
+				}
+				else
+				{
+					MyVisualScriptLogicProvider.SendChatMessage(payload, "LLM", font: "Blue");
+				}
+			}
 		}
+
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
@@ -323,6 +389,27 @@ namespace LLE
 			if(player == null) return;
 			
 			LLE_Loader.SetChat(player.DisplayName, message);
+		}
+
+		bool TryParseMoveTo(string payload, out LastKnownState target)
+		{
+			target = null;
+			var upper = payload.ToUpperInvariant();
+			if (!upper.StartsWith("MOVE_TO ")) return false;
+
+			var searchName = payload.Substring(8).Trim().ToUpperInvariant();
+			foreach (var state in Vision.lks.Values)
+			{
+				if (state.DisplayName != null && state.DisplayName.ToUpperInvariant().Contains(searchName))
+				{
+					target = state;
+					
+					Log($"MOVE_TO: {target.Type} {target.DisplayName}");
+					return true;
+				}
+			}
+			Log("MOVE_TO: target not found: " + searchName);
+			return false;
 		}
 	}
 
