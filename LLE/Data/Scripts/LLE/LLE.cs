@@ -251,6 +251,9 @@ namespace LLE
 
 		public void Update(IMyCharacter ch)
 		{
+			if(//MyAPIGateway.Input.IsAnyKeyPress() ||
+				MyAPIGateway.Input.IsAnyMousePressed()) { Active = false; return; }
+
 			var pos = ch.GetPosition();
 			Vector3D toTarget = Target - pos;
 			double dist = toTarget.Length();
@@ -282,7 +285,9 @@ namespace LLE
 			yaw = Math.Max(-TurnRate, Math.Min(TurnRate, yaw));
 			pitch = Math.Max(-TurnRate, Math.Min(TurnRate, pitch));
 
-			ch.MoveAndRotate((Vector3)targetDir * (float)speed, new Vector2(pitch, yaw), 0f);
+			MatrixD inv = ch.WorldMatrixInvScaled;
+			Vector3 localDir = Vector3.TransformNormal((Vector3)targetDir, inv);
+			ch.MoveAndRotate(localDir * (float)speed, new Vector2(pitch, yaw), 0f);
 		}
 	}
 
@@ -395,7 +400,7 @@ namespace LLE
 		{
 			target = null;
 			var upper = payload.ToUpperInvariant();
-			if (!upper.StartsWith("MOVE_TO ")) return false;
+			if (!upper.StartsWith("MOVE TO ")) return false;
 
 			var searchName = payload.Substring(8).Trim().ToUpperInvariant();
 			foreach (var state in Vision.lks.Values)
@@ -404,11 +409,11 @@ namespace LLE
 				{
 					target = state;
 					
-					Log($"MOVE_TO: {target.Type} {target.DisplayName}");
+					Log($"MOVE TO: {target.Type} {target.DisplayName}");
 					return true;
 				}
 			}
-			Log("MOVE_TO: target not found: " + searchName);
+			Log("MOVE TO: target not found: " + searchName);
 			return false;
 		}
 	}
