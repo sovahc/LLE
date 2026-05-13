@@ -123,11 +123,17 @@ namespace LLE
 			}
 		}
 
+		private static int raycast_slowdown_offset;
+
 		public static void HighlightVisible(Drawing draw, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
 
 			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
+
+			const int RAYCAST_EVERY = 10;
+			int raycast_slowdown = raycast_slowdown_offset;
+			if(++raycast_slowdown_offset >= RAYCAST_EVERY) raycast_slowdown_offset = 0;
 
 			int raycasts = 0;
 
@@ -176,6 +182,8 @@ namespace LLE
 				var floater = entity as IMyFloatingObject;
 				if(floater != null)
 				{
+					if(raycast_slowdown++ % 5 != 0) continue;
+
 					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
 					++raycasts;
 
@@ -192,7 +200,7 @@ namespace LLE
 			MyConsole.Add($"raycasts: {raycasts} ", Color.Red);
 			foreach(var v in lks.Values)
 			{	var delta = Time.Now - v.LastSeenAt;
-				if(delta > 2.5) continue;
+				if(delta > 1.0) continue;
 				double distance = (rayOrigin - new Vector3D(v.X, v.Y, v.Z)).Length();
 				MyConsole.Add($"{v.Type} {distance:F1} {delta:F1} {v.DisplayName} ", Color.White);
 			}
