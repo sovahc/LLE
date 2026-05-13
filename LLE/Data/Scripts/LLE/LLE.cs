@@ -39,6 +39,41 @@ namespace LLE
 
 			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)camera.WorldMatrix.Left, (Vector3)camera.WorldMatrix.Up, radius: size);
 		}
+
+		public static void DebugRaycast(Vector3D origin, Vector3D direction, float range = 1000)
+		{
+			IHitInfo hit = null;
+			MyAPIGateway.Physics.CastRay(origin, origin + direction * range, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
+
+			if (hit == null) return;
+
+			DrawPoint(hit.Position, Color.Red);
+
+			var grid = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
+			if (grid == null) return;
+
+			double dist;
+			IMySlimBlock slimBlock;
+			LineD line = new LineD(origin, origin + direction * range);
+			grid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
+
+			if (slimBlock == null) return;
+			
+			if (slimBlock.FatBlock != null)
+				Drawing.AABB(slimBlock.FatBlock.WorldMatrix, slimBlock.FatBlock.LocalAABB, Color.YellowGreen);
+			else
+			{
+				double blockSize = grid.GridSizeEnum == MyCubeSize.Large ? 2.5 : 0.5;
+				blockSize *= 1.1;
+				Vector3D center = grid.GridIntegerToWorld(slimBlock.Position);
+
+				MatrixD matrix = grid.WorldMatrix;
+				matrix.Translation = center; // сдвигаем матрицу грида в центр блока
+
+				var v = new Vector3D(blockSize * 0.5);
+				Drawing.AABB(matrix, new BoundingBoxD(-v, v), Color.Beige);
+			}
+		}
 	}
 
 	class MyConsole
@@ -363,6 +398,9 @@ namespace LLE
 
 			var p = player.Character.GetHeadMatrix(false);
 			Vision.HighlightVisible(draw, p.Translation, p.Forward);
+
+			// Debug raycast
+			Utilities.DebugRaycast(p.Translation, p.Forward);
 
 			MyConsole.Render(draw);
 		}
