@@ -182,7 +182,7 @@ namespace LLE
 				var floater = entity as IMyFloatingObject;
 				if(floater != null)
 				{
-					if(raycast_slowdown++ % 5 != 0) continue;
+					if(raycast_slowdown++ % RAYCAST_EVERY != 0) continue;
 
 					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
 					++raycasts;
