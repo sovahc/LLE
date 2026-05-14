@@ -43,7 +43,6 @@ namespace LLE
 							if (content > 0 && content < byte.MaxValue)
 								candidates[count++] = parentMin + local;
 						}
-				MyConsole.Add($"{sizeLocal} {count}", Color.White);
 				if (count == 0) return false;
 
 				var picked = candidates[random.Next(count)];

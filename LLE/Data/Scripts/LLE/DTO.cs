@@ -1,30 +1,22 @@
-using ProtoBuf;
-
 namespace LLE
 {
-    [ProtoContract]
-    public class LastKnownState
-    {
-        [ProtoMember(1)]
-        public ObjectType Type;
-        [ProtoMember(2)]
-        public string DisplayName;
-        [ProtoMember(3)]
-        public double X;
-        [ProtoMember(4)]
-        public double Y;
-        [ProtoMember(5)]
-        public double Z;
+	public class LastKnownState
+	{
+		public ObjectType Type;
+		public long EntityId;
+		public string DisplayName;
+		public double X, Y, Z;
+		public double LastSeenAt;
+		public bool Visible;
+		
+		public string debug;
+	}
 
-        public double LastSeenAt;
-    }
+	public class ServerCommand
+	{
+		public int CommandType;
+		public string Payload;
+	}
 
-    [ProtoContract]
-    public class ServerCommand
-    {
-        [ProtoMember(1)] public int CommandType;
-        [ProtoMember(2)] public string Payload;
-    }
-
-    public enum ObjectType { Asteroid, LargeShip, SmallShip, Floating }
+	public enum ObjectType { Asteroid, LargeShip, SmallShip, Floating }
 }

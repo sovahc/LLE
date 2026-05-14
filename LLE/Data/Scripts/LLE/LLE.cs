@@ -121,7 +121,7 @@ namespace LLE
 		}
 	}
 
-	class Time { public static double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds; }
+	public static class Time { public static double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds; }
 
 	class Vision
 	{
@@ -135,14 +135,15 @@ namespace LLE
 			if(!lks.TryGetValue(entity.EntityId, out state))
 			{
 				state = new LastKnownState();
-
 				state.Type = type;
+				state.EntityId = entity.EntityId;
 				state.DisplayName = entity.DisplayName;
 				var p = entity.GetPosition();
 				state.X = p.X;
 				state.Y = p.Y;
 				state.Z = p.Z;
 				state.LastSeenAt = 0;
+				state.debug = "";
 
 				lks.Add(entity.EntityId, state);
 			}
@@ -231,13 +232,14 @@ namespace LLE
 				}
 			}
 
-			MyConsole.Clear();
 			MyConsole.Add($"raycasts: {raycasts} ", Color.Red);
 			foreach(var v in lks.Values)
 			{	var delta = Time.Now - v.LastSeenAt;
-				if(delta > 1.0) continue;
+				v.Visible = delta < 1.0;
+				if(!v.Visible) continue;
+
 				double distance = (rayOrigin - new Vector3D(v.X, v.Y, v.Z)).Length();
-				MyConsole.Add($"{v.Type} {distance:F1} {delta:F1} {v.DisplayName} ", Color.White);
+				MyConsole.Add($"{v.Type} {distance:F0} {delta:F0} {v.DisplayName} {v.debug}", Color.White);
 			}
 		}
 
@@ -286,51 +288,75 @@ namespace LLE
 
 	class Navigation
 	{
-		public bool Active;
-		public Vector3D Target;
-		const double MaxSpeed = 10.0;
-		const float TurnRate = 2.0f;
-		const double Decel = 5.0;
+		private const float LOOKAHEAD_TIME = 3.0f;
+		private const float SAFETY_MARGIN = 5.0f;
+		private const float AVOIDANCE_STRENGTH = 10.0f;
 
-		public void Update(IMyCharacter ch)
+		public void ObstacleAvoidance(IMyCharacter ch)
 		{
-			if(//MyAPIGateway.Input.IsAnyKeyPress() ||
-				MyAPIGateway.Input.IsAnyMousePressed()) { Active = false; return; }
+			Vector3D botPos = ch.GetPosition();
+			Vector3D botVel = ch.Physics.LinearVelocity;
+			double botRadius = 1.0;
 
-			var pos = ch.GetPosition();
-			Vector3D toTarget = Target - pos;
-			double dist = toTarget.Length();
-			if (dist < 2.0) { Active = false; return; }
+			Vector3D totalAvoidance = Vector3D.Zero;
+			int dangerCount = 0;
 
-			// Speed: accelerate linearly, brake when close
-			double brakeDist = MaxSpeed * MaxSpeed / (2.0 * Decel);
-			double speed;
-			if (dist < brakeDist)
+			foreach (var state in Vision.lks.Values)
 			{
-				speed = dist > 0 ? Math.Min(MaxSpeed, dist * Decel / MaxSpeed) : 0;
+				if (!state.Visible) continue;
+
+				var entity = MyAPIGateway.Entities.GetEntityById(state.EntityId);
+				if (entity == null || entity.Closed) continue;
+
+				double obsRadius = entity.WorldVolume.Radius;
+				Vector3D obsPosition = entity.WorldVolume.Center;
+				Vector3D obsVelocity = Vector3D.Zero;
+				if (entity.Physics != null) obsVelocity = entity.Physics.LinearVelocity;
+
+	            Vector3D relPos = obsPosition - botPos;
+            	Vector3D relVel = obsVelocity - botVel;
+
+            	double relVelSq = relVel.LengthSquared();
+            	if (relVelSq < 0.01) continue;
+
+            	// 2. Время максимального сближения (Time of Closest Approach)
+            	// Минимизируем |relPos + relVel * t|^2 -> производная = 0
+            	double t_ca = -Vector3D.Dot(relPos, relVel) / relVelSq;
+
+            	// Нас интересует только будущее в пределах окна предсказания
+            	if (t_ca < 0) t_ca = 0;
+            	if (t_ca > LOOKAHEAD_TIME) t_ca = LOOKAHEAD_TIME;
+
+            	// 3. Позиции в момент максимального сближения
+            	Vector3D botAtCa = botPos + botVel * t_ca;
+            	Vector3D obsAtCa = obsPosition + obsVelocity * t_ca;
+
+            	Vector3D distVec = botAtCa - obsAtCa;
+            	double distSq = distVec.LengthSquared();
+
+            	double combinedRadius = botRadius + obsRadius + SAFETY_MARGIN;
+            	double combinedRadiusSq = combinedRadius * combinedRadius;
+
+            	if (distSq < combinedRadiusSq)
+            	{
+                	Vector3D avoidDir = Vector3D.Normalize(distVec);
+
+                	double distFactor = 1.0 - (Math.Sqrt(distSq) / combinedRadius); // 1 при касании, 0 на границе
+                	double timeFactor = 1.0 - (t_ca / LOOKAHEAD_TIME);              // 1 если сейчас, 0 если через 3 сек
+                	double urgency = Math.Max(0, distFactor * timeFactor);
+
+					MyConsole.Add($"distFactor {distFactor:F2} timeFactor{timeFactor:F2} urgency {urgency:F2}", Color.Gray);
+
+                	totalAvoidance += avoidDir * AVOIDANCE_STRENGTH * urgency;
+                	dangerCount++;
+            	}
 			}
-			else
-			{
-				speed = MaxSpeed;
-			}
 
-			Vector3D targetDir = Vector3D.Normalize(toTarget);
+			if (dangerCount == 0) return;
 
-			// Rotation: compute yaw/pitch to face target from current forward
-			MatrixD rot = ch.WorldMatrix;
-			var fwd = rot.Forward;
-			var right = rot.Right;
-			var up = rot.Up;
-			Vector3 targetDir3 = (Vector3)targetDir;
-			float yaw = -(float)Math.Atan2(Vector3.Dot(targetDir3, right), Vector3.Dot(targetDir3, fwd));
-			float pitch = (float)Math.Asin(Vector3.Dot(targetDir3, up));
-
-			yaw = Math.Max(-TurnRate, Math.Min(TurnRate, yaw));
-			pitch = Math.Max(-TurnRate, Math.Min(TurnRate, pitch));
-
-			MatrixD inv = ch.WorldMatrixInvScaled;
-			Vector3 localDir = Vector3.TransformNormal((Vector3)targetDir, inv);
-			ch.MoveAndRotate(localDir * (float)speed, new Vector2(pitch, yaw), 0f);
+			MyConsole.Add($"dangerCount {dangerCount} totalAvoidance {Vector3D.Normalize(totalAvoidance)}", Color.Green);
+			//Vector3 localDir = Vector3.TransformNormal((Vector3)moveDir, ch.WorldMatrixInvScaled);
+			ch.MoveAndRotate(Vector3.Up, Vector2.Zero, 0f);
 		}
 	}
 
@@ -344,16 +370,14 @@ namespace LLE
 
 		public override void UpdateBeforeSimulation()
 		{
+			MyConsole.Clear();
+
+			//
+
 			LLE_Loader.Update();
 
 			if (LLE_Loader.IsPresent())
 				LLE_Loader.SetVision(Vision.lks);
-
-			if (_navigation.Active)
-			{
-				var ch = MyAPIGateway.Session.Player?.Character;
-				if (ch != null) _navigation.Update(ch);
-			}
 
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
@@ -362,8 +386,8 @@ namespace LLE
 				LastKnownState target = null;
 				if (TryParseMoveTo(payload, out target))
 				{
-					_navigation.Target = new Vector3D(target.X, target.Y, target.Z);
-					_navigation.Active = true;
+					//_navigation.Target = new Vector3D(target.X, target.Y, target.Z);
+					//_navigation.Active = true;
 					Log("Navigate to " + payload);
 				}
 				else
@@ -371,8 +395,14 @@ namespace LLE
 					MyVisualScriptLogicProvider.SendChatMessage(payload, "LLM", font: "Blue");
 				}
 			}
-		}
 
+			var player = MyAPIGateway.Session.Player;
+			if (player == null) return;
+			var ch = player.Character;
+			if(ch == null) return;
+
+			_navigation.ObstacleAvoidance(ch);
+		}
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
