@@ -15,9 +15,8 @@ namespace LLE
 		public static bool Enabled;
 		
 		public static float _nearPlane;
-		public static MatrixD _viewProjInv;
-		public static MatrixD _viewProj;
-		public static float _scaleFov, _aspectRatio;
+		public static MatrixD _viewProj, _viewProjInv;
+		public static float _tanHalfFov, _aspectRatio;
 
 		private static readonly ObjectPooling<MyBillboard> _pool = new ObjectPooling<MyBillboard>();
 
@@ -41,7 +40,7 @@ namespace LLE
 			MatrixD projMatrix = MatrixD.CreatePerspectiveFieldOfView(camera.FovWithZoom, _aspectRatio, _nearPlane, (float)camera.FarPlaneDistance);
 			_viewProj = camera.ViewMatrix * projMatrix;
 			_viewProjInv = MatrixD.Invert(_viewProj);
-			_scaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
+			_tanHalfFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 		}
 
 		private static readonly List<MyBillboard> _billboards = new List<MyBillboard>();
@@ -58,11 +57,8 @@ namespace LLE
 
 		public static Vector3D ScreenToWorld(Vector2D screenPos, MatrixD viewProjInv)
 		{
-			double x = screenPos.X * viewProjInv.M11 + screenPos.Y * viewProjInv.M21 + viewProjInv.M41;
-			double y = screenPos.X * viewProjInv.M12 + screenPos.Y * viewProjInv.M22 + viewProjInv.M42;
-			double z = screenPos.X * viewProjInv.M13 + screenPos.Y * viewProjInv.M23 + viewProjInv.M43;
-			double w = screenPos.X * viewProjInv.M14 + screenPos.Y * viewProjInv.M24 + viewProjInv.M44;
-			return new Vector3D(x / w, y / w, z / w);
+			var result = Vector4.Transform(new Vector4((float)screenPos.X, (float)screenPos.Y, 0f, 1f), Matrix.Invert(_viewProj));
+   			return new Vector3D(result.X / result.W, result.Y / result.W, result.Z / result.W);
 		}
 	}
 
@@ -140,8 +136,8 @@ namespace LLE
 
 			Vector3D worldPos = Common.ScreenToWorld((Vector2D)center, Common._viewProjInv);
 			var camera = MyAPIGateway.Session.Camera;
-			float halfW = size.X * Common._scaleFov * Common._nearPlane * Common._aspectRatio / 2f;
-			float halfH = size.Y * Common._scaleFov * Common._nearPlane / 2f;
+			float halfW = size.X * Common._tanHalfFov * Common._nearPlane * Common._aspectRatio / 2f;
+			float halfH = size.Y * Common._tanHalfFov * Common._nearPlane / 2f;
 			Vector3 left = (Vector3)camera.WorldMatrix.Left;
 			Vector3 up = (Vector3)camera.WorldMatrix.Up;
 
