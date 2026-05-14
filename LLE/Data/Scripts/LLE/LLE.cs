@@ -21,25 +21,6 @@ namespace LLE
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
-		public static void DrawPoint(Vector3D point, Color color)
-		{
-			var camera = MyAPIGateway.Session.Camera;
-			if (camera == null) return;
-
-			var material = MyStringId.GetOrCompute("LLE-Marker");
-
-			Vector3D viewDir = Vector3D.Normalize(point - camera.Position);
-			var distance = (point - camera.Position).Normalize();
-
-			point = camera.Position + viewDir;
-
-			float size = (float)(0.25 / (distance + 0.0001));
-			if (size < 0.005f) size = 0.005f;
-			if (size > 0.25f) size = 0.25f;
-
-			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)camera.WorldMatrix.Left, (Vector3)camera.WorldMatrix.Up, radius: size);
-		}
-
 		public static void DebugRaycast(Vector3D origin, Vector3D direction, float range = 1000)
 		{
 			IHitInfo hit = null;
@@ -47,7 +28,7 @@ namespace LLE
 
 			if (hit == null) return;
 
-			DrawPoint(hit.Position, Color.Red);
+			Drawing.RoundMarker(hit.Position, Color.Red);
 
 			var grid = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
 			if (grid == null) return;
@@ -106,7 +87,6 @@ namespace LLE
 
 			float B = 0.01f;
 			float scale = 0.00075f;
-			//float lineStep = 0.025f;
 			float lineStep = draw.GetFontHeight(scale) * 1.2f;
 
 			float y0 = 0;
@@ -133,6 +113,7 @@ namespace LLE
 	class Vision
 	{
 		private static Random random = new Random();
+		private static int raycast_slowdown_offset;
 
 		internal static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
 
@@ -166,8 +147,6 @@ namespace LLE
 			}
 		}
 
-		private static int raycast_slowdown_offset;
-
 		public static void HighlightVisible(Drawing draw, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
@@ -197,7 +176,7 @@ namespace LLE
 					++raycasts;
 					
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					Utilities.DrawPoint(p, isBlocked ? Color.DimGray : Color.LimeGreen);
+					Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
 					if(isBlocked) continue;
 
 					var type = grid.GridSizeEnum == MyCubeSize.Large ? ObjectType.LargeShip : ObjectType.SmallShip;
@@ -216,7 +195,7 @@ namespace LLE
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					Utilities.DrawPoint(p, isBlocked ? Color.DimGray : Color.YellowGreen);
+					Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
 					if(isBlocked) continue;
 
 					SetLKS(entity, ObjectType.Asteroid, true);
@@ -232,7 +211,7 @@ namespace LLE
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 
-					Utilities.DrawPoint(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
+					Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
 					if(isBlocked) continue;
 
 					SetLKS(entity, ObjectType.Floating, true);

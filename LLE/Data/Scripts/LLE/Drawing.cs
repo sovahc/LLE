@@ -55,6 +55,17 @@ namespace LLE
 			_cachedScaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 		}
 
+		public float GetFontHeight(float scale)
+		{
+			Glyph glyph;
+			if (_characters.TryGetValue('H', out glyph))
+				return glyph.sx * scale;
+			// fallback
+			if (_characters.TryGetValue('\u25A1', out glyph))
+				return glyph.sx * scale;
+			return 0.02f;
+		}
+
 		public float String(string text, Vector2D origin, float scale, Color color)
 		{
 			if(!Enabled) return 0;
@@ -318,15 +329,23 @@ namespace LLE
 			MySimpleObjectDraw.DrawTransparentBox(ref drawMatrix, ref bbD, ref color, raster, 1, thickness, material, material);
 		}
 
-		public float GetFontHeight(float scale)
+		public static void RoundMarker(Vector3D point, Color color)
 		{
-			Glyph glyph;
-			if (_characters.TryGetValue('H', out glyph))
-				return glyph.sx * scale;
-			// fallback
-			if (_characters.TryGetValue('\u25A1', out glyph))
-				return glyph.sx * scale;
-			return 0.02f;
+			var camera = MyAPIGateway.Session.Camera;
+			if (camera == null) return;
+
+			var material = MyStringId.GetOrCompute("LLE-Marker");
+
+			Vector3D viewDir = Vector3D.Normalize(point - camera.Position);
+			var distance = (point - camera.Position).Normalize();
+
+			point = camera.Position + viewDir;
+
+			float size = (float)(0.25 / (distance + 0.0001));
+			if (size < 0.005f) size = 0.005f;
+			if (size > 0.25f) size = 0.25f;
+
+			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)camera.WorldMatrix.Left, (Vector3)camera.WorldMatrix.Up, radius: size);
 		}
 	}
 }
