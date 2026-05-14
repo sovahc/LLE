@@ -81,13 +81,13 @@ namespace LLE
 		{	_lines.Clear();			
 		}
 
-		public static void Render(Drawing draw)
+		public static void Render(Font font)
 		{
-			if (draw == null || _lines.Count == 0) return;
+			if (_lines.Count == 0) return;
 
 			float B = 0.01f;
 			float scale = 0.00075f;
-			float lineStep = draw.GetFontHeight(scale) * 1.2f;
+			float lineStep = font.GetHeight(scale) * 1.2f;
 
 			float y0 = 0;
 			float x0 = -0.99f;
@@ -98,17 +98,17 @@ namespace LLE
 			{
 				var line = _lines[_lines.Count - i - 1];
 				float y = y0 + i * lineStep;
-				var w = draw.String(line.Text, new Vector2D(x0, y), scale, line.Color);
+				var w = font.String(line.Text, new Vector2D(x0, y), scale, line.Color);
 				if(w > rectangleW) rectangleW = w;
 			}
 
-			var bb = draw.Rectangle(new Vector2(x0-B, y0-B),
+			var bb = font.Rectangle(new Vector2(x0-B, y0-B),
 				new Vector2(x0+rectangleW+B+B, y0+rectangleH+B+B),
 				MyStringId.GetOrCompute("Square"),
 				Vector2.Zero, Vector2.One, textBackground);
 
 			MyTransparentGeometry.AddBillboard(bb, false);
-			draw.AddFontBilboards();
+			font.AddBilboards();
 		}
 	}
 
@@ -151,7 +151,7 @@ namespace LLE
 			}
 		}
 
-		public static void HighlightVisible(Drawing draw, Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
+		public static void HighlightVisible(Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
 
@@ -355,7 +355,7 @@ namespace LLE
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
-		private static Drawing draw;
+		private static Font font;
 		private static readonly Navigation _navigation = new Navigation();
 
 		public static void Log(string s) { Utilities.Log(s); }
@@ -397,16 +397,18 @@ namespace LLE
 			//double t = Time.Now;
 			//Vector3 dir = new Vector3((float)Math.Sin(t * Math.PI * 2 / 10), (float)Math.Cos(t * Math.PI * 2 / 10), 0);
 			//ch.MoveAndRotate(dir, Vector2.Zero, 0f);
-			_navigation.ObstacleAvoidance(ch);
+			
+			
+			//_navigation.ObstacleAvoidance(ch);
 		}
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
 			Log("Init");
 
-			draw = new Drawing();
+			font = new Font();
 
-			if (!draw.LoadFont(@"Fonts\monospace\FontDataPA.xml", "LLE_monospace2048"))
+			if (!font.LoadFont(@"Fonts\monospace\FontDataPA.xml", "LLE_monospace2048"))
 				Log("ERROR: Failed to parse font!");
 		}
 
@@ -415,21 +417,20 @@ namespace LLE
 			var player = MyAPIGateway.Session.Player;
 			if (player == null || player.Character == null) return;
 			
-			draw.StartFrame();
+			Common.StartFrame();
 
 			var lp = LLE_Loader.IsPresent();
-			draw.String("LLE_Loader.IsPresent: " + lp.ToString(),
+			font.String("LLE_Loader.IsPresent: " + lp.ToString(),
 				new Vector2D(0.5, -0.97), 0.00075f, lp ? Color.White : Color.Red);
 
 			var p = player.Character.GetHeadMatrix(false);
-			Vision.HighlightVisible(draw, p.Translation, p.Forward);
+			Vision.HighlightVisible(p.Translation, p.Forward);
 
-			// Debug raycast
 			Utilities.DebugRaycast(p.Translation, p.Forward);
 
-			MyConsole.Render(draw);
+			MyConsole.Render(font);
 
-			draw.AddFontBilboards(); // just for sure
+			font.AddBilboards(); Drawing.AddBilboards(); // just for sure
 		}
 
 		public override void BeforeStart()
