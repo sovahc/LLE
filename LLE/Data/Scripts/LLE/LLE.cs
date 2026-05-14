@@ -107,7 +107,7 @@ namespace LLE
 			float B = 0.01f;
 			float scale = 0.00075f;
 			//float lineStep = 0.025f;
-			float lineStep = draw.GetFontHeight(scale) * 1.1f;
+			float lineStep = draw.GetFontHeight(scale) * 1.2f;
 
 			float y0 = 0;
 			float x0 = -0.99f;

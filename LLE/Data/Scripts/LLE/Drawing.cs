@@ -322,25 +322,11 @@ namespace LLE
 		{
 			Glyph glyph;
 			if (_characters.TryGetValue('H', out glyph))
-				return (float)glyph.sx * scale;
+				return glyph.sx * scale;
 			// fallback
 			if (_characters.TryGetValue('\u25A1', out glyph))
-				return (float)glyph.sx * scale;
+				return glyph.sx * scale;
 			return 0.02f;
 		}
-
-/*		public float ComputeStringWidth(string text, float scale)
-		{
-			float width = 0f;
-			for (int i = 0; i < text.Length; i++)
-			{
-				char ch = text[i];
-				Glyph glyph;
-				if (!_characters.TryGetValue(ch, out glyph))
-					glyph = _characters['\u25A1']; // Keen unknown character
-				width += glyph.aw * scale;
-			}
-			return width;
-		}*/
 	}
 }
