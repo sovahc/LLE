@@ -43,6 +43,27 @@ namespace LLE
 			_viewProjInv = MatrixD.Invert(_viewProj);
 			_scaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 		}
+
+		private static readonly List<MyBillboard> _billboards = new List<MyBillboard>();
+
+		public static void AddBillboard(MyBillboard b)
+		{	_billboards.Add(b);
+		}
+
+		public static void Call_Add_Billboards()
+		{	if (_billboards.Count == 0) return;
+			MyTransparentGeometry.AddBillboards(_billboards, false);
+			_billboards.Clear();
+		}
+
+		public static Vector3D ScreenToWorld(Vector2D screenPos, MatrixD viewProjInv)
+		{
+			double x = screenPos.X * viewProjInv.M11 + screenPos.Y * viewProjInv.M21 + viewProjInv.M41;
+			double y = screenPos.X * viewProjInv.M12 + screenPos.Y * viewProjInv.M22 + viewProjInv.M42;
+			double z = screenPos.X * viewProjInv.M13 + screenPos.Y * viewProjInv.M23 + viewProjInv.M43;
+			double w = screenPos.X * viewProjInv.M14 + screenPos.Y * viewProjInv.M24 + viewProjInv.M44;
+			return new Vector3D(x / w, y / w, z / w);
+		}
 	}
 
 	public class Font
@@ -60,14 +81,6 @@ namespace LLE
 
 		private Dictionary<char, Glyph> _characters = new Dictionary<char, Glyph>();
 		private MyStringId _atlas;
-
-		private readonly List<MyBillboard> _billboards = new List<MyBillboard>();
-
-		public void AddBilboards()
-		{	if (_billboards.Count == 0) return;
-			MyTransparentGeometry.AddBillboards(_billboards, false);
-			_billboards.Clear();
-		}
 
 		public float GetHeight(float scale)
 		{
@@ -108,7 +121,7 @@ namespace LLE
 				{
 					var billboard = Rectangle(charTopLeft, charBottomRight,
 						_atlas, glyph.offset, glyph.size, color);
-					_billboards.Add(billboard);
+					Common.AddBillboard(billboard);
 				}
 
 				cursorX += glyph.aw * scale;
@@ -125,7 +138,7 @@ namespace LLE
 			Vector2 center = new Vector2((topLeft.X + bottomRight.X) / 2f, (topLeft.Y + bottomRight.Y) / 2f);
 			Vector2 size   = new Vector2(bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
 
-			Vector3D worldPos = Drawing.ScreenToWorld((Vector2D)center, Common._viewProjInv);
+			Vector3D worldPos = Common.ScreenToWorld((Vector2D)center, Common._viewProjInv);
 			var camera = MyAPIGateway.Session.Camera;
 			float halfW = size.X * Common._scaleFov * Common._nearPlane * Common._aspectRatio / 2f;
 			float halfH = size.Y * Common._scaleFov * Common._nearPlane / 2f;
@@ -252,14 +265,6 @@ namespace LLE
 
 	public class Drawing
 	{
-		private static readonly List<MyBillboard> _billboards = new List<MyBillboard>();
-
-		public static void AddBilboards()
-		{	if (_billboards.Count == 0) return;
-			MyTransparentGeometry.AddBillboards(_billboards, false);
-			_billboards.Clear();
-		}
-
 		public static void Contour(Vector2D[] points, bool closed, float thickness, Vector4 color)
 		{
 			if(!Common.Enabled) return;
@@ -270,7 +275,7 @@ namespace LLE
 
 			var worldPoints = new Vector3D[points.Length];
 			for (int i = 0; i < points.Length; i++)
-				worldPoints[i] = ScreenToWorld(points[i], Common._viewProjInv);
+				worldPoints[i] = Common.ScreenToWorld(points[i], Common._viewProjInv);
 
 			int count = closed ? worldPoints.Length : worldPoints.Length - 1;
 
@@ -312,19 +317,9 @@ namespace LLE
 				billboard.AlphaCutout = 0f;
 				billboard.CustomViewProjection = -1;
 
-				_billboards.Add(billboard);
+				Common.AddBillboard(billboard);
 			}
 		}
-
-		public static Vector3D ScreenToWorld(Vector2D screenPos, MatrixD viewProjInv)
-		{
-			double x = screenPos.X * viewProjInv.M11 + screenPos.Y * viewProjInv.M21 + viewProjInv.M41;
-			double y = screenPos.X * viewProjInv.M12 + screenPos.Y * viewProjInv.M22 + viewProjInv.M42;
-			double z = screenPos.X * viewProjInv.M13 + screenPos.Y * viewProjInv.M23 + viewProjInv.M43;
-			double w = screenPos.X * viewProjInv.M14 + screenPos.Y * viewProjInv.M24 + viewProjInv.M44;
-			return new Vector3D(x / w, y / w, z / w);
-		}
-
 		public static void AABB(MatrixD worldMatrix, BoundingBox localBB, Color color, MySimpleObjectRasterizer raster = MySimpleObjectRasterizer.Wireframe, float thickness = 0.002f)
 		{
 			AABB(worldMatrix, new BoundingBoxD(localBB.Min, localBB.Max), color, raster, thickness);

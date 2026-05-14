@@ -108,7 +108,7 @@ namespace LLE
 				Vector2.Zero, Vector2.One, textBackground);
 
 			MyTransparentGeometry.AddBillboard(bb, false);
-			font.AddBilboards();
+			Common.Call_Add_Billboards();
 		}
 	}
 
@@ -430,7 +430,7 @@ namespace LLE
 
 			MyConsole.Render(font);
 
-			font.AddBilboards(); Drawing.AddBilboards(); // just for sure
+			Common.Call_Add_Billboards(); // just for sure
 		}
 
 		public override void BeforeStart()
