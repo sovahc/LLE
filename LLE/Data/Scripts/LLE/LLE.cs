@@ -102,9 +102,13 @@ namespace LLE
 				if(w > rectangleW) rectangleW = w;
 			}
 
-			draw.Rectangle(new Vector2(x0-B, y0-B), new Vector2(x0+rectangleW+B+B, y0+rectangleH+B+B),
+			var bb = draw.Rectangle(new Vector2(x0-B, y0-B),
+				new Vector2(x0+rectangleW+B+B, y0+rectangleH+B+B),
 				MyStringId.GetOrCompute("Square"),
 				Vector2.Zero, Vector2.One, textBackground);
+
+			MyTransparentGeometry.AddBillboard(bb, false);
+			draw.AddFontBilboards();
 		}
 	}
 
@@ -340,9 +344,11 @@ namespace LLE
 
 			if (dangerCount == 0) return;
 
-			MyConsole.Add($"dangerCount {dangerCount} totalAvoidance {Vector3D.Normalize(totalAvoidance)}", Color.Green);
-			//Vector3 localDir = Vector3.TransformNormal((Vector3)moveDir, ch.WorldMatrixInvScaled);
-			ch.MoveAndRotate(Vector3.Up, Vector2.Zero, 0f);
+			var av = Vector3D.Normalize(totalAvoidance);
+
+			MyConsole.Add($"dangerCount {dangerCount} totalAvoidance {av}", Color.Green);
+			Vector3 localDir = Vector3.TransformNormal((Vector3)av, ch.WorldMatrixInvScaled);
+			ch.MoveAndRotate(localDir, Vector2.Zero, 0f);
 		}
 	}
 
@@ -406,14 +412,14 @@ namespace LLE
 
 		public override void Draw()
 		{
+			var player = MyAPIGateway.Session.Player;
+			if (player == null || player.Character == null) return;
+			
 			draw.StartFrame();
 
 			var lp = LLE_Loader.IsPresent();
 			draw.String("LLE_Loader.IsPresent: " + lp.ToString(),
 				new Vector2D(0.5, -0.97), 0.00075f, lp ? Color.White : Color.Red);
-
-			var player = MyAPIGateway.Session.Player;
-			if (player == null || player.Character == null) return;
 
 			var p = player.Character.GetHeadMatrix(false);
 			Vision.HighlightVisible(draw, p.Translation, p.Forward);
@@ -422,6 +428,8 @@ namespace LLE
 			Utilities.DebugRaycast(p.Translation, p.Forward);
 
 			MyConsole.Render(draw);
+
+			draw.AddFontBilboards(); // just for sure
 		}
 
 		public override void BeforeStart()

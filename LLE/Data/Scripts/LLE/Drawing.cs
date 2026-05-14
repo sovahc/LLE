@@ -27,7 +27,7 @@ namespace LLE
 		private MyStringId _atlas;
 
 		private readonly ObjectPooling<MyBillboard> _pool = new ObjectPooling<MyBillboard>();
-		private readonly List<MyBillboard> _billboards = new List<MyBillboard>();
+		private readonly List<MyBillboard> _fontBillboards = new List<MyBillboard>();
 
 		private float _cachedNearPlane;
 		private MatrixD _cachedViewProjInv;
@@ -72,8 +72,6 @@ namespace LLE
 
 			float cursorX = 0f;
 
-			_billboards.Clear();
-
 			float oX = (float)origin.X;
 			float oY = (float)origin.Y;
 
@@ -95,17 +93,22 @@ namespace LLE
 				if (ch != ' ')
 				{
 					var billboard = Rectangle(charTopLeft, charBottomRight,
-						_atlas, glyph.offset, glyph.size, color, false);
-					_billboards.Add(billboard);
+						_atlas, glyph.offset, glyph.size, color);
+					_fontBillboards.Add(billboard);
 				}
 
 				cursorX += glyph.aw * scale;
 			}
 
-			if (_billboards.Count > 0) MyTransparentGeometry.AddBillboards(_billboards, false);
 			return cursorX;
 		}
-		
+
+		public void AddFontBilboards()
+		{	if (_fontBillboards.Count == 0) return;
+			MyTransparentGeometry.AddBillboards(_fontBillboards, false);
+			_fontBillboards.Clear();
+		}
+
 		public void Contour(Vector2D[] points, bool closed, float thickness, Vector4 color)
 		{
 			if(!Enabled) return;
@@ -118,7 +121,6 @@ namespace LLE
 			for (int i = 0; i < points.Length; i++)
 				worldPoints[i] = ScreenToWorld(points[i], _cachedViewProjInv);
 
-			_billboards.Clear();
 			int count = closed ? worldPoints.Length : worldPoints.Length - 1;
 
 			var square = MyStringId.GetOrCompute("Square");
@@ -159,15 +161,12 @@ namespace LLE
 				billboard.AlphaCutout = 0f;
 				billboard.CustomViewProjection = -1;
 
-				_billboards.Add(billboard);
+				_fontBillboards.Add(billboard);
 			}
-
-			if (_billboards.Count > 0) MyTransparentGeometry.AddBillboards(_billboards, false);
 		}
 
 		public MyBillboard Rectangle(Vector2 topLeft, Vector2 bottomRight, // Screen space -1 to 1
-			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Vector4 color,
-			bool callAddBillboard = true)
+			MyStringId material, Vector2 UVOffset, Vector2 UVSize, Vector4 color)
 		{
 			if(!Enabled) return null;
 
@@ -203,9 +202,6 @@ namespace LLE
 			billboard.Reflectivity = 0f;
 			billboard.AlphaCutout = 0f;
 			billboard.CustomViewProjection = -1;
-
-			if(callAddBillboard)
-				MyTransparentGeometry.AddBillboard(billboard, false);
 
 			return billboard;
 		}
