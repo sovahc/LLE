@@ -105,19 +105,26 @@ namespace LLE
 			if (draw == null || _lines.Count == 0) return;
 
 			float B = 0.01f;
-			draw.Rectangle(new Vector2(-1+B, B), new Vector2(-0.5f-B, 1f-B),
-				MyStringId.GetOrCompute("Square"),
-				Vector2.Zero, Vector2.One, textBackground);
-
 			float scale = 0.00075f;
-			float lineStep = 0.025f;
+			//float lineStep = 0.025f;
+			float lineStep = draw.GetFontHeight(scale) * 1.1f;
+
+			float y0 = 0;
+			float x0 = -0.99f;
+			float rectangleH = _lines.Count * lineStep;
+			float rectangleW = 0;
 
 			for (int i = 0; i < _lines.Count; ++i)
 			{
 				var line = _lines[_lines.Count - i - 1];
-				float y = B+B + i * lineStep;
-				draw.String(line.Text, new Vector2D(-0.99f, y), scale, line.Color);
+				float y = y0 + i * lineStep;
+				var w = draw.String(line.Text, new Vector2D(x0, y), scale, line.Color);
+				if(w > rectangleW) rectangleW = w;
 			}
+
+			draw.Rectangle(new Vector2(x0-B, y0-B), new Vector2(x0+rectangleW+B+B, y0+rectangleH+B+B),
+				MyStringId.GetOrCompute("Square"),
+				Vector2.Zero, Vector2.One, textBackground);
 		}
 	}
 
@@ -401,6 +408,10 @@ namespace LLE
 			var ch = player.Character;
 			if(ch == null) return;
 
+			//if (!MyAPIGateway.Input.IsAnyMousePressed())
+			//double t = Time.Now;
+			//Vector3 dir = new Vector3((float)Math.Sin(t * Math.PI * 2 / 10), (float)Math.Cos(t * Math.PI * 2 / 10), 0);
+			//ch.MoveAndRotate(dir, Vector2.Zero, 0f);
 			_navigation.ObstacleAvoidance(ch);
 		}
 

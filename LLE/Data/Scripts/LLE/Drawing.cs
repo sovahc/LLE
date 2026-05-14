@@ -55,13 +55,16 @@ namespace LLE
 			_cachedScaleFov = (float)Math.Tan(camera.FovWithZoom * 0.5f);
 		}
 
-		public void String(string text, Vector2D origin, float scale, Color color)
+		public float String(string text, Vector2D origin, float scale, Color color)
 		{
-			if(!Enabled) return;
+			if(!Enabled) return 0;
 
 			float cursorX = 0f;
 
 			_billboards.Clear();
+
+			float oX = (float)origin.X;
+			float oY = (float)origin.Y;
 
 			for (int i = 0; i < text.Length; i++)
 			{
@@ -72,11 +75,11 @@ namespace LLE
 					glyph = _characters['\u25A1']; // Keen unknown character
 				}
 
-				float screenCharWidth = glyph.aw * scale;
-				float screenCharHeight = (float)glyph.sy / glyph.sx * glyph.aw * scale;
+				float screenCharWidth = glyph.sx * scale;
+				float screenCharHeight = glyph.sy * scale;
 
-				Vector2 charTopLeft     = new Vector2((float)origin.X + cursorX, (float)origin.Y);
-				Vector2 charBottomRight = new Vector2((float)origin.X + cursorX + screenCharWidth, (float)origin.Y - screenCharHeight);
+				Vector2 charTopLeft     = new Vector2(oX + cursorX, oY);
+				Vector2 charBottomRight = new Vector2(oX + cursorX + screenCharWidth, oY + screenCharHeight);
 
 				if (ch != ' ')
 				{
@@ -89,6 +92,7 @@ namespace LLE
 			}
 
 			if (_billboards.Count > 0) MyTransparentGeometry.AddBillboards(_billboards, false);
+			return cursorX;
 		}
 		
 		public void Contour(Vector2D[] points, bool closed, float thickness, Vector4 color)
@@ -161,8 +165,8 @@ namespace LLE
 
 			Vector3D worldPos = ScreenToWorld((Vector2D)center, _cachedViewProjInv);
 			var camera = MyAPIGateway.Session.Camera;
-			float halfW = Math.Abs(size.X * _cachedScaleFov * _cachedNearPlane * _cachedAspectRatio / 2f);
-			float halfH = Math.Abs(size.Y * _cachedScaleFov * _cachedNearPlane / 2f);
+			float halfW = size.X * _cachedScaleFov * _cachedNearPlane * _cachedAspectRatio / 2f;
+			float halfH = size.Y * _cachedScaleFov * _cachedNearPlane / 2f;
 			Vector3 left = (Vector3)camera.WorldMatrix.Left;
 			Vector3 up = (Vector3)camera.WorldMatrix.Up;
 
@@ -313,5 +317,30 @@ namespace LLE
 			var bbD = new BoundingBoxD(-extentsLocal, extentsLocal);
 			MySimpleObjectDraw.DrawTransparentBox(ref drawMatrix, ref bbD, ref color, raster, 1, thickness, material, material);
 		}
+
+		public float GetFontHeight(float scale)
+		{
+			Glyph glyph;
+			if (_characters.TryGetValue('H', out glyph))
+				return (float)glyph.sx * scale;
+			// fallback
+			if (_characters.TryGetValue('\u25A1', out glyph))
+				return (float)glyph.sx * scale;
+			return 0.02f;
+		}
+
+/*		public float ComputeStringWidth(string text, float scale)
+		{
+			float width = 0f;
+			for (int i = 0; i < text.Length; i++)
+			{
+				char ch = text[i];
+				Glyph glyph;
+				if (!_characters.TryGetValue(ch, out glyph))
+					glyph = _characters['\u25A1']; // Keen unknown character
+				width += glyph.aw * scale;
+			}
+			return width;
+		}*/
 	}
 }
