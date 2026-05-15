@@ -238,9 +238,9 @@ namespace LLE
 			var grid = e as IMyCubeGrid;
 			if (grid != null)
 			{
-				grid.OnBlockAdded -= Vision.Grid_OnBlockAdded;
-				grid.OnBlockRemoved -= Vision.Grid_OnBlockRemoved;
-				grid.OnGridChanged -= Vision.Grid_OnGridChanged;
+				grid.OnBlockAdded -= Grid_OnBlockAdded;
+				grid.OnBlockRemoved -= Grid_OnBlockRemoved;
+				grid.OnGridChanged -= Grid_OnGridChanged;
 			}
 
 			lks.Remove(e.EntityId);
@@ -284,8 +284,10 @@ namespace LLE
 
 		public void ObstacleAvoidance(IMyCharacter ch)
 		{
-			Vector3D botPos = ch.GetPosition();
-			Vector3D botVel = ch.Physics.LinearVelocity;
+			if (!MyAPIGateway.Input.IsAnyMousePressed()) return;
+
+			Vector3D botPosition = ch.GetPosition();
+			Vector3D botVelocity = ch.Physics.LinearVelocity;
 			double botRadius = 1.0;
 
 			Vector3D totalAvoidance = Vector3D.Zero;
@@ -303,22 +305,22 @@ namespace LLE
 				Vector3D obsVelocity = Vector3D.Zero;
 				if (entity.Physics != null) obsVelocity = entity.Physics.LinearVelocity;
 
-	            Vector3D relPos = obsPosition - botPos;
-            	Vector3D relVel = obsVelocity - botVel;
+	            Vector3D relativePosition = obsPosition - botPosition;
+            	Vector3D relativeVelocity = obsVelocity - botVelocity;
 
-            	double relVelSq = relVel.LengthSquared();
-            	if (relVelSq < 0.01) continue;
+            	double RVSq = relativeVelocity.LengthSquared();
+            	if (RVSq < 0.01) continue;
 
-            	// 2. Время максимального сближения (Time of Closest Approach)
-            	// Минимизируем |relPos + relVel * t|^2 -> производная = 0
-            	double t_ca = -Vector3D.Dot(relPos, relVel) / relVelSq;
+            	// Time of Closest Approach
+            	// Минимизируем |relativePosition + relativeVelocity * t|^2 -> производная = 0
+            	double t_ca = -Vector3D.Dot(relativePosition, relativeVelocity) / RVSq;
 
             	// Нас интересует только будущее в пределах окна предсказания
             	if (t_ca < 0) t_ca = 0;
             	if (t_ca > LOOKAHEAD_TIME) t_ca = LOOKAHEAD_TIME;
 
             	// 3. Позиции в момент максимального сближения
-            	Vector3D botAtCa = botPos + botVel * t_ca;
+            	Vector3D botAtCa = botPosition + botVelocity * t_ca;
             	Vector3D obsAtCa = obsPosition + obsVelocity * t_ca;
 
             	Vector3D distVec = botAtCa - obsAtCa;
@@ -393,7 +395,6 @@ namespace LLE
 			var ch = player.Character;
 			if(ch == null) return;
 
-			//if (!MyAPIGateway.Input.IsAnyMousePressed())
 			//double t = Time.Now;
 			//Vector3 dir = new Vector3((float)Math.Sin(t * Math.PI * 2 / 10), (float)Math.Cos(t * Math.PI * 2 / 10), 0);
 			//ch.MoveAndRotate(dir, Vector2.Zero, 0f);
