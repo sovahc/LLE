@@ -57,8 +57,11 @@ namespace LLE
 
 		public static Vector3D ScreenToWorld(Vector2D screenPos, MatrixD viewProjInv)
 		{
-			var result = Vector4.Transform(new Vector4((float)screenPos.X, (float)screenPos.Y, 0f, 1f), Matrix.Invert(_viewProj));
-   			return new Vector3D(result.X / result.W, result.Y / result.W, result.Z / result.W);
+			double x = screenPos.X * viewProjInv.M11 + screenPos.Y * viewProjInv.M21 + viewProjInv.M41;
+			double y = screenPos.X * viewProjInv.M12 + screenPos.Y * viewProjInv.M22 + viewProjInv.M42;
+			double z = screenPos.X * viewProjInv.M13 + screenPos.Y * viewProjInv.M23 + viewProjInv.M43;
+			double w = screenPos.X * viewProjInv.M14 + screenPos.Y * viewProjInv.M24 + viewProjInv.M44;
+			return new Vector3D(x / w, y / w, z / w);
 		}
 	}
 
@@ -352,6 +355,48 @@ namespace LLE
 			if (size > 0.25f) size = 0.25f;
 
 			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)camera.WorldMatrix.Left, (Vector3)camera.WorldMatrix.Up, radius: size);
+		}
+
+		public static void EllipsoidContour(MatrixD worldMatrix, BoundingBoxD localBB, Color color)
+		{
+			Vector3D centerLocal = (localBB.Min + localBB.Max) * 0.5;
+			Vector3D extents = (localBB.Max - localBB.Min) * 0.5;
+
+			Vector3D localX = new Vector3D(extents.X, 0, 0);
+			Vector3D localY = new Vector3D(0, extents.Y, 0);
+			Vector3D localZ = new Vector3D(0, 0, extents.Z);
+
+			const int segments = 64;
+			Vector2D[] screenPoints = new Vector2D[segments];
+			Vector4 c = new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+			float thickness = 5e-5f;
+
+			for (int ring = 0; ring < 3; ring++)
+			{
+				for (int i = 0; i < segments; i++)
+				{
+					double t = i * MathHelper.TwoPi / segments;
+					Vector3D local;
+					switch (ring)
+					{
+						case 0: local = centerLocal + Math.Cos(t) * localX + Math.Sin(t) * localY; break;
+						case 1: local = centerLocal + Math.Cos(t) * localX + Math.Sin(t) * localZ; break;
+						default: local = centerLocal + Math.Cos(t) * localY + Math.Sin(t) * localZ; break;
+					}
+
+					Vector3D world = Vector3D.Transform(local, worldMatrix);
+					Vector4D clip = Vector4D.Transform(world, Common._viewProj);
+					if (clip.W > 0.001)
+					{
+						screenPoints[i] = new Vector2D(clip.X / clip.W, clip.Y / clip.W);
+					}
+					else
+					{
+						screenPoints[i] = new Vector2D(double.NaN, double.NaN);
+					}
+				}
+				Contour(screenPoints, true, thickness, c);
+			}
 		}
 	}
 }

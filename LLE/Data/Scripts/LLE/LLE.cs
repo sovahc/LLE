@@ -30,6 +30,10 @@ namespace LLE
 
 			Drawing.RoundMarker(hit.Position, Color.Red);
 
+			var entity = hit.HitEntity;
+
+			Drawing.EllipsoidContour(entity.WorldMatrix, entity.LocalAABB, Color.Red);
+
 			var grid = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
 			if (grid == null) return;
 
@@ -251,7 +255,10 @@ namespace LLE
 		public static void Grid_OnBlockRemoved(IMySlimBlock block) { }
 
 		public static void Grid_OnGridChanged(IMyCubeGrid grid) { }
+	}
 
+	class Navigation
+	{
 		public static bool RayIntersectsEllipsoid(Vector3D rayOrigin, Vector3D rayDir, MatrixD worldMatrix, BoundingBoxD localBB)
 		{
 			var center = (localBB.Min + localBB.Max) * 0.5;
@@ -274,17 +281,14 @@ namespace LLE
 
 			return b * b - 4.0 * a * c >= 0;
 		}
-	}
 
-	class Navigation
-	{
 		private const float LOOKAHEAD_TIME = 3.0f;
 		private const float SAFETY_MARGIN = 5.0f;
 		private const float AVOIDANCE_STRENGTH = 10.0f;
 
 		public void ObstacleAvoidance(IMyCharacter ch)
 		{
-			if (!MyAPIGateway.Input.IsAnyMousePressed()) return;
+			if (MyAPIGateway.Input.IsAnyMousePressed()) return;
 
 			Vector3D botPosition = ch.GetPosition();
 			Vector3D botVelocity = ch.Physics.LinearVelocity;
@@ -305,43 +309,55 @@ namespace LLE
 				Vector3D obsVelocity = Vector3D.Zero;
 				if (entity.Physics != null) obsVelocity = entity.Physics.LinearVelocity;
 
-	            Vector3D relativePosition = obsPosition - botPosition;
-            	Vector3D relativeVelocity = obsVelocity - botVelocity;
+				Vector3D relativePosition = obsPosition - botPosition;
+				Vector3D relativeVelocity = obsVelocity - botVelocity;
 
-            	double RVSq = relativeVelocity.LengthSquared();
-            	if (RVSq < 0.01) continue;
+				double RVSq = relativeVelocity.LengthSquared();
+				if (RVSq < 0.01) continue;
 
-            	// Time of Closest Approach
-            	// Минимизируем |relativePosition + relativeVelocity * t|^2 -> производная = 0
-            	double t_ca = -Vector3D.Dot(relativePosition, relativeVelocity) / RVSq;
+				// Time of Closest Approach
+				// Минимизируем |relativePosition + relativeVelocity * t|^2 -> производная = 0
+				double t_ca = -Vector3D.Dot(relativePosition, relativeVelocity) / RVSq;
 
-            	// Нас интересует только будущее в пределах окна предсказания
-            	if (t_ca < 0) t_ca = 0;
-            	if (t_ca > LOOKAHEAD_TIME) t_ca = LOOKAHEAD_TIME;
+				// Нас интересует только будущее в пределах окна предсказания
+				if (t_ca < 0) t_ca = 0;
+				if (t_ca > LOOKAHEAD_TIME) t_ca = LOOKAHEAD_TIME;
 
-            	// 3. Позиции в момент максимального сближения
-            	Vector3D botAtCa = botPosition + botVelocity * t_ca;
-            	Vector3D obsAtCa = obsPosition + obsVelocity * t_ca;
+				// 3. Позиции в момент максимального сближения
+				Vector3D botAtCa = botPosition + botVelocity * t_ca;
+				Vector3D obsAtCa = obsPosition + obsVelocity * t_ca;
 
-            	Vector3D distVec = botAtCa - obsAtCa;
-            	double distSq = distVec.LengthSquared();
+				Vector3D distVec = botAtCa - obsAtCa;
+				double distSq = distVec.LengthSquared();
 
-            	double combinedRadius = botRadius + obsRadius + SAFETY_MARGIN;
-            	double combinedRadiusSq = combinedRadius * combinedRadius;
+				double combinedRadius = botRadius + obsRadius + SAFETY_MARGIN;
+				double combinedRadiusSq = combinedRadius * combinedRadius;
 
-            	if (distSq < combinedRadiusSq)
-            	{
-                	Vector3D avoidDir = Vector3D.Normalize(distVec);
+				if (distSq < combinedRadiusSq)
+				{
+	// if (IsStaticOrClose(entity, distSq) && !CheckEllipsoidIntersection(...)) continue;
 
-                	double distFactor = 1.0 - (Math.Sqrt(distSq) / combinedRadius); // 1 при касании, 0 на границе
-                	double timeFactor = 1.0 - (t_ca / LOOKAHEAD_TIME);              // 1 если сейчас, 0 если через 3 сек
-                	double urgency = Math.Max(0, distFactor * timeFactor);
+					Vector3D collisionCourse = Vector3D.Normalize(relativeVelocity);
+					Vector3D lateral = distVec - Vector3D.Dot(distVec, collisionCourse) * collisionCourse;
+	
+					// Обработка случая лобового столкновения (вектора коллинеарны)
+					if (lateral.LengthSquared() < 0.01)
+					{
+						Vector3D up = Math.Abs(collisionCourse.Z) < 0.99 ? Vector3D.UnitZ : Vector3D.UnitY;
+						lateral = Vector3D.Cross(collisionCourse, up);
+					}
+	
+					Vector3D avoidDir = Vector3D.Normalize(lateral);
 
-					MyConsole.Add($"distFactor {distFactor:F2} timeFactor{timeFactor:F2} urgency {urgency:F2}", Color.Gray);
+					double distFactor = 1.0 - (Math.Sqrt(distSq) / combinedRadius);
+					double timeFactor = 1.0 - (t_ca / LOOKAHEAD_TIME);
+					double urgency = Math.Max(0, distFactor * timeFactor);
 
-                	totalAvoidance += avoidDir * AVOIDANCE_STRENGTH * urgency;
-                	dangerCount++;
-            	}
+					MyConsole.Add($"distFactor {distFactor:F2} timeFactor {timeFactor:F2} urgency {urgency:F2}", Color.Gray);
+
+					totalAvoidance += avoidDir * AVOIDANCE_STRENGTH * urgency;
+					dangerCount++;
+				}
 			}
 
 			if (dangerCount == 0) return;
@@ -350,6 +366,8 @@ namespace LLE
 
 			MyConsole.Add($"dangerCount {dangerCount} totalAvoidance {av}", Color.Green);
 			Vector3 localDir = Vector3.TransformNormal((Vector3)av, ch.WorldMatrixInvScaled);
+
+			if(double.IsNaN(localDir.X)) return;
 			ch.MoveAndRotate(localDir, Vector2.Zero, 0f);
 		}
 	}
@@ -400,7 +418,7 @@ namespace LLE
 			//ch.MoveAndRotate(dir, Vector2.Zero, 0f);
 			
 			
-			//_navigation.ObstacleAvoidance(ch);
+			_navigation.ObstacleAvoidance(ch);
 		}
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
