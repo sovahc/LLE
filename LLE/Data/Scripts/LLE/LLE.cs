@@ -304,7 +304,10 @@ namespace LLE
 				var entity = MyAPIGateway.Entities.GetEntityById(state.EntityId);
 				if (entity == null || entity.Closed) continue;
 
-				double obsRadius = entity.WorldVolume.Radius;
+				//double obsRadius = entity.WorldVolume.Radius;
+				var ex = entity.LocalAABB.HalfExtents;
+				double obsRadius = Math.Max(ex.X, Math.Max(ex.Y, ex.Z));
+
 				Vector3D obsPosition = entity.WorldVolume.Center;
 				Vector3D obsVelocity = Vector3D.Zero;
 				if (entity.Physics != null) obsVelocity = entity.Physics.LinearVelocity;
@@ -313,7 +316,9 @@ namespace LLE
 				Vector3D relativeVelocity = obsVelocity - botVelocity;
 
 				double RVSq = relativeVelocity.LengthSquared();
-				if (RVSq < 0.01) continue;
+				if (RVSq < 123) continue;
+
+				MyConsole.Add($"relativeVelocity {relativeVelocity:F2}", Color.Gray);
 
 				// Time of Closest Approach
 				// Минимизируем |relativePosition + relativeVelocity * t|^2 -> производная = 0
