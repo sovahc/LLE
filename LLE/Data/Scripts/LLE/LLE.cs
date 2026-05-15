@@ -300,6 +300,7 @@ namespace LLE
 			foreach (var state in Vision.lks.Values)
 			{
 				if (!state.Visible) continue;
+				if (state.Type == ObjectType.Floating) continue;
 
 				var entity = MyAPIGateway.Entities.GetEntityById(state.EntityId);
 				if (entity == null || entity.Closed) continue;
@@ -366,6 +367,7 @@ namespace LLE
 			}
 
 			if (dangerCount == 0) return;
+			if (totalAvoidance.LengthSquared() < 0.01) return;
 
 			var av = Vector3D.Normalize(totalAvoidance);
 
