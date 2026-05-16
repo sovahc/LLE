@@ -11,6 +11,7 @@ using VRage.Game.ModAPI;
 using VRage.GameServices;
 using VRage.ModAPI;
 using VRage.Utils;
+using VRage.Voxels;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
@@ -394,6 +395,7 @@ namespace LLE
 
 		private IMyCubeGrid grid_A, grid_B;
 		private Vector3I point_A, point_B;
+		private List<Vector3I> path;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -463,21 +465,52 @@ namespace LLE
 			//fsCenter = grid.GridIntegerToWorld(freeSpace);
 			//Drawing.RoundMarker(fsCenter, Color.Red);
 
-			bool recalculate_A_star = false;
+			bool pointChanged = false;
 
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
 			{	Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
-				recalculate_A_star = true;
+				pointChanged = true;
 			}
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
 			{	Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
-				recalculate_A_star = true;
+				pointChanged = true;
 			}
 
-			if(recalculate_A_star)
+			if(pointChanged && grid_A == grid_B && grid_A != null)
 			{	
+				var grid = grid_A;
+				Vector3I gridSize = grid.Max - grid.Min + 1;
+
+				Log($"recalculate_A_star {grid.Min} {grid.Max} {gridSize}");
+
+				const int border = 1;
+
+				Map map = new Map(gridSize + border*2);
+
+				Vector3I i;
+				for(i.Z = 0; i.Z < gridSize.Z; ++i.Z)
+					for(i.Y = 0; i.Y < gridSize.Y; ++i.Y)
+						for(i.X = 0; i.X < gridSize.X; ++i.X)
+							map.SetWalkable(i+border, grid.GetCubeBlock(i + grid.Min) == null);
+
+				var a = point_A - grid.Min + border;
+				var b = point_B - grid.Min + border;
+
+				Log($"{point_A} -> {a}");
+				Log($"{point_B} -> {b}");
+
+				Log("FindPath");
+
+				path = map.FindPath(a, b);
+
+				if(path != null)
+				{	Log("move path");
+					for(int p = 0; p < path.Count; ++p)
+						path[p] = path[p] + grid.Min - border;
+					Log("done");
+				}
 			}
-			
+
 			//_navigation.ObstacleAvoidance(ch);
 		}
 
@@ -495,8 +528,15 @@ namespace LLE
 			var pm = player.Character.GetHeadMatrix(false);
 			Vision.HighlightVisible(pm.Translation, pm.Forward);
 
-			if(grid_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
-			if(grid_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
+			if(grid_A != null && path != null)
+			{	foreach(var cell in path)
+				{	Vector3D world = grid_A.GridIntegerToWorld(cell);
+					Drawing.RoundMarker(world, Color.LimeGreen);
+				}
+			}
+
+			if(grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
+			if(grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
 			MyConsole.Render(font);
 

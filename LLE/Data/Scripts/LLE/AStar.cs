@@ -136,6 +136,13 @@ namespace LLE
 
 		public List<Vector3I> FindPath(Vector3I start, Vector3I goal)
 		{
+			if(!_indexer.In(start) || !_indexer.In(goal))
+			{	Utilities.Log($"FindPath bad call: start {start} goal {goal} size {_indexer.Size}");
+				return null;
+			}
+
+			Utilities.Log($"FindPath {start} {goal} size {_indexer.Size}");
+
 			int startIndex = _indexer.Index(start.X, start.Y, start.Z);
 			int goalIndex = _indexer.Index(goal.X, goal.Y, goal.Z);
 
