@@ -45,8 +45,6 @@ namespace LLE
 			var fsCenter = origin + direction * (dist - grid.GridSize);
 			var freeSpace = grid.WorldToGridInteger(fsCenter);
 			position = freeSpace;
-			
-			HighlightCell(grid, position, Color.Aquamarine);
 		}
 
 		public static void HighlightCell(IMyCubeGrid grid, Vector3I position, Color color)
@@ -193,7 +191,7 @@ namespace LLE
 					++raycasts;
 					
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
+					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
 					if(isBlocked) continue;
 
 					var type = grid.GridSizeEnum == MyCubeSize.Large ? ObjectType.LargeShip : ObjectType.SmallShip;
@@ -212,7 +210,7 @@ namespace LLE
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
+					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
 					if(isBlocked) continue;
 
 					SetLKS(entity, ObjectType.Asteroid, true);
@@ -228,7 +226,7 @@ namespace LLE
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 
-					Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
+					//Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
 					if(isBlocked) continue;
 
 					SetLKS(entity, ObjectType.Floating, true);
@@ -409,11 +407,25 @@ namespace LLE
 				Log("ERROR: Failed to parse font!");
 		}
 
+		public override void BeforeStart()
+		{	
+			var entities = new HashSet<IMyEntity>();
+			MyAPIGateway.Entities.GetEntities(entities);
+
+			foreach (var e in entities) OnEntityAdd(e);
+
+			MyEntities.OnEntityAdd += OnEntityAdd;
+			MyAPIGateway.Utilities.MessageEntered += OnChatMessage;
+		}
+
+		protected override void UnloadData()
+		{	MyEntities.OnEntityAdd -= OnEntityAdd;
+			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
+		}
+
 		public override void UpdateBeforeSimulation()
 		{
 			MyConsole.Clear();
-
-			//
 
 			LLE_Loader.Update();
 
@@ -451,10 +463,20 @@ namespace LLE
 			//fsCenter = grid.GridIntegerToWorld(freeSpace);
 			//Drawing.RoundMarker(fsCenter, Color.Red);
 
+			bool recalculate_A_star = false;
+
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
+			{	Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
+				recalculate_A_star = true;
+			}
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
+			{	Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
+				recalculate_A_star = true;
+			}
+
+			if(recalculate_A_star)
+			{	
+			}
 			
 			//_navigation.ObstacleAvoidance(ch);
 		}
@@ -479,22 +501,6 @@ namespace LLE
 			MyConsole.Render(font);
 
 			Common.Call_Add_Billboards(); // just for sure
-		}
-
-		public override void BeforeStart()
-		{	
-			var entities = new HashSet<IMyEntity>();
-			MyAPIGateway.Entities.GetEntities(entities);
-
-			foreach (var e in entities) OnEntityAdd(e);
-
-			MyEntities.OnEntityAdd += OnEntityAdd;
-			MyAPIGateway.Utilities.MessageEntered += OnChatMessage;
-		}
-
-		protected override void UnloadData()
-		{	MyEntities.OnEntityAdd -= OnEntityAdd;
-			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
 
 		void OnEntityAdd(IMyEntity entity)
