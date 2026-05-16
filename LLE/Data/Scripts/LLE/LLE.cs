@@ -8,6 +8,7 @@ using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using VRage.GameServices;
 using VRage.ModAPI;
 using VRage.Utils;
 using VRageMath;
@@ -19,16 +20,19 @@ namespace LLE
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
-		public static void MyRaycast(Vector3D origin, Vector3D direction, float range = 1000)
+		public static void MyRaycast(Vector3D origin, Vector3D direction,
+			out IMyCubeGrid grid, out Vector3I position,
+			float range = 1000)
 		{
+			grid = null;
+			position = Vector3I.Zero;
+
             IHitInfo hit;
             MyAPIGateway.Physics.CastRay(origin, origin + direction * range, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 
 			if (hit == null) return;
 
-			Drawing.RoundMarker(hit.Position, Color.Gray);
-
-			var grid = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
+			grid = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
 			if (grid == null) return;
 
 			double dist;
@@ -40,17 +44,29 @@ namespace LLE
 
 			var fsCenter = origin + direction * (dist - grid.GridSize);
 			var freeSpace = grid.WorldToGridInteger(fsCenter);
+			position = freeSpace;
+			
+			HighlightCell(grid, position, Color.Aquamarine);
+		}
 
-			fsCenter = grid.GridIntegerToWorld(freeSpace);
-			Drawing.RoundMarker(fsCenter, Color.Red);
+		public static void HighlightCell(IMyCubeGrid grid, Vector3I position, Color color)
+		{	double blockSize = grid.GridSizeEnum == MyCubeSize.Large ? 2.5 : 0.5;
 
-			double blockSize = grid.GridSizeEnum == MyCubeSize.Large ? 2.5 : 0.5;
+			Vector3D world = grid.GridIntegerToWorld(position);
 
 			MatrixD matrix = grid.WorldMatrix;
-			matrix.Translation = fsCenter;
+			matrix.Translation = world;
 
 			var v = new Vector3D(blockSize * 0.55);
-			Drawing.AABB(matrix, new BoundingBoxD(-v, v), Color.RosyBrown);
+			//Drawing.AABB(matrix, new BoundingBoxD(-v, v), color, 0.01f);
+
+			var bb = new BoundingBoxD(-v, v);
+
+			var material = MyStringId.GetOrCompute("Square");
+			MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+				MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+
+			Drawing.RoundMarker(world, color);
 		}
 	}
 
@@ -378,7 +394,20 @@ namespace LLE
 		private static Font font;
 		private static readonly Navigation _navigation = new Navigation();
 
+		private IMyCubeGrid grid_A, grid_B;
+		private Vector3I point_A, point_B;
+
 		public static void Log(string s) { Utilities.Log(s); }
+
+		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
+		{
+			Log("Init");
+
+			font = new Font();
+
+			if (!font.LoadFont(@"Fonts\monospace\FontDataPA.xml", "LLE_monospace2048"))
+				Log("ERROR: Failed to parse font!");
+		}
 
 		public override void UpdateBeforeSimulation()
 		{
@@ -417,18 +446,17 @@ namespace LLE
 			//Vector3 dir = new Vector3((float)Math.Sin(t * Math.PI * 2 / 10), (float)Math.Cos(t * Math.PI * 2 / 10), 0);
 			//ch.MoveAndRotate(dir, Vector2.Zero, 0f);
 			
+			var pm = ch.GetHeadMatrix(false);
+
+			//fsCenter = grid.GridIntegerToWorld(freeSpace);
+			//Drawing.RoundMarker(fsCenter, Color.Red);
+
+			if (MyAPIGateway.Input.IsNewLeftMousePressed())
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
+			if (MyAPIGateway.Input.IsNewRightMousePressed())
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
 			
-			_navigation.ObstacleAvoidance(ch);
-		}
-
-		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
-		{
-			Log("Init");
-
-			font = new Font();
-
-			if (!font.LoadFont(@"Fonts\monospace\FontDataPA.xml", "LLE_monospace2048"))
-				Log("ERROR: Failed to parse font!");
+			//_navigation.ObstacleAvoidance(ch);
 		}
 
 		public override void Draw()
@@ -442,10 +470,11 @@ namespace LLE
 			font.String("LLE_Loader.IsPresent: " + lp.ToString(),
 				new Vector2D(0.5, -0.97), 0.00075f, lp ? Color.White : Color.Red);
 
-			var p = player.Character.GetHeadMatrix(false);
-			Vision.HighlightVisible(p.Translation, p.Forward);
+			var pm = player.Character.GetHeadMatrix(false);
+			Vision.HighlightVisible(pm.Translation, pm.Forward);
 
-			Utilities.MyRaycast(p.Translation, p.Forward);
+			if(grid_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
+			if(grid_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
 			MyConsole.Render(font);
 

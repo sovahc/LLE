@@ -319,24 +319,6 @@ namespace LLE
 				Common.AddBillboard(billboard);
 			}
 		}
-		public static void AABB(MatrixD worldMatrix, BoundingBox localBB, Color color, MySimpleObjectRasterizer raster = MySimpleObjectRasterizer.Wireframe, float thickness = 0.002f)
-		{
-			AABB(worldMatrix, new BoundingBoxD(localBB.Min, localBB.Max), color, raster, thickness);
-		}
-
-		public static void AABB(MatrixD worldMatrix, BoundingBoxD localBB, Color color, MySimpleObjectRasterizer raster = MySimpleObjectRasterizer.Wireframe, float thickness = 0.002f)
-		{
-			var material = MyStringId.GetOrCompute("Square");
-			Vector3D centerLocal = (localBB.Min + localBB.Max) * 0.5;
-			Vector3D extentsLocal = (localBB.Max - localBB.Min) * 0.5;
-			var worldCenter = Vector3D.Transform(centerLocal, ref worldMatrix);
-			
-			MatrixD drawMatrix = MatrixD.CreateFromQuaternion(QuaternionD.CreateFromRotationMatrix(worldMatrix));
-			drawMatrix.Translation = worldCenter;
-			
-			var bbD = new BoundingBoxD(-extentsLocal, extentsLocal);
-			MySimpleObjectDraw.DrawTransparentBox(ref drawMatrix, ref bbD, ref color, raster, 1, thickness, material, material);
-		}
 
 		public static void RoundMarker(Vector3D point, Color color)
 		{
