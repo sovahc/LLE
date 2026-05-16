@@ -491,7 +491,7 @@ namespace LLE
 				for(i.Z = 0; i.Z < gridSize.Z; ++i.Z)
 					for(i.Y = 0; i.Y < gridSize.Y; ++i.Y)
 						for(i.X = 0; i.X < gridSize.X; ++i.X)
-							map.SetWalkable(i+border, grid.GetCubeBlock(i + grid.Min) == null);
+							map.SetWall(i+border, grid.GetCubeBlock(i + grid.Min) != null);
 
 				var a = point_A - grid.Min + border;
 				var b = point_B - grid.Min + border;
@@ -537,6 +537,9 @@ namespace LLE
 
 			if(grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
 			if(grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
+
+			if(grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Min, Color.Blue);
+			if(grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Max, Color.Blue);
 
 			MyConsole.Render(font);
 

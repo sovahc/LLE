@@ -88,7 +88,7 @@ namespace LLE
 	class Map
 	{
 		private readonly Indexer _indexer;
-		private readonly BitField _walkable;
+		private readonly BitField _wall;
 		private readonly BitField _closed;
 		private readonly BitField _inOpen;
 		private readonly FastPriorityQueue<MyNode> _open;
@@ -108,7 +108,7 @@ namespace LLE
 			_indexer = new Indexer(size);
 			int count = _indexer.Count;
 
-			_walkable = new BitField(count, 1);
+			_wall = new BitField(count, 1);
 			_closed = new BitField(count, 1);
 			_inOpen = new BitField(count, 1);
 			_open = new FastPriorityQueue<MyNode>(count);
@@ -120,9 +120,9 @@ namespace LLE
 				_nodes[i] = new MyNode { Index = i };
 		}
 
-		public void SetWalkable(Vector3I pos, bool walkable)
+		public void SetWall(Vector3I pos, bool wall)
 		{
-			_walkable.Set(_indexer.Index(pos), (byte)(walkable ? 1 : 0));
+			_wall.Set(_indexer.Index(pos), (byte)(wall ? 1 : 0));
 		}
 
 		private void Reset()
@@ -186,7 +186,7 @@ namespace LLE
 
 					int nIdx = _indexer.Index(n);
 
-					if (_walkable.Get(nIdx) == 0) continue;
+					if (_wall.Get(nIdx) != 0) continue;
 
 					if (_closed.Get(nIdx) != 0) continue;
 
