@@ -38,13 +38,19 @@ namespace LLE
 
 			if(slimBlock == null) return;
 
-			Vector3D world = grid.GridIntegerToWorld(slimBlock.Position);
-			world -= direction * grid.GridSize;
+			var fsCenter = origin + direction * (dist - grid.GridSize);
+			var freeSpace = grid.WorldToGridInteger(fsCenter);
 
-			var freeSpace = grid.WorldToGridInteger(world);
+			fsCenter = grid.GridIntegerToWorld(freeSpace);
+			Drawing.RoundMarker(fsCenter, Color.Red);
 
-			world = grid.GridIntegerToWorld(freeSpace);
-			Drawing.RoundMarker(world, Color.Red);
+			double blockSize = grid.GridSizeEnum == MyCubeSize.Large ? 2.5 : 0.5;
+
+			MatrixD matrix = grid.WorldMatrix;
+			matrix.Translation = fsCenter;
+
+			var v = new Vector3D(blockSize * 0.55);
+			Drawing.AABB(matrix, new BoundingBoxD(-v, v), Color.RosyBrown);
 		}
 	}
 
