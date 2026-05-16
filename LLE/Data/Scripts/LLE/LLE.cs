@@ -19,19 +19,14 @@ namespace LLE
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
-		public static void DebugRaycast(Vector3D origin, Vector3D direction, float range = 1000)
+		public static void MyRaycast(Vector3D origin, Vector3D direction, float range = 1000)
 		{
-			IHitInfo hit = null;
-			MyAPIGateway.Physics.CastRay(origin, origin + direction * range, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
+            IHitInfo hit;
+            MyAPIGateway.Physics.CastRay(origin, origin + direction * range, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 
 			if (hit == null) return;
 
-			Drawing.RoundMarker(hit.Position, Color.Red);
-
-			var entity = hit.HitEntity;
-
-			//Drawing.EllipsoidContour(entity.WorldMatrix, entity.LocalAABB, Color.Red);
-			//var slimBlock = MyGridIntersection.FastRaycast(grid, origin, origin+direction*range);
+			Drawing.RoundMarker(hit.Position, Color.Gray);
 
 			var grid = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
 			if (grid == null) return;
@@ -41,28 +36,15 @@ namespace LLE
 			LineD line = new LineD(origin, origin + direction * range);
 			grid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
 
-			DrawBlockBB(slimBlock);
-		}
+			if(slimBlock == null) return;
 
-		static void DrawBlockBB(IMySlimBlock slimBlock)
-		{
-			if (slimBlock == null) return;
-			var grid = slimBlock.CubeGrid;
-			
-			if (slimBlock.FatBlock != null)
-				Drawing.AABB(slimBlock.FatBlock.WorldMatrix, slimBlock.FatBlock.LocalAABB, Color.YellowGreen);
-			else
-			{
-				double blockSize = grid.GridSizeEnum == MyCubeSize.Large ? 2.5 : 0.5;
-				blockSize *= 1.1;
-				Vector3D center = grid.GridIntegerToWorld(slimBlock.Position);
+			Vector3D world = grid.GridIntegerToWorld(slimBlock.Position);
+			world -= direction * grid.GridSize;
 
-				MatrixD matrix = grid.WorldMatrix;
-				matrix.Translation = center; // сдвигаем матрицу грида в центр блока
+			var freeSpace = grid.WorldToGridInteger(world);
 
-				var v = new Vector3D(blockSize * 0.5);
-				Drawing.AABB(matrix, new BoundingBoxD(-v, v), Color.Beige);
-			}
+			world = grid.GridIntegerToWorld(freeSpace);
+			Drawing.RoundMarker(world, Color.Red);
 		}
 	}
 
@@ -457,7 +439,7 @@ namespace LLE
 			var p = player.Character.GetHeadMatrix(false);
 			Vision.HighlightVisible(p.Translation, p.Forward);
 
-			Utilities.DebugRaycast(p.Translation, p.Forward);
+			Utilities.MyRaycast(p.Translation, p.Forward);
 
 			MyConsole.Render(font);
 
