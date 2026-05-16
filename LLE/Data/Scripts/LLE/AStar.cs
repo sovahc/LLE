@@ -159,7 +159,7 @@ namespace LLE
 				var current = _open.Dequeue();
 				int curIdx = current.Index;
 
-				if (_closed.Get(curIdx) == 1) continue;
+				if (_closed.Get(curIdx) != 0) continue;
 				
 				_closed.Set(curIdx, 1);
 
@@ -193,7 +193,7 @@ namespace LLE
 					_parent[nIdx] = curIdx;
 
 					float h = Manhattan(n, goal);
-					if (_inOpen.Get(nIdx) == 1)
+					if (_inOpen.Get(nIdx) != 0)
 						_open.UpdatePriority(_nodes[nIdx], tentativeG + h);
 					else
 					{
