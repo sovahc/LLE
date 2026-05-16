@@ -33,16 +33,15 @@ namespace LLE
 			var entity = hit.HitEntity;
 
 			//Drawing.EllipsoidContour(entity.WorldMatrix, entity.LocalAABB, Color.Red);
+			//var slimBlock = MyGridIntersection.FastRaycast(grid, origin, origin+direction*range);
 
-			var grid = hit.HitEntity.GetTopMostParent() as MyCubeGrid;
+			var grid = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
 			if (grid == null) return;
-			
-			var slimBlock = MyGridIntersection.FastRaycast(grid, origin, origin+direction*range);
 
-			//double dist;
-			//IMySlimBlock slimBlock;
-			//LineD line = new LineD(origin, origin + direction * range);
-			//grid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
+			double dist;
+			IMySlimBlock slimBlock;
+			LineD line = new LineD(origin, origin + direction * range);
+			grid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
 
 			DrawBlockBB(slimBlock);
 		}
