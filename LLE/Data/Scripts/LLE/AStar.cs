@@ -136,13 +136,9 @@ namespace LLE
 			_weights[_indexer.Index(pos)] = weight;
 		}
 
-		public static List<Vector3I> debug = new List<Vector3I>();
-
 		public List<Vector3I> FindPath(Vector3I start, Vector3I goal)
 		{
 			// TODO: time limit, calculation step by step
-
-			debug.Clear();
 
 			if(!_indexer.In(start) || !_indexer.In(goal))
 			{	Utilities.Log($"FindPath Error - index out of range: start {start} goal {goal} size {_indexer.Size}");
@@ -195,9 +191,6 @@ namespace LLE
 				{
 					Vector3I next = cv + Directions[d];
 
-					//bool cont = true;
-					//for(int skip = 0; skip < 4; ++skip)
-					
 					if (!_indexer.In(next)) continue;
 
 					++cellsAnalyzed;
@@ -207,8 +200,6 @@ namespace LLE
 					if (_weights[nextI] == 255) continue;
 
 					if (_closed.Get(nextI) != 0) continue;
-
-					debug.Add(next);
 
 					float tentativeG = curG + _weights[nextI] + 1;
 
