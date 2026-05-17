@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Security.Cryptography;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -503,16 +502,16 @@ namespace LLE
 
 				Map map = new Map(gridSize + border * 2);
 
-				const byte wall = 100;
-				const byte space = 0;
-
 				Vector3I i;
 				var p1 = new Profiler("fill");
 				for (i.Z = 0; i.Z < gridSize.Z; ++i.Z)
 					for (i.Y = 0; i.Y < gridSize.Y; ++i.Y)
 						for (i.X = 0; i.X < gridSize.X; ++i.X)
 						{	var block = grid.GetCubeBlock(i + grid.Min);
-							map.SetWeight(i + border, block != null ? wall : space);
+							if(block == null)
+								map.SetWeight(i + border, 0);
+							else
+								map.SetWeight(i + border, CalculateBlockWeight(block));
 						}
 				p1.Stop();
 
@@ -533,6 +532,19 @@ namespace LLE
 			}
 
 			//_navigation.ObstacleAvoidance(ch);
+		}
+
+		private byte CalculateBlockWeight(IMySlimBlock b)
+		{
+			var s = b.BlockDefinition.ToString();
+			if(s.Contains("HangarDoor")) return 50;
+			if(s.Contains("Door")) return 1; // closed = 10
+			if(s.Contains("HeavyArmor")) return 150;
+			if(s.Contains("Armor")) return 100;
+			if(s.Contains("Reactor")) return 250;
+			// Thruster = 200
+			// Ion thruster = 250
+			return 150;
 		}
 
 		public override void Draw()
