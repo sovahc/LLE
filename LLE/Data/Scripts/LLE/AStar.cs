@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Priority_Queue;
-using VRage.Audio;
 using VRageMath;
 
 namespace LLE
@@ -43,7 +42,8 @@ namespace LLE
 		}
 
 		public void SetAll_1()
-		{	for(int i = 0; i < _data.Length; ++i)
+		{	
+			for(int i = 0; i < _data.Length; ++i)
 				_data[i] = -1;
 		}
 	}
@@ -140,16 +140,21 @@ namespace LLE
 
 		public List<Vector3I> FindPath(Vector3I start, Vector3I goal)
 		{
+			// TODO: time limit, calculation step by step
+
 			if(!_indexer.In(start) || !_indexer.In(goal))
-			{	Utilities.Log($"FindPath Error - bad call: start {start} goal {goal} size {_indexer.Size}");
+			{	Utilities.Log($"FindPath Error - index out of range: start {start} goal {goal} size {_indexer.Size}");
 				return null;
 			}
-			//Utilities.Log($"FindPath {start} {goal} size {_indexer.Size}");
-
-			int cellsAnalized = 0;
 
 			int startIndex = _indexer.Index(start.X, start.Y, start.Z);
 			int goalIndex = _indexer.Index(goal.X, goal.Y, goal.Z);
+
+			if(_wall.Get(startIndex) != 0 || _wall.Get(goalIndex) != 0)
+			{	// Avoid huge calculation
+				Utilities.Log($"FindPath Error - start or goal obstructed");
+				return null;
+			}
 
 			if (startIndex == goalIndex)
 			{
@@ -160,9 +165,11 @@ namespace LLE
 
 			_gScore[startIndex] = 0f;
 			_parent[startIndex] = -1;
-			float startH = Manhattan(start, goal);
-			_open.Enqueue(_nodes[startIndex], startH);
+			float startF = Manhattan(start, goal);
+			_open.Enqueue(_nodes[startIndex], startF);
 			_inOpen.Set(startIndex, 1);
+
+			int cellsAnalyzed = 0;
 
 			while (_open.Count > 0)
 			{
@@ -177,7 +184,7 @@ namespace LLE
 				_indexer.IndexToPosition(curIdx, out cv);
 
 				if (curIdx == goalIndex)
-				{	MyConsole.Add($"cellsAnalized {cellsAnalized}", Color.Red);
+				{	MyConsole.Add($"cellsAnalyzed {cellsAnalyzed}", Color.Red);
 					return ReconstructPath(goalIndex, goal);
 				}
 
@@ -189,7 +196,7 @@ namespace LLE
 
 					if (!_indexer.In(n)) continue;
 
-					++cellsAnalized;
+					++cellsAnalyzed;
 
 					int nIdx = _indexer.Index(n);
 
