@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Priority_Queue;
+using VRage.Audio;
 using VRageMath;
 
 namespace LLE
@@ -36,11 +37,15 @@ namespace LLE
 			return (byte)((_data[pos >> 6] >> (pos & 63)) & _mask);
 		}
 
-		public void Clear()
+		public void SetAll_0()
 		{
 			Array.Clear(_data, 0, _data.Length);
 		}
 
+		public void SetAll_1()
+		{	for(int i = 0; i < _data.Length; ++i)
+				_data[i] = -1;
+		}
 	}
 
 	class Indexer
@@ -59,6 +64,10 @@ namespace LLE
 
 		public int Index(Vector3I v)
 		{	return Index(v.X, v.Y, v.Z);
+		}
+
+		public int Index(int index, int dx, int dy, int dz)
+		{	return index + dx + dy * Size.X + dz * Size.X * Size.Y;
 		}
 
 		public bool In(int x, int y, int z)
@@ -118,26 +127,21 @@ namespace LLE
 
 			for (int i = 0; i < count; i++)
 				_nodes[i] = new MyNode { Index = i };
+
+			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
 		}
 
 		public void SetWall(Vector3I pos, bool wall)
 		{
-			_wall.Set(_indexer.Index(pos), (byte)(wall ? 1 : 0));
-		}
+			int i = _indexer.Index(pos);
 
-		private void Reset()
-		{
-			_open.Clear();
-			Array.Clear(_gScore, 0, _gScore.Length);
-			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
-			_closed.Clear();
-			_inOpen.Clear();
+			_wall.Set(i, (byte)(wall ? 1 : 0));
 		}
 
 		public List<Vector3I> FindPath(Vector3I start, Vector3I goal)
 		{
 			if(!_indexer.In(start) || !_indexer.In(goal))
-			{	Utilities.Log($"FindPath bad call: start {start} goal {goal} size {_indexer.Size}");
+			{	Utilities.Log($"FindPath Error - bad call: start {start} goal {goal} size {_indexer.Size}");
 				return null;
 			}
 			//Utilities.Log($"FindPath {start} {goal} size {_indexer.Size}");
@@ -153,8 +157,6 @@ namespace LLE
 				result.Add(start);
 				return result;
 			}
-
-			Reset();
 
 			_gScore[startIndex] = 0f;
 			_parent[startIndex] = -1;
