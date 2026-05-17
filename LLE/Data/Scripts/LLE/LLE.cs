@@ -284,128 +284,10 @@ namespace LLE
 		public static void Grid_OnGridChanged(IMyCubeGrid grid) { }
 	}
 
-	class Navigation
-	{
-		public static bool RayIntersectsEllipsoid(Vector3D rayOrigin, Vector3D rayDir, MatrixD worldMatrix, BoundingBoxD localBB)
-		{
-			var center = (localBB.Min + localBB.Max) * 0.5;
-			var radii = (localBB.Max - localBB.Min) * 0.5;
-
-			if (radii.LengthSquared() == 0) return false;
-
-			MatrixD invWorld;
-			MatrixD.Invert(ref worldMatrix, out invWorld);
-
-			var localOrigin = Vector3D.Transform(rayOrigin, ref invWorld);
-			var localDir = Vector3D.TransformNormal(rayDir, ref invWorld);
-
-			var E = (localOrigin - center) / radii;
-			var D = localDir / radii;
-
-			double a = D.Dot(D);
-			double b = 2.0 * E.Dot(D);
-			double c = E.Dot(E) - 1.0;
-
-			return b * b - 4.0 * a * c >= 0;
-		}
-
-		private const float LOOKAHEAD_TIME = 3.0f;
-		private const float SAFETY_MARGIN = 5.0f;
-		private const float AVOIDANCE_STRENGTH = 10.0f;
-
-		public void ObstacleAvoidance(IMyCharacter ch)
-		{
-			if (MyAPIGateway.Input.IsAnyMousePressed()) return;
-
-			Vector3D botPosition = ch.GetPosition();
-			Vector3D botVelocity = ch.Physics.LinearVelocity;
-			double botRadius = 1.0;
-
-			Vector3D totalAvoidance = Vector3D.Zero;
-			int dangerCount = 0;
-
-			foreach (var state in Vision.lks.Values)
-			{
-				if (!state.Visible) continue;
-				if (state.Type == ObjectType.Floating) continue;
-
-				var entity = MyAPIGateway.Entities.GetEntityById(state.EntityId);
-				if (entity == null || entity.Closed) continue;
-
-				//double obsRadius = entity.WorldVolume.Radius;
-				var ex = entity.LocalAABB.HalfExtents;
-				double obsRadius = Math.Max(ex.X, Math.Max(ex.Y, ex.Z));
-
-				Vector3D obsPosition = entity.WorldVolume.Center;
-				Vector3D obsVelocity = Vector3D.Zero;
-				if (entity.Physics != null) obsVelocity = entity.Physics.LinearVelocity;
-
-				Vector3D relativePosition = obsPosition - botPosition;
-				Vector3D relativeVelocity = obsVelocity - botVelocity;
-
-				double RVSq = relativeVelocity.LengthSquared();
-				if (RVSq < 123) continue;
-
-				// Time of Closest Approach
-				// Минимизируем |relativePosition + relativeVelocity * t|^2 -> производная = 0
-				double t_ca = -Vector3D.Dot(relativePosition, relativeVelocity) / RVSq;
-
-				// Нас интересует только будущее в пределах окна предсказания
-				if (t_ca < 0) t_ca = 0;
-				if (t_ca > LOOKAHEAD_TIME) t_ca = LOOKAHEAD_TIME;
-
-				// 3. Позиции в момент максимального сближения
-				Vector3D botAtCa = botPosition + botVelocity * t_ca;
-				Vector3D obsAtCa = obsPosition + obsVelocity * t_ca;
-
-				Vector3D distVec = botAtCa - obsAtCa;
-				double distSq = distVec.LengthSquared();
-
-				double combinedRadius = botRadius + obsRadius + SAFETY_MARGIN;
-				double combinedRadiusSq = combinedRadius * combinedRadius;
-
-				if (distSq < combinedRadiusSq)
-				{
-					// if (IsStaticOrClose(entity, distSq) && !CheckEllipsoidIntersection(...)) continue;
-
-					Vector3D collisionCourse = Vector3D.Normalize(relativeVelocity);
-					Vector3D lateral = distVec - Vector3D.Dot(distVec, collisionCourse) * collisionCourse;
-
-					// Обработка случая лобового столкновения (вектора коллинеарны)
-					if (lateral.LengthSquared() < 0.01)
-					{
-						Vector3D up = Math.Abs(collisionCourse.Z) < 0.99 ? Vector3D.UnitZ : Vector3D.UnitY;
-						lateral = Vector3D.Cross(collisionCourse, up);
-					}
-
-					Vector3D avoidDir = Vector3D.Normalize(lateral);
-
-					double distFactor = 1.0 - (Math.Sqrt(distSq) / combinedRadius);
-					double timeFactor = 1.0 - (t_ca / LOOKAHEAD_TIME);
-					double urgency = Math.Max(0, distFactor * timeFactor);
-
-					totalAvoidance += avoidDir * AVOIDANCE_STRENGTH * urgency;
-					dangerCount++;
-				}
-			}
-
-			if (dangerCount == 0) return;
-			if (totalAvoidance.LengthSquared() < 0.01) return;
-
-			var av = Vector3D.Normalize(totalAvoidance);
-
-			Vector3 localDir = Vector3.TransformNormal((Vector3)av, ch.WorldMatrixInvScaled);
-
-			if (double.IsNaN(localDir.X)) return;
-			ch.MoveAndRotate(localDir, Vector2.Zero, 0f);
-		}
-	}
-
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
 		private static Font font;
-		private static readonly Navigation _navigation = new Navigation();
 
 		private List<Vector3I> path;
 
@@ -447,19 +329,7 @@ namespace LLE
 
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
-			{
-				var payload = cmd.Payload.Trim();
-				LastKnownState target = null;
-				if (TryParseMoveTo(payload, out target))
-				{
-					//_navigation.Target = new Vector3D(target.X, target.Y, target.Z);
-					//_navigation.Active = true;
-					Log("Navigate to " + payload);
-				}
-				else
-				{
-					MyVisualScriptLogicProvider.SendChatMessage(payload, "LLM", font: "Blue");
-				}
+			{	////
 			}
 
 			var player = MyAPIGateway.Session.Player;
@@ -516,27 +386,6 @@ namespace LLE
 			if (player == null) return;
 
 			LLE_Loader.SetChat(player.DisplayName, message);
-		}
-
-		bool TryParseMoveTo(string payload, out LastKnownState target)
-		{
-			target = null;
-			var upper = payload.ToUpperInvariant();
-			if (!upper.StartsWith("MOVE TO ")) return false;
-
-			var searchName = payload.Substring(8).Trim().ToUpperInvariant();
-			foreach (var state in Vision.lks.Values)
-			{
-				if (state.DisplayName != null && state.DisplayName.ToUpperInvariant().Contains(searchName))
-				{
-					target = state;
-
-					Log($"MOVE TO: {target.Type} {target.DisplayName}");
-					return true;
-				}
-			}
-			Log("MOVE TO: target not found: " + searchName);
-			return false;
 		}
 	}
 
