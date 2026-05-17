@@ -503,12 +503,17 @@ namespace LLE
 
 				Map map = new Map(gridSize + border * 2);
 
+				const byte wall = 100;
+				const byte space = 0;
+
 				Vector3I i;
 				var p1 = new Profiler("fill");
 				for (i.Z = 0; i.Z < gridSize.Z; ++i.Z)
 					for (i.Y = 0; i.Y < gridSize.Y; ++i.Y)
 						for (i.X = 0; i.X < gridSize.X; ++i.X)
-							map.SetWall(i + border, grid.GetCubeBlock(i + grid.Min) != null);
+						{	var block = grid.GetCubeBlock(i + grid.Min);
+							map.SetWeight(i + border, block != null ? wall : space);
+						}
 				p1.Stop();
 
 				var a = point_A - grid.Min + border;

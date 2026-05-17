@@ -97,7 +97,7 @@ namespace LLE
 	class Map
 	{
 		private readonly Indexer _indexer;
-		private readonly BitField _wall;
+		private readonly byte[] _weights;
 		private readonly BitField _closed;
 		private readonly BitField _inOpen;
 		private readonly FastPriorityQueue<MyNode> _open;
@@ -117,7 +117,7 @@ namespace LLE
 			_indexer = new Indexer(size);
 			int count = _indexer.Count;
 
-			_wall = new BitField(count, 1);
+			_weights = new byte[count];
 			_closed = new BitField(count, 1);
 			_inOpen = new BitField(count, 1);
 			_open = new FastPriorityQueue<MyNode>(count);
@@ -131,11 +131,9 @@ namespace LLE
 			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
 		}
 
-		public void SetWall(Vector3I pos, bool wall)
+		public void SetWeight(Vector3I pos, byte weight)
 		{
-			int i = _indexer.Index(pos);
-
-			_wall.Set(i, (byte)(wall ? 1 : 0));
+			_weights[_indexer.Index(pos)] = weight;
 		}
 
 		public List<Vector3I> FindPath(Vector3I start, Vector3I goal)
@@ -150,7 +148,7 @@ namespace LLE
 			int startIndex = _indexer.Index(start.X, start.Y, start.Z);
 			int goalIndex = _indexer.Index(goal.X, goal.Y, goal.Z);
 
-			if(_wall.Get(startIndex) != 0 || _wall.Get(goalIndex) != 0)
+			if(_weights[startIndex] == 255 || _weights[goalIndex] == 255)
 			{	// Avoid huge calculation
 				Utilities.Log($"FindPath Error - start or goal obstructed");
 				return null;
@@ -200,11 +198,11 @@ namespace LLE
 
 					int nIdx = _indexer.Index(n);
 
-					if (_wall.Get(nIdx) != 0) continue;
+					if (_weights[nIdx] == 255) continue;
 
 					if (_closed.Get(nIdx) != 0) continue;
 
-					float tentativeG = curG + 1f;
+					float tentativeG = curG + _weights[nIdx];
 
 					bool isBetter = _parent[nIdx] == -1 || tentativeG < _gScore[nIdx];
 
