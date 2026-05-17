@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Sandbox.Engine.Multiplayer;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -156,10 +157,27 @@ namespace LLE
 		public static void Grid_OnGridChanged(IMyCubeGrid grid) { }
 	}
 
+	class Traversability
+	{
+		private IMyCubeGrid grid;
+
+		public void SetGrid(IMyCubeGrid g)
+		{	if(g == grid) return;
+			// clear cache
+			grid = g;
+		}
+
+		public void CalculateStep()
+		{	if(grid == null) return;
+		}
+	}
+
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
 		private static Font font;
+
+		Traversability trav = new Traversability();
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -210,10 +228,14 @@ namespace LLE
 			var pm = ch.GetHeadMatrix(false);
 
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
-			{
+			{	IMyCubeGrid grid;
+				Vector3I position;
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid, out position, 250);
+
+				if(grid != null) trav.SetGrid(grid);
 			}
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
-			{
+			{	trav.CalculateStep();
 			}
 		}
 
