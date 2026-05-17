@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Sandbox.Engine.Multiplayer;
@@ -71,13 +72,16 @@ namespace LLE
 	public struct Profiler
 	{
 		private readonly string _name;
-		private readonly long _start;
+		private long _start;
 		private long _end;
 		public Profiler(string name = "unnamed")
 		{
 			_name = name;
 			_start = Stopwatch.GetTimestamp();
 			_end = long.MaxValue;
+		}
+		public void Start()
+		{	_start = Stopwatch.GetTimestamp();
 		}
 		public void Stop()
 		{	_end = Stopwatch.GetTimestamp();
@@ -160,15 +164,85 @@ namespace LLE
 	class Traversability
 	{
 		private IMyCubeGrid grid;
+		private IEnumerator iterator;
 
-		public void SetGrid(IMyCubeGrid g)
+		private readonly Vector2D[] ScanOffsets = {
+			new Vector2D(-0.25, -0.25),
+			new Vector2D(+0.25, -0.25),
+			new Vector2D(+0.25, +0.25),
+			new Vector2D(-0.25, +0.25),
+		};
+
+		private List<Vector3D> debug = new List<Vector3D>();
+
+		public void DrawDebug()
+		{	for(int i = 0; i < debug.Count; ++i)
+			{	Drawing.RoundMarker(debug[i], Color.Magenta);
+			}
+		}
+
+        public void SetGrid(IMyCubeGrid g, Vector3I startFrom)
 		{	if(g == grid) return;
 			// clear cache
 			grid = g;
+			Vector3I gridSize = grid.Max - grid.Min + 1;
+
+			Utilities.Log($"SetGrid gridSize {gridSize}");
 		}
 
-		public void CalculateStep()
-		{	if(grid == null) return;
+		public void Iteration()
+		{	if(iterator == null)
+				iterator = Iterator();
+
+			var stopAfter = Stopwatch.GetTimestamp() + TimeSpan.TicksPerMillisecond;
+
+			for(int i = 0; i < 20; ++i)
+			{	if(!iterator.MoveNext())
+				{	iterator = null;
+					return;
+				}
+				if(Stopwatch.GetTimestamp() >= stopAfter) break;
+			}
+		}
+
+		private IEnumerator Iterator()
+		{	debug.Clear();
+			
+			if(grid == null) yield break;
+
+			MyCubeGrid g = grid as MyCubeGrid;
+			if(g == null) yield break;
+
+			Vector3I i = new Vector3I();
+			Vector3I position = new Vector3I();
+
+			for(i.Z = grid.Min.Z; i.Z <= grid.Max.Z; ++i.Z)
+				for(i.Y = grid.Min.Y; i.Y <= grid.Max.Y; ++i.Y)
+				{
+					i.X = grid.Min.X;
+					Vector3D a = grid.GridIntegerToWorld(i);
+					i.X = grid.Max.X;
+					Vector3D b = grid.GridIntegerToWorld(i);
+
+					for(int o = 0; o < ScanOffsets.Length; ++o)
+					{	LineD line = new LineD(a, b);
+						line.From.Z += ScanOffsets[o].X;
+						line.From.Y += ScanOffsets[o].Y;
+						line.To.Z += ScanOffsets[o].X;
+						line.To.Y += ScanOffsets[o].Y;
+
+						double dist = (line.To-line.From).Length();
+						double dsq = 10000;
+
+						if(!grid.GetLineIntersectionExactGrid(ref line, ref position, ref dsq))
+							continue;
+
+						//debug.Add(line.From);
+						debug.Add(line.From + (b-a).Normalized() * Math.Sqrt(dsq));
+					}
+
+					yield return null;
+				}
 		}
 	}
 
@@ -232,11 +306,15 @@ namespace LLE
 				Vector3I position;
 				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid, out position, 250);
 
-				if(grid != null) trav.SetGrid(grid);
+				if(grid != null) trav.SetGrid(grid, position);
 			}
-			if (MyAPIGateway.Input.IsNewRightMousePressed())
-			{	trav.CalculateStep();
-			}
+			//if (MyAPIGateway.Input.IsNewRightMousePressed())
+			Profiler p = new Profiler();
+			p.Start();
+			trav.Iteration();
+			p.Stop();
+			//MyConsole.Clear();
+			MyConsole.Add($"{p}", Color.IndianRed);
 		}
 
 		public override void Draw()
@@ -252,6 +330,8 @@ namespace LLE
 
 			var pm = player.Character.GetHeadMatrix(false);
 			//Vision.HighlightVisible(pm.Translation, pm.Forward);
+
+			trav.DrawDebug();
 
 			MyConsole.Render(font);
 
