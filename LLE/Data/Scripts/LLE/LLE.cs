@@ -167,10 +167,10 @@ namespace LLE
 		private IEnumerator iterator;
 
 		private readonly Vector2D[] ScanOffsets = {
-			new Vector2D(-0.25, -0.25),
-			new Vector2D(+0.25, -0.25),
-			new Vector2D(+0.25, +0.25),
-			new Vector2D(-0.25, +0.25),
+			new Vector2D(-1.25, -1.25),
+			new Vector2D(+1.25, -1.25),
+			new Vector2D(+1.25, +1.25),
+			new Vector2D(-1.25, +1.25),
 		};
 
 		private List<Vector3D> debug = new List<Vector3D>();
