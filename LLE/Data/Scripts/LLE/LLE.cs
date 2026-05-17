@@ -407,8 +407,6 @@ namespace LLE
 		private static Font font;
 		private static readonly Navigation _navigation = new Navigation();
 
-		private IMyCubeGrid grid_A, grid_B;
-		private Vector3I point_A, point_B;
 		private List<Vector3I> path;
 
 		public static void Log(string s) { Utilities.Log(s); }
@@ -469,82 +467,14 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			//double t = Time.Now;
-			//Vector3 dir = new Vector3((float)Math.Sin(t * Math.PI * 2 / 10), (float)Math.Cos(t * Math.PI * 2 / 10), 0);
-			//ch.MoveAndRotate(dir, Vector2.Zero, 0f);
-
 			var pm = ch.GetHeadMatrix(false);
-
-			//fsCenter = grid.GridIntegerToWorld(freeSpace);
-			//Drawing.RoundMarker(fsCenter, Color.Red);
-
-			bool pointChanged = false;
 
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
 			{
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
-				pointChanged = true;
 			}
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
 			{
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
-				pointChanged = true;
 			}
-
-			if (pointChanged && grid_A == grid_B && grid_A != null)
-			{
-				var grid = grid_A;
-				Vector3I gridSize = grid.Max - grid.Min + 1;
-
-				Log($"recalculate_A_star {grid.Min} {grid.Max} {gridSize}");
-
-				const int border = 1;
-
-				Map map = new Map(gridSize + border * 2);
-
-				Vector3I i;
-				var p1 = new Profiler("fill");
-				for (i.Z = 0; i.Z < gridSize.Z; ++i.Z)
-					for (i.Y = 0; i.Y < gridSize.Y; ++i.Y)
-						for (i.X = 0; i.X < gridSize.X; ++i.X)
-						{	var block = grid.GetCubeBlock(i + grid.Min);
-							if(block == null)
-								map.SetWeight(i + border, 0);
-							else
-								map.SetWeight(i + border, CalculateBlockWeight(block));
-						}
-				p1.Stop();
-
-				var a = point_A - grid.Min + border;
-				var b = point_B - grid.Min + border;
-
-				var p2 = new Profiler("FindPath");
-				path = map.FindPath(a, b);
-				p2.Stop();
-				MyConsole.Add($"{p1} {p2}", Color.OrangeRed);
-
-
-				if (path != null)
-				{
-					for (int p = 0; p < path.Count; ++p)
-						path[p] = path[p] + grid.Min - border;
-				}
-			}
-
-			//_navigation.ObstacleAvoidance(ch);
-		}
-
-		private byte CalculateBlockWeight(IMySlimBlock b)
-		{
-			var s = b.BlockDefinition.ToString();
-			if(s.Contains("HangarDoor")) return 50;
-			if(s.Contains("Door")) return 1; // closed = 10
-			if(s.Contains("HeavyArmor")) return 150;
-			if(s.Contains("Armor")) return 100;
-			if(s.Contains("Reactor")) return 250;
-			// Thruster = 200
-			// Ion thruster = 250
-			return 150;
 		}
 
 		public override void Draw()
@@ -559,22 +489,7 @@ namespace LLE
 				new Vector2D(0.5, -0.97), 0.00075f, lp ? Color.White : Color.Red);
 
 			var pm = player.Character.GetHeadMatrix(false);
-			Vision.HighlightVisible(pm.Translation, pm.Forward);
-
-			if (grid_A != null && path != null)
-			{
-				foreach (var cell in path)
-				{
-					Vector3D world = grid_A.GridIntegerToWorld(cell);
-					Drawing.RoundMarker(world, Color.LimeGreen);
-				}
-			}
-
-			if (grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
-			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
-
-			if (grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Min, Color.Blue);
-			if (grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Max, Color.Blue);
+			//Vision.HighlightVisible(pm.Translation, pm.Forward);
 
 			MyConsole.Render(font);
 
