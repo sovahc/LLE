@@ -576,6 +576,14 @@ namespace LLE
 			if (grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Min, Color.Blue);
 			if (grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Max, Color.Blue);
 
+			if (grid_A != null)
+			{
+				foreach(var v in Map.debug)
+				{	Vector3D world = grid_A.GridIntegerToWorld(v + grid_A.Min - 1);
+					Drawing.RoundMarker(world, Color.Gray);
+				}
+			}
+
 			MyConsole.Render(font);
 
 			Common.Call_Add_Billboards(); // just for sure

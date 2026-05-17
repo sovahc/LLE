@@ -136,9 +136,13 @@ namespace LLE
 			_weights[_indexer.Index(pos)] = weight;
 		}
 
+		public static List<Vector3I> debug = new List<Vector3I>();
+
 		public List<Vector3I> FindPath(Vector3I start, Vector3I goal)
 		{
 			// TODO: time limit, calculation step by step
+
+			debug.Clear();
 
 			if(!_indexer.In(start) || !_indexer.In(goal))
 			{	Utilities.Log($"FindPath Error - index out of range: start {start} goal {goal} size {_indexer.Size}");
@@ -149,8 +153,7 @@ namespace LLE
 			int goalIndex = _indexer.Index(goal.X, goal.Y, goal.Z);
 
 			if(_weights[startIndex] == 255 || _weights[goalIndex] == 255)
-			{	// Avoid huge calculation
-				Utilities.Log($"FindPath Error - start or goal obstructed");
+			{	Utilities.Log($"FindPath Error - start or goal obstructed");
 				return null;
 			}
 
@@ -192,6 +195,9 @@ namespace LLE
 				{
 					Vector3I next = cv + Directions[d];
 
+					//bool cont = true;
+					//for(int skip = 0; skip < 4; ++skip)
+					
 					if (!_indexer.In(next)) continue;
 
 					++cellsAnalyzed;
@@ -202,7 +208,9 @@ namespace LLE
 
 					if (_closed.Get(nextI) != 0) continue;
 
-					float tentativeG = curG + _weights[nextI];
+					debug.Add(next);
+
+					float tentativeG = curG + _weights[nextI] + 1;
 
 					bool isBetter = _parent[nextI] == -1 || tentativeG < _gScore[nextI];
 
@@ -211,7 +219,7 @@ namespace LLE
 					_gScore[nextI] = tentativeG;
 					_parent[nextI] = currentI;
 
-					float h = Manhattan(next, goal);
+					float h = Manhattan(next, goal) * 2;
 					if (_inOpen.Get(nextI) != 0)
 						_open.UpdatePriority(_nodes[nextI], tentativeG + h);
 					else

@@ -320,15 +320,16 @@ namespace LLE
 			}
 		}
 
+		private static readonly MyStringId _markerMat = MyStringId.GetOrCompute("LLE-Marker");
+
 		public static void RoundMarker(Vector3D point, Color color)
 		{
+			if (!Common.Enabled) return;
 			var camera = MyAPIGateway.Session.Camera;
 			if (camera == null) return;
 
-			var material = MyStringId.GetOrCompute("LLE-Marker");
-
 			Vector3D viewDir = Vector3D.Normalize(point - camera.Position);
-			var distance = (point - camera.Position).Normalize();
+			double distance = (point - camera.Position).Normalize();
 
 			point = camera.Position + viewDir;
 
@@ -336,7 +337,31 @@ namespace LLE
 			if (size < 0.005f) size = 0.005f;
 			if (size > 0.25f) size = 0.25f;
 
-			MyTransparentGeometry.AddBillboardOriented(material, color, point, (Vector3)camera.WorldMatrix.Left, (Vector3)camera.WorldMatrix.Up, radius: size);
+			Vector3 left = (Vector3)camera.WorldMatrix.Left;
+			Vector3 up = (Vector3)camera.WorldMatrix.Up;
+			MyQuadD quad;
+			MyUtils.GetBillboardQuadOriented(out quad, ref point, size, size, ref left, ref up);
+
+			var billboard = Common.GetFromPool();
+			billboard.Material = _markerMat;
+			billboard.BlendType = BlendTypeEnum.PostPP;
+			billboard.Position0 = quad.Point0;
+			billboard.Position1 = quad.Point1;
+			billboard.Position2 = quad.Point2;
+			billboard.Position3 = quad.Point3;
+			billboard.Color = new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+			billboard.ColorIntensity = 1f;
+			billboard.SoftParticleDistanceScale = 0f;
+			billboard.UVOffset = Vector2.Zero;
+			billboard.UVSize = Vector2.One;
+			billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
+			billboard.ParentID = uint.MaxValue;
+			billboard.DistanceSquared = (float)Vector3D.DistanceSquared(camera.Position, point);
+			billboard.Reflectivity = 0f;
+			billboard.AlphaCutout = 0f;
+			billboard.CustomViewProjection = -1;
+
+			Common.AddBillboard(billboard);
 		}
 
 		public static void EllipsoidContour(MatrixD worldMatrix, BoundingBoxD localBB, Color color)
