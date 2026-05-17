@@ -514,11 +514,6 @@ namespace LLE
 				var a = point_A - grid.Min + border;
 				var b = point_B - grid.Min + border;
 
-				Log($"{point_A} -> {a}");
-				Log($"{point_B} -> {b}");
-
-				Log("FindPath");
-
 				var p2 = new Profiler("FindPath");
 				path = map.FindPath(a, b);
 				p2.Stop();
@@ -527,10 +522,8 @@ namespace LLE
 
 				if (path != null)
 				{
-					Log("move path");
 					for (int p = 0; p < path.Count; ++p)
 						path[p] = path[p] + grid.Min - border;
-					Log("done");
 				}
 			}
 
