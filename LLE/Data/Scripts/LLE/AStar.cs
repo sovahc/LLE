@@ -172,52 +172,52 @@ namespace LLE
 			while (_open.Count > 0)
 			{
 				var current = _open.Dequeue();
-				int curIdx = current.Index;
+				int currentI = current.Index;
 
-				if (_closed.Get(curIdx) != 0) continue;
+				if (_closed.Get(currentI) != 0) continue;
 				
-				_closed.Set(curIdx, 1);
+				_closed.Set(currentI, 1);
 
 				Vector3I cv;
-				_indexer.IndexToPosition(curIdx, out cv);
+				_indexer.IndexToPosition(currentI, out cv);
 
-				if (curIdx == goalIndex)
+				if (currentI == goalIndex)
 				{	MyConsole.Add($"cellsAnalyzed {cellsAnalyzed}", Color.Red);
 					return ReconstructPath(goalIndex, goal);
 				}
 
-				float curG = _gScore[curIdx];
+				float curG = _gScore[currentI];
 
 				for (int d = 0; d < Directions.Length; ++d)
 				{
-					Vector3I n = cv + Directions[d];
+					Vector3I next = cv + Directions[d];
 
-					if (!_indexer.In(n)) continue;
+					if (!_indexer.In(next)) continue;
 
 					++cellsAnalyzed;
 
-					int nIdx = _indexer.Index(n);
+					int nextI = _indexer.Index(next);
 
-					if (_weights[nIdx] == 255) continue;
+					if (_weights[nextI] == 255) continue;
 
-					if (_closed.Get(nIdx) != 0) continue;
+					if (_closed.Get(nextI) != 0) continue;
 
-					float tentativeG = curG + _weights[nIdx];
+					float tentativeG = curG + _weights[nextI];
 
-					bool isBetter = _parent[nIdx] == -1 || tentativeG < _gScore[nIdx];
+					bool isBetter = _parent[nextI] == -1 || tentativeG < _gScore[nextI];
 
 					if (!isBetter) continue;
 					
-					_gScore[nIdx] = tentativeG;
-					_parent[nIdx] = curIdx;
+					_gScore[nextI] = tentativeG;
+					_parent[nextI] = currentI;
 
-					float h = Manhattan(n, goal);
-					if (_inOpen.Get(nIdx) != 0)
-						_open.UpdatePriority(_nodes[nIdx], tentativeG + h);
+					float h = Manhattan(next, goal);
+					if (_inOpen.Get(nextI) != 0)
+						_open.UpdatePriority(_nodes[nextI], tentativeG + h);
 					else
 					{
-						_open.Enqueue(_nodes[nIdx], tentativeG + h);
-						_inOpen.Set(nIdx, 1);
+						_open.Enqueue(_nodes[nextI], tentativeG + h);
+						_inOpen.Set(nextI, 1);
 					}
 				}
 			}
