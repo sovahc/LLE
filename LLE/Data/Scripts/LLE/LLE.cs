@@ -1,17 +1,15 @@
 using System;
 using System.Collections.Generic;
-
+using System.Diagnostics;
+using System.Security.Cryptography;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage.Game;
 using VRage.Game.Components;
-using VRage.Game.Entity;
 using VRage.Game.ModAPI;
-using VRage.GameServices;
 using VRage.ModAPI;
 using VRage.Utils;
-using VRage.Voxels;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
@@ -28,8 +26,8 @@ namespace LLE
 			grid = null;
 			position = Vector3I.Zero;
 
-            IHitInfo hit;
-            MyAPIGateway.Physics.CastRay(origin, origin + direction * range, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
+			IHitInfo hit;
+			MyAPIGateway.Physics.CastRay(origin, origin + direction * range, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 
 			if (hit == null) return;
 
@@ -41,7 +39,7 @@ namespace LLE
 			LineD line = new LineD(origin, origin + direction * range);
 			grid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
 
-			if(slimBlock == null) return;
+			if (slimBlock == null) return;
 
 			var fsCenter = origin + direction * (dist - grid.GridSize);
 			var freeSpace = grid.WorldToGridInteger(fsCenter);
@@ -49,7 +47,8 @@ namespace LLE
 		}
 
 		public static void HighlightCell(IMyCubeGrid grid, Vector3I position, Color color)
-		{	double blockSize = grid.GridSizeEnum == MyCubeSize.Large ? 2.5 : 0.5;
+		{
+			double blockSize = grid.GridSizeEnum == MyCubeSize.Large ? 2.5 : 0.5;
 
 			Vector3D world = grid.GridIntegerToWorld(position);
 
@@ -66,6 +65,25 @@ namespace LLE
 				MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
 
 			Drawing.RoundMarker(world, color);
+		}
+	}
+
+	public struct Profiler
+	{
+		private readonly string _name;
+		private readonly long _start;
+		private long _end;
+		public Profiler(string name = "unnamed")
+		{
+			_name = name;
+			_start = Stopwatch.GetTimestamp();
+			_end = long.MaxValue;
+		}
+		public void Stop()
+		{	_end = Stopwatch.GetTimestamp();
+		}
+		public override string ToString()
+		{	return $"{_name} {new TimeSpan(_end - _start).TotalMilliseconds:0.##}ms";
 		}
 	}
 
@@ -90,7 +108,8 @@ namespace LLE
 		}
 
 		public static void Clear()
-		{	_lines.Clear();			
+		{
+			_lines.Clear();
 		}
 
 		public static void Render(Font font)
@@ -111,11 +130,11 @@ namespace LLE
 				var line = _lines[_lines.Count - i - 1];
 				float y = y0 + i * lineStep;
 				var w = font.String(line.Text, new Vector2D(x0, y), scale, line.Color);
-				if(w > rectangleW) rectangleW = w;
+				if (w > rectangleW) rectangleW = w;
 			}
 
-			var bb = font.Rectangle(new Vector2(x0-B, y0-B),
-				new Vector2(x0+rectangleW+B+B, y0+rectangleH+B+B),
+			var bb = font.Rectangle(new Vector2(x0 - B, y0 - B),
+				new Vector2(x0 + rectangleW + B + B, y0 + rectangleH + B + B),
 				MyStringId.GetOrCompute("Square"),
 				Vector2.Zero, Vector2.One, textBackground);
 
@@ -136,7 +155,7 @@ namespace LLE
 		private static void SetLKS(IMyEntity entity, ObjectType type, bool isVisible)
 		{
 			LastKnownState state;
-			if(!lks.TryGetValue(entity.EntityId, out state))
+			if (!lks.TryGetValue(entity.EntityId, out state))
 			{
 				state = new LastKnownState();
 				state.Type = type;
@@ -152,8 +171,8 @@ namespace LLE
 				lks.Add(entity.EntityId, state);
 			}
 
-			if(isVisible)
-			{	
+			if (isVisible)
+			{
 				state.DisplayName = entity.DisplayName;
 				var p = entity.GetPosition();
 				state.X = p.X;
@@ -171,13 +190,13 @@ namespace LLE
 
 			const int RAYCAST_EVERY = 10;
 			int raycast_slowdown = raycast_slowdown_offset;
-			if(++raycast_slowdown_offset >= RAYCAST_EVERY) raycast_slowdown_offset = 0;
+			if (++raycast_slowdown_offset >= RAYCAST_EVERY) raycast_slowdown_offset = 0;
 
 			int raycasts = 0;
 
 			foreach (IMyEntity entity in candidates)
 			{
-				if(entity.Closed) continue;
+				if (entity.Closed) continue;
 
 				Vector3D p;
 				IHitInfo hit;
@@ -186,14 +205,14 @@ namespace LLE
 				if (grid != null)
 				{
 					bool r = SurfaceSampler.TryGetRandomBlockOnSurface(grid, random, out p);
-					if(!r) continue;
-					
+					if (!r) continue;
+
 					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
 					++raycasts;
-					
+
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
-					if(isBlocked) continue;
+					if (isBlocked) continue;
 
 					var type = grid.GridSizeEnum == MyCubeSize.Large ? ObjectType.LargeShip : ObjectType.SmallShip;
 					SetLKS(entity, type, true);
@@ -203,24 +222,24 @@ namespace LLE
 				if (voxel != null)
 				{
 					if (voxel is MyPlanet) continue;
-					
+
 					bool r = SurfaceSampler.TryGetRandomSurfacePoint(voxel, random, out p);
-					if(!r) continue;
-					
+					if (!r) continue;
+
 					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
-					if(isBlocked) continue;
+					if (isBlocked) continue;
 
 					SetLKS(entity, ObjectType.Asteroid, true);
 				}
 
 				var floater = entity as IMyFloatingObject;
-				if(floater != null)
+				if (floater != null)
 				{
-					if(raycast_slowdown++ % RAYCAST_EVERY != 0) continue;
+					if (raycast_slowdown++ % RAYCAST_EVERY != 0) continue;
 
 					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
 					++raycasts;
@@ -228,20 +247,21 @@ namespace LLE
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 
 					//Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
-					if(isBlocked) continue;
+					if (isBlocked) continue;
 
 					SetLKS(entity, ObjectType.Floating, true);
 				}
 			}
 
-			MyConsole.Add($"raycasts: {raycasts} ", Color.Red);
-			foreach(var v in lks.Values)
-			{	var delta = Time.Now - v.LastSeenAt;
+			//MyConsole.Add($"raycasts: {raycasts} ", Color.Red);
+			foreach (var v in lks.Values)
+			{
+				var delta = Time.Now - v.LastSeenAt;
 				v.Visible = delta < 1.0;
-				if(!v.Visible) continue;
+				if (!v.Visible) continue;
 
 				double distance = (rayOrigin - new Vector3D(v.X, v.Y, v.Z)).Length();
-				MyConsole.Add($"{v.Type} {distance:F0} {delta:F0} {v.DisplayName} {v.debug}", Color.White);
+				//MyConsole.Add($"{v.Type} {distance:F0} {delta:F0} {v.DisplayName} {v.debug}", Color.White);
 			}
 		}
 
@@ -327,8 +347,6 @@ namespace LLE
 				double RVSq = relativeVelocity.LengthSquared();
 				if (RVSq < 123) continue;
 
-				MyConsole.Add($"relativeVelocity {relativeVelocity:F2}", Color.Gray);
-
 				// Time of Closest Approach
 				// Минимизируем |relativePosition + relativeVelocity * t|^2 -> производная = 0
 				double t_ca = -Vector3D.Dot(relativePosition, relativeVelocity) / RVSq;
@@ -349,25 +367,23 @@ namespace LLE
 
 				if (distSq < combinedRadiusSq)
 				{
-	// if (IsStaticOrClose(entity, distSq) && !CheckEllipsoidIntersection(...)) continue;
+					// if (IsStaticOrClose(entity, distSq) && !CheckEllipsoidIntersection(...)) continue;
 
 					Vector3D collisionCourse = Vector3D.Normalize(relativeVelocity);
 					Vector3D lateral = distVec - Vector3D.Dot(distVec, collisionCourse) * collisionCourse;
-	
+
 					// Обработка случая лобового столкновения (вектора коллинеарны)
 					if (lateral.LengthSquared() < 0.01)
 					{
 						Vector3D up = Math.Abs(collisionCourse.Z) < 0.99 ? Vector3D.UnitZ : Vector3D.UnitY;
 						lateral = Vector3D.Cross(collisionCourse, up);
 					}
-	
+
 					Vector3D avoidDir = Vector3D.Normalize(lateral);
 
 					double distFactor = 1.0 - (Math.Sqrt(distSq) / combinedRadius);
 					double timeFactor = 1.0 - (t_ca / LOOKAHEAD_TIME);
 					double urgency = Math.Max(0, distFactor * timeFactor);
-
-					MyConsole.Add($"distFactor {distFactor:F2} timeFactor {timeFactor:F2} urgency {urgency:F2}", Color.Gray);
 
 					totalAvoidance += avoidDir * AVOIDANCE_STRENGTH * urgency;
 					dangerCount++;
@@ -379,10 +395,9 @@ namespace LLE
 
 			var av = Vector3D.Normalize(totalAvoidance);
 
-			MyConsole.Add($"dangerCount {dangerCount} totalAvoidance {av}", Color.Green);
 			Vector3 localDir = Vector3.TransformNormal((Vector3)av, ch.WorldMatrixInvScaled);
 
-			if(double.IsNaN(localDir.X)) return;
+			if (double.IsNaN(localDir.X)) return;
 			ch.MoveAndRotate(localDir, Vector2.Zero, 0f);
 		}
 	}
@@ -410,7 +425,7 @@ namespace LLE
 		}
 
 		public override void BeforeStart()
-		{	
+		{
 			var entities = new HashSet<IMyEntity>();
 			MyAPIGateway.Entities.GetEntities(entities);
 
@@ -421,14 +436,13 @@ namespace LLE
 		}
 
 		protected override void UnloadData()
-		{	MyEntities.OnEntityAdd -= OnEntityAdd;
+		{
+			MyEntities.OnEntityAdd -= OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
 
 		public override void UpdateBeforeSimulation()
 		{
-			MyConsole.Clear();
-
 			LLE_Loader.Update();
 
 			if (LLE_Loader.IsPresent())
@@ -454,12 +468,12 @@ namespace LLE
 			var player = MyAPIGateway.Session.Player;
 			if (player == null) return;
 			var ch = player.Character;
-			if(ch == null) return;
+			if (ch == null) return;
 
 			//double t = Time.Now;
 			//Vector3 dir = new Vector3((float)Math.Sin(t * Math.PI * 2 / 10), (float)Math.Cos(t * Math.PI * 2 / 10), 0);
 			//ch.MoveAndRotate(dir, Vector2.Zero, 0f);
-			
+
 			var pm = ch.GetHeadMatrix(false);
 
 			//fsCenter = grid.GridIntegerToWorld(freeSpace);
@@ -468,16 +482,18 @@ namespace LLE
 			bool pointChanged = false;
 
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
-			{	Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
+			{
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
 				pointChanged = true;
 			}
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
-			{	Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
+			{
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
 				pointChanged = true;
 			}
 
-			if(pointChanged && grid_A == grid_B && grid_A != null)
-			{	
+			if (pointChanged && grid_A == grid_B && grid_A != null)
+			{
 				var grid = grid_A;
 				Vector3I gridSize = grid.Max - grid.Min + 1;
 
@@ -485,13 +501,15 @@ namespace LLE
 
 				const int border = 1;
 
-				Map map = new Map(gridSize + border*2);
+				Map map = new Map(gridSize + border * 2);
 
 				Vector3I i;
-				for(i.Z = 0; i.Z < gridSize.Z; ++i.Z)
-					for(i.Y = 0; i.Y < gridSize.Y; ++i.Y)
-						for(i.X = 0; i.X < gridSize.X; ++i.X)
-							map.SetWall(i+border, grid.GetCubeBlock(i + grid.Min) != null);
+				var p1 = new Profiler("fill");
+				for (i.Z = 0; i.Z < gridSize.Z; ++i.Z)
+					for (i.Y = 0; i.Y < gridSize.Y; ++i.Y)
+						for (i.X = 0; i.X < gridSize.X; ++i.X)
+							map.SetWall(i + border, grid.GetCubeBlock(i + grid.Min) != null);
+				p1.Stop();
 
 				var a = point_A - grid.Min + border;
 				var b = point_B - grid.Min + border;
@@ -501,11 +519,16 @@ namespace LLE
 
 				Log("FindPath");
 
+				var p2 = new Profiler("FindPath");
 				path = map.FindPath(a, b);
+				p2.Stop();
+				MyConsole.Add($"{p1} {p2}", Color.OrangeRed);
 
-				if(path != null)
-				{	Log("move path");
-					for(int p = 0; p < path.Count; ++p)
+
+				if (path != null)
+				{
+					Log("move path");
+					for (int p = 0; p < path.Count; ++p)
 						path[p] = path[p] + grid.Min - border;
 					Log("done");
 				}
@@ -518,7 +541,7 @@ namespace LLE
 		{
 			var player = MyAPIGateway.Session.Player;
 			if (player == null || player.Character == null) return;
-			
+
 			Common.StartFrame();
 
 			var lp = LLE_Loader.IsPresent();
@@ -528,18 +551,20 @@ namespace LLE
 			var pm = player.Character.GetHeadMatrix(false);
 			Vision.HighlightVisible(pm.Translation, pm.Forward);
 
-			if(grid_A != null && path != null)
-			{	foreach(var cell in path)
-				{	Vector3D world = grid_A.GridIntegerToWorld(cell);
+			if (grid_A != null && path != null)
+			{
+				foreach (var cell in path)
+				{
+					Vector3D world = grid_A.GridIntegerToWorld(cell);
 					Drawing.RoundMarker(world, Color.LimeGreen);
 				}
 			}
 
-			if(grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
-			if(grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
+			if (grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
+			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
-			if(grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Min, Color.Blue);
-			if(grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Max, Color.Blue);
+			if (grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Min, Color.Blue);
+			if (grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Max, Color.Blue);
 
 			MyConsole.Render(font);
 
@@ -560,10 +585,11 @@ namespace LLE
 		}
 
 		void OnChatMessage(string message, ref bool sendToOthers)
-		{	if(!LLE_Loader.IsPresent()) return;
+		{
+			if (!LLE_Loader.IsPresent()) return;
 			var player = MyAPIGateway.Session.Player;
-			if(player == null) return;
-			
+			if (player == null) return;
+
 			LLE_Loader.SetChat(player.DisplayName, message);
 		}
 
@@ -579,7 +605,7 @@ namespace LLE
 				if (state.DisplayName != null && state.DisplayName.ToUpperInvariant().Contains(searchName))
 				{
 					target = state;
-					
+
 					Log($"MOVE TO: {target.Type} {target.DisplayName}");
 					return true;
 				}

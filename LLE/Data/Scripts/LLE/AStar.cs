@@ -140,8 +140,9 @@ namespace LLE
 			{	Utilities.Log($"FindPath bad call: start {start} goal {goal} size {_indexer.Size}");
 				return null;
 			}
+			//Utilities.Log($"FindPath {start} {goal} size {_indexer.Size}");
 
-			Utilities.Log($"FindPath {start} {goal} size {_indexer.Size}");
+			int cellsAnalized = 0;
 
 			int startIndex = _indexer.Index(start.X, start.Y, start.Z);
 			int goalIndex = _indexer.Index(goal.X, goal.Y, goal.Z);
@@ -174,7 +175,9 @@ namespace LLE
 				_indexer.IndexToPosition(curIdx, out cv);
 
 				if (curIdx == goalIndex)
+				{	MyConsole.Add($"cellsAnalized {cellsAnalized}", Color.Red);
 					return ReconstructPath(goalIndex, goal);
+				}
 
 				float curG = _gScore[curIdx];
 
@@ -183,6 +186,8 @@ namespace LLE
 					Vector3I n = cv + Directions[d];
 
 					if (!_indexer.In(n)) continue;
+
+					++cellsAnalized;
 
 					int nIdx = _indexer.Index(n);
 
