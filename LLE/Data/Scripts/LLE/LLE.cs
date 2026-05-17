@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Sandbox.Engine.Multiplayer;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -146,136 +147,8 @@ namespace LLE
 
 	class Vision
 	{
-		private static Random random = new Random();
-		private static int raycast_slowdown_offset;
 
-		internal static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
-
-		private static void SetLKS(IMyEntity entity, ObjectType type, bool isVisible)
-		{
-			LastKnownState state;
-			if (!lks.TryGetValue(entity.EntityId, out state))
-			{
-				state = new LastKnownState();
-				state.Type = type;
-				state.EntityId = entity.EntityId;
-				state.DisplayName = entity.DisplayName;
-				var p = entity.GetPosition();
-				state.X = p.X;
-				state.Y = p.Y;
-				state.Z = p.Z;
-				state.LastSeenAt = 0;
-				state.debug = "";
-
-				lks.Add(entity.EntityId, state);
-			}
-
-			if (isVisible)
-			{
-				state.DisplayName = entity.DisplayName;
-				var p = entity.GetPosition();
-				state.X = p.X;
-				state.Y = p.Y;
-				state.Z = p.Z;
-				state.LastSeenAt = Time.Now;
-			}
-		}
-
-		public static void HighlightVisible(Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
-		{
-			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
-
-			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
-
-			const int RAYCAST_EVERY = 10;
-			int raycast_slowdown = raycast_slowdown_offset;
-			if (++raycast_slowdown_offset >= RAYCAST_EVERY) raycast_slowdown_offset = 0;
-
-			int raycasts = 0;
-
-			foreach (IMyEntity entity in candidates)
-			{
-				if (entity.Closed) continue;
-
-				Vector3D p;
-				IHitInfo hit;
-
-				var grid = entity as IMyCubeGrid;
-				if (grid != null)
-				{
-					bool r = SurfaceSampler.TryGetRandomBlockOnSurface(grid, random, out p);
-					if (!r) continue;
-
-					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
-					++raycasts;
-
-					bool isBlocked = hit != null && hit.HitEntity != entity;
-					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
-					if (isBlocked) continue;
-
-					var type = grid.GridSizeEnum == MyCubeSize.Large ? ObjectType.LargeShip : ObjectType.SmallShip;
-					SetLKS(entity, type, true);
-				}
-
-				var voxel = entity as MyVoxelBase;
-				if (voxel != null)
-				{
-					if (voxel is MyPlanet) continue;
-
-					bool r = SurfaceSampler.TryGetRandomSurfacePoint(voxel, random, out p);
-					if (!r) continue;
-
-					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
-					++raycasts;
-
-					bool isBlocked = hit != null && hit.HitEntity != entity;
-					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
-					if (isBlocked) continue;
-
-					SetLKS(entity, ObjectType.Asteroid, true);
-				}
-
-				var floater = entity as IMyFloatingObject;
-				if (floater != null)
-				{
-					if (raycast_slowdown++ % RAYCAST_EVERY != 0) continue;
-
-					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
-					++raycasts;
-
-					bool isBlocked = hit != null && hit.HitEntity != entity;
-
-					//Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
-					if (isBlocked) continue;
-
-					SetLKS(entity, ObjectType.Floating, true);
-				}
-			}
-
-			//MyConsole.Add($"raycasts: {raycasts} ", Color.Red);
-			foreach (var v in lks.Values)
-			{
-				var delta = Time.Now - v.LastSeenAt;
-				v.Visible = delta < 1.0;
-				if (!v.Visible) continue;
-
-				double distance = (rayOrigin - new Vector3D(v.X, v.Y, v.Z)).Length();
-				//MyConsole.Add($"{v.Type} {distance:F0} {delta:F0} {v.DisplayName} {v.debug}", Color.White);
-			}
-		}
-
-		public static void OnClose(IMyEntity e)
-		{
-			var grid = e as IMyCubeGrid;
-			if (grid != null)
-			{
-				grid.OnBlockAdded -= Grid_OnBlockAdded;
-				grid.OnBlockRemoved -= Grid_OnBlockRemoved;
-				grid.OnGridChanged -= Grid_OnGridChanged;
-			}
-
-			lks.Remove(e.EntityId);
-		}
+		public static void OnClose(IMyEntity e) { }
 
 		public static void Grid_OnBlockAdded(IMySlimBlock block) { }
 
@@ -284,120 +157,18 @@ namespace LLE
 		public static void Grid_OnGridChanged(IMyCubeGrid grid) { }
 	}
 
-	class Navigation
+	class Traversability
 	{
-		public static bool RayIntersectsEllipsoid(Vector3D rayOrigin, Vector3D rayDir, MatrixD worldMatrix, BoundingBoxD localBB)
-		{
-			var center = (localBB.Min + localBB.Max) * 0.5;
-			var radii = (localBB.Max - localBB.Min) * 0.5;
+		private IMyCubeGrid grid;
 
-			if (radii.LengthSquared() == 0) return false;
-
-			MatrixD invWorld;
-			MatrixD.Invert(ref worldMatrix, out invWorld);
-
-			var localOrigin = Vector3D.Transform(rayOrigin, ref invWorld);
-			var localDir = Vector3D.TransformNormal(rayDir, ref invWorld);
-
-			var E = (localOrigin - center) / radii;
-			var D = localDir / radii;
-
-			double a = D.Dot(D);
-			double b = 2.0 * E.Dot(D);
-			double c = E.Dot(E) - 1.0;
-
-			return b * b - 4.0 * a * c >= 0;
+		public void SetGrid(IMyCubeGrid g)
+		{	if(g == grid) return;
+			// clear cache
+			grid = g;
 		}
 
-		private const float LOOKAHEAD_TIME = 3.0f;
-		private const float SAFETY_MARGIN = 5.0f;
-		private const float AVOIDANCE_STRENGTH = 10.0f;
-
-		public void ObstacleAvoidance(IMyCharacter ch)
-		{
-			if (MyAPIGateway.Input.IsAnyMousePressed()) return;
-
-			Vector3D botPosition = ch.GetPosition();
-			Vector3D botVelocity = ch.Physics.LinearVelocity;
-			double botRadius = 1.0;
-
-			Vector3D totalAvoidance = Vector3D.Zero;
-			int dangerCount = 0;
-
-			foreach (var state in Vision.lks.Values)
-			{
-				if (!state.Visible) continue;
-				if (state.Type == ObjectType.Floating) continue;
-
-				var entity = MyAPIGateway.Entities.GetEntityById(state.EntityId);
-				if (entity == null || entity.Closed) continue;
-
-				//double obsRadius = entity.WorldVolume.Radius;
-				var ex = entity.LocalAABB.HalfExtents;
-				double obsRadius = Math.Max(ex.X, Math.Max(ex.Y, ex.Z));
-
-				Vector3D obsPosition = entity.WorldVolume.Center;
-				Vector3D obsVelocity = Vector3D.Zero;
-				if (entity.Physics != null) obsVelocity = entity.Physics.LinearVelocity;
-
-				Vector3D relativePosition = obsPosition - botPosition;
-				Vector3D relativeVelocity = obsVelocity - botVelocity;
-
-				double RVSq = relativeVelocity.LengthSquared();
-				if (RVSq < 123) continue;
-
-				// Time of Closest Approach
-				// Минимизируем |relativePosition + relativeVelocity * t|^2 -> производная = 0
-				double t_ca = -Vector3D.Dot(relativePosition, relativeVelocity) / RVSq;
-
-				// Нас интересует только будущее в пределах окна предсказания
-				if (t_ca < 0) t_ca = 0;
-				if (t_ca > LOOKAHEAD_TIME) t_ca = LOOKAHEAD_TIME;
-
-				// 3. Позиции в момент максимального сближения
-				Vector3D botAtCa = botPosition + botVelocity * t_ca;
-				Vector3D obsAtCa = obsPosition + obsVelocity * t_ca;
-
-				Vector3D distVec = botAtCa - obsAtCa;
-				double distSq = distVec.LengthSquared();
-
-				double combinedRadius = botRadius + obsRadius + SAFETY_MARGIN;
-				double combinedRadiusSq = combinedRadius * combinedRadius;
-
-				if (distSq < combinedRadiusSq)
-				{
-					// if (IsStaticOrClose(entity, distSq) && !CheckEllipsoidIntersection(...)) continue;
-
-					Vector3D collisionCourse = Vector3D.Normalize(relativeVelocity);
-					Vector3D lateral = distVec - Vector3D.Dot(distVec, collisionCourse) * collisionCourse;
-
-					// Обработка случая лобового столкновения (вектора коллинеарны)
-					if (lateral.LengthSquared() < 0.01)
-					{
-						Vector3D up = Math.Abs(collisionCourse.Z) < 0.99 ? Vector3D.UnitZ : Vector3D.UnitY;
-						lateral = Vector3D.Cross(collisionCourse, up);
-					}
-
-					Vector3D avoidDir = Vector3D.Normalize(lateral);
-
-					double distFactor = 1.0 - (Math.Sqrt(distSq) / combinedRadius);
-					double timeFactor = 1.0 - (t_ca / LOOKAHEAD_TIME);
-					double urgency = Math.Max(0, distFactor * timeFactor);
-
-					totalAvoidance += avoidDir * AVOIDANCE_STRENGTH * urgency;
-					dangerCount++;
-				}
-			}
-
-			if (dangerCount == 0) return;
-			if (totalAvoidance.LengthSquared() < 0.01) return;
-
-			var av = Vector3D.Normalize(totalAvoidance);
-
-			Vector3 localDir = Vector3.TransformNormal((Vector3)av, ch.WorldMatrixInvScaled);
-
-			if (double.IsNaN(localDir.X)) return;
-			ch.MoveAndRotate(localDir, Vector2.Zero, 0f);
+		public void CalculateStep()
+		{	if(grid == null) return;
 		}
 	}
 
@@ -405,11 +176,8 @@ namespace LLE
 	public class LLE : MySessionComponentBase
 	{
 		private static Font font;
-		private static readonly Navigation _navigation = new Navigation();
 
-		private IMyCubeGrid grid_A, grid_B;
-		private Vector3I point_A, point_B;
-		private List<Vector3I> path;
+		Traversability trav = new Traversability();
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -444,24 +212,12 @@ namespace LLE
 		{
 			LLE_Loader.Update();
 
-			if (LLE_Loader.IsPresent())
-				LLE_Loader.SetVision(Vision.lks);
+			//if (LLE_Loader.IsPresent())
+			//	LLE_Loader.SetVision(Vision.lks);
 
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
-			{
-				var payload = cmd.Payload.Trim();
-				LastKnownState target = null;
-				if (TryParseMoveTo(payload, out target))
-				{
-					//_navigation.Target = new Vector3D(target.X, target.Y, target.Z);
-					//_navigation.Active = true;
-					Log("Navigate to " + payload);
-				}
-				else
-				{
-					MyVisualScriptLogicProvider.SendChatMessage(payload, "LLM", font: "Blue");
-				}
+			{	////
 			}
 
 			var player = MyAPIGateway.Session.Player;
@@ -469,82 +225,18 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			//double t = Time.Now;
-			//Vector3 dir = new Vector3((float)Math.Sin(t * Math.PI * 2 / 10), (float)Math.Cos(t * Math.PI * 2 / 10), 0);
-			//ch.MoveAndRotate(dir, Vector2.Zero, 0f);
-
 			var pm = ch.GetHeadMatrix(false);
 
-			//fsCenter = grid.GridIntegerToWorld(freeSpace);
-			//Drawing.RoundMarker(fsCenter, Color.Red);
-
-			bool pointChanged = false;
-
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
-			{
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
-				pointChanged = true;
+			{	IMyCubeGrid grid;
+				Vector3I position;
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid, out position, 250);
+
+				if(grid != null) trav.SetGrid(grid);
 			}
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
-			{
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
-				pointChanged = true;
+			{	trav.CalculateStep();
 			}
-
-			if (pointChanged && grid_A == grid_B && grid_A != null)
-			{
-				var grid = grid_A;
-				Vector3I gridSize = grid.Max - grid.Min + 1;
-
-				Log($"recalculate_A_star {grid.Min} {grid.Max} {gridSize}");
-
-				const int border = 1;
-
-				Map map = new Map(gridSize + border * 2);
-
-				Vector3I i;
-				var p1 = new Profiler("fill");
-				for (i.Z = 0; i.Z < gridSize.Z; ++i.Z)
-					for (i.Y = 0; i.Y < gridSize.Y; ++i.Y)
-						for (i.X = 0; i.X < gridSize.X; ++i.X)
-						{	var block = grid.GetCubeBlock(i + grid.Min);
-							if(block == null)
-								map.SetWeight(i + border, 0);
-							else
-								map.SetWeight(i + border, CalculateBlockWeight(block));
-						}
-				p1.Stop();
-
-				var a = point_A - grid.Min + border;
-				var b = point_B - grid.Min + border;
-
-				var p2 = new Profiler("FindPath");
-				path = map.FindPath(a, b);
-				p2.Stop();
-				MyConsole.Add($"{p1} {p2}", Color.OrangeRed);
-
-
-				if (path != null)
-				{
-					for (int p = 0; p < path.Count; ++p)
-						path[p] = path[p] + grid.Min - border;
-				}
-			}
-
-			//_navigation.ObstacleAvoidance(ch);
-		}
-
-		private byte CalculateBlockWeight(IMySlimBlock b)
-		{
-			var s = b.BlockDefinition.ToString();
-			if(s.Contains("HangarDoor")) return 50;
-			if(s.Contains("Door")) return 1; // closed = 10
-			if(s.Contains("HeavyArmor")) return 150;
-			if(s.Contains("Armor")) return 100;
-			if(s.Contains("Reactor")) return 250;
-			// Thruster = 200
-			// Ion thruster = 250
-			return 150;
 		}
 
 		public override void Draw()
@@ -559,22 +251,7 @@ namespace LLE
 				new Vector2D(0.5, -0.97), 0.00075f, lp ? Color.White : Color.Red);
 
 			var pm = player.Character.GetHeadMatrix(false);
-			Vision.HighlightVisible(pm.Translation, pm.Forward);
-
-			if (grid_A != null && path != null)
-			{
-				foreach (var cell in path)
-				{
-					Vector3D world = grid_A.GridIntegerToWorld(cell);
-					Drawing.RoundMarker(world, Color.LimeGreen);
-				}
-			}
-
-			if (grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
-			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
-
-			if (grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Min, Color.Blue);
-			if (grid_A != null) Utilities.HighlightCell(grid_A, grid_A.Max, Color.Blue);
+			//Vision.HighlightVisible(pm.Translation, pm.Forward);
 
 			if (grid_A != null)
 			{
@@ -609,27 +286,6 @@ namespace LLE
 			if (player == null) return;
 
 			LLE_Loader.SetChat(player.DisplayName, message);
-		}
-
-		bool TryParseMoveTo(string payload, out LastKnownState target)
-		{
-			target = null;
-			var upper = payload.ToUpperInvariant();
-			if (!upper.StartsWith("MOVE TO ")) return false;
-
-			var searchName = payload.Substring(8).Trim().ToUpperInvariant();
-			foreach (var state in Vision.lks.Values)
-			{
-				if (state.DisplayName != null && state.DisplayName.ToUpperInvariant().Contains(searchName))
-				{
-					target = state;
-
-					Log($"MOVE TO: {target.Type} {target.DisplayName}");
-					return true;
-				}
-			}
-			Log("MOVE TO: target not found: " + searchName);
-			return false;
 		}
 	}
 
