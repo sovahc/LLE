@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Sandbox.Engine.Multiplayer;
+using System.Runtime.InteropServices;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -65,7 +65,7 @@ namespace LLE
 			MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
 				MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
 
-			Drawing.RoundMarker(world, color);
+			//Drawing.RoundMarker(world, color);
 		}
 	}
 
@@ -163,25 +163,38 @@ namespace LLE
 
 	class Traversability
 	{
+		private List<Vector3I> debug = new List<Vector3I>();
+		private List<Vector3D> debug2 = new List<Vector3D>();
+
 		private IMyCubeGrid grid;
 		private IEnumerator iterator;
 
+		private BitField blockedX, blockedY, blockedZ;
+
+		private const double OA = 1.25, OB = 1.10;
+
 		private readonly Vector2D[] ScanOffsets = {
-			new Vector2D(-1.25, -1.25),
-			new Vector2D(+1.25, -1.25),
-			new Vector2D(+1.25, +1.25),
-			new Vector2D(-1.25, +1.25),
+			// slightly rotated
+			new Vector2D(-OA, -OB),
+			new Vector2D(+OB, -OA),
+			new Vector2D(+OA, +OB),
+			new Vector2D(-OB, +OA),
 		};
 
-		private List<Vector3D> debug = new List<Vector3D>();
-
 		public void DrawDebug()
-		{	for(int i = 0; i < debug.Count; ++i)
-			{	Drawing.RoundMarker(debug[i], Color.Magenta);
+		{	foreach(var v in debug)
+				Utilities.HighlightCell(grid, v, Color.Magenta);
+			var material = MyStringId.GetOrCompute("Square");
+			var color = Color.Red.ToVector4();
+			for(int i = 0; i < debug2.Count; i+=2)
+			{	//Drawing.RoundMarker(debug2[i], Color.Red);
+				//Drawing.RoundMarker(debug2[i+1], Color.Blue);
+
+				MySimpleObjectDraw.DrawLine(debug2[i], debug2[i+1], material, ref color, 0.01f);
 			}
 		}
 
-        public void SetGrid(IMyCubeGrid g, Vector3I startFrom)
+        public void SetGrid(IMyCubeGrid g)
 		{	if(g == grid) return;
 			// clear cache
 			grid = g;
@@ -194,9 +207,9 @@ namespace LLE
 		{	if(iterator == null)
 				iterator = Iterator();
 
-			var stopAfter = Stopwatch.GetTimestamp() + TimeSpan.TicksPerMillisecond;
+			var stopAfter = Stopwatch.GetTimestamp() + TimeSpan.TicksPerMillisecond / 2;
 
-			for(int i = 0; i < 20; ++i)
+			for(int i = 0; i < 100; ++i)
 			{	if(!iterator.MoveNext())
 				{	iterator = null;
 					return;
@@ -207,42 +220,102 @@ namespace LLE
 
 		private IEnumerator Iterator()
 		{	debug.Clear();
+			debug2.Clear();
 			
 			if(grid == null) yield break;
 
 			MyCubeGrid g = grid as MyCubeGrid;
 			if(g == null) yield break;
 
-			Vector3I i = new Vector3I();
-			Vector3I position = new Vector3I();
+			MyDefinitionId fullArmor = new MyDefinitionId(typeof(MyObjectBuilder_CubeBlock), "LargeBlockArmorBlock");
 
-			for(i.Z = grid.Min.Z; i.Z <= grid.Max.Z; ++i.Z)
-				for(i.Y = grid.Min.Y; i.Y <= grid.Max.Y; ++i.Y)
-				{
-					i.X = grid.Min.X;
-					Vector3D a = grid.GridIntegerToWorld(i);
-					i.X = grid.Max.X;
-					Vector3D b = grid.GridIntegerToWorld(i);
+			var Min = grid.Min;
+			var Max = grid.Max;
 
-					for(int o = 0; o < ScanOffsets.Length; ++o)
-					{	LineD line = new LineD(a, b);
-						line.From.Z += ScanOffsets[o].X;
-						line.From.Y += ScanOffsets[o].Y;
-						line.To.Z += ScanOffsets[o].X;
-						line.To.Y += ScanOffsets[o].Y;
+			Indexer indexer = new Indexer(Max - Min + 2);
+			blockedX = new BitField(indexer.Count, 1);
+			blockedY = new BitField(indexer.Count, 1);
+			blockedZ = new BitField(indexer.Count, 1);
 
-						double dist = (line.To-line.From).Length();
-						double dsq = 10000;
+			Vector3I v = new Vector3I();
+			Vector3I end = new Vector3I();
+			Vector3I unused = new Vector3I();
+			var zero = grid.GridIntegerToWorld(v);
+			var unitX = grid.GridIntegerToWorld(v + Vector3I.UnitX) - zero;
+			unitX.Normalize();
+			//var unitY = grid.GridIntegerToWorld(v + Vector3I.UnitY) - zero;
+			//var unitZ = grid.GridIntegerToWorld(v + Vector3I.UnitZ) - zero;
 
-						if(!grid.GetLineIntersectionExactGrid(ref line, ref position, ref dsq))
+			LineD line = new LineD();
+
+			const double CubeSize = 5;
+
+			for(v.X = Min.X; v.X <= Max.X; ++v.X)
+			{	for(v.Y = Min.Y; v.Y <= Max.Y; ++v.Y)
+				{	
+					end.X = v.X;
+					end.Y = v.Y;
+					end.Z = Max.Z;
+					
+					for(v.Z = Min.Z; v.Z <= Max.Z; ++v.Z)
+					{	var block = grid.GetCubeBlock(v);
+						
+						if(block == null) continue;
+
+						// 1 0 1  // blocks
+						//| | | | // sides (portals)
+
+						var index = indexer.Index(v - Min);
+
+						MyDefinitionId def = block.BlockDefinition.Id;
+						if(def == fullArmor)
+						{	blockedX.Set(index, 1);
+							blockedX.Set(index+1, 1); // полный блок блокирует сразу два портала
 							continue;
+						}
 
-						//debug.Add(line.From);
-						debug.Add(line.From + (b-a).Normalized() * Math.Sqrt(dsq));
+						if(blockedX.Get(index) != 0) continue; // текуущий портал блокирован предыдущим блоком
+
+						// тестируем проходимость лучами
+
+						line.From = grid.GridIntegerToWorld(v);
+						line.To = grid.GridIntegerToWorld(end);
+
+						double minimalSq = double.MaxValue;
+
+						//for(int o = 0; o < ScanOffsets.Length; ++o)
+						//{	
+							//line.From.Z += ScanOffsets[o].X;
+							//line.From.Y += ScanOffsets[o].Y;
+							//line.To.Z += ScanOffsets[o].X;
+							//line.To.Y += ScanOffsets[o].Y;
+
+							double dist = (line.To-line.From).Length();
+							double dsq = 10000;
+
+							if(grid.GetLineIntersectionExactGrid(ref line, ref unused, ref dsq))
+								minimalSq = dsq;
+
+							//if(dsq < minimalSq) minimalSq = dsq;
+
+							
+						//}
+
+						double minimal = Math.Sqrt(minimalSq);
+
+						debug2.Add(grid.GridIntegerToWorld(v));
+
+						while(minimal > CubeSize && v.Z <= Max.Z)
+						{	minimal -= CubeSize;
+							++v.Z;							
+						}
+						//debug.Add(line.From+unitX*minimal);
+						debug2.Add(grid.GridIntegerToWorld(v));
+
+						yield return null;
 					}
-
-					yield return null;
 				}
+			}
 		}
 	}
 
@@ -306,7 +379,7 @@ namespace LLE
 				Vector3I position;
 				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid, out position, 250);
 
-				if(grid != null) trav.SetGrid(grid, position);
+				if(grid != null) trav.SetGrid(grid);
 			}
 			//if (MyAPIGateway.Input.IsNewRightMousePressed())
 			Profiler p = new Profiler();
