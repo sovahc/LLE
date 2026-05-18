@@ -234,8 +234,8 @@ namespace LLE
 			var Max = grid.Max;
 
 			Indexer indexer = new Indexer(Max - Min + 2);
-			blockedX = new BitField(indexer.Count, 1);
-			blockedY = new BitField(indexer.Count, 1);
+			//blockedX = new BitField(indexer.Count, 1);
+			//blockedY = new BitField(indexer.Count, 1);
 			blockedZ = new BitField(indexer.Count, 1);
 
 			Vector3I v = new Vector3I();
@@ -268,12 +268,12 @@ namespace LLE
 
 						MyDefinitionId def = block.BlockDefinition.Id;
 						if(def == fullArmor)
-						{	blockedX.Set(index, 1);
-							blockedX.Set(index+1, 1); // полный блок блокирует сразу два портала
+						{	blockedZ.Set(index, 1);
+							blockedZ.Set(index+1, 1); // полный блок блокирует сразу два портала
 							continue;
 						}
 
-						if(blockedX.Get(index) != 0) continue; // текущий портал блокирован предыдущим блоком
+						if(blockedZ.Get(index) != 0) continue; // текущий портал блокирован предыдущим блоком
 
 						// тестируем проходимость портала лучами
 
