@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -151,7 +150,6 @@ namespace LLE
 
 	class Vision
 	{
-
 		public static void OnClose(IMyEntity e) { }
 
 		public static void Grid_OnBlockAdded(IMySlimBlock block) { }
@@ -165,10 +163,12 @@ namespace LLE
 	{
 		private List<Vector3D> debug1 = new List<Vector3D>();
 		private List<Vector3D> debug2 = new List<Vector3D>();
+		private List<Vector3D> debug4 = new List<Vector3D>();
 
 		private IMyCubeGrid grid;
 		private IEnumerator iterator;
 
+		private Indexer indexer;
 		private BitField blockedX, blockedY, blockedZ;
 
 		private const double OA = 1.25/5, OB = 1.10/5;
@@ -187,11 +187,20 @@ namespace LLE
 			}
 			var material = MyStringId.GetOrCompute("Square");
 			var color = Color.Magenta.ToVector4();
-			for(int i = 0; i < debug2.Count; i+=2)
+			for(int i = 0; i < debug2.Count; i += 2)
 			{	
 				MySimpleObjectDraw.DrawLine(debug2[i], debug2[i+1], material, ref color, 0.01f);
 				Drawing.RoundMarker(debug2[i], Color.Gray);
 				Drawing.RoundMarker(debug2[i+1], Color.Red);
+			}
+			MyQuadD d = new MyQuadD();
+			for(int i = 0; i < debug4.Count; i += 4)
+			{	
+				d.Point0 = debug4[i+0];
+				d.Point1 = debug4[i+1];
+				d.Point2 = debug4[i+2];
+				d.Point3 = debug4[i+3];
+				Common.Billboard(d, material, color);
 			}
 		}
 
@@ -200,6 +209,7 @@ namespace LLE
 			// clear cache
 			grid = g;
 			Vector3I gridSize = grid.Max - grid.Min + 1;
+			indexer = new Indexer(grid.Max - grid.Min + 2);
 
 			Utilities.Log($"SetGrid gridSize {gridSize}");
 		}
@@ -219,9 +229,32 @@ namespace LLE
 			}
 		}
 
+		private void SetBlockedZ(Vector3I v)
+		{	var index = indexer.Index(v - grid.Min);
+			blockedZ.Set(index, 1);
+
+			var zero = grid.GridIntegerToWorld(v);
+			var halfCubeX = (grid.GridIntegerToWorld(v + Vector3I.UnitX) - zero) * 0.5;
+			var halfCubeY = (grid.GridIntegerToWorld(v + Vector3I.UnitY) - zero) * 0.5;
+			var halfCubeZ = (grid.GridIntegerToWorld(v + Vector3I.UnitZ) - zero) * 0.5;
+
+			zero -= halfCubeZ * 1.05;
+
+			debug4.Add(zero - halfCubeX - halfCubeY);
+			debug4.Add(zero + halfCubeX - halfCubeY);
+			debug4.Add(zero + halfCubeX + halfCubeY);
+			debug4.Add(zero - halfCubeX + halfCubeY);
+		}
+
+		private byte GetBlockedZ(Vector3I v)
+		{	var index = indexer.Index(v - grid.Min);
+			return blockedZ.Get(index);
+		}
+
 		private IEnumerator Iterator()
 		{	debug1.Clear();
 			debug2.Clear();
+			debug4.Clear();
 			
 			if(grid == null) yield break;
 
@@ -232,8 +265,7 @@ namespace LLE
 
 			var Min = grid.Min;
 			var Max = grid.Max;
-
-			Indexer indexer = new Indexer(Max - Min + 2);
+			
 			//blockedX = new BitField(indexer.Count, 1);
 			//blockedY = new BitField(indexer.Count, 1);
 			blockedZ = new BitField(indexer.Count, 1);
@@ -241,10 +273,12 @@ namespace LLE
 			Vector3I v = new Vector3I();
 			Vector3I end = new Vector3I();
 			Vector3I unused = new Vector3I();
-			var zero = grid.GridIntegerToWorld(v);
-			var unitX = grid.GridIntegerToWorld(v + Vector3I.UnitX) - zero;
-			var unitY = grid.GridIntegerToWorld(v + Vector3I.UnitY) - zero;
-			var unitZ = grid.GridIntegerToWorld(v + Vector3I.UnitZ) - zero;
+			var zero = grid.GridIntegerToWorld(Vector3I.Zero);
+			var cubeX = grid.GridIntegerToWorld(Vector3I.UnitX) - zero;
+			var cubeY = grid.GridIntegerToWorld(Vector3I.UnitY) - zero;
+			var cubeZ = grid.GridIntegerToWorld(Vector3I.UnitZ) - zero;
+
+			double cubeSize = cubeZ.Length();
 
 			LineD line = new LineD();
 			LineD line2 = new LineD();
@@ -268,16 +302,16 @@ namespace LLE
 
 						MyDefinitionId def = block.BlockDefinition.Id;
 						if(def == fullArmor)
-						{	blockedZ.Set(index, 1);
-							blockedZ.Set(index+1, 1); // полный блок блокирует сразу два портала
+						{	SetBlockedZ(v);
+							SetBlockedZ(v+Vector3I.UnitZ); // полный блок блокирует сразу два портала
 							continue;
 						}
 
-						if(blockedZ.Get(index) != 0) continue; // текущий портал блокирован предыдущим блоком
+						if(GetBlockedZ(v) != 0) continue; // текущий портал блокирован предыдущим блоком ^
 
 						// тестируем проходимость портала лучами
 
-						var zShift = unitZ * 0.75f;
+						var zShift = cubeZ * 0.75f;
 
 						line.From = grid.GridIntegerToWorld(v) - zShift;
 						line.To = grid.GridIntegerToWorld(end) + zShift;
@@ -289,8 +323,8 @@ namespace LLE
 
 						for(int o = 0; o < ScanOffsets.Length; ++o)
 						{	
-							var Xoff = ScanOffsets[o].X * unitX;
-							var Yoff = ScanOffsets[o].Y * unitY;
+							var Xoff = ScanOffsets[o].X * cubeX;
+							var Yoff = ScanOffsets[o].Y * cubeY;
 
 							line2.From = line.From + Xoff + Yoff;
 							line2.To = line.To + Xoff + Yoff;
@@ -312,17 +346,11 @@ namespace LLE
 
 						// каждый следующий портал через который прошли лучи считается проходимым
 
-						double cubeSize = unitZ.Length();
 						int steps = (int)Math.Floor(minimalIntersection / cubeSize);
 						if(steps < 0) throw new Exception("steps < 0");
 
-						int hitZ = v.Z + steps;
-						if(hitZ <= Max.Z)
-						{
-							Vector3I pos = new Vector3I(v.X, v.Y, hitZ); // AI crap
-							blockedZ.Set(indexer.Index(pos - Min), 1);
-						}
-						v.Z += steps; // пропускаем проверенные порталы
+						v.Z += steps;
+						if(v.Z <= Max.Z) SetBlockedZ(v);
 
 						yield return null;
 					}
