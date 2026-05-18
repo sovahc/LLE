@@ -55,6 +55,30 @@ namespace LLE
 			_billboards.Clear();
 		}
 
+		public static MyBillboard Billboard(MyQuadD quad, MyStringId material, Vector4 color)
+		{
+			var bb = GetFromPool();
+			bb.Material = material;
+			bb.BlendType = BlendTypeEnum.PostPP;
+			bb.Position0 = quad.Point0;
+			bb.Position1 = quad.Point1;
+			bb.Position2 = quad.Point2;
+			bb.Position3 = quad.Point3;
+			bb.Color = color;
+			bb.ColorIntensity = 1f;
+			bb.SoftParticleDistanceScale = 0f;
+			bb.UVOffset = Vector2.Zero;
+			bb.UVSize = Vector2.One;
+			bb.LocalType = MyBillboard.LocalTypeEnum.Custom;
+			bb.ParentID = uint.MaxValue;
+			bb.DistanceSquared = (float)Vector3D.DistanceSquared(MyAPIGateway.Session.Camera.Position, quad.Point0);
+			bb.Reflectivity = 0f;
+			bb.AlphaCutout = 0f;
+			bb.CustomViewProjection = -1;
+			AddBillboard(bb);
+			return bb;
+		}
+
 		public static Vector3D ScreenToWorld(Vector2D screenPos, MatrixD viewProjInv)
 		{
 			double x = screenPos.X * viewProjInv.M11 + screenPos.Y * viewProjInv.M21 + viewProjInv.M41;
@@ -296,27 +320,7 @@ namespace LLE
 				MyQuadD quad;
 				MyUtils.GetPolyLineQuad(out quad, ref polyLine, camera.Position);
 
-				var billboard = Common.GetFromPool();
-
-				billboard.Material = square;
-				billboard.BlendType = BlendTypeEnum.PostPP;
-				billboard.Position0 = quad.Point0;
-				billboard.Position1 = quad.Point1;
-				billboard.Position2 = quad.Point2;
-				billboard.Position3 = quad.Point3;
-				billboard.Color = color;
-				billboard.ColorIntensity = 1f;
-				billboard.SoftParticleDistanceScale = 0f;
-				billboard.UVOffset = Vector2.Zero;
-				billboard.UVSize = Vector2.One;
-				billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
-				billboard.ParentID = uint.MaxValue;
-				billboard.DistanceSquared = (float)Vector3D.DistanceSquared(camera.Position, start);
-				billboard.Reflectivity = 0f;
-				billboard.AlphaCutout = 0f;
-				billboard.CustomViewProjection = -1;
-
-				Common.AddBillboard(billboard);
+				Common.Billboard(quad, square, color);
 			}
 		}
 
@@ -342,26 +346,7 @@ namespace LLE
 			MyQuadD quad;
 			MyUtils.GetBillboardQuadOriented(out quad, ref point, size, size, ref left, ref up);
 
-			var billboard = Common.GetFromPool();
-			billboard.Material = _markerMat;
-			billboard.BlendType = BlendTypeEnum.PostPP;
-			billboard.Position0 = quad.Point0;
-			billboard.Position1 = quad.Point1;
-			billboard.Position2 = quad.Point2;
-			billboard.Position3 = quad.Point3;
-			billboard.Color = new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
-			billboard.ColorIntensity = 1f;
-			billboard.SoftParticleDistanceScale = 0f;
-			billboard.UVOffset = Vector2.Zero;
-			billboard.UVSize = Vector2.One;
-			billboard.LocalType = MyBillboard.LocalTypeEnum.Custom;
-			billboard.ParentID = uint.MaxValue;
-			billboard.DistanceSquared = (float)Vector3D.DistanceSquared(camera.Position, point);
-			billboard.Reflectivity = 0f;
-			billboard.AlphaCutout = 0f;
-			billboard.CustomViewProjection = -1;
-
-			Common.AddBillboard(billboard);
+			Common.Billboard(quad, _markerMat, new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f));
 		}
 
 		public static void EllipsoidContour(MatrixD worldMatrix, BoundingBoxD localBB, Color color)

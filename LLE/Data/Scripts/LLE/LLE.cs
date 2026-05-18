@@ -314,22 +314,15 @@ namespace LLE
 
 						double cubeSize = unitZ.Length();
 						int steps = (int)Math.Floor(minimalIntersection / cubeSize);
-
-						for(int k = 0; k < steps && v.Z + k <= Max.Z; ++k)
-						{
-							Vector3I pos = new Vector3I(v.X, v.Y, v.Z + k);
-							blockedZ.Set(indexer.Index(pos - Min), 0); // свободен
-						}
+						if(steps < 0) throw new Exception("steps < 0");
 
 						int hitZ = v.Z + steps;
 						if(hitZ <= Max.Z)
 						{
-							Vector3I pos = new Vector3I(v.X, v.Y, hitZ);
-							blockedZ.Set(indexer.Index(pos - Min), 1); // уперлись сюда
+							Vector3I pos = new Vector3I(v.X, v.Y, hitZ); // AI crap
+							blockedZ.Set(indexer.Index(pos - Min), 1);
 						}
-
-						if(steps > 0)
-							v.Z += steps; // пропускаем проверенные порталы
+						v.Z += steps; // пропускаем проверенные порталы
 
 						yield return null;
 					}
