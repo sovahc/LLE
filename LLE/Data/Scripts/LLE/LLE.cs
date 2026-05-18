@@ -190,8 +190,8 @@ namespace LLE
 			for(int i = 0; i < debug2.Count; i+=2)
 			{	
 				MySimpleObjectDraw.DrawLine(debug2[i], debug2[i+1], material, ref color, 0.01f);
-				Drawing.RoundMarker(debug2[i], Color.Red);
-				Drawing.RoundMarker(debug2[i+1], Color.Green);
+				Drawing.RoundMarker(debug2[i], Color.Gray);
+				Drawing.RoundMarker(debug2[i+1], Color.Red);
 			}
 		}
 
@@ -312,10 +312,24 @@ namespace LLE
 
 						// каждый следующий портал через который прошли лучи считается проходимым
 
-						//while(minimalIntersection > CubeSize && v.Z <= Max.Z)
-						//{	minimalIntersection -= CubeSize;
-						//	++v.Z;							
-						//}
+						double cubeSize = unitZ.Length();
+						int steps = (int)Math.Floor(minimalIntersection / cubeSize);
+
+						for(int k = 0; k < steps && v.Z + k <= Max.Z; ++k)
+						{
+							Vector3I pos = new Vector3I(v.X, v.Y, v.Z + k);
+							blockedZ.Set(indexer.Index(pos - Min), 0); // свободен
+						}
+
+						int hitZ = v.Z + steps;
+						if(hitZ <= Max.Z)
+						{
+							Vector3I pos = new Vector3I(v.X, v.Y, hitZ);
+							blockedZ.Set(indexer.Index(pos - Min), 1); // уперлись сюда
+						}
+
+						if(steps > 0)
+							v.Z += steps; // пропускаем проверенные порталы
 
 						yield return null;
 					}
