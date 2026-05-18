@@ -163,7 +163,7 @@ namespace LLE
 
 	class Traversability
 	{
-		private List<Vector3I> debug = new List<Vector3I>();
+		private List<Vector3D> debug1 = new List<Vector3D>();
 		private List<Vector3D> debug2 = new List<Vector3D>();
 
 		private IMyCubeGrid grid;
@@ -171,7 +171,7 @@ namespace LLE
 
 		private BitField blockedX, blockedY, blockedZ;
 
-		private const double OA = 1.25, OB = 1.10;
+		private const double OA = 1.25/5, OB = 1.10/5;
 
 		private readonly Vector2D[] ScanOffsets = {
 			// slightly rotated
@@ -182,15 +182,16 @@ namespace LLE
 		};
 
 		public void DrawDebug()
-		{	foreach(var v in debug)
-				Utilities.HighlightCell(grid, v, Color.Magenta);
+		{	for(int i = 0; i < debug1.Count; ++i)
+			{	Drawing.RoundMarker(debug1[i], Color.Red);
+			}
 			var material = MyStringId.GetOrCompute("Square");
-			var color = Color.Red.ToVector4();
+			var color = Color.Magenta.ToVector4();
 			for(int i = 0; i < debug2.Count; i+=2)
-			{	//Drawing.RoundMarker(debug2[i], Color.Red);
-				//Drawing.RoundMarker(debug2[i+1], Color.Blue);
-
+			{	
 				MySimpleObjectDraw.DrawLine(debug2[i], debug2[i+1], material, ref color, 0.01f);
+				Drawing.RoundMarker(debug2[i], Color.Red);
+				Drawing.RoundMarker(debug2[i+1], Color.Green);
 			}
 		}
 
@@ -219,7 +220,7 @@ namespace LLE
 		}
 
 		private IEnumerator Iterator()
-		{	debug.Clear();
+		{	debug1.Clear();
 			debug2.Clear();
 			
 			if(grid == null) yield break;
@@ -242,13 +243,11 @@ namespace LLE
 			Vector3I unused = new Vector3I();
 			var zero = grid.GridIntegerToWorld(v);
 			var unitX = grid.GridIntegerToWorld(v + Vector3I.UnitX) - zero;
-			unitX.Normalize();
-			//var unitY = grid.GridIntegerToWorld(v + Vector3I.UnitY) - zero;
-			//var unitZ = grid.GridIntegerToWorld(v + Vector3I.UnitZ) - zero;
+			var unitY = grid.GridIntegerToWorld(v + Vector3I.UnitY) - zero;
+			var unitZ = grid.GridIntegerToWorld(v + Vector3I.UnitZ) - zero;
 
 			LineD line = new LineD();
-
-			const double CubeSize = 5;
+			LineD line2 = new LineD();
 
 			for(v.X = Min.X; v.X <= Max.X; ++v.X)
 			{	for(v.Y = Min.Y; v.Y <= Max.Y; ++v.Y)
@@ -274,43 +273,49 @@ namespace LLE
 							continue;
 						}
 
-						if(blockedX.Get(index) != 0) continue; // текуущий портал блокирован предыдущим блоком
+						if(blockedX.Get(index) != 0) continue; // текущий портал блокирован предыдущим блоком
 
-						// тестируем проходимость лучами
+						// тестируем проходимость портала лучами
 
-						line.From = grid.GridIntegerToWorld(v);
-						line.To = grid.GridIntegerToWorld(end);
+						var zShift = unitZ * 0.75f;
 
-						double minimalSq = double.MaxValue;
+						line.From = grid.GridIntegerToWorld(v) - zShift;
+						line.To = grid.GridIntegerToWorld(end) + zShift;
+						
+						var vector = line.To-line.From;
+						double lineLength = vector.Length();
 
-						//for(int o = 0; o < ScanOffsets.Length; ++o)
-						//{	
-							//line.From.Z += ScanOffsets[o].X;
-							//line.From.Y += ScanOffsets[o].Y;
-							//line.To.Z += ScanOffsets[o].X;
-							//line.To.Y += ScanOffsets[o].Y;
+						double minimalIntersection = 1e10;
 
-							double dist = (line.To-line.From).Length();
-							double dsq = 10000;
+						for(int o = 0; o < ScanOffsets.Length; ++o)
+						{	
+							var Xoff = ScanOffsets[o].X * unitX;
+							var Yoff = ScanOffsets[o].Y * unitY;
 
-							if(grid.GetLineIntersectionExactGrid(ref line, ref unused, ref dsq))
-								minimalSq = dsq;
+							line2.From = line.From + Xoff + Yoff;
+							line2.To = line.To + Xoff + Yoff;
 
-							//if(dsq < minimalSq) minimalSq = dsq;
+							double dsq = lineLength*lineLength;
+							var intersection = line2.To;
 
+							grid.GetLineIntersectionExactGrid(ref line2, ref unused, ref dsq);
 							
-						//}
+							double d = Math.Sqrt(dsq);
+							intersection = line2.From + vector * d / lineLength;
 
-						double minimal = Math.Sqrt(minimalSq);
+							if(d < minimalIntersection)
+								minimalIntersection = d;
 
-						debug2.Add(grid.GridIntegerToWorld(v));
-
-						while(minimal > CubeSize && v.Z <= Max.Z)
-						{	minimal -= CubeSize;
-							++v.Z;							
+							debug2.Add(line2.From);
+							debug2.Add(intersection);
 						}
-						//debug.Add(line.From+unitX*minimal);
-						debug2.Add(grid.GridIntegerToWorld(v));
+
+						// каждый следующий портал через который прошли лучи считается проходимым
+
+						//while(minimalIntersection > CubeSize && v.Z <= Max.Z)
+						//{	minimalIntersection -= CubeSize;
+						//	++v.Z;							
+						//}
 
 						yield return null;
 					}
