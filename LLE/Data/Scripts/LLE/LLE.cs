@@ -455,18 +455,18 @@ namespace LLE
 
 				if(astar == null || astar.Size != astarSize) astar = new AStar(astarSize);
 
-				Vector3I i;
-				var p = new Profiler("fill");
+				List<IMySlimBlock> blocks = new List<IMySlimBlock>();
+				grid.GetBlocks(blocks);
 
-				for (i.Z = 0; i.Z < gridSize.Z; ++i.Z)
-					for (i.Y = 0; i.Y < gridSize.Y; ++i.Y)
-						for (i.X = 0; i.X < gridSize.X; ++i.X)
-						{	var block = grid.GetCubeBlock(i + grid.Min);
-							if(block == null)
-								astar.SetWeight(i + border, 0);
-							else
-								astar.SetWeight(i + border, 255);
-						}
+				Profiler p = new Profiler("fill2");
+				foreach(var slim in blocks)
+				{	var min = slim.Min;
+            		var max = slim.Max;
+
+					if(min == max)
+					{	astar.SetWeight(slim.Position - grid.Min + border, 255);
+					}
+				}
 				p.Stop();
 				MyConsole.Add($"{p}", Color.Red);
 
