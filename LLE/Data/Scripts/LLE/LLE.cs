@@ -223,7 +223,7 @@ namespace LLE
 
 			var start = Stopwatch.GetTimestamp();
 			var stopAfter = start + TimeSpan.TicksPerMillisecond / 2;
-			long now = 0;
+			long now = start;
 
 			for(int i = 0; i < 100; ++i)
 			{	if(!iterator.MoveNext())
@@ -472,12 +472,8 @@ namespace LLE
 			}
 
 			if(astar != null && !astar.Completed())
-			{	
-				var p = new Profiler("FindPath");
 				astar.Iteration();
-				p.Stop();
-				MyConsole.Add($"{p}", Color.OrangeRed);
-			}
+
 			//if ()
 			//trav.Iteration();
 		}

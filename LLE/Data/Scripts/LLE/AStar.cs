@@ -173,7 +173,7 @@ namespace LLE
 
 			var start = Stopwatch.GetTimestamp();
 			var stopAfter = start + TimeSpan.TicksPerMillisecond / 2;
-			long now = 0;
+			long now = start;
 
 			for(int i = 0; i < 100; ++i)
 			{	if(!iterator.MoveNext())
