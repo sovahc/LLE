@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -404,6 +403,11 @@ namespace LLE
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
 
+		IMyCubeGrid grid_A, grid_B;
+		Vector3I point_A, point_B;
+		AStar astar;
+		const int border = 1;
+
 		public override void UpdateBeforeSimulation()
 		{
 			LLE_Loader.Update();
@@ -423,15 +427,59 @@ namespace LLE
 
 			var pm = ch.GetHeadMatrix(false);
 
+			bool pointChanged = false;
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
-			{	IMyCubeGrid grid;
-				Vector3I position;
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid, out position, 250);
-
-				if(grid != null) trav.SetGrid(grid);
+			{
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
+				pointChanged = true;
 			}
-			//if (MyAPIGateway.Input.IsNewRightMousePressed())
-			trav.Iteration();
+			if (MyAPIGateway.Input.IsNewRightMousePressed())
+			{
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
+				pointChanged = true;
+			}
+
+			if (pointChanged && grid_A == grid_B && grid_A != null)
+			{
+				var grid = grid_A;
+				Vector3I gridSize = grid.Max - grid.Min + 1;
+
+				Log($"calculate_A_star {grid.Min} {grid.Max} {gridSize}");
+
+				var astarSize = gridSize + border + border;
+
+				if(astar == null || astar.Size != astarSize) astar = new AStar(astarSize);
+
+				Vector3I i;
+				var p = new Profiler("fill");
+
+				for (i.Z = 0; i.Z < gridSize.Z; ++i.Z)
+					for (i.Y = 0; i.Y < gridSize.Y; ++i.Y)
+						for (i.X = 0; i.X < gridSize.X; ++i.X)
+						{	var block = grid.GetCubeBlock(i + grid.Min);
+							if(block == null)
+								astar.SetWeight(i + border, 0);
+							else
+								astar.SetWeight(i + border, 255);
+						}
+				p.Stop();
+				MyConsole.Add($"{p}", Color.Red);
+
+				var a = point_A - grid.Min + border;
+				var b = point_B - grid.Min + border;
+				astar.Reset(false);
+				astar.RunCalculation(a, b);
+			}
+
+			if(astar != null && !astar.Completed())
+			{	
+				var p = new Profiler("FindPath");
+				astar.Iteration();
+				p.Stop();
+				MyConsole.Add($"{p}", Color.OrangeRed);
+			}
+			//if ()
+			//trav.Iteration();
 		}
 
 		public override void Draw()
@@ -447,8 +495,18 @@ namespace LLE
 
 			var pm = player.Character.GetHeadMatrix(false);
 			//Vision.HighlightVisible(pm.Translation, pm.Forward);
+			//trav.DrawDebug();
 
-			trav.DrawDebug();
+			if(grid_A != null && astar != null && astar.Completed())
+			{	var path = astar.result;
+				for (int p = 0; p < astar.result.Count; ++p)
+				{	var v = path[p] + grid_A.Min - border;
+					Drawing.RoundMarker(grid_A.GridIntegerToWorld(v), Color.Yellow);
+				}
+			}
+
+			if (grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
+			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
 			MyConsole.Render(font);
 

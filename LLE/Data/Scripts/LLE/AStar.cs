@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using Priority_Queue;
+using System.Diagnostics;
 using VRageMath;
+using Priority_Queue;
 
 namespace LLE
 {
@@ -94,16 +96,24 @@ namespace LLE
 		public int Index;
 	}
 
-	class Map
+	class AStar
 	{
 		private readonly Indexer _indexer;
-		private readonly byte[] _weights;
+
 		private readonly BitField _closed;
 		private readonly BitField _inOpen;
 		private readonly FastPriorityQueue<MyNode> _open;
+		
+		private readonly byte[] _weights;
 		private readonly float[] _gScore;
 		private readonly int[] _parent;
 		private readonly MyNode[] _nodes;
+
+		private IEnumerator iterator;
+
+		public readonly List<Vector3I> result = new List<Vector3I>();
+
+		public Vector3I Size => _indexer.Size;
 
 		private static readonly Vector3I[] Directions = new Vector3I[]
 		{
@@ -112,37 +122,76 @@ namespace LLE
 			new Vector3I(0, 0, 1),  new Vector3I(0, 0, -1),
 		};
 
-		public Map(Vector3I size)
+		public AStar(Vector3I size)
 		{
 			_indexer = new Indexer(size);
-			int count = _indexer.Count;
+			int c = _indexer.Count;
 
-			_weights = new byte[count];
-			_closed = new BitField(count, 1);
-			_inOpen = new BitField(count, 1);
-			_open = new FastPriorityQueue<MyNode>(count);
-			_gScore = new float[count];
-			_parent = new int[count];
-			_nodes = new MyNode[count];
+			_closed = new BitField(c, 1);
+			_inOpen = new BitField(c, 1);
+			_open = new FastPriorityQueue<MyNode>(c);
 
-			for (int i = 0; i < count; i++)
-				_nodes[i] = new MyNode { Index = i };
+			_weights = new byte[c];
+			_gScore = new float[c];
+			_parent = new int[c];
+			_nodes = new MyNode[c];
+
+			for (int i = 0; i < c; i++) _nodes[i] = new MyNode { Index = i };
+
+			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
+		}
+
+		public void Reset(bool clearWeights)
+		{	
+			if(clearWeights) Array.Clear(_weights, 0, _weights.Length);
+
+			_closed.SetAll_0();
+			_inOpen.SetAll_0();
+			_open.Clear();
+			
+			Array.Clear(_gScore, 0, _gScore.Length);
 
 			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
 		}
 
 		public void SetWeight(Vector3I pos, byte weight)
 		{
-			_weights[_indexer.Index(pos)] = weight;
+			_weights[_indexer.Index(pos)] = weight; // ! unchecked !
 		}
 
-		public List<Vector3I> FindPath(Vector3I start, Vector3I goal)
-		{
-			// TODO: time limit, calculation step by step
+		public void RunCalculation(Vector3I start, Vector3I goal)
+		{	result.Clear();
+			iterator = FindPath(start, goal);
+		}
 
+		public bool Completed()
+		{	return iterator == null;			
+		}
+
+		public void Iteration()
+		{	if(iterator == null) return;
+
+			var start = Stopwatch.GetTimestamp();
+			var stopAfter = start + TimeSpan.TicksPerMillisecond / 2;
+			long now = 0;
+
+			for(int i = 0; i < 100; ++i)
+			{	if(!iterator.MoveNext())
+				{	iterator = null;
+					break;
+				}
+				now = Stopwatch.GetTimestamp();
+				if(now >= stopAfter) break;
+			}
+			var ms = (now-start) / (double)TimeSpan.TicksPerMillisecond;
+			MyConsole.Add($"AStar: {ms:0.##}", Color.IndianRed);
+		}
+
+		public IEnumerator FindPath(Vector3I start, Vector3I goal)
+		{
 			if(!_indexer.In(start) || !_indexer.In(goal))
 			{	Utilities.Log($"FindPath Error - index out of range: start {start} goal {goal} size {_indexer.Size}");
-				return null;
+				yield break;
 			}
 
 			int startIndex = _indexer.Index(start.X, start.Y, start.Z);
@@ -150,14 +199,13 @@ namespace LLE
 
 			if(_weights[startIndex] == 255 || _weights[goalIndex] == 255)
 			{	Utilities.Log($"FindPath Error - start or goal obstructed");
-				return null;
+				yield break;
 			}
 
 			if (startIndex == goalIndex)
 			{
-				var result = new List<Vector3I>(1);
 				result.Add(start);
-				return result;
+				yield break;
 			}
 
 			_gScore[startIndex] = 0f;
@@ -170,6 +218,8 @@ namespace LLE
 
 			while (_open.Count > 0)
 			{
+				if(cellsAnalyzed % 200 == 0) yield return null;
+
 				var current = _open.Dequeue();
 				int currentI = current.Index;
 
@@ -182,7 +232,8 @@ namespace LLE
 
 				if (currentI == goalIndex)
 				{	MyConsole.Add($"cellsAnalyzed {cellsAnalyzed}", Color.Red);
-					return ReconstructPath(goalIndex, goal);
+					result.AddList(ReconstructPath(goalIndex, goal));
+					yield break;
 				}
 
 				float curG = _gScore[currentI];
@@ -221,7 +272,7 @@ namespace LLE
 				}
 			}
 
-			return null;
+			yield break;
 		}
 
 		private List<Vector3I> ReconstructPath(int goalIndex, Vector3I goal)
