@@ -65,6 +65,28 @@ namespace LLE
 				MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
 
 			//Drawing.RoundMarker(world, color);
+			//Drawing.RoundMarker(world, color);
+		}
+
+		public static void Tick(ref IEnumerator iter, string name)
+		{
+			if (iter == null) return;
+			var start = Stopwatch.GetTimestamp();
+			var limit = start + TimeSpan.TicksPerMillisecond / 2;
+			long now = start;
+			for (int i = 0; i < 100; ++i)
+			{
+				if (!iter.MoveNext())
+				{
+					(iter as IDisposable)?.Dispose();
+					iter = null;
+					break;
+				}
+				now = Stopwatch.GetTimestamp();
+				if (now >= limit) break;
+			}
+			var ms = (now - start) / (double)TimeSpan.TicksPerMillisecond;
+			MyConsole.Add($"{name}: {ms:0.##}", Color.IndianRed);
 		}
 	}
 
@@ -218,24 +240,7 @@ namespace LLE
 			iterator = Iterator(); // run calculation
 		}
 
-		public void Iteration()
-		{	if(iterator == null) return;
-
-			var start = Stopwatch.GetTimestamp();
-			var stopAfter = start + TimeSpan.TicksPerMillisecond / 2;
-			long now = start;
-
-			for(int i = 0; i < 100; ++i)
-			{	if(!iterator.MoveNext())
-				{	iterator = null;
-					break;
-				}
-				now = Stopwatch.GetTimestamp();
-				if(now >= stopAfter) break;
-			}
-			var ms = (now-start) / (double)TimeSpan.TicksPerMillisecond;
-			MyConsole.Add($"trav: {ms:0.##}", Color.IndianRed);
-		}
+		public void Iteration() => Utilities.Tick(ref iterator, "trav");
 
 		private void SetBlockedZ(Vector3I v)
 		{	var index = indexer.Index(v - grid.Min);

@@ -168,24 +168,7 @@ namespace LLE
 		{	return iterator == null;			
 		}
 
-		public void Iteration()
-		{	if(iterator == null) return;
-
-			var start = Stopwatch.GetTimestamp();
-			var stopAfter = start + TimeSpan.TicksPerMillisecond / 2;
-			long now = start;
-
-			for(int i = 0; i < 100; ++i)
-			{	if(!iterator.MoveNext())
-				{	iterator = null;
-					break;
-				}
-				now = Stopwatch.GetTimestamp();
-				if(now >= stopAfter) break;
-			}
-			var ms = (now-start) / (double)TimeSpan.TicksPerMillisecond;
-			MyConsole.Add($"AStar: {ms:0.##}", Color.IndianRed);
-		}
+		public void Iteration() => Utilities.Tick(ref iterator, "AStar");
 
 		public IEnumerator FindPath(Vector3I start, Vector3I goal)
 		{
