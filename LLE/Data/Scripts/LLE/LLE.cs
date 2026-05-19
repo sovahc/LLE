@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -193,6 +194,8 @@ namespace LLE
 				Drawing.RoundMarker(debug2[i], Color.Gray);
 				Drawing.RoundMarker(debug2[i+1], Color.Red);
 			}
+
+			color.W = 0.1f;
 			MyQuadD d = new MyQuadD();
 			for(int i = 0; i < debug4.Count; i += 4)
 			{	
@@ -212,21 +215,27 @@ namespace LLE
 			indexer = new Indexer(grid.Max - grid.Min + 2);
 
 			Utilities.Log($"SetGrid gridSize {gridSize}");
+
+			iterator = Iterator(); // run calculation
 		}
 
 		public void Iteration()
-		{	if(iterator == null)
-				iterator = Iterator();
+		{	if(iterator == null) return;
 
-			var stopAfter = Stopwatch.GetTimestamp() + TimeSpan.TicksPerMillisecond / 2;
+			var start = Stopwatch.GetTimestamp();
+			var stopAfter = start + TimeSpan.TicksPerMillisecond / 2;
+			long now = 0;
 
 			for(int i = 0; i < 100; ++i)
 			{	if(!iterator.MoveNext())
 				{	iterator = null;
-					return;
+					break;
 				}
-				if(Stopwatch.GetTimestamp() >= stopAfter) break;
+				now = Stopwatch.GetTimestamp();
+				if(now >= stopAfter) break;
 			}
+			var ms = (now-start) / (double)TimeSpan.TicksPerMillisecond;
+			MyConsole.Add($"trav: {ms:0.##}", Color.IndianRed);
 		}
 
 		private void SetBlockedZ(Vector3I v)
@@ -422,12 +431,7 @@ namespace LLE
 				if(grid != null) trav.SetGrid(grid);
 			}
 			//if (MyAPIGateway.Input.IsNewRightMousePressed())
-			Profiler p = new Profiler();
-			p.Start();
 			trav.Iteration();
-			p.Stop();
-			//MyConsole.Clear();
-			MyConsole.Add($"{p}", Color.IndianRed);
 		}
 
 		public override void Draw()
