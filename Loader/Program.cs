@@ -5,7 +5,6 @@ using System.Reflection;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using System.Linq;
 using HarmonyLib;
 using SpaceEngineers;
 using VRage.FileSystem;
@@ -269,80 +268,24 @@ namespace LLELoader
 		{
 			Logger.Write("=== DumpEntity: " + entityId);
 			try
-			{   // Find MyEntities type in ANY loaded assembly (not just the entry one!)
-				Type entitiesType = null;
-				foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-					if (asm.GetType("Sandbox.Game.Entities.MyEntities", false) != null)
-				{
-					entitiesType = asm.GetType("Sandbox.Game.Entities.MyEntities"); break;
-				}
+			{
+				var entitiesType = AccessTools.TypeByName("Sandbox.Game.Entities.MyEntities");
+				if (entitiesType == null) { Logger.Write("[Dump] MyEntities type not found."); return; }
 
-				object entityInstance = null;
-				if (entitiesType != null)
-					foreach (var mi in entitiesType.GetMethods(BindingFlags.Public | BindingFlags.Static))
-					try
-					{
-						var params_ = mi.GetParameters();
-						// Try GetEntityById(long) -> returns MyEntity directly
-						bool matchesGet = mi.Name.Contains("Get") && !mi.Name.StartsWith("Try") && params_.Length >= 1 && params_[0].ParameterType == typeof(long);
-						if (matchesGet)
-						{
-							var getArgs = params_.Length >= 2 ? new object[] { entityId, true } : new object[] { entityId };
-							entityInstance = mi.Invoke(null, getArgs);
-						}
+				var getEntityMethod = AccessTools.Method(entitiesType, "GetEntityById", new[] { typeof(long), typeof(bool) });
+				object entityInstance = getEntityMethod.Invoke(null, new object[] { entityId, true });
+				if (entityInstance == null) { Logger.Write("[Dump] Entity is NULL."); return; }
 
-						// Try TryGetEntityById(long, out MyEntity) -> returns bool
-						bool matchesTry = mi.Name.StartsWith("Try") && params_.Length >= 2 && params_[0].ParameterType == typeof(long);
-						if (matchesTry)
-						{
-							var tryArgs = params_.Length >= 3 ? new object[] { entityId, null, true } : new object[] { entityId, null };
-							mi.Invoke(null, tryArgs);
-							entityInstance = tryArgs[1];
-						}
+				var model = AccessTools.Property(entityInstance.GetType(), "Model").GetValue(entityInstance);
+				if (model == null) { Logger.Write("[Dump] Model is NULL."); return; }
 
-						if (entityInstance != null) break; // Found it!
-						}
-					catch { }
-
-				if (entityInstance == null)
-				{ Logger.Write("[Dump] Entity is NULL after all attempts."); return; }
-
-				var entityType = entityInstance.GetType();
-				object modelObj = null;
-
-				// Try known property names to find the MyModel (which has HavokCollisionShapes)
-				foreach (var propName in new[] { "m_ModelComponent", "Model" })
-					try
-					{
-						var pi = entityType.GetProperty(propName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-						if (pi != null)
-						{
-							modelObj = pi.GetValue(entityInstance);
-						}
-					}
-					catch { }
-
-				if (modelObj == null) { Logger.Write("[Dump] Could not get Model from entity."); return; }
-
-				// Get HavokCollisionShapes[] field/property on MyModel (try Public + NonPublic, Field + Property)
-				var modelType = modelObj.GetType();
-				object shapes = null;
-				foreach (var fi in modelType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-					if (fi.Name == "HavokCollisionShapes") { shapes = fi.GetValue(modelObj); break; }
-				if (shapes == null)
-					foreach (var pi in modelType.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-					{
-						try { shapes = pi.GetValue(modelObj); if (pi.Name == "HavokCollisionShapes") break; }
-						catch { }
-					}
-
-				if (shapes == null) { Logger.Write(string.Format("[Dump] No HavokCollisionShapes found on {0}", modelObj.GetType().Name)); return; }
+				var shapes = AccessTools.Field(model.GetType(), "HavokCollisionShapes").GetValue(model);
+				if (shapes == null) { Logger.Write("[Dump] HavokCollisionShapes is NULL."); return; }
 
 				var arr = (Array)shapes;
-				Logger.Write(string.Format("[Dump] Model: {0}, HavokShapes count={1}", modelObj.GetType().Name, arr.Length));
+				Logger.Write(string.Format("[Dump] Model: {0}, HavokShapes count={1}", model.GetType().Name, arr.Length));
 
-				System.Collections.IEnumerator enumerator = ((System.Array)arr).GetEnumerator();
-				while (enumerator.MoveNext()) LogShape(enumerator.Current as object);
+				foreach (object shape in arr) LogShape(shape);
 			}
 			catch (Exception ex) { Logger.Write(string.Format("[Dump] Exception: {0}", ex.ToString())); }
 		}
