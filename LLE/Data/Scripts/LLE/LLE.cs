@@ -419,7 +419,7 @@ namespace LLE
 
 		void testBlock(IMyEntity block, string fileName)
 		{
-			BoundingSphere sphere = new BoundingSphere(Vector3D.Zero, 500);
+			BoundingSphere sphere = new BoundingSphere(Vector3D.Zero, 100.0f);
 			var triangles = new List<MyTriangle_Vertex_Normals>();
 
 			Profiler p = new Profiler("GetTrianglesIntersectingSphere");
@@ -487,6 +487,17 @@ namespace LLE
 				pointChanged = true;
 			}
 
+			if (MyAPIGateway.Input.IsNewMiddleMousePressed())
+			{
+				IMyCubeGrid dump_grid;
+				Vector3I dump_pos;
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out dump_grid, out dump_pos);
+				if (dump_grid != null)
+				{
+					var slim = dump_grid.GetCubeBlock(dump_pos);
+					if (slim?.FatBlock != null) LLE_Loader.DumpEntity(slim.FatBlock.EntityId);
+				}
+			}
 			if (pointChanged && grid_A == grid_B && grid_A != null)
 			{
 				var grid = grid_A;
@@ -509,11 +520,8 @@ namespace LLE
 						if(!tested.Contains(slim.BlockDefinition.Id))
 						{	tested.Add(slim.BlockDefinition.Id);
 
-							Profiler p2 = new Profiler($"{slim.BlockDefinition.Id}");
-							p2.Start();
-							testBlock(slim.FatBlock, slim.BlockDefinition.Id.SubtypeName);
-							p2.Stop();
-							MyConsole.Add($"{p2}", Color.GhostWhite);
+							var n = tested.Count;
+							testBlock(slim.FatBlock, $"{n}_{slim.BlockDefinition.Id.SubtypeName}");
 						}
 					}
 					
@@ -601,5 +609,6 @@ namespace LLE
 		public static void SetVision(Dictionary<long, LastKnownState> states) { }
 		public static void SetChat(string author, string text) { }
 		public static bool GetCommand(out ServerCommand cmd) { cmd = null; return false; }
+		public static void DumpEntity(long entityId) { }
 	}
 }
