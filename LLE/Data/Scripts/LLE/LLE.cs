@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Sandbox.Game;
@@ -10,6 +11,7 @@ using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRage.Utils;
+using VRage.Game.Models;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
@@ -413,12 +415,53 @@ namespace LLE
 		AStar astar;
 		const int border = 1;
 
+		HashSet<MyDefinitionId> tested = new HashSet<MyDefinitionId>();
+
+		void testBlock(IMyEntity block, string fileName)
+		{
+			BoundingSphere sphere = new BoundingSphere(Vector3D.Zero, 500);
+			var triangles = new List<MyTriangle_Vertex_Normals>();
+
+			Profiler p = new Profiler("GetTrianglesIntersectingSphere");
+			block.GetTrianglesIntersectingSphere(ref sphere, null, null, triangles, int.MaxValue);
+			p.Stop();
+
+			MyConsole.Add($"Block: {triangles.Count} triangles {p}", Color.YellowGreen);
+			SaveStl(fileName + ".stl", triangles);
+		}
+
+		static void SaveStl(string fileName, List<MyTriangle_Vertex_Normals> triangles)
+		{
+			using (TextWriter writer = MyAPIGateway.Utilities.WriteFileInLocalStorage(fileName, typeof(LLE)))
+			{
+				if (writer == null) return;
+				writer.WriteLine("solid " + fileName);
+				foreach (var tri in triangles)
+				{
+					var v0 = tri.Vertices.Vertex0;
+					var v1 = tri.Vertices.Vertex1;
+					var v2 = tri.Vertices.Vertex2;
+
+					Vector3 normal = Vector3.Cross(v1 - v0, v2 - v0);
+					float len = (float)Math.Sqrt(normal.X*normal.X + normal.Y*normal.Y + normal.Z*normal.Z);
+					if(len > 0) normal /= len;
+
+					writer.WriteLine("facet normal {0} {1} {2}", normal.X, normal.Y, normal.Z);
+					writer.WriteLine("  outer loop");
+					writer.WriteLine("    vertex {0} {1} {2}", v0.X, v0.Y, v0.Z);
+					writer.WriteLine("    vertex {0} {1} {2}", v1.X, v1.Y, v1.Z);
+					writer.WriteLine("    vertex {0} {1} {2}", v2.X, v2.Y, v2.Z);
+					writer.WriteLine("  endloop");
+					writer.WriteLine("endfacet");
+				}
+				writer.WriteLine("endsolid");
+				writer.Flush();
+			}
+		}
+
 		public override void UpdateBeforeSimulation()
 		{
 			LLE_Loader.Update();
-
-			//if (LLE_Loader.IsPresent())
-			//	LLE_Loader.SetVision(Vision.lks);
 
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
@@ -460,7 +503,21 @@ namespace LLE
 
 				Profiler p = new Profiler("fill2");
 				foreach(var slim in blocks)
-				{	var min = slim.Min;
+				{	
+					if(slim.FatBlock != null)
+					{
+						if(!tested.Contains(slim.BlockDefinition.Id))
+						{	tested.Add(slim.BlockDefinition.Id);
+
+							Profiler p2 = new Profiler($"{slim.BlockDefinition.Id}");
+							p2.Start();
+							testBlock(slim.FatBlock, slim.BlockDefinition.Id.SubtypeName);
+							p2.Stop();
+							MyConsole.Add($"{p2}", Color.GhostWhite);
+						}
+					}
+					
+					var min = slim.Min;
             		var max = slim.Max;
 
 					if(min == max)
@@ -468,7 +525,7 @@ namespace LLE
 					}
 				}
 				p.Stop();
-				MyConsole.Add($"{p}", Color.Red);
+				MyConsole.Add($"{p}", Color.IndianRed);
 
 				var a = point_A - grid.Min + border;
 				var b = point_B - grid.Min + border;
