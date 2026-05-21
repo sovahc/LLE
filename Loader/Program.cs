@@ -232,16 +232,45 @@ namespace LLELoader
 			return false;
 		}
 
-		static void LogShape(object shape, string indent = "")
+static void LogShape(object shape, MatrixD matrix, int depth)
 		{
 			if (shape == null) return;
-
 			var type = shape.GetType();
+			string indent = new string(' ', depth * 2);
 			bool isContainer = false;
 			try { isContainer = (bool?)(type.GetMethod("IsContainer")?.Invoke(shape, null)) ?? false; } catch {}
 
 			if (isContainer)
 			{
+				// StaticCompound: use specific API for per-instance transforms
+				var instanceCountProp = type.GetProperty("InstanceCount");
+				var getInstanceMethod = type.GetMethod("GetInstance", new[] { typeof(int) });
+				var getInstTransformMethod = type.GetMethod("GetInstanceTransform", new[] { typeof(int) });
+
+				if (instanceCountProp != null && getInstanceMethod != null && getInstTransformMethod != null)
+				{
+					int count = (int)instanceCountProp.GetValue(shape);
+					for (int i = 0; i < count; i++)
+					{
+						object instTransformObj = getInstTransformMethod.Invoke(shape, new object[] { i });
+						MatrixD childMatrix;
+						if (getInstTransformMethod.ReturnType == typeof(Matrix))
+						{
+							Matrix instM = (Matrix)(object)instTransformObj;
+							childMatrix = instM * matrix;
+						}
+						else
+						{
+							childMatrix = (MatrixD)(object)instTransformObj * matrix;
+						}
+						object child = getInstanceMethod.Invoke(shape, new object[] { i });
+						Logger.Write(string.Format("{0}[instance={1}]", indent, i));
+						LogShape(child, childMatrix, depth + 1);
+					}
+					return;
+				}
+
+				// Generic container with iterator (no per-child transform info)
 				object container = type.GetMethod("GetContainer")?.Invoke(shape, null);
 				if (container != null)
 				{
@@ -251,14 +280,47 @@ namespace LLELoader
 						var key = cType.GetProperty("CurrentShapeKey").GetValue(container);
 						object child = cType.GetProperty("CurrentValue").GetValue(container);
 						Logger.Write(string.Format("{0}[key={1}]", indent, key));
-						LogShape(child, indent + "  ");
+						LogShape(child, matrix, depth + 1);
 						cType.GetMethod("Next")?.Invoke(container, null);
 					}
 				}
 				return;
 			}
 
+			// Check for ConvexTranslateShape / ConvexTransformShape (non-container wrappers)
+			MatrixD childMatrix = matrix;
+			var transProp = type.GetProperty("Translation");
+			if (transProp != null)
+			{
+				Vector3 translation = (Vector3)(object)transProp.GetValue(shape);
+				childMatrix = MatrixD.CreateTranslation(translation) * matrix;
+			}
+			else
+			{
+				var transformProp = type.GetProperty("Transform");
+				if (transformProp != null)
+				{
+					object trObj = transformProp.GetValue(shape);
+					MatrixD childTr;
+					if (trObj is Matrix) childTr = new Matrix((Matrix)(object)trObj);
+					else childTr = (MatrixD)(object)trObj;
+					childMatrix = childTr * matrix;
+				}
+			}
+
+			// If this shape has a ChildShape property, recurse into it with the adjusted transform
+			var childShapeProp = type.GetProperty("ChildShape");
+			if (childShapeProp != null)
+			{
+				object child = childShapeProp.GetValue(shape);
+				LogShape(child, childMatrix, depth + 1);
+				return;
+			}
+
+			// Leaf shape — log position and dimensions
 			var shapeTypeName = type.GetProperty("ShapeType")?.GetValue(shape)?.ToString();
+			Logger.Write(string.Format("{0}{1} Pos: {2}", indent, shapeTypeName ?? "Unknown", childMatrix.Translation));
+
 			IntPtr nativePtr = (IntPtr)type.GetProperty("NativeObject", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(shape);
 
 			if (shapeTypeName == "Box" && nativePtr != IntPtr.Zero)
@@ -268,7 +330,7 @@ namespace LLELoader
 				{
 					object boxShape = Activator.CreateInstance(boxShapeType, BindingFlags.NonPublic | BindingFlags.Instance, null, new object[] { nativePtr }, null);
 					var halfExtentsProp = AccessTools.Property(boxShapeType, "HalfExtents");
-					Logger.Write(string.Format("{0}Box HalfExtents: {1}", indent, halfExtentsProp?.GetValue(boxShape)));
+					Logger.Write(string.Format("{0}  HalfExtents: {1}", indent, halfExtentsProp?.GetValue(boxShape)));
 				}
 			}
 
@@ -279,7 +341,7 @@ namespace LLELoader
 				{
 					object sphereShape = Activator.CreateInstance(sphereShapeType, BindingFlags.NonPublic | BindingFlags.Instance, null, new object[] { nativePtr }, null);
 					var radiusProp = AccessTools.Property(sphereShapeType, "Radius");
-					Logger.Write(string.Format("{0}Sphere Radius: {1}", indent, radiusProp?.GetValue(sphereShape)));
+					Logger.Write(string.Format("{0}  Radius: {1}", indent, radiusProp?.GetValue(sphereShape)));
 				}
 			}
 		}
@@ -304,8 +366,7 @@ namespace LLELoader
 
 				var arr = (Array)shapes;
 				Logger.Write(string.Format("[Dump] Model: {0}, HavokShapes count={1}", model.GetType().Name, arr.Length));
-
-				foreach (object shape in arr) LogShape(shape);
+			foreach (object shape in arr) LogShape(shape, MatrixD.Identity, 0);
 			}
 			catch (Exception ex) { Logger.Write(string.Format("[Dump] Exception: {0}", ex.ToString())); }
 		}
