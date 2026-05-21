@@ -47,11 +47,11 @@ namespace MwmCollisionExtractor
             var model = ProtoBuf.Meta.RuntimeTypeModel.Default;
             var vec3 = model.Add(typeof(Vector3), false);
             vec3.Add(1, "X"); vec3.Add(2, "Y"); vec3.Add(3, "Z");
-            var matd = model.Add(typeof(MatrixD), false);
-            matd.Add(1, "M11"); matd.Add(2, "M12"); matd.Add(3, "M13"); matd.Add(4, "M14");
-            matd.Add(5, "M21"); matd.Add(6, "M22"); matd.Add(7, "M23"); matd.Add(8, "M24");
-            matd.Add(9, "M31"); matd.Add(10, "M32"); matd.Add(11, "M33"); matd.Add(12, "M34");
-            matd.Add(13, "M41"); matd.Add(14, "M42"); matd.Add(15, "M43"); matd.Add(16, "M44");
+            var mat = model.Add(typeof(Matrix), false);
+            mat.Add(1, "M11"); mat.Add(2, "M12"); mat.Add(3, "M13"); mat.Add(4, "M14");
+            mat.Add(5, "M21"); mat.Add(6, "M22"); mat.Add(7, "M23"); mat.Add(8, "M24");
+            mat.Add(9, "M31"); mat.Add(10, "M32"); mat.Add(11, "M33"); mat.Add(12, "M34");
+            mat.Add(13, "M41"); mat.Add(14, "M42"); mat.Add(15, "M43"); mat.Add(16, "M44");
         }
 
         const string Bin64 = "/home/cat/Projects/SpaceEngineers/Bin64";
@@ -103,7 +103,7 @@ namespace MwmCollisionExtractor
 
                 for (int i = 0; i < shapes.Count; i++)
                 {
-                    var shapeDto = ExtractShape(shapes[i], $"root[{i}]");
+                    var shapeDto = ExtractShape(shapes[i]);
                     if (shapeDto != null)
                     {
                         geometry.Shapes.Add(shapeDto);
@@ -127,7 +127,7 @@ namespace MwmCollisionExtractor
             }
         }
 
-        static CollisionShape ExtractShape(HkShape shape, string label)
+        static CollisionShape ExtractShape(HkShape shape)
         {
             if (!shape.IsValid) return null;
 
@@ -140,10 +140,10 @@ namespace MwmCollisionExtractor
                     var childShape = cts.ChildShape.Base;
                     
                     var compound = new CompoundShape();
-                    var child = ExtractShape(childShape, "child");
+                    var child = ExtractShape(childShape);
                     if (child != null)
                     {
-                        child.Transform = MatrixD.CreateTranslation(cts.Translation);
+                        child.Transform = Matrix.CreateTranslation(cts.Translation);
                         compound.Children.Add(child);
                     }
                     return compound;
@@ -162,16 +162,11 @@ namespace MwmCollisionExtractor
                     for (int i = 0; i < sCompound.InstanceCount; i++)
                     {
                         Matrix instTransform = sCompound.GetInstanceTransform(i);
-                        MatrixD childMatrix = new MatrixD(
-                            instTransform.M11, instTransform.M12, instTransform.M13, instTransform.M14,
-                            instTransform.M21, instTransform.M22, instTransform.M23, instTransform.M24,
-                            instTransform.M31, instTransform.M32, instTransform.M33, instTransform.M34,
-                            instTransform.M41, instTransform.M42, instTransform.M43, instTransform.M44);
                         
-                        var child = ExtractShape(sCompound.GetInstance(i), $"inst[{i}]");
+                        var child = ExtractShape(sCompound.GetInstance(i));
                         if (child != null)
                         {
-                            child.Transform = childMatrix;
+                            child.Transform = instTransform;
                             compound.Children.Add(child);
                         }
                     }
@@ -183,7 +178,7 @@ namespace MwmCollisionExtractor
                     {
                         uint key = iter.CurrentShapeKey;
                         HkShape childHk = iter.CurrentValue;
-                        var child = ExtractShape(childHk, $"child[key={key}]");
+                        var child = ExtractShape(childHk);
                         if (child != null)
                             compound.Children.Add(child);
                         iter.Next();

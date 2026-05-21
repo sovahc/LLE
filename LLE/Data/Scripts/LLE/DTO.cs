@@ -40,7 +40,7 @@ namespace LLE
 	[ProtoContract]
 	public abstract class CollisionShape
 	{
-		[ProtoMember(1)] public MatrixD Transform = MatrixD.Identity;
+		[ProtoMember(1)] public Matrix Transform = Matrix.Identity;
 		public abstract override string ToString();
 	}
 	[ProtoContract]
