@@ -3,7 +3,6 @@ using System.Collections;
 using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage.Game;
@@ -11,7 +10,6 @@ using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRage.Utils;
-using VRage.Game.Models;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
@@ -487,17 +485,6 @@ namespace LLE
 				pointChanged = true;
 			}
 
-			if (MyAPIGateway.Input.IsNewMiddleMousePressed())
-			{
-				IMyCubeGrid dump_grid;
-				Vector3I dump_pos;
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out dump_grid, out dump_pos);
-				if (dump_grid != null)
-				{
-					var slim = dump_grid.GetCubeBlock(dump_pos);
-					if (slim?.FatBlock != null) LLE_Loader.DumpEntity(slim.FatBlock.EntityId);
-				}
-			}
 			if (pointChanged && grid_A == grid_B && grid_A != null)
 			{
 				var grid = grid_A;
@@ -609,6 +596,5 @@ namespace LLE
 		public static void SetVision(Dictionary<long, LastKnownState> states) { }
 		public static void SetChat(string author, string text) { }
 		public static bool GetCommand(out ServerCommand cmd) { cmd = null; return false; }
-		public static void DumpEntity(long entityId) { }
 	}
 }
