@@ -9,8 +9,6 @@
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
-
-
   <PropertyGroup>
     <SeBinDir>/home/cat/Projects/SpaceEngineers/Bin64</SeBinDir>
   </PropertyGroup>
@@ -18,6 +16,9 @@
   <ItemGroup>
     <Reference Include="ProtoBuf.Net">
       <HintPath>$(SeBinDir)/ProtoBuf.Net.dll</HintPath>
+    </Reference>
+    <Reference Include="ProtoBuf.Net.Core">
+      <HintPath>$(SeBinDir)/ProtoBuf.Net.Core.dll</HintPath>
     </Reference>
     <Reference Include="Sandbox.Common">
       <HintPath>$(SeBinDir)/Sandbox.Common.dll</HintPath>
