@@ -236,32 +236,51 @@ namespace LLELoader
 		static void LogShape(object shape, string indent = "")
 		{
 			if (shape == null) return;
-			var type = shape.GetType();
-			Logger.Write(string.Format("{0}{1} ({2})", indent, type.Name, type.Namespace ?? ""));
 
-			foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-				try
+			var isContainerMethod = shape.GetType().GetMethod("IsContainer");
+			bool isContainer = false;
+			if (isContainerMethod != null)
+				try { isContainer = (bool)isContainerMethod.Invoke(shape, null); } catch { }
+
+			if (isContainer)
+			{
+				var getContainerMethod = shape.GetType().GetMethod("GetContainer");
+				object container = getContainerMethod?.Invoke(shape, null);
+				if (container != null)
 				{
-					if (!prop.CanRead) continue;
-					var indexers = prop.GetIndexParameters();
-					object val;
-					if (indexers.Length > 0)
-						Logger.Write(string.Format("{0}  PROP [idx] {1}: {2}", indent, prop.Name, prop.PropertyType));
-					else
+					// Iterate through all children in the container
+					var isValidProp = container.GetType().GetProperty("IsValid");
+					var nextMethod = container.GetType().GetMethod("Next");
+					var currentShapeKeyProp = container.GetType().GetProperty("CurrentShapeKey");
+					var currentValueProp = container.GetType().GetProperty("CurrentValue");
+
+					int depth = 0;
+					while (isValidProp?.GetValue(container) != null && (bool)isValidProp.GetValue(container))
 					{
-						val = prop.GetValue(shape);
-						Logger.Write(string.Format("{0}  {1}: {2} ({3})", indent, prop.Name, val ?? "null", prop.PropertyType.Name));
+						var key = currentShapeKeyProp?.GetValue(container);
+						object child = currentValueProp?.GetValue(container);
+						Logger.Write(string.Format("{0}[key={1}]", indent, key));
+						LogShape(child, indent + "  ");
+						nextMethod?.Invoke(container, null);
+						depth++;
 					}
 				}
-				catch (Exception ex) { Logger.Write(string.Format("{0}  PROP ERROR {1}: {2}", indent, prop.Name, ex.Message)); }
+				return;
+			}
 
-			foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
-				try
+			var shapeType = shape.GetType().GetProperty("ShapeType")?.GetValue(shape);
+			IntPtr nativePtr = (IntPtr)shape.GetType().GetProperty("NativeObject", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(shape);
+
+			if (shapeType != null && shapeType.ToString() == "Box" && nativePtr != IntPtr.Zero)
+			{
+				var boxShapeType = AccessTools.TypeByName("Havok.HkBoxShape");
+				if (boxShapeType != null)
 				{
-					var val = field.GetValue(shape);
-					Logger.Write(string.Format("{0}  FIELD {1}: {2} ({3})", indent, field.Name, val ?? "null", field.FieldType.Name));
+					object boxShape = Activator.CreateInstance(boxShapeType, BindingFlags.NonPublic | BindingFlags.Instance, null, new object[] { nativePtr }, null);
+					var halfExtentsProp = AccessTools.Property(boxShapeType, "HalfExtents");
+					Logger.Write(string.Format("{0}Box HalfExtents: {1}", indent, halfExtentsProp?.GetValue(boxShape)));
 				}
-				catch (Exception ex) { Logger.Write(string.Format("{0}  FIELD ERROR {1}: {2}", indent, field.Name, ex.Message)); }
+			}
 		}
 
 		static void Prefix_DumpEntity(long entityId)
