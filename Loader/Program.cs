@@ -232,46 +232,36 @@ namespace LLELoader
 			return false;
 		}
 
-
 		static void LogShape(object shape, string indent = "")
 		{
 			if (shape == null) return;
 
-			var isContainerMethod = shape.GetType().GetMethod("IsContainer");
+			var type = shape.GetType();
 			bool isContainer = false;
-			if (isContainerMethod != null)
-				try { isContainer = (bool)isContainerMethod.Invoke(shape, null); } catch { }
+			try { isContainer = (bool?)(type.GetMethod("IsContainer")?.Invoke(shape, null)) ?? false; } catch {}
 
 			if (isContainer)
 			{
-				var getContainerMethod = shape.GetType().GetMethod("GetContainer");
-				object container = getContainerMethod?.Invoke(shape, null);
+				object container = type.GetMethod("GetContainer")?.Invoke(shape, null);
 				if (container != null)
 				{
-					// Iterate through all children in the container
-					var isValidProp = container.GetType().GetProperty("IsValid");
-					var nextMethod = container.GetType().GetMethod("Next");
-					var currentShapeKeyProp = container.GetType().GetProperty("CurrentShapeKey");
-					var currentValueProp = container.GetType().GetProperty("CurrentValue");
-
-					int depth = 0;
-					while (isValidProp?.GetValue(container) != null && (bool)isValidProp.GetValue(container))
+					var cType = container.GetType();
+					while ((bool?)(cType.GetProperty("IsValid").GetValue(container)) ?? false)
 					{
-						var key = currentShapeKeyProp?.GetValue(container);
-						object child = currentValueProp?.GetValue(container);
+						var key = cType.GetProperty("CurrentShapeKey").GetValue(container);
+						object child = cType.GetProperty("CurrentValue").GetValue(container);
 						Logger.Write(string.Format("{0}[key={1}]", indent, key));
 						LogShape(child, indent + "  ");
-						nextMethod?.Invoke(container, null);
-						depth++;
+						cType.GetMethod("Next")?.Invoke(container, null);
 					}
 				}
 				return;
 			}
 
-			var shapeType = shape.GetType().GetProperty("ShapeType")?.GetValue(shape);
-			IntPtr nativePtr = (IntPtr)shape.GetType().GetProperty("NativeObject", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(shape);
+			var shapeTypeName = type.GetProperty("ShapeType")?.GetValue(shape)?.ToString();
+			IntPtr nativePtr = (IntPtr)type.GetProperty("NativeObject", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(shape);
 
-			if (shapeType != null && shapeType.ToString() == "Box" && nativePtr != IntPtr.Zero)
+			if (shapeTypeName == "Box" && nativePtr != IntPtr.Zero)
 			{
 				var boxShapeType = AccessTools.TypeByName("Havok.HkBoxShape");
 				if (boxShapeType != null)
@@ -279,6 +269,17 @@ namespace LLELoader
 					object boxShape = Activator.CreateInstance(boxShapeType, BindingFlags.NonPublic | BindingFlags.Instance, null, new object[] { nativePtr }, null);
 					var halfExtentsProp = AccessTools.Property(boxShapeType, "HalfExtents");
 					Logger.Write(string.Format("{0}Box HalfExtents: {1}", indent, halfExtentsProp?.GetValue(boxShape)));
+				}
+			}
+
+			if (shapeTypeName == "Sphere" && nativePtr != IntPtr.Zero)
+			{
+				var sphereShapeType = AccessTools.TypeByName("Havok.HkSphereShape");
+				if (sphereShapeType != null)
+				{
+					object sphereShape = Activator.CreateInstance(sphereShapeType, BindingFlags.NonPublic | BindingFlags.Instance, null, new object[] { nativePtr }, null);
+					var radiusProp = AccessTools.Property(sphereShapeType, "Radius");
+					Logger.Write(string.Format("{0}Sphere Radius: {1}", indent, radiusProp?.GetValue(sphereShape)));
 				}
 			}
 		}
