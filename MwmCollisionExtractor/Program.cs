@@ -139,12 +139,13 @@ namespace MwmCollisionExtractor
                     var cts = (HkConvexTranslateShape)shape;
                     var childShape = cts.ChildShape.Base;
                     
-                    var compound = new CompoundShape { Label = label };
-                    compound.Instances.Add(new ShapeInstance 
-                    { 
-                        Transform = MatrixD.CreateTranslation(cts.Translation), 
-                        Shape = ExtractShape(childShape, "child") 
-                    });
+                    var compound = new CompoundShape();
+                    var child = ExtractShape(childShape, "child");
+                    if (child != null)
+                    {
+                        child.Transform = MatrixD.CreateTranslation(cts.Translation);
+                        compound.Children.Add(child);
+                    }
                     return compound;
                 }
                 catch { return null; }
@@ -153,7 +154,7 @@ namespace MwmCollisionExtractor
             else if (shape.IsContainer())
             {
                 var type = shape.ShapeType;
-                var compound = new CompoundShape { Label = label };
+                var compound = new CompoundShape();
 
                 if (type == HkShapeType.StaticCompound)
                 {
@@ -167,11 +168,12 @@ namespace MwmCollisionExtractor
                             instTransform.M31, instTransform.M32, instTransform.M33, instTransform.M34,
                             instTransform.M41, instTransform.M42, instTransform.M43, instTransform.M44);
                         
-                        compound.Instances.Add(new ShapeInstance 
-                        { 
-                            Transform = childMatrix, 
-                            Shape = ExtractShape(sCompound.GetInstance(i), $"inst[{i}]") 
-                        });
+                        var child = ExtractShape(sCompound.GetInstance(i), $"inst[{i}]");
+                        if (child != null)
+                        {
+                            child.Transform = childMatrix;
+                            compound.Children.Add(child);
+                        }
                     }
                 }
                 else
@@ -180,12 +182,10 @@ namespace MwmCollisionExtractor
                     while (iter.IsValid)
                     {
                         uint key = iter.CurrentShapeKey;
-                        HkShape child = iter.CurrentValue;
-                        compound.Instances.Add(new ShapeInstance 
-                        { 
-                            Transform = MatrixD.Identity, 
-                            Shape = ExtractShape(child, $"child[key={key}]") 
-                        });
+                        HkShape childHk = iter.CurrentValue;
+                        var child = ExtractShape(childHk, $"child[key={key}]");
+                        if (child != null)
+                            compound.Children.Add(child);
                         iter.Next();
                     }
                 }
@@ -198,23 +198,23 @@ namespace MwmCollisionExtractor
                 {
                     case HkShapeType.Box:
                         var box = (HkBoxShape)shape;
-                        return new BoxShape { Label = label, HalfExtents = box.HalfExtents };
+                        return new BoxShape { HalfExtents = box.HalfExtents };
                     case HkShapeType.Sphere:
                         var sphere = (HkSphereShape)shape;
-                        return new SphereShape { Label = label, Radius = sphere.Radius };
+                        return new SphereShape { Radius = sphere.Radius };
                     case HkShapeType.Capsule:
                         var capsule = (HkCapsuleShape)shape;
-                        return new CapsuleShape { Label = label, VertexA = capsule.VertexA, VertexB = capsule.VertexB, Radius = capsule.Radius };
+                        return new CapsuleShape { VertexA = capsule.VertexA, VertexB = capsule.VertexB, Radius = capsule.Radius };
                     case HkShapeType.Cylinder:
                         var cylinder = (HkCylinderShape)shape;
-                        return new CylinderShape { Label = label, VertexA = cylinder.VertexA, VertexB = cylinder.VertexB, Radius = cylinder.Radius };
+                        return new CylinderShape { VertexA = cylinder.VertexA, VertexB = cylinder.VertexB, Radius = cylinder.Radius };
                     case HkShapeType.ConvexVertices:
                         try
                         {
                             var convex = (HkConvexVerticesShape)shape;
                             Vector3[] verts;
                             convex.GetVertices(out verts);
-                            var hull = new ConvexHullShape { Label = label };
+                            var hull = new ConvexHullShape();
                             hull.Vertices.AddRange(verts);
                             return hull;
                         }

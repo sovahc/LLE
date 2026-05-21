@@ -31,46 +31,37 @@ namespace LLE
 		public override string ToString() => $"CollisionGeometry: {Shapes.Count} root shapes";
 	}
 
-	[ProtoContract]
 	[ProtoInclude(10, typeof(CompoundShape))]
 	[ProtoInclude(11, typeof(BoxShape))]
 	[ProtoInclude(12, typeof(SphereShape))]
 	[ProtoInclude(13, typeof(CapsuleShape))]
 	[ProtoInclude(14, typeof(CylinderShape))]
 	[ProtoInclude(15, typeof(ConvexHullShape))]
+	[ProtoContract]
 	public abstract class CollisionShape
 	{
-		[ProtoMember(1)] public string Label;
+		[ProtoMember(1)] public MatrixD Transform = MatrixD.Identity;
 		public abstract override string ToString();
 	}
-
-	[ProtoContract]
-	public class ShapeInstance
-	{
-		[ProtoMember(1)] public MatrixD Transform;
-		[ProtoMember(2)] public CollisionShape Shape;
-		public override string ToString() => $"Instance: {Shape?.ToString()} at {Transform.Translation}";
-	}
-
 	[ProtoContract]
 	public class CompoundShape : CollisionShape
 	{
-		[ProtoMember(1)] public List<ShapeInstance> Instances = new List<ShapeInstance>();
-		public override string ToString() => $"CompoundShape [{Label}]: {Instances.Count} instances";
+		[ProtoMember(1)] public List<CollisionShape> Children = new List<CollisionShape>();
+		public override string ToString() => $"CompoundShape: {Children.Count} children";
 	}
 
 	[ProtoContract]
 	public class BoxShape : CollisionShape
 	{
 		[ProtoMember(1)] public Vector3 HalfExtents;
-		public override string ToString() => $"BoxShape [{Label}]: {HalfExtents}";
+		public override string ToString() => $"BoxShape: {HalfExtents}";
 	}
 
 	[ProtoContract]
 	public class SphereShape : CollisionShape
 	{
 		[ProtoMember(1)] public float Radius;
-		public override string ToString() => $"SphereShape [{Label}]: r={Radius}";
+		public override string ToString() => $"SphereShape: r={Radius}";
 	}
 
 	[ProtoContract]
@@ -79,7 +70,7 @@ namespace LLE
 		[ProtoMember(1)] public Vector3 VertexA;
 		[ProtoMember(2)] public Vector3 VertexB;
 		[ProtoMember(3)] public float Radius;
-		public override string ToString() => $"CapsuleShape [{Label}]: A={VertexA}, B={VertexB}, r={Radius}";
+		public override string ToString() => $"CapsuleShape: A={VertexA}, B={VertexB}, r={Radius}";
 	}
 
 	[ProtoContract]
@@ -88,13 +79,13 @@ namespace LLE
 		[ProtoMember(1)] public Vector3 VertexA;
 		[ProtoMember(2)] public Vector3 VertexB;
 		[ProtoMember(3)] public float Radius;
-		public override string ToString() => $"CylinderShape [{Label}]: A={VertexA}, B={VertexB}, r={Radius}";
+		public override string ToString() => $"CylinderShape: A={VertexA}, B={VertexB}, r={Radius}";
 	}
 
 	[ProtoContract]
 	public class ConvexHullShape : CollisionShape
 	{
 		[ProtoMember(1)] public List<Vector3> Vertices = new List<Vector3>();
-		public override string ToString() => $"ConvexHullShape [{Label}]: {Vertices.Count} vertices";
+		public override string ToString() => $"ConvexHullShape: {Vertices.Count} vertices";
 	}
 }
