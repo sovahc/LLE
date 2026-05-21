@@ -222,6 +222,13 @@ namespace MwmCollisionExtractor
                             for (int v = 0; v < verts.Length; v++)
                                 Console.Write((v > 0 ? ", " : "") + $"({verts[v].X:F2},{verts[v].Y:F2},{verts[v].Z:F2})");
                             Console.WriteLine("]");
+                            if (scadWriter != null)
+                            {
+                                scadWriter.WriteLine("hull() {");
+                                for (int v = 0; v < verts.Length; v++)
+                                    scadWriter.WriteLine($"  translate([{verts[v].X:F4}, {verts[v].Y:F4}, {verts[v].Z:F4}]) sphere(r={PHYSICS_CONVEX_RADIUS:F4});");
+                                scadWriter.WriteLine("}");
+                            }
                         }
                         catch (Exception ex)
                         {
