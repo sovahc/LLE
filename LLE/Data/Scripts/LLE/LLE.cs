@@ -19,7 +19,7 @@ namespace LLE
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
-		public static void MyRaycast(Vector3D origin, Vector3D direction,
+		public static bool MyRaycast(Vector3D origin, Vector3D direction,
 			out IMyCubeGrid grid, out Vector3I position,
 			float range = 1000)
 		{
@@ -29,21 +29,22 @@ namespace LLE
 			IHitInfo hit;
 			MyAPIGateway.Physics.CastRay(origin, origin + direction * range, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 
-			if (hit == null) return;
+			if (hit == null) return false;
 
 			grid = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
-			if (grid == null) return;
+			if (grid == null) return false;
 
 			double dist;
 			IMySlimBlock slimBlock;
 			LineD line = new LineD(origin, origin + direction * range);
 			grid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
 
-			if (slimBlock == null) return;
+			if (slimBlock == null) return false;
 
 			var fsCenter = origin + direction * (dist - grid.GridSize);
 			var freeSpace = grid.WorldToGridInteger(fsCenter);
 			position = freeSpace;
+			return true;
 		}
 
 		public static void HighlightCell(IMyCubeGrid grid, Vector3I position, Color color)
@@ -239,13 +240,11 @@ namespace LLE
 			bool pointChanged = false;
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
 			{
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
-				pointChanged = true;
+				pointChanged |= Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
 			}
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
 			{
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
-				pointChanged = true;
+				pointChanged |= Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
 			}
 
 			if (pointChanged && grid_A == grid_B && grid_A != null)
