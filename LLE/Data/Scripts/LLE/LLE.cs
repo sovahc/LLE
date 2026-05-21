@@ -125,6 +125,7 @@ namespace LLE
 		const int MaxLines = 50;
 
 		private static readonly Color textBackground = new Color(0, 0, 0, 127);
+		private static readonly Color defultTextColor = Color.White;
 
 		public static void Add(string text, Color color)
 		{
@@ -201,6 +202,21 @@ namespace LLE
 
 		public override void BeforeStart()
 		{
+			const string kitchenPath = "Data/kitchen.bin";
+			if (MyAPIGateway.Utilities.FileExistsInModLocation(kitchenPath, ModContext.ModItem))
+			{
+				using (var reader = MyAPIGateway.Utilities.ReadBinaryFileInModLocation(kitchenPath, ModContext.ModItem))
+				{
+					var data = reader.ReadBytes((int)reader.BaseStream.Length);
+					_kitchenCollision = MyAPIGateway.Utilities.SerializeFromBinary<CollisionGeometry>(data);
+				}
+				MyConsole.Add($"Loaded kitchen collision: {_kitchenCollision.Shapes.Count} root shapes", Color.White);
+			}
+			else
+			{
+				MyConsole.Add($"WARNING: {kitchenPath} not found in mod location", Color.White);
+			}
+
 			var entities = new HashSet<IMyEntity>();
 			MyAPIGateway.Entities.GetEntities(entities);
 
@@ -220,6 +236,8 @@ namespace LLE
 		Vector3I point_A, point_B;
 		AStar astar;
 		const int border = 1;
+
+		private CollisionGeometry _kitchenCollision;
 
 		public override void UpdateBeforeSimulation()
 		{

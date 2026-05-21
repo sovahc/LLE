@@ -61,7 +61,7 @@ namespace MwmCollisionExtractor
         {
             if (args.Length == 0)
             {
-                Console.WriteLine("Usage: MwmCollisionExtractor.exe <path/to/file.hkt or .mwm> [output.scad]");
+                Console.WriteLine("Usage: MwmCollisionExtractor.exe <path/to/file.hkt or .mwm> [output.bin]");
                 return;
             }
 
