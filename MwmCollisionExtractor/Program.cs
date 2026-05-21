@@ -16,6 +16,8 @@ using System.Reflection;
 using Havok;
 using VRage.Library.Threading;
 using VRageMath;
+using LLE;
+using ProtoBuf;
 
 namespace MwmCollisionExtractor
 {
@@ -60,10 +62,10 @@ namespace MwmCollisionExtractor
                 return;
             }
 
-            TextWriter scadWriter = null;
+            string outputPath = null;
             if (args.Length >= 2)
             {
-                scadWriter = new StreamWriter(args[1]);
+                outputPath = args[1];
             }
 
             // Initialize Havok base system (required before any shape operations)
@@ -71,6 +73,7 @@ namespace MwmCollisionExtractor
 
             try
             {
+                var geometry = new CollisionGeometry();
                 var shapes = new List<HkShape>();
                 bool ok;
 
@@ -89,162 +92,127 @@ namespace MwmCollisionExtractor
                 Console.WriteLine(new string('-', 60));
 
                 for (int i = 0; i < shapes.Count; i++)
-                    DumpShape(shapes[i], MatrixD.Identity, $"root[{i}]", 0, scadWriter);
-
+                {
+                    var shapeDto = ExtractShape(shapes[i], $"root[{i}]");
+                    if (shapeDto != null)
+                    {
+                        geometry.Shapes.Add(shapeDto);
+                        Console.WriteLine(shapeDto.ToString());
+                    }
+                }
                 Console.WriteLine(new string('-', 60));
+
+                if (outputPath != null)
+                {
+                    using (var fs = File.Create(outputPath))
+                    {
+                        Serializer.Serialize(fs, geometry);
+                    }
+                    Console.WriteLine($"Saved geometry to: {outputPath}");
+                }
             }
             finally
             {
                 HkBaseSystem.Quit();
-                scadWriter?.Dispose();
             }
         }
 
-        static void DumpShape(HkShape shape, MatrixD parentMatrix, string label, int depth, TextWriter scadWriter = null)
+        static CollisionShape ExtractShape(HkShape shape, string label)
         {
-            if (!shape.IsValid) return;
+            if (!shape.IsValid) return null;
 
-            string indent = new string(' ', depth * 2);
-            Vector3 pos = parentMatrix.Translation;
-
-            // OpenSCAD multmatrix wrapper
-            if (scadWriter != null)
-            {
-                scadWriter.Write($"multmatrix([ [{parentMatrix.M11:F4}, {parentMatrix.M21:F4}, {parentMatrix.M31:F4}, {parentMatrix.M41:F4}], [{parentMatrix.M12:F4}, {parentMatrix.M22:F4}, {parentMatrix.M32:F4}, {parentMatrix.M42:F4}], [{parentMatrix.M13:F4}, {parentMatrix.M23:F4}, {parentMatrix.M33:F4}, {parentMatrix.M43:F4}], [0, 0, 0, 1] ]) {{\n");
-            }
-            // --- Wrapper shapes (transform + child) — check before IsContainer() ---
+            // --- Wrapper shapes (transform + child) ---
             if (shape.ShapeType == HkShapeType.ConvexTranslate || shape.ShapeType == HkShapeType.ConvexTransform)
             {
                 try
                 {
                     var cts = (HkConvexTranslateShape)shape;
                     var childShape = cts.ChildShape.Base;
-                    MatrixD childMatrix = parentMatrix * MatrixD.CreateTranslation(cts.Translation);
-                    Console.WriteLine($"{indent}{label} [{shape.ShapeType}] trans=({cts.Translation.X:F2}, {cts.Translation.Y:F2}, {cts.Translation.Z:F2})");
-                    DumpShape(childShape, childMatrix, "child", depth + 1, scadWriter);
+                    
+                    var compound = new CompoundShape { Label = label };
+                    compound.Instances.Add(new ShapeInstance 
+                    { 
+                        Transform = MatrixD.CreateTranslation(cts.Translation), 
+                        Shape = ExtractShape(childShape, "child") 
+                    });
+                    return compound;
                 }
-                catch { /* not ConvexTranslateShape — skip */ }
+                catch { return null; }
             }
             // --- Container shapes (hierarchy nodes) ---
             else if (shape.IsContainer())
             {
                 var type = shape.ShapeType;
+                var compound = new CompoundShape { Label = label };
 
                 if (type == HkShapeType.StaticCompound)
                 {
-                    var compound = (HkStaticCompoundShape)shape;
-                    Console.WriteLine($"{indent}{label} [{type}] pos=({pos.X:F2}, {pos.Y:F2}, {pos.Z:F2}) instances={compound.InstanceCount}");
-
-                    for (int i = 0; i < compound.InstanceCount; i++)
+                    var sCompound = (HkStaticCompoundShape)shape;
+                    for (int i = 0; i < sCompound.InstanceCount; i++)
                     {
-                        Matrix instTransform = compound.GetInstanceTransform(i);
-                        // StaticCompound uses single-precision Matrix, convert to double
+                        Matrix instTransform = sCompound.GetInstanceTransform(i);
                         MatrixD childMatrix = new MatrixD(
                             instTransform.M11, instTransform.M12, instTransform.M13, instTransform.M14,
                             instTransform.M21, instTransform.M22, instTransform.M23, instTransform.M24,
                             instTransform.M31, instTransform.M32, instTransform.M33, instTransform.M34,
                             instTransform.M41, instTransform.M42, instTransform.M43, instTransform.M44);
-                        childMatrix = parentMatrix * childMatrix;
-
-                        HkShape child = compound.GetInstance(i);
-                        DumpShape(child, childMatrix, $"inst[{i}]", depth + 1, scadWriter);
-                    }
-                }
-                else if (shape.ShapeType == HkShapeType.ConvexList || shape.ShapeType == HkShapeType.Collection)
-                {
-                    Console.WriteLine($"{indent}{label} [{type}] pos=({pos.X:F2}, {pos.Y:F2}, {pos.Z:F2})");
-                    var iter = shape.GetContainer();
-                    while (iter.IsValid)
-                    {
-                        uint key = iter.CurrentShapeKey;
-                        HkShape child = iter.CurrentValue;
-                        DumpShape(child, parentMatrix, $"child[key={key}]", depth + 1, scadWriter);
-                        iter.Next();
+                        
+                        compound.Instances.Add(new ShapeInstance 
+                        { 
+                            Transform = childMatrix, 
+                            Shape = ExtractShape(sCompound.GetInstance(i), $"inst[{i}]") 
+                        });
                     }
                 }
                 else
                 {
-                    // Generic container — iterate via GetContainer()
-                    Console.WriteLine($"{indent}{label} [{type}] pos=({pos.X:F2}, {pos.Y:F2}, {pos.Z:F2})");
-
                     var iter = shape.GetContainer();
                     while (iter.IsValid)
                     {
                         uint key = iter.CurrentShapeKey;
                         HkShape child = iter.CurrentValue;
-                        DumpShape(child, parentMatrix, $"child[key={key}]", depth + 1, scadWriter);
+                        compound.Instances.Add(new ShapeInstance 
+                        { 
+                            Transform = MatrixD.Identity, 
+                            Shape = ExtractShape(child, $"child[key={key}]") 
+                        });
                         iter.Next();
                     }
                 }
+                return compound;
             }
             // --- Leaf shapes ---
             else
             {
-                Console.Write($"{indent}{label} [{shape.ShapeType}] pos=({pos.X:F2}, {pos.Y:F2}, {pos.Z:F2})");
-
                 switch (shape.ShapeType)
                 {
                     case HkShapeType.Box:
                         var box = (HkBoxShape)shape;
-                        Console.WriteLine($" halfExtents=({box.HalfExtents.X:F3}, {box.HalfExtents.Y:F3}, {box.HalfExtents.Z:F3})");
-                        if (scadWriter != null)
-                            scadWriter.WriteLine($"cube(size=[{(box.HalfExtents.X + PHYSICS_CONVEX_RADIUS)*2:F4}, {(box.HalfExtents.Y + PHYSICS_CONVEX_RADIUS)*2:F4}, {(box.HalfExtents.Z + PHYSICS_CONVEX_RADIUS)*2:F4}], center=true);");
-                        break;
-
+                        return new BoxShape { Label = label, HalfExtents = box.HalfExtents };
                     case HkShapeType.Sphere:
                         var sphere = (HkSphereShape)shape;
-                        Console.WriteLine($" radius={sphere.Radius:F3}");
-                        if (scadWriter != null)
-                            scadWriter.WriteLine($"sphere(r={sphere.Radius:F4});");
-                        break;
-
-
+                        return new SphereShape { Label = label, Radius = sphere.Radius };
                     case HkShapeType.Capsule:
                         var capsule = (HkCapsuleShape)shape;
-                        Console.WriteLine($" A=({capsule.VertexA.X:F2}, {capsule.VertexA.Y:F2}, {capsule.VertexA.Z:F2}) B=({capsule.VertexB.X:F2}, {capsule.VertexB.Y:F2}, {capsule.VertexB.Z:F2}) radius={capsule.Radius:F3}");
-                        break;
-
+                        return new CapsuleShape { Label = label, VertexA = capsule.VertexA, VertexB = capsule.VertexB, Radius = capsule.Radius };
                     case HkShapeType.Cylinder:
                         var cylinder = (HkCylinderShape)shape;
-                        Console.WriteLine($" A=({cylinder.VertexA.X:F2}, {cylinder.VertexA.Y:F2}, {cylinder.VertexA.Z:F2}) B=({cylinder.VertexB.X:F2}, {cylinder.VertexB.Y:F2}, {cylinder.VertexB.Z:F2}) radius={cylinder.Radius:F3}");
-                        break;
-
+                        return new CylinderShape { Label = label, VertexA = cylinder.VertexA, VertexB = cylinder.VertexB, Radius = cylinder.Radius };
                     case HkShapeType.ConvexVertices:
                         try
                         {
                             var convex = (HkConvexVerticesShape)shape;
-                            int vCount = convex.VertexCount;
-                            Console.Write($" vertices={vCount} [");
-
                             Vector3[] verts;
                             convex.GetVertices(out verts);
-
-                            for (int v = 0; v < verts.Length; v++)
-                                Console.Write((v > 0 ? ", " : "") + $"({verts[v].X:F2},{verts[v].Y:F2},{verts[v].Z:F2})");
-                            Console.WriteLine("]");
-                            if (scadWriter != null)
-                            {
-                                scadWriter.WriteLine("hull() {");
-                                for (int v = 0; v < verts.Length; v++)
-                                    scadWriter.WriteLine($"  translate([{verts[v].X:F4}, {verts[v].Y:F4}, {verts[v].Z:F4}]) sphere(r={PHYSICS_CONVEX_RADIUS:F4});");
-                                scadWriter.WriteLine("}");
-                            }
+                            var hull = new ConvexHullShape { Label = label };
+                            hull.Vertices.AddRange(verts);
+                            return hull;
                         }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($" [Error: {ex.Message}]");
-                        }
-                        break;
-
+                        catch { return null; }
                     default:
-                        shape.GetLocalAABB(0f, out Vector4 aabbMinD, out Vector4 aabbMaxD);
-                        Console.WriteLine($" AABB=[({aabbMinD.X:F2},{aabbMinD.Y:F2},{aabbMinD.Z:F2})..({aabbMaxD.X:F2},{aabbMaxD.Y:F2},{aabbMaxD.Z:F2})]");
-                        break;
+                        return null;
                 }
             }
-
-            if (scadWriter != null)
-                scadWriter.WriteLine("}");
         }
 
         // MWM binary format parser — extracts HavokCollisionGeometry tag and loads shapes from it

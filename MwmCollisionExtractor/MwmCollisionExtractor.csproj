@@ -23,8 +23,13 @@
       <Private>true</Private>
     </Reference>
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="/home/cat/Projects/LLE/LLE/Data/Scripts/LLE/DTO.cs" Link="DTO.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="protobuf-net" Version="3.2.56" />
+  </ItemGroup>
   <Target Name="CopyNativeDll" AfterTargets="Publish">
-    <Copy SourceFiles="/home/cat/Projects/SpaceEngineers/Bin64/Havok.dll"
-          DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="/home/cat/Projects/SpaceEngineers/Bin64/Havok.dll" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
   </Target>
 </Project>
