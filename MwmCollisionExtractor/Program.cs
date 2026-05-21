@@ -42,6 +42,16 @@ namespace MwmCollisionExtractor
                 string path = Path.Combine(Bin64, name + ".dll");
                 return File.Exists(path) ? Assembly.LoadFrom(path) : null;
             };
+
+            // Register protobuf-net serializers for VRageMath types
+            var model = ProtoBuf.Meta.RuntimeTypeModel.Default;
+            var vec3 = model.Add(typeof(Vector3), false);
+            vec3.Add(1, "X"); vec3.Add(2, "Y"); vec3.Add(3, "Z");
+            var matd = model.Add(typeof(MatrixD), false);
+            matd.Add(1, "M11"); matd.Add(2, "M12"); matd.Add(3, "M13"); matd.Add(4, "M14");
+            matd.Add(5, "M21"); matd.Add(6, "M22"); matd.Add(7, "M23"); matd.Add(8, "M24");
+            matd.Add(9, "M31"); matd.Add(10, "M32"); matd.Add(11, "M33"); matd.Add(12, "M34");
+            matd.Add(13, "M41"); matd.Add(14, "M42"); matd.Add(15, "M43"); matd.Add(16, "M44");
         }
 
         const string Bin64 = "/home/cat/Projects/SpaceEngineers/Bin64";
@@ -231,7 +241,7 @@ namespace MwmCollisionExtractor
                     // Parse version from "Version:X"
                     if (val.StartsWith("Version:"))
                     {
-                        int version = int.Parse(val.Substring(8));
+                        int version = int.Parse(val[8..]);
                         if (version >= 01066002)
                             return ReadMwmNewVersion(reader, outShapes);
 
