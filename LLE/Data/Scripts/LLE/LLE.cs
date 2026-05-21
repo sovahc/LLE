@@ -241,6 +241,13 @@ namespace LLE
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
 			{
 				pointChanged |= Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
+
+				if(pointChanged)
+				{	var block = grid_A.GetCubeBlock(point_A);
+					if(block != null)
+					{	MyConsole.Add($"Id {block.BlockDefinition.Id}", Color.Wheat);
+					}
+				}
 			}
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
 			{
