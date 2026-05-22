@@ -67,41 +67,23 @@ namespace MwmCollisionExtractor
         {
             if (!shape.IsValid) return;
 
-            // --- Wrapper shapes (transform + child) ---
             if (shape.ShapeType == HkShapeType.ConvexTranslate)
             {
-                try
-                {
-                    var cts = (HkConvexTranslateShape)shape;
-                    var childShape = cts.ChildShape.Base;
-                    Matrix nextTransform = currentTransform * Matrix.CreateTranslation(cts.Translation);
-                    Flatten(childShape, nextTransform, result);
-                }
-                catch { }
+                var cts = (HkConvexTranslateShape)shape;
+                Flatten(cts.ChildShape.Base, currentTransform * Matrix.CreateTranslation(cts.Translation), result);
             }
             else if (shape.ShapeType == HkShapeType.ConvexTransform)
             {
-                try
-                {
-                    var cts = (HkConvexTransformShape)shape;
-                    var childShape = cts.ChildShape.Base;
-                    Matrix nextTransform = currentTransform * cts.Transform;
-                    Flatten(childShape, nextTransform, result);
-                }
-                catch { }
+                var cts = (HkConvexTransformShape)shape;
+                Flatten(cts.ChildShape.Base, currentTransform * cts.Transform, result);
             }
-            // --- Container shapes (hierarchy nodes) ---
             else if (shape.IsContainer())
             {
-                var type = shape.ShapeType;
-                if (type == HkShapeType.StaticCompound)
+                if (shape.ShapeType == HkShapeType.StaticCompound)
                 {
                     var sCompound = (HkStaticCompoundShape)shape;
                     for (int i = 0; i < sCompound.InstanceCount; i++)
-                    {
-                        Matrix instTransform = sCompound.GetInstanceTransform(i);
-                        Flatten(sCompound.GetInstance(i), currentTransform * instTransform, result);
-                    }
+                        Flatten(sCompound.GetInstance(i), currentTransform * sCompound.GetInstanceTransform(i), result);
                 }
                 else
                 {
@@ -113,7 +95,6 @@ namespace MwmCollisionExtractor
                     }
                 }
             }
-            // --- Leaf shapes ---
             else
             {
                 var leaf = CreateLeaf(shape);
@@ -142,16 +123,12 @@ namespace MwmCollisionExtractor
                     var cylinder = (HkCylinderShape)shape;
                     return new CylinderShape { VertexA = cylinder.VertexA, VertexB = cylinder.VertexB, Radius = cylinder.Radius };
                 case HkShapeType.ConvexVertices:
-                    try
-                    {
-                        var convex = (HkConvexVerticesShape)shape;
-                        Vector3[] verts;
-                        convex.GetVertices(out verts);
-                        var hull = new ConvexHullShape();
-                        hull.Vertices.AddRange(verts);
-                        return hull;
-                    }
-                    catch { return null; }
+                    var convex = (HkConvexVerticesShape)shape;
+                    Vector3[] verts;
+                    convex.GetVertices(out verts);
+                    var hull = new ConvexHullShape();
+                    hull.Vertices.AddRange(verts);
+                    return hull;
                 default:
                     return null;
             }
@@ -163,54 +140,18 @@ namespace MwmCollisionExtractor
             using (var fs = File.OpenRead(filePath))
             using (var reader = new BinaryReader(fs, System.Text.Encoding.UTF8, leaveOpen: true))
             {
-                string firstTag = reader.ReadString();
+                reader.ReadString(); // Skip first tag name
                 int strCount = reader.ReadInt32();
-                bool versionFound = false;
                 for (int i = 0; i < strCount; i++)
-                {
-                    string val = reader.ReadString();
-                    if (val.StartsWith("Version:"))
-                    {
-                        int version = int.Parse(val.Substring(8));
-                        if (version < 01066002)
-                        {
-                            error = $"Old MWM version {version}";
-                            return false;
-                        }
-                        versionFound = true;
-                        break;
-                    }
-                }
-                if (!versionFound)
-                {
-                    error = "Unsupported MWM format";
-                    return false;
-                }
+                    reader.ReadString(); // Skip header strings
 
-                // Index dictionary: tag name -> file offset
                 int itemsCount = reader.ReadInt32();
                 var indexDict = new Dictionary<string, int>();
                 for (int i = 0; i < itemsCount; i++)
-                {
-                    string tagName = reader.ReadString();
-                    int offset = reader.ReadInt32();
-                    indexDict[tagName] = offset;
-                }
+                    indexDict[reader.ReadString()] = reader.ReadInt32();
 
-                if (!indexDict.TryGetValue("HavokCollisionGeometry", out int collisionOffset))
-                {
-                    error = "No HavokCollisionGeometry tag";
-                    return false;
-                }
-
-                reader.BaseStream.Seek(collisionOffset, SeekOrigin.Begin);
-                string tagCheck = reader.ReadString();
-                if (tagCheck != "HavokCollisionGeometry")
-                {
-                    error = $"Tag mismatch: '{tagCheck}'";
-                    return false;
-                }
-
+                reader.BaseStream.Seek(indexDict["HavokCollisionGeometry"], SeekOrigin.Begin);
+                reader.ReadString(); // Skip tag name
                 int dataLen = reader.ReadInt32();
                 if (dataLen == 0)
                 {
