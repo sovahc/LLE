@@ -47,11 +47,11 @@ namespace MwmCollisionExtractor
             var model = ProtoBuf.Meta.RuntimeTypeModel.Default;
             var vec3 = model.Add(typeof(Vector3), false);
             vec3.Add(1, "X"); vec3.Add(4, "Y"); vec3.Add(7, "Z");
+            // Field numbers match the game's protobuf schema (stride 3 per column)
             var mat = model.Add(typeof(Matrix), false);
-            mat.Add(1, "M11"); mat.Add(4, "M12"); mat.Add(7, "M13"); mat.Add(10, "M14");
-            mat.Add(13, "M21"); mat.Add(16, "M22"); mat.Add(19, "M23"); mat.Add(22, "M24");
-            mat.Add(25, "M31"); mat.Add(28, "M32"); mat.Add(31, "M33"); mat.Add(34, "M34");
-            mat.Add(37, "M41"); mat.Add(40, "M42"); mat.Add(43, "M43"); mat.Add(46, "M44");
+            var props = typeof(Matrix).GetProperties();
+            for (int i = 0; i < props.Length; i++)
+                mat.Add(1 + i * 3, props[i].Name);
         }
 
         const string Bin64 = "/home/cat/Projects/SpaceEngineers/Bin64";
