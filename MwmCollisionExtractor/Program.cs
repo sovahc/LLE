@@ -163,77 +163,73 @@ namespace MwmCollisionExtractor
             using (var fs = File.OpenRead(filePath))
             using (var reader = new BinaryReader(fs, System.Text.Encoding.UTF8, leaveOpen: true))
             {
-                // Read first tag name and its string array values
                 string firstTag = reader.ReadString();
                 int strCount = reader.ReadInt32();
+                bool versionFound = false;
                 for (int i = 0; i < strCount; i++)
                 {
                     string val = reader.ReadString();
-
-                    // Parse version from "Version:X"
                     if (val.StartsWith("Version:"))
                     {
-                        int version = int.Parse(val[8..]);
-                        if (version >= 01066002)
-                            return ReadMwmNewVersion(reader, outShapes, out error);
-
-                        error = $"Old MWM version {version}";
-                        return false;
+                        int version = int.Parse(val.Substring(8));
+                        if (version < 01066002)
+                        {
+                            error = $"Old MWM version {version}";
+                            return false;
+                        }
+                        versionFound = true;
+                        break;
                     }
                 }
-            }
+                if (!versionFound)
+                {
+                    error = "Unsupported MWM format";
+                    return false;
+                }
 
-            error = "Unsupported MWM format";
-            return false;
-        }
+                // Index dictionary: tag name -> file offset
+                int itemsCount = reader.ReadInt32();
+                var indexDict = new Dictionary<string, int>();
+                for (int i = 0; i < itemsCount; i++)
+                {
+                    string tagName = reader.ReadString();
+                    int offset = reader.ReadInt32();
+                    indexDict[tagName] = offset;
+                }
 
-        static bool ReadMwmNewVersion(BinaryReader reader, List<HkShape> outShapes, out string error)
-        {
-            // Index dictionary: tag name -> file offset
-            int itemsCount = reader.ReadInt32();
-            var indexDict = new Dictionary<string, int>();
-            for (int i = 0; i < itemsCount; i++)
-            {
-                string tagName = reader.ReadString();
-                int offset = reader.ReadInt32();
-                indexDict[tagName] = offset;
-            }
+                if (!indexDict.TryGetValue("HavokCollisionGeometry", out int collisionOffset))
+                {
+                    error = "No HavokCollisionGeometry tag";
+                    return false;
+                }
 
-            // Look for HavokCollisionGeometry tag
-            if (!indexDict.TryGetValue("HavokCollisionGeometry", out int collisionOffset))
-            {
-                error = "No HavokCollisionGeometry tag";
-                return false;
-            }
+                reader.BaseStream.Seek(collisionOffset, SeekOrigin.Begin);
+                string tagCheck = reader.ReadString();
+                if (tagCheck != "HavokCollisionGeometry")
+                {
+                    error = $"Tag mismatch: '{tagCheck}'";
+                    return false;
+                }
 
-            // Seek to the tag data and read byte array
-            reader.BaseStream.Seek(collisionOffset, SeekOrigin.Begin);
-            string tagCheck = reader.ReadString();
-            if (tagCheck != "HavokCollisionGeometry")
-            {
-                error = $"Tag mismatch: '{tagCheck}'";
-                return false;
-            }
+                int dataLen = reader.ReadInt32();
+                if (dataLen == 0)
+                {
+                    error = null;
+                    return true;
+                }
 
-            int dataLen = reader.ReadInt32();
-            if (dataLen == 0)
-            {
+                byte[] collisionData = reader.ReadBytes(dataLen);
+                bool containsScene; 
+                bool containsDestruction;
+                if (!HkShapeLoader.LoadShapesListFromBuffer(collisionData, outShapes, out containsScene, out containsDestruction))
+                {
+                    error = "HkShapeLoader failed";
+                    return false;
+                }
+
                 error = null;
-                return true; // Empty collision is valid
+                return true;
             }
-            byte[] collisionData = reader.ReadBytes(dataLen);
-
-            // Load shapes from the embedded Havok buffer
-            bool containsScene; 
-            bool containsDestruction;
-            if (!HkShapeLoader.LoadShapesListFromBuffer(collisionData, outShapes, out containsScene, out containsDestruction))
-            {
-                error = "HkShapeLoader failed";
-                return false;
-            }
-
-            error = null;
-            return true;
         }
         static void RunBatch(string outputFile)
         {
