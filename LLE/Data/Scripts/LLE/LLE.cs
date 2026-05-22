@@ -21,8 +21,7 @@ namespace LLE
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
 		public static bool MyRaycast(Vector3D origin, Vector3D direction,
-			out IMyCubeGrid grid, out Vector3I position,
-			float range = 1000)
+			out IMyCubeGrid grid, out Vector3I position, float range = 1000)
 		{
 			grid = null;
 			position = Vector3I.Zero;
@@ -42,9 +41,11 @@ namespace LLE
 
 			if (slimBlock == null) return false;
 
-			var fsCenter = origin + direction * (dist - grid.GridSize);
-			var freeSpace = grid.WorldToGridInteger(fsCenter);
-			position = freeSpace;
+			position = slimBlock.Position;
+
+			//var fsCenter = origin + direction * (dist - grid.GridSize);
+			//var freeSpace = grid.WorldToGridInteger(fsCenter);
+			//position = freeSpace;
 			return true;
 		}
 
@@ -375,12 +376,70 @@ namespace LLE
 			var material = MyStringId.GetOrCompute("Square");
 			foreach (var shape in geometry.Shapes)
 			{
+				var matrix = blockMatrix * shape.Transform;
+
 				var box = shape as BoxShape;
 				if (box != null)
-				{
-					var matrix = blockMatrix * box.Transform;
+				{	Color color = Color.Cyan;
+					
 					var bb = new BoundingBoxD(-box.HalfExtents, box.HalfExtents);
-					Color color = Color.White;
+					
+					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+				}
+
+				var capsule = shape as CapsuleShape;
+				if(capsule != null)
+				{	Color color = Color.Magenta;
+
+					Vector3D v = new Vector3D(capsule.Radius);
+
+					var bb = new BoundingBoxD(-v+capsule.VertexA, v+capsule.VertexA);
+
+					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+
+					bb = new BoundingBoxD(-v+capsule.VertexB, v+capsule.VertexB);
+
+					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+				}
+
+				var convex = shape as ConvexHullShape;
+				if (convex != null)
+				{	Color color = Color.Red;
+					
+					Vector3D v = new Vector3D(0.01);
+
+					foreach(var vertex in convex.Vertices)
+					{	
+						var bb = new BoundingBoxD(-v+vertex, v+vertex);
+
+						MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+							MySimpleObjectRasterizer.Wireframe, 1, 0.05f, material, material);
+					}
+				}
+
+				var sphere = shape as SphereShape;
+				if (sphere != null)
+				{	Color color = Color.White;
+
+					Vector3D v = new Vector3D(sphere.Radius);
+
+					var bb = new BoundingBoxD(-v, v);
+
+					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+				}
+
+				var cylinder = shape as CylinderShape;
+				if (cylinder != null)
+				{	Color color = Color.Yellow;
+
+					Vector3D v = new Vector3D(cylinder.Radius);
+
+					var bb = new BoundingBoxD(-v, v);
+
 					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
 						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
 				}
