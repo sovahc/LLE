@@ -64,7 +64,6 @@ namespace MwmCollisionExtractor
             Slope2Base, Slope2Tip, Corner2Base, Corner2Tip, InvCorner2Base, InvCorner2Tip
         }
 
-        const float LARGE_GRID_SIZE = 0.5f;
 
         static void Main(string[] args)
         {
@@ -106,7 +105,8 @@ namespace MwmCollisionExtractor
                         string blockTopology = def.Element("BlockTopology")?.Value;
                         if (string.IsNullOrEmpty(modelPath) && blockTopology != "Cube")
                             return null;
-                        return new { DefId = defId, ModelPath = modelPath, Def = def };
+                        string cubeSize = def.Element("CubeSize")?.Value ?? "Large";
+                        return new { DefId = defId, ModelPath = modelPath, Def = def, CubeSize = cubeSize };
                     }).Where(b => b != null).ToList();
 
                     foreach (var block in blocks)
@@ -139,7 +139,7 @@ namespace MwmCollisionExtractor
                         // Fallback: build from skeleton bones
                         if (geometry == null || geometry.Shapes.Count == 0)
                         {
-                            if (BuildSkeletonConvex(block.Def, out var skeletonGeom))
+                            if (BuildSkeletonConvex(block.Def, block.CubeSize, out var skeletonGeom))
                             {
                                 geometry = skeletonGeom;
                                 Console.WriteLine($"  SKELETON {block.DefId.TypeId}:{block.DefId.SubtypeId}: {skeletonGeom.Shapes.Count} shapes");
@@ -285,13 +285,13 @@ namespace MwmCollisionExtractor
             }
         }
 
-        static Vector3 DenormalizeBoneOffset(byte x, byte y, byte z)
+        static Vector3 DenormalizeBoneOffset(byte x, byte y, byte z, float gridSize)
         {
             float eps = 0.5f / 255.0f;
             return new Vector3(
-                (x / 255.0f - (0.5f - eps)) * LARGE_GRID_SIZE,
-                (y / 255.0f - (0.5f - eps)) * LARGE_GRID_SIZE,
-                (z / 255.0f - (0.5f - eps)) * LARGE_GRID_SIZE);
+                (x / 255.0f - (0.5f - eps)) * gridSize,
+                (y / 255.0f - (0.5f - eps)) * gridSize,
+                (z / 255.0f - (0.5f - eps)) * gridSize);
         }
 
         static List<Vector3> GetBlockVertices(CubeTopology topology)
@@ -458,7 +458,7 @@ namespace MwmCollisionExtractor
             }
             return verts;
         }
-        static bool BuildSkeletonConvex(XElement def, out CollisionGeometry geometry)
+        static bool BuildSkeletonConvex(XElement def, string cubeSize, out CollisionGeometry geometry)
         {
             geometry = null;
 
@@ -469,6 +469,8 @@ namespace MwmCollisionExtractor
             var cubeTopologyStr = def.Element("CubeDefinition")?.Element("CubeTopology")?.Value ?? "Box";
             if (!Enum.TryParse(cubeTopologyStr, true, out CubeTopology topology))
                 return false;
+
+            float gridSize = cubeSize == "Small" ? 0.5f : 2.0f;
 
             // Parse bone offsets: BonePosition → denormalized offset
             var boneOffsets = new Dictionary<Vector3I, Vector3>();
@@ -489,13 +491,13 @@ namespace MwmCollisionExtractor
                     continue;
 
                 var pos = new Vector3I(int.Parse(px), int.Parse(py), int.Parse(pz));
-                var offset = DenormalizeBoneOffset(byte.Parse(ox), byte.Parse(oy), byte.Parse(oz));
+                var offset = DenormalizeBoneOffset(byte.Parse(ox), byte.Parse(oy), byte.Parse(oz), gridSize);
                 boneOffsets[pos] = offset;
             }
 
             // Build world vertices from topology + bone offsets
             var blockVerts = GetBlockVertices(topology);
-            var gridSizeHalf = LARGE_GRID_SIZE * 0.5f;
+            var gridSizeHalf = gridSize * 0.5f;
             var worldVerts = new List<Vector3>(blockVerts.Count);
 
             foreach (var point in blockVerts)
