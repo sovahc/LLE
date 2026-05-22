@@ -440,14 +440,33 @@ namespace LLE
 
 				var cylinder = shape as CylinderShape;
 				if (cylinder != null)
-				{	Color color = Color.Yellow;
-
-					Vector3D v = new Vector3D(cylinder.Radius);
-
-					var bb = new BoundingBoxD(-v, v);
-
-					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
-						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+				{
+					Vector3 axis = cylinder.VertexB - cylinder.VertexA;
+					float len = axis.Length();
+					if (len > 0.001f)
+					{
+						Vector3 dir = Vector3.Normalize(axis);
+						Vector3 up = Math.Abs(dir.Y) < 0.99f ? Vector3.Up : Vector3.Forward;
+						Vector3 right = Vector3.Normalize(Vector3.Cross(dir, up));
+						Vector3 localUp = Vector3.Cross(dir, right);
+						
+						var cylPoints = new List<Vector3D>();
+						int segments = 24;
+						for (int i = 0; i < segments; i++)
+						{
+							double angle = i * MathHelper.TwoPi / segments;
+							double c = Math.Cos(angle), s = Math.Sin(angle);
+							Vector3 offset = (float)c * right * cylinder.Radius + (float)s * localUp * cylinder.Radius;
+							cylPoints.Add(cylinder.VertexA + offset);
+							cylPoints.Add(cylinder.VertexB + offset);
+						}
+						
+						var worldVerts = cylPoints.Select(v => Vector3D.Transform(v, matrix)).ToList();
+						var screenVerts = Drawing.WorldToScreen(worldVerts);
+						var hull = Geometry.ConvexHull(screenVerts);
+						if (hull.Count >= 2)
+							Drawing.Contour(hull.ToArray(), true, 5e-5f, new Vector4(1f, 1f, 0f, 1f));
+					}
 				}
 
 				var capsule = shape as CapsuleShape;
