@@ -436,14 +436,26 @@ namespace LLE
 
 				var sphere = shape as SphereShape;
 				if (sphere != null)
-				{	Color color = Color.White;
-
-					Vector3D v = new Vector3D(sphere.Radius);
-
-					var bb = new BoundingBoxD(-v, v);
-
-					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
-						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+				{
+					var camera = MyAPIGateway.Session.Camera;
+					Vector3D worldCenter = Vector3D.Transform(Vector3D.Zero, matrix);
+					Vector3D viewDir = Vector3D.Normalize(worldCenter - camera.Position);
+					
+					Vector3D up = Math.Abs(Vector3D.Dot(viewDir, Vector3D.Up)) > 0.99 ? Vector3D.Forward : Vector3D.Up;
+					Vector3D right = Vector3D.Normalize(Vector3D.Cross(viewDir, up));
+					Vector3D localUp = Vector3D.Cross(right, viewDir);
+					
+					int segments = 32;
+					var silhouettePoints = new List<Vector3D>();
+					for (int i = 0; i < segments; i++)
+					{
+						double angle = i * MathHelper.TwoPi / segments;
+						Vector3D worldPoint = worldCenter + Math.Cos(angle) * right * sphere.Radius + Math.Sin(angle) * localUp * sphere.Radius;
+						silhouettePoints.Add(worldPoint);
+					}
+					var projected = Drawing.WorldToScreen(silhouettePoints);
+					if (projected.Count >= 2)
+						Drawing.Contour(projected.ToArray(), true, 5e-5f, new Vector4(1f, 1f, 1f, 1f));
 				}
 
 				var cylinder = shape as CylinderShape;
