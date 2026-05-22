@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Sandbox.Game.Entities;
@@ -10,7 +9,6 @@ using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRage.Utils;
-using VRage.ObjectBuilders;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
