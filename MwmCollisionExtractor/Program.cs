@@ -56,7 +56,15 @@ namespace MwmCollisionExtractor
         }
 
         const string Bin64 = "/home/cat/Projects/SpaceEngineers/Bin64";
-        const float PHYSICS_CONVEX_RADIUS = 0.05f;
+
+        enum CubeTopology
+        {
+            Slope, RotatedSlope, RoundSlope, Corner, RotatedCorner, RoundCorner,
+            InvCorner, RoundInvCorner, Box, RoundedSlope,
+            Slope2Base, Slope2Tip, Corner2Base, Corner2Tip, InvCorner2Base, InvCorner2Tip
+        }
+
+        const float LARGE_GRID_SIZE = 0.5f;
 
         static void Main(string[] args)
         {
@@ -94,35 +102,64 @@ namespace MwmCollisionExtractor
                             }
                         }
                         
-                        return string.IsNullOrEmpty(modelPath) ? null : new { DefId = defId, ModelPath = modelPath };
+                        // Blocks without model but with BlockTopology==Cube still need skeleton collision
+                        string blockTopology = def.Element("BlockTopology")?.Value;
+                        if (string.IsNullOrEmpty(modelPath) && blockTopology != "Cube")
+                            return null;
+                        return new { DefId = defId, ModelPath = modelPath, Def = def };
                     }).Where(b => b != null).ToList();
 
                     foreach (var block in blocks)
                     {
-                        string fullPath = Path.Combine(gameRoot, block.ModelPath.Replace('\\', '/'));
-                        if (!File.Exists(fullPath))
+                        CollisionGeometry geometry = null;
+
+                        if (!string.IsNullOrEmpty(block.ModelPath))
                         {
-                            Console.WriteLine($"  SKIP {block.DefId.TypeId}:{block.DefId.SubtypeId}: model not found: {fullPath}");
-                            continue;
-                        }
-                        
-                        var shapes = new List<HkShape>();
-                        if (LoadMwmShapes(fullPath, shapes, out string loadError))
-                        {
-                            var geometry = new CollisionGeometry();
-                            foreach (var s in shapes)
-                                Flatten(s, Matrix.Identity, geometry.Shapes);
-                            
-                            allGeometry[block.DefId] = geometry;
-                            if (geometry.Shapes.Count == 0)
-                                Console.WriteLine($"  NO COLLISION {block.DefId.TypeId}:{block.DefId.SubtypeId}");
+                            string fullPath = Path.Combine(gameRoot, block.ModelPath.Replace('\\', '/'));
+                            if (!File.Exists(fullPath))
+                            {
+                                Console.WriteLine($"  SKIP {block.DefId.TypeId}:{block.DefId.SubtypeId}: model not found: {fullPath}");
+                                continue;
+                            }
+
+                            var shapes = new List<HkShape>();
+                            if (LoadMwmShapes(fullPath, shapes, out string loadError))
+                            {
+                                geometry = new CollisionGeometry();
+                                foreach (var s in shapes)
+                                    Flatten(s, Matrix.Identity, geometry.Shapes);
+                            }
                             else
-                                Console.WriteLine($"  OK {block.DefId.TypeId}:{block.DefId.SubtypeId}: {geometry.Shapes.Count} shapes");
+                            {
+                                Console.WriteLine($"  FAIL {block.DefId.TypeId}:{block.DefId.SubtypeId}: {loadError}");
+                                continue;
+                            }
+                        }
+
+                        // Fallback: build from skeleton bones
+                        if (geometry == null || geometry.Shapes.Count == 0)
+                        {
+                            if (BuildSkeletonConvex(block.Def, out var skeletonGeom))
+                            {
+                                geometry = skeletonGeom;
+                                Console.WriteLine($"  SKELETON {block.DefId.TypeId}:{block.DefId.SubtypeId}: {skeletonGeom.Shapes.Count} shapes");
+                            }
+                            else if (geometry != null)
+                            {
+                                Console.WriteLine($"  NO COLLISION {block.DefId.TypeId}:{block.DefId.SubtypeId}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"  SKIP {block.DefId.TypeId}:{block.DefId.SubtypeId}: no model, no skeleton");
+                                continue;
+                            }
                         }
                         else
                         {
-                            Console.WriteLine($"  FAIL {block.DefId.TypeId}:{block.DefId.SubtypeId}: {loadError}");
+                            Console.WriteLine($"  OK {block.DefId.TypeId}:{block.DefId.SubtypeId}: {geometry.Shapes.Count} shapes");
                         }
+
+                        allGeometry[block.DefId] = geometry;
                     }
                 }
                 
@@ -246,6 +283,233 @@ namespace MwmCollisionExtractor
                 error = null;
                 return true;
             }
+        }
+
+        static Vector3 DenormalizeBoneOffset(byte x, byte y, byte z)
+        {
+            float eps = 0.5f / 255.0f;
+            return new Vector3(
+                (x / 255.0f - (0.5f - eps)) * LARGE_GRID_SIZE,
+                (y / 255.0f - (0.5f - eps)) * LARGE_GRID_SIZE,
+                (z / 255.0f - (0.5f - eps)) * LARGE_GRID_SIZE);
+        }
+
+        static List<Vector3> GetBlockVertices(CubeTopology topology)
+        {
+            var verts = new List<Vector3>();
+            switch (topology)
+            {
+                case CubeTopology.Slope:
+                case CubeTopology.RotatedSlope:
+                    verts.Add(new Vector3(-1, 1, -1)); verts.Add(new Vector3(1, 1, -1));
+                    verts.Add(new Vector3(1, -1, 1)); verts.Add(new Vector3(-1, -1, 1));
+                    verts.Add(new Vector3(-1, -1, -1)); verts.Add(new Vector3(1, -1, -1));
+                    verts.Add(new Vector3(-1, 0, 0)); verts.Add(new Vector3(-1, 0, -1));
+                    verts.Add(new Vector3(-1, -1, 0)); verts.Add(new Vector3(0, 0, 0));
+                    verts.Add(new Vector3(0, 0, -1)); verts.Add(new Vector3(0, -1, 0));
+                    verts.Add(new Vector3(1, 0, 0)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(1, -1, 0));
+                    break;
+                case CubeTopology.RoundSlope:
+                    verts.Add(new Vector3(-1, 1, -1)); verts.Add(new Vector3(1, 1, -1));
+                    verts.Add(new Vector3(1, -1, 1)); verts.Add(new Vector3(-1, -1, 1));
+                    verts.Add(new Vector3(-1, -1, -1)); verts.Add(new Vector3(1, -1, -1));
+                    verts.Add(new Vector3(-1f, 0.414f, 0.414f)); verts.Add(new Vector3(1f, 0.414f, 0.414f));
+                    verts.Add(new Vector3(-1, 0, 0)); verts.Add(new Vector3(-1, 0, -1));
+                    verts.Add(new Vector3(-1, -1, 0)); verts.Add(new Vector3(0, 0, 0));
+                    verts.Add(new Vector3(0, 0, -1)); verts.Add(new Vector3(0, -1, 0));
+                    verts.Add(new Vector3(1, 0, 0)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(1, -1, 0));
+                    break;
+                case CubeTopology.Corner:
+                case CubeTopology.RotatedCorner:
+                    verts.Add(new Vector3(1, 1, -1)); verts.Add(new Vector3(1, -1, -1));
+                    verts.Add(new Vector3(-1, -1, -1)); verts.Add(new Vector3(1, -1, 1));
+                    verts.Add(new Vector3(0, -1, 0)); verts.Add(new Vector3(1, -1, 0));
+                    verts.Add(new Vector3(0, -1, -1)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(1, 0, 0)); verts.Add(new Vector3(0, 0, -1));
+                    break;
+                case CubeTopology.RoundCorner:
+                    verts.Add(new Vector3(1, 1, -1)); verts.Add(new Vector3(1, -1, -1));
+                    verts.Add(new Vector3(-1, -1, -1)); verts.Add(new Vector3(1, -1, 1));
+                    verts.Add(new Vector3(-0.414f, 0.414f, -1f)); verts.Add(new Vector3(-0.414f, -1f, 0.414f));
+                    verts.Add(new Vector3(1f, 0.414f, 0.414f));
+                    verts.Add(new Vector3(0, -1, 0)); verts.Add(new Vector3(1, -1, 0));
+                    verts.Add(new Vector3(0, -1, -1)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(1, 0, 0)); verts.Add(new Vector3(0, 0, -1));
+                    break;
+                case CubeTopology.InvCorner:
+                    verts.Add(new Vector3(1, 1, 1)); verts.Add(new Vector3(1, 1, -1));
+                    verts.Add(new Vector3(1, -1, 1)); verts.Add(new Vector3(-1, 1, 1));
+                    verts.Add(new Vector3(-1, 1, -1)); verts.Add(new Vector3(-1, -1, 1));
+                    verts.Add(new Vector3(-1, -1, -1));
+                    verts.Add(new Vector3(-1, -1, 0)); verts.Add(new Vector3(-1, 0, -1));
+                    verts.Add(new Vector3(-1, 0, 0)); verts.Add(new Vector3(-1, 0, 1));
+                    verts.Add(new Vector3(-1, 1, 0)); verts.Add(new Vector3(0, -1, 0));
+                    verts.Add(new Vector3(0, -1, 1)); verts.Add(new Vector3(0, 0, -1));
+                    verts.Add(new Vector3(0, 0, 0)); verts.Add(new Vector3(0, 0, 1));
+                    verts.Add(new Vector3(0, 1, -1)); verts.Add(new Vector3(0, 1, 0));
+                    verts.Add(new Vector3(0, 1, 1)); verts.Add(new Vector3(1, 0, 0));
+                    verts.Add(new Vector3(1, 0, 1)); verts.Add(new Vector3(1, 1, 0));
+                    break;
+                case CubeTopology.RoundInvCorner:
+                    verts.Add(new Vector3(1, 1, 1)); verts.Add(new Vector3(1, 1, -1));
+                    verts.Add(new Vector3(1, -1, 1)); verts.Add(new Vector3(-1, 1, 1));
+                    verts.Add(new Vector3(-1, 1, -1)); verts.Add(new Vector3(-1, -1, 1));
+                    verts.Add(new Vector3(-1, -1, -1));
+                    verts.Add(new Vector3(0.414f, -0.414f, -1f)); verts.Add(new Vector3(0.414f, -1f, -0.414f));
+                    verts.Add(new Vector3(1f, -0.414f, -0.414f));
+                    verts.Add(new Vector3(-1, -1, 0)); verts.Add(new Vector3(-1, 0, -1));
+                    verts.Add(new Vector3(-1, 0, 0)); verts.Add(new Vector3(-1, 0, 1));
+                    verts.Add(new Vector3(-1, 1, 0)); verts.Add(new Vector3(0, -1, 0));
+                    verts.Add(new Vector3(0, -1, 1)); verts.Add(new Vector3(0, 0, -1));
+                    verts.Add(new Vector3(0, 0, 0)); verts.Add(new Vector3(0, 0, 1));
+                    verts.Add(new Vector3(0, 1, -1)); verts.Add(new Vector3(0, 1, 0));
+                    verts.Add(new Vector3(0, 1, 1)); verts.Add(new Vector3(1, 0, 0));
+                    verts.Add(new Vector3(1, 0, 1)); verts.Add(new Vector3(1, 1, 0));
+                    break;
+                case CubeTopology.Box:
+                case CubeTopology.RoundedSlope:
+                    verts.Add(new Vector3(1, 1, 1)); verts.Add(new Vector3(1, 1, -1));
+                    verts.Add(new Vector3(1, -1, 1)); verts.Add(new Vector3(1, -1, -1));
+                    verts.Add(new Vector3(-1, 1, 1)); verts.Add(new Vector3(-1, 1, -1));
+                    verts.Add(new Vector3(-1, -1, 1)); verts.Add(new Vector3(-1, -1, -1));
+                    verts.Add(new Vector3(-1, -1, 0)); verts.Add(new Vector3(-1, 0, -1));
+                    verts.Add(new Vector3(-1, 0, 0)); verts.Add(new Vector3(-1, 0, 1));
+                    verts.Add(new Vector3(-1, 1, 0)); verts.Add(new Vector3(0, -1, -1));
+                    verts.Add(new Vector3(0, -1, 0)); verts.Add(new Vector3(0, -1, 1));
+                    verts.Add(new Vector3(0, 0, -1)); verts.Add(new Vector3(0, 0, 1));
+                    verts.Add(new Vector3(0, 1, -1)); verts.Add(new Vector3(0, 1, 0));
+                    verts.Add(new Vector3(0, 1, 1)); verts.Add(new Vector3(1, -1, 0));
+                    verts.Add(new Vector3(1, 0, -1)); verts.Add(new Vector3(1, 0, 0));
+                    verts.Add(new Vector3(1, 0, 1)); verts.Add(new Vector3(1, 1, 0));
+                    break;
+                case CubeTopology.Slope2Base:
+                    verts.Add(new Vector3(1, 0, 1)); verts.Add(new Vector3(1, 1, -1));
+                    verts.Add(new Vector3(1, -1, 1)); verts.Add(new Vector3(1, -1, -1));
+                    verts.Add(new Vector3(-1, 0, 1)); verts.Add(new Vector3(-1, 1, -1));
+                    verts.Add(new Vector3(-1, -1, 1)); verts.Add(new Vector3(-1, -1, -1));
+                    verts.Add(new Vector3(-1, -1, 0)); verts.Add(new Vector3(-1, 0, -1));
+                    verts.Add(new Vector3(-1, 0, 0)); verts.Add(new Vector3(-1, 0, 1));
+                    verts.Add(new Vector3(-1, 0.5f, 0)); verts.Add(new Vector3(0, -1, -1));
+                    verts.Add(new Vector3(0, -1, 0)); verts.Add(new Vector3(0, -1, 1));
+                    verts.Add(new Vector3(0, 0, -1)); verts.Add(new Vector3(0, 0, 0));
+                    verts.Add(new Vector3(0, 0, 1)); verts.Add(new Vector3(0, 1, -1));
+                    verts.Add(new Vector3(0, 0.5f, 0)); verts.Add(new Vector3(0, 0, 1));
+                    verts.Add(new Vector3(1, -1, 0)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(1, 0, 0)); verts.Add(new Vector3(1, 0, 1));
+                    verts.Add(new Vector3(1, 0.5f, 0));
+                    break;
+                case CubeTopology.Slope2Tip:
+                    verts.Add(new Vector3(-1, 0, -1)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(1, -1, 1)); verts.Add(new Vector3(-1, -1, 1));
+                    verts.Add(new Vector3(-1, -1, -1)); verts.Add(new Vector3(1, -1, -1));
+                    verts.Add(new Vector3(-1, -0.5f, 0)); verts.Add(new Vector3(-1, 0, -1));
+                    verts.Add(new Vector3(-1, -1, 0)); verts.Add(new Vector3(0, -0.5f, 0));
+                    verts.Add(new Vector3(0, 0, -1)); verts.Add(new Vector3(0, -1, 0));
+                    verts.Add(new Vector3(1, -0.5f, 0)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(1, -1, 0));
+                    break;
+                case CubeTopology.Corner2Base:
+                    verts.Add(new Vector3(-1, 1, -1)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(1, -1, 0)); verts.Add(new Vector3(-1, -1, 1));
+                    verts.Add(new Vector3(-1, -1, -1)); verts.Add(new Vector3(1, -1, -1));
+                    verts.Add(new Vector3(-1, 0, 0)); verts.Add(new Vector3(-1, 0, -1));
+                    verts.Add(new Vector3(-1, -1, 0)); verts.Add(new Vector3(0.5f, -0.5f, 0));
+                    verts.Add(new Vector3(0, 0, -1)); verts.Add(new Vector3(0, -1, 0));
+                    verts.Add(new Vector3(1, -0.5f, -0.5f)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(1, -1, 0));
+                    break;
+                case CubeTopology.Corner2Tip:
+                    verts.Add(new Vector3(1, 0, -1)); verts.Add(new Vector3(1, -1, -1));
+                    verts.Add(new Vector3(0, -1, -1)); verts.Add(new Vector3(1, -1, 1));
+                    verts.Add(new Vector3(0.5f, -1, 0)); verts.Add(new Vector3(1, -1, 0));
+                    verts.Add(new Vector3(0, -1, -1)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(1, -0.5f, 0)); verts.Add(new Vector3(0.5f, -0.5f, -1));
+                    break;
+                case CubeTopology.InvCorner2Base:
+                    verts.Add(new Vector3(1, 1, 1)); verts.Add(new Vector3(1, 1, -1));
+                    verts.Add(new Vector3(1, -1, 1)); verts.Add(new Vector3(1, 0, -1));
+                    verts.Add(new Vector3(0, -1, -1)); verts.Add(new Vector3(-1, 1, 1));
+                    verts.Add(new Vector3(-1, 1, -1)); verts.Add(new Vector3(-1, -1, 1));
+                    verts.Add(new Vector3(-1, -1, -1));
+                    verts.Add(new Vector3(-1, -1, 0)); verts.Add(new Vector3(-1, 0, -1));
+                    verts.Add(new Vector3(-1, 0, 0)); verts.Add(new Vector3(-1, 0, 1));
+                    verts.Add(new Vector3(-1, 1, 0)); verts.Add(new Vector3(0, -1, 0));
+                    verts.Add(new Vector3(0, -1, 1)); verts.Add(new Vector3(0, 0, -1));
+                    verts.Add(new Vector3(0, 0, 0)); verts.Add(new Vector3(0, 0, 1));
+                    verts.Add(new Vector3(0, 1, -1)); verts.Add(new Vector3(0, 1, 0));
+                    verts.Add(new Vector3(0, 1, 1)); verts.Add(new Vector3(1, 0, 0));
+                    verts.Add(new Vector3(1, 0, 1)); verts.Add(new Vector3(1, 1, 0));
+                    break;
+                case CubeTopology.InvCorner2Tip:
+                    verts.Add(new Vector3(1, 1, 1)); verts.Add(new Vector3(1, 1, -1));
+                    verts.Add(new Vector3(-1, 1, 1)); verts.Add(new Vector3(-1, 1, -1));
+                    verts.Add(new Vector3(-1, -1, 1)); verts.Add(new Vector3(-1, -1, -1));
+                    verts.Add(new Vector3(-1, -1, 0)); verts.Add(new Vector3(-1, 0, -1));
+                    verts.Add(new Vector3(-1, 0, 0)); verts.Add(new Vector3(-1, 0, 1));
+                    verts.Add(new Vector3(-1, 1, 0)); verts.Add(new Vector3(0, -1, 0));
+                    verts.Add(new Vector3(0, -1, 1)); verts.Add(new Vector3(0, 0, -1));
+                    verts.Add(new Vector3(0, 0, 0)); verts.Add(new Vector3(0, 0, 1));
+                    verts.Add(new Vector3(0, 1, -1)); verts.Add(new Vector3(0, 1, 0));
+                    verts.Add(new Vector3(0, 1, 1)); verts.Add(new Vector3(1, 0, 0));
+                    verts.Add(new Vector3(1, 0, 1)); verts.Add(new Vector3(1, 1, 0));
+                    break;
+            }
+            return verts;
+        }
+        static bool BuildSkeletonConvex(XElement def, out CollisionGeometry geometry)
+        {
+            geometry = null;
+
+            var skeleton = def.Element("Skeleton");
+            if (skeleton == null)
+                return false;
+
+            var cubeTopologyStr = def.Element("CubeDefinition")?.Element("CubeTopology")?.Value ?? "Box";
+            if (!Enum.TryParse(cubeTopologyStr, true, out CubeTopology topology))
+                return false;
+
+            // Parse bone offsets: BonePosition → denormalized offset
+            var boneOffsets = new Dictionary<Vector3I, Vector3>();
+            foreach (var boneInfo in skeleton.Elements("BoneInfo"))
+            {
+                var posEl = boneInfo.Element("BonePosition");
+                var offEl = boneInfo.Element("BoneOffset");
+                if (posEl == null || offEl == null)
+                    continue;
+
+                var px = posEl.Attribute("X")?.Value;
+                var py = posEl.Attribute("Y")?.Value;
+                var pz = posEl.Attribute("Z")?.Value;
+                var ox = offEl.Attribute("X")?.Value;
+                var oy = offEl.Attribute("Y")?.Value;
+                var oz = offEl.Attribute("Z")?.Value;
+                if (px == null || py == null || pz == null || ox == null || oy == null || oz == null)
+                    continue;
+
+                var pos = new Vector3I(int.Parse(px), int.Parse(py), int.Parse(pz));
+                var offset = DenormalizeBoneOffset(byte.Parse(ox), byte.Parse(oy), byte.Parse(oz));
+                boneOffsets[pos] = offset;
+            }
+
+            // Build world vertices from topology + bone offsets
+            var blockVerts = GetBlockVertices(topology);
+            var gridSizeHalf = LARGE_GRID_SIZE * 0.5f;
+            var worldVerts = new List<Vector3>(blockVerts.Count);
+
+            foreach (var point in blockVerts)
+            {
+                var pointBonePos = new Vector3I(1, 1, 1) + Vector3I.Round(point);
+                var vert = point * gridSizeHalf;
+                if (boneOffsets.TryGetValue(pointBonePos, out var boneOffset))
+                    vert += boneOffset;
+                worldVerts.Add(vert);
+            }
+
+            geometry = new CollisionGeometry();
+            geometry.Shapes.Add(new ConvexHullShape { Vertices = worldVerts });
+            return true;
         }
     }
 }
