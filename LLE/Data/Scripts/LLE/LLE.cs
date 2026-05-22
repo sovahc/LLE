@@ -209,6 +209,13 @@ namespace LLE
 				{
 					var data = reader.ReadBytes((int)reader.BaseStream.Length);
 					_kitchenCollision = MyAPIGateway.Utilities.SerializeFromBinary<CollisionGeometry>(data);
+
+					foreach (var shape in _kitchenCollision.Shapes)
+					{	var box = shape as BoxShape;
+						if (box != null)
+						{	MyConsole.Add($"{box}", Color.YellowGreen);
+						}
+					}
 				}
 				MyConsole.Add($"Loaded kitchen collision: {_kitchenCollision.Shapes.Count} root shapes", Color.White);
 			}
@@ -336,6 +343,29 @@ namespace LLE
 			}
 
 			if (grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
+			if (grid_A != null && point_A != null && _kitchenCollision != null)
+			{	var block = grid_A.GetCubeBlock(point_A);
+				if (block != null)
+				{	
+					Vector3D world = grid_A.GridIntegerToWorld(point_A);
+
+					MatrixD blockMatrix = grid_A.WorldMatrix;
+					blockMatrix.Translation = world;
+
+					var material = MyStringId.GetOrCompute("Square");
+					foreach (var shape in _kitchenCollision.Shapes)
+					{	var box = shape as BoxShape;
+						if (box != null)
+						{	
+							var matrix = blockMatrix * box.Transform;
+							var bb = new BoundingBoxD(-box.HalfExtents, box.HalfExtents);
+							Color color = Color.White;
+							MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+								MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+						}
+					}
+				}
+			}
 			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
 			MyConsole.Render(font);

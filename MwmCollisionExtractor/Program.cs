@@ -46,12 +46,12 @@ namespace MwmCollisionExtractor
             // Register protobuf-net serializers for VRageMath types
             var model = ProtoBuf.Meta.RuntimeTypeModel.Default;
             var vec3 = model.Add(typeof(Vector3), false);
-            vec3.Add(1, "X"); vec3.Add(2, "Y"); vec3.Add(3, "Z");
+            vec3.Add(1, "X"); vec3.Add(4, "Y"); vec3.Add(7, "Z");
             var mat = model.Add(typeof(Matrix), false);
-            mat.Add(1, "M11"); mat.Add(2, "M12"); mat.Add(3, "M13"); mat.Add(4, "M14");
-            mat.Add(5, "M21"); mat.Add(6, "M22"); mat.Add(7, "M23"); mat.Add(8, "M24");
-            mat.Add(9, "M31"); mat.Add(10, "M32"); mat.Add(11, "M33"); mat.Add(12, "M34");
-            mat.Add(13, "M41"); mat.Add(14, "M42"); mat.Add(15, "M43"); mat.Add(16, "M44");
+            mat.Add(1, "M11"); mat.Add(4, "M12"); mat.Add(7, "M13"); mat.Add(10, "M14");
+            mat.Add(13, "M21"); mat.Add(16, "M22"); mat.Add(19, "M23"); mat.Add(22, "M24");
+            mat.Add(25, "M31"); mat.Add(28, "M32"); mat.Add(31, "M33"); mat.Add(34, "M34");
+            mat.Add(37, "M41"); mat.Add(40, "M42"); mat.Add(43, "M43"); mat.Add(46, "M44");
         }
 
         const string Bin64 = "/home/cat/Projects/SpaceEngineers/Bin64";
@@ -103,13 +103,13 @@ namespace MwmCollisionExtractor
 
                 for (int i = 0; i < shapes.Count; i++)
                 {
-                    var shapeDto = ExtractShape(shapes[i]);
-                    if (shapeDto != null)
-                    {
-                        geometry.Shapes.Add(shapeDto);
-                        Console.WriteLine(shapeDto.ToString());
-                    }
+                    Flatten(shapes[i], Matrix.Identity, geometry.Shapes);
                 }
+                Console.WriteLine(new string('-', 60));
+                Console.WriteLine($"Total shapes extracted: {geometry.Shapes.Count}");
+                foreach (var s in geometry.Shapes)
+                    Console.WriteLine(s.ToString());
+                Console.WriteLine(new string('-', 60));
                 Console.WriteLine(new string('-', 60));
 
                 if (outputPath != null)
@@ -127,9 +127,9 @@ namespace MwmCollisionExtractor
             }
         }
 
-        static CollisionShape ExtractShape(HkShape shape)
+        static void Flatten(HkShape shape, Matrix currentTransform, List<CollisionShape> result)
         {
-            if (!shape.IsValid) return null;
+            if (!shape.IsValid) return;
 
             // --- Wrapper shapes (transform + child) ---
             if (shape.ShapeType == HkShapeType.ConvexTranslate || shape.ShapeType == HkShapeType.ConvexTransform)
@@ -138,37 +138,22 @@ namespace MwmCollisionExtractor
                 {
                     var cts = (HkConvexTranslateShape)shape;
                     var childShape = cts.ChildShape.Base;
-                    
-                    var compound = new CompoundShape();
-                    var child = ExtractShape(childShape);
-                    if (child != null)
-                    {
-                        child.Transform = Matrix.CreateTranslation(cts.Translation);
-                        compound.Children.Add(child);
-                    }
-                    return compound;
+                    Matrix nextTransform = currentTransform * Matrix.CreateTranslation(cts.Translation);
+                    Flatten(childShape, nextTransform, result);
                 }
-                catch { return null; }
+                catch { }
             }
             // --- Container shapes (hierarchy nodes) ---
             else if (shape.IsContainer())
             {
                 var type = shape.ShapeType;
-                var compound = new CompoundShape();
-
                 if (type == HkShapeType.StaticCompound)
                 {
                     var sCompound = (HkStaticCompoundShape)shape;
                     for (int i = 0; i < sCompound.InstanceCount; i++)
                     {
                         Matrix instTransform = sCompound.GetInstanceTransform(i);
-                        
-                        var child = ExtractShape(sCompound.GetInstance(i));
-                        if (child != null)
-                        {
-                            child.Transform = instTransform;
-                            compound.Children.Add(child);
-                        }
+                        Flatten(sCompound.GetInstance(i), currentTransform * instTransform, result);
                     }
                 }
                 else
@@ -176,47 +161,52 @@ namespace MwmCollisionExtractor
                     var iter = shape.GetContainer();
                     while (iter.IsValid)
                     {
-                        uint key = iter.CurrentShapeKey;
-                        HkShape childHk = iter.CurrentValue;
-                        var child = ExtractShape(childHk);
-                        if (child != null)
-                            compound.Children.Add(child);
+                        Flatten(iter.CurrentValue, currentTransform, result);
                         iter.Next();
                     }
                 }
-                return compound;
             }
             // --- Leaf shapes ---
             else
             {
-                switch (shape.ShapeType)
+                var leaf = CreateLeaf(shape);
+                if (leaf != null)
                 {
-                    case HkShapeType.Box:
-                        var box = (HkBoxShape)shape;
-                        return new BoxShape { HalfExtents = box.HalfExtents };
-                    case HkShapeType.Sphere:
-                        var sphere = (HkSphereShape)shape;
-                        return new SphereShape { Radius = sphere.Radius };
-                    case HkShapeType.Capsule:
-                        var capsule = (HkCapsuleShape)shape;
-                        return new CapsuleShape { VertexA = capsule.VertexA, VertexB = capsule.VertexB, Radius = capsule.Radius };
-                    case HkShapeType.Cylinder:
-                        var cylinder = (HkCylinderShape)shape;
-                        return new CylinderShape { VertexA = cylinder.VertexA, VertexB = cylinder.VertexB, Radius = cylinder.Radius };
-                    case HkShapeType.ConvexVertices:
-                        try
-                        {
-                            var convex = (HkConvexVerticesShape)shape;
-                            Vector3[] verts;
-                            convex.GetVertices(out verts);
-                            var hull = new ConvexHullShape();
-                            hull.Vertices.AddRange(verts);
-                            return hull;
-                        }
-                        catch { return null; }
-                    default:
-                        return null;
+                    leaf.Transform = currentTransform;
+                    result.Add(leaf);
                 }
+            }
+        }
+
+        static CollisionShape CreateLeaf(HkShape shape)
+        {
+            switch (shape.ShapeType)
+            {
+                case HkShapeType.Box:
+                    var box = (HkBoxShape)shape;
+                    return new BoxShape { HalfExtents = box.HalfExtents };
+                case HkShapeType.Sphere:
+                    var sphere = (HkSphereShape)shape;
+                    return new SphereShape { Radius = sphere.Radius };
+                case HkShapeType.Capsule:
+                    var capsule = (HkCapsuleShape)shape;
+                    return new CapsuleShape { VertexA = capsule.VertexA, VertexB = capsule.VertexB, Radius = capsule.Radius };
+                case HkShapeType.Cylinder:
+                    var cylinder = (HkCylinderShape)shape;
+                    return new CylinderShape { VertexA = cylinder.VertexA, VertexB = cylinder.VertexB, Radius = cylinder.Radius };
+                case HkShapeType.ConvexVertices:
+                    try
+                    {
+                        var convex = (HkConvexVerticesShape)shape;
+                        Vector3[] verts;
+                        convex.GetVertices(out verts);
+                        var hull = new ConvexHullShape();
+                        hull.Vertices.AddRange(verts);
+                        return hull;
+                    }
+                    catch { return null; }
+                default:
+                    return null;
             }
         }
 
