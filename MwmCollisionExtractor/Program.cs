@@ -49,9 +49,10 @@ namespace MwmCollisionExtractor
             vec3.Add(1, "X"); vec3.Add(4, "Y"); vec3.Add(7, "Z");
             // Field numbers match the game's protobuf schema (stride 3 per column)
             var mat = model.Add(typeof(Matrix), false);
-            var props = typeof(Matrix).GetProperties();
-            for (int i = 0; i < props.Length; i++)
-                mat.Add(1 + i * 3, props[i].Name);
+            mat.Add(1, "M11"); mat.Add(4, "M12"); mat.Add(7, "M13"); mat.Add(10, "M14");
+            mat.Add(13, "M21"); mat.Add(16, "M22"); mat.Add(19, "M23"); mat.Add(22, "M24");
+            mat.Add(25, "M31"); mat.Add(28, "M32"); mat.Add(31, "M33"); mat.Add(34, "M34");
+            mat.Add(37, "M41"); mat.Add(40, "M42"); mat.Add(43, "M43"); mat.Add(46, "M44");
         }
 
         const string Bin64 = "/home/cat/Projects/SpaceEngineers/Bin64";
@@ -59,8 +60,82 @@ namespace MwmCollisionExtractor
 
         static void Main(string[] args)
         {
-            string outputPath = args.Length > 0 ? args[0] : "/home/cat/Projects/LLE/LLE/Data/collisions.bin";
-            RunBatch(outputPath);
+            string outputFile = args.Length > 0 ? args[0] : "/home/cat/Projects/LLE/LLE/Data/collisions.bin";
+            const string sbcDir = "/home/cat/Projects/SpaceEngineers/Content/Data/CubeBlocks";
+            const string gameRoot = "/home/cat/Projects/SpaceEngineers/Content";
+            
+            HkBaseSystem.Init(5 * 1024 * 1024, msg => { }, deepProfiling: false, new NullSharedCriticalSection());
+            try
+            {
+                var allGeometry = new Dictionary<DefinitionIdAsText, CollisionGeometry>();
+                var sbcFiles = Directory.GetFiles(sbcDir, "*.sbc");
+                
+                foreach (var file in sbcFiles)
+                {
+                    Console.WriteLine($"Processing {Path.GetFileName(file)}...");
+                    XDocument doc = XDocument.Load(file);
+                    
+                    var blocks = doc.Descendants("Definition").Select(def =>
+                    {
+                        string typeId = def.Element("Id")?.Element("TypeId")?.Value;
+                        if (string.IsNullOrEmpty(typeId)) return null;
+                        string subtype = def.Element("Id")?.Element("SubtypeId")?.Value ?? "";
+                        var defId = new DefinitionIdAsText { TypeId = typeId, SubtypeId = subtype };
+                        
+                        string modelPath = def.Element("Model")?.Value;
+                        if (string.IsNullOrEmpty(modelPath))
+                        {
+                            var sides = def.Element("CubeDefinition")?.Element("Sides")?.Elements("Side").ToList();
+                            if (sides != null && sides.Count > 0)
+                            {
+                                var firstModel = sides[0].Attribute("Model")?.Value;
+                                if (sides.All(s => s.Attribute("Model")?.Value == firstModel))
+                                    modelPath = firstModel;
+                            }
+                        }
+                        
+                        return string.IsNullOrEmpty(modelPath) ? null : new { DefId = defId, ModelPath = modelPath };
+                    }).Where(b => b != null).ToList();
+
+                    foreach (var block in blocks)
+                    {
+                        string fullPath = Path.Combine(gameRoot, block.ModelPath.Replace('\\', '/'));
+                        if (!File.Exists(fullPath))
+                        {
+                            Console.WriteLine($"  SKIP {block.DefId.TypeId}:{block.DefId.SubtypeId}: model not found: {fullPath}");
+                            continue;
+                        }
+                        
+                        var shapes = new List<HkShape>();
+                        if (LoadMwmShapes(fullPath, shapes, out string loadError))
+                        {
+                            var geometry = new CollisionGeometry();
+                            foreach (var s in shapes)
+                                Flatten(s, Matrix.Identity, geometry.Shapes);
+                            
+                            allGeometry[block.DefId] = geometry;
+                            if (geometry.Shapes.Count == 0)
+                                Console.WriteLine($"  NO COLLISION {block.DefId.TypeId}:{block.DefId.SubtypeId}");
+                            else
+                                Console.WriteLine($"  OK {block.DefId.TypeId}:{block.DefId.SubtypeId}: {geometry.Shapes.Count} shapes");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"  FAIL {block.DefId.TypeId}:{block.DefId.SubtypeId}: {loadError}");
+                        }
+                    }
+                }
+                
+                using (var fs = File.Create(outputFile))
+                {
+                    Serializer.Serialize(fs, allGeometry);
+                }
+                Console.WriteLine($"\nBatch complete. Saved {allGeometry.Count} blocks to {outputFile}");
+            }
+            finally
+            {
+                HkBaseSystem.Quit();
+            }
         }
 
         static void Flatten(HkShape shape, Matrix currentTransform, List<CollisionShape> result)
@@ -170,84 +245,6 @@ namespace MwmCollisionExtractor
 
                 error = null;
                 return true;
-            }
-        }
-        static void RunBatch(string outputFile)
-        {
-            const string sbcDir = "/home/cat/Projects/SpaceEngineers/Content/Data/CubeBlocks";
-            const string gameRoot = "/home/cat/Projects/SpaceEngineers/Content";
-            
-            HkBaseSystem.Init(5 * 1024 * 1024, msg => { }, deepProfiling: false, new NullSharedCriticalSection());
-            try
-            {
-                var allGeometry = new Dictionary<DefinitionIdAsText, CollisionGeometry>();
-                var sbcFiles = Directory.GetFiles(sbcDir, "*.sbc");
-                
-                foreach (var file in sbcFiles)
-                {
-                    Console.WriteLine($"Processing {Path.GetFileName(file)}...");
-                    XDocument doc = XDocument.Load(file);
-                    
-                    var blocks = doc.Descendants("Definition").Select(def =>
-                    {
-                        string typeId = def.Element("Id")?.Element("TypeId")?.Value;
-                        if (string.IsNullOrEmpty(typeId)) return null;
-                        string subtype = def.Element("Id")?.Element("SubtypeId")?.Value ?? "";
-                        var defId = new DefinitionIdAsText { TypeId = typeId, SubtypeId = subtype };
-                        
-                        string modelPath = def.Element("Model")?.Value;
-                        if (string.IsNullOrEmpty(modelPath))
-                        {
-                            var sides = def.Element("CubeDefinition")?.Element("Sides")?.Elements("Side").ToList();
-                            if (sides != null && sides.Count > 0)
-                            {
-                                var firstModel = sides[0].Attribute("Model")?.Value;
-                                if (sides.All(s => s.Attribute("Model")?.Value == firstModel))
-                                    modelPath = firstModel;
-                            }
-                        }
-                        
-                        return string.IsNullOrEmpty(modelPath) ? null : new { DefId = defId, ModelPath = modelPath };
-                    }).Where(b => b != null).ToList();
-
-                    foreach (var block in blocks)
-                    {
-                        string fullPath = Path.Combine(gameRoot, block.ModelPath.Replace('\\', '/'));
-                        if (!File.Exists(fullPath))
-                        {
-                            Console.WriteLine($"  SKIP {block.DefId.TypeId}:{block.DefId.SubtypeId}: model not found: {fullPath}");
-                            continue;
-                        }
-                        
-                        var shapes = new List<HkShape>();
-                        if (LoadMwmShapes(fullPath, shapes, out string loadError))
-                        {
-                            var geometry = new CollisionGeometry();
-                            foreach (var s in shapes)
-                                Flatten(s, Matrix.Identity, geometry.Shapes);
-                            
-                            allGeometry[block.DefId] = geometry;
-                            if (geometry.Shapes.Count == 0)
-                                Console.WriteLine($"  NO COLLISION {block.DefId.TypeId}:{block.DefId.SubtypeId}");
-                            else
-                                Console.WriteLine($"  OK {block.DefId.TypeId}:{block.DefId.SubtypeId}: {geometry.Shapes.Count} shapes");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"  FAIL {block.DefId.TypeId}:{block.DefId.SubtypeId}: {loadError}");
-                        }
-                    }
-                }
-                
-                using (var fs = File.Create(outputFile))
-                {
-                    Serializer.Serialize(fs, allGeometry);
-                }
-                Console.WriteLine($"\nBatch complete. Saved {allGeometry.Count} blocks to {outputFile}");
-            }
-            finally
-            {
-                HkBaseSystem.Quit();
             }
         }
     }
