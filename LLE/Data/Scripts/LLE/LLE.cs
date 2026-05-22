@@ -191,6 +191,12 @@ namespace LLE
 	public class LLE : MySessionComponentBase
 	{
 		private static Font font;
+		IMyCubeGrid grid_A, grid_B;
+		Vector3I point_A, point_B;
+		AStar astar;
+		const int border = 1;
+
+		private Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -206,30 +212,7 @@ namespace LLE
 
 		public override void BeforeStart()
 		{
-			const string collisions_bin = "Data/collisions.bin";
-			if (!MyAPIGateway.Utilities.FileExistsInModLocation(collisions_bin, ModContext.ModItem))
-			{	MyConsole.Add($"ERROR: {collisions_bin} not found in mod location", Color.Red);
-			}
-			else
-			{	using (var reader = MyAPIGateway.Utilities.ReadBinaryFileInModLocation(collisions_bin, ModContext.ModItem))
-				{
-					var data = reader.ReadBytes((int)reader.BaseStream.Length);
-					var textDict = MyAPIGateway.Utilities.SerializeFromBinary<Dictionary<DefinitionIdAsText, CollisionGeometry>>(data);
-					_collisionGeometry = new Dictionary<MyDefinitionId, CollisionGeometry>(MyDefinitionId.Comparer);
-					foreach (var kv in textDict)
-					{
-						MyObjectBuilderType typeId;
-						if (!MyObjectBuilderType.TryParse(kv.Key.TypeId, out typeId))
-						{
-							Utilities.Log($"Error: Failed to parse TypeId: {kv.Key.TypeId}");
-							continue;
-						}
-						var subtypeId = MyStringHash.GetOrCompute(kv.Key.SubtypeId);
-						_collisionGeometry[new MyDefinitionId(typeId, subtypeId)] = kv.Value;
-					}
-				}
-				MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
-			}
+			LoadCollisionGeometry();
 
 			var entities = new HashSet<IMyEntity>();
 			MyAPIGateway.Entities.GetEntities(entities);
@@ -240,18 +223,40 @@ namespace LLE
 			MyAPIGateway.Utilities.MessageEntered += OnChatMessage;
 		}
 
+		private void LoadCollisionGeometry()
+		{
+			const string collisions_bin = "Data/collisions.bin";
+			if (!MyAPIGateway.Utilities.FileExistsInModLocation(collisions_bin, ModContext.ModItem))
+			{
+				MyConsole.Add($"ERROR: {collisions_bin} not found in mod location", Color.Red);
+				return;
+			}
+
+			using (var reader = MyAPIGateway.Utilities.ReadBinaryFileInModLocation(collisions_bin, ModContext.ModItem))
+			{
+				var data = reader.ReadBytes((int)reader.BaseStream.Length);
+				var textDict = MyAPIGateway.Utilities.SerializeFromBinary<Dictionary<DefinitionIdAsText, CollisionGeometry>>(data);
+				_collisionGeometry = new Dictionary<MyDefinitionId, CollisionGeometry>(MyDefinitionId.Comparer);
+				foreach (var kv in textDict)
+				{
+					MyObjectBuilderType typeId;
+					if (!MyObjectBuilderType.TryParse(kv.Key.TypeId, out typeId))
+					{
+						Utilities.Log($"Error: Failed to parse TypeId: {kv.Key.TypeId}");
+						continue;
+					}
+					var subtypeId = MyStringHash.GetOrCompute(kv.Key.SubtypeId);
+					_collisionGeometry[new MyDefinitionId(typeId, subtypeId)] = kv.Value;
+				}
+			}
+			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
+		}
+
 		protected override void UnloadData()
 		{
 			MyEntities.OnEntityAdd -= OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
-
-		IMyCubeGrid grid_A, grid_B;
-		Vector3I point_A, point_B;
-		AStar astar;
-		const int border = 1;
-
-		private Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
 
 		public override void UpdateBeforeSimulation()
 		{
@@ -363,12 +368,12 @@ namespace LLE
 						Quaternion q = Quaternion.CreateFromRotationMatrix(grid_A.WorldMatrix);
 						
 						Matrix.Transform(ref bo, ref q, out bo);
-                        MatrixD blockMatrix = new MatrixD(bo)
-                        {
-                            Translation = grid_A.GridIntegerToWorld(point_A)
-                        };
+						MatrixD blockMatrix = new MatrixD(bo)
+						{
+							Translation = grid_A.GridIntegerToWorld(point_A)
+						};
 
-                        Draw(geometry, blockMatrix);
+						Draw(geometry, blockMatrix);
 					}
 				}
 			}
