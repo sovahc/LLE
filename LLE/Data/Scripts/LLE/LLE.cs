@@ -356,15 +356,17 @@ namespace LLE
 
 					if (_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry))
 					{
-						Vector3D world = grid_A.GridIntegerToWorld(point_A);
-						Matrix blockOrient;
-						block.Orientation.GetMatrix(out blockOrient);
-						Quaternion quat = Quaternion.CreateFromRotationMatrix(grid_A.WorldMatrix);
-						Matrix.Transform(ref blockOrient, ref quat, out blockOrient);
-						MatrixD blockMatrix = new MatrixD(blockOrient);
-						blockMatrix.Translation = world;
+						Matrix bo;
+						block.Orientation.GetMatrix(out bo);
+						Quaternion q = Quaternion.CreateFromRotationMatrix(grid_A.WorldMatrix);
+						
+						Matrix.Transform(ref bo, ref q, out bo);
+                        MatrixD blockMatrix = new MatrixD(bo)
+                        {
+                            Translation = grid_A.GridIntegerToWorld(point_A)
+                        };
 
-						Draw(geometry, blockMatrix);
+                        Draw(geometry, blockMatrix);
 					}
 				}
 			}
