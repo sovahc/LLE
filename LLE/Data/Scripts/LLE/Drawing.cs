@@ -390,5 +390,30 @@ namespace LLE
 				Contour(screenPoints, true, thickness, c);
 			}
 		}
+
+		public static List<Vector2D> WorldToScreen(List<Vector3D> worldPoints)
+		{
+			if (!Common.Enabled || worldPoints == null) return new List<Vector2D>();
+			var result = new List<Vector2D>();
+			for (int i = 0; i < worldPoints.Count; i++)
+			{
+				Vector4D clip = Vector4D.Transform(worldPoints[i], Common._viewProj);
+				if (clip.W > 0.001)
+					result.Add(new Vector2D(clip.X / clip.W, clip.Y / clip.W));
+			}
+			return result;
+		}
+
+		public static void ScreenMarkers(Font font, List<Vector2D> screenPoints, Color color)
+		{
+			if (!Common.Enabled || screenPoints == null || screenPoints.Count == 0) return;
+
+			for (int i = 0; i < screenPoints.Count; i++)
+			{
+				var sp = screenPoints[i];
+				if (double.IsNaN(sp.X)) continue;
+				font.String("x", sp, 0.00075f, color);
+			}
+		}
 	}
 }

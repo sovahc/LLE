@@ -14,6 +14,8 @@ using VRage.ObjectBuilders;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
+using System.Linq;
+
 namespace LLE
 {
 	class Utilities
@@ -413,16 +415,14 @@ namespace LLE
 
 				var convex = shape as ConvexHullShape;
 				if (convex != null)
-				{	Color color = Color.Red;
-					
-					Vector3D v = new Vector3D(0.01);
-
-					foreach(var vertex in convex.Vertices)
-					{	
-						var bb = new BoundingBoxD(-v+vertex, v+vertex);
-
-						MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
-							MySimpleObjectRasterizer.Wireframe, 1, 0.05f, material, material);
+				{
+					var worldVerts = convex.Vertices.Select(v => Vector3D.Transform(v, matrix)).ToList();
+					var screenVerts = Drawing.WorldToScreen(worldVerts);
+					var hull = Geometry.ConvexHull(screenVerts);
+					if (hull.Count >= 2)
+					{
+						var hullArray = hull.ToArray();
+						Drawing.Contour(hullArray, true, 5e-5f, new Vector4(1f, 0f, 0f, 1f));
 					}
 				}
 
