@@ -246,10 +246,40 @@ namespace LLE
 						continue;
 					}
 					var subtypeId = MyStringHash.GetOrCompute(kv.Key.SubtypeId);
+
+					PreprocessCG(kv.Value);
+
 					_collisionGeometry[new MyDefinitionId(typeId, subtypeId)] = kv.Value;
 				}
 			}
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
+		}
+
+		private void PreprocessCG(CollisionGeometry geometry)
+		{
+			var shapes = geometry.Shapes;
+
+			for(int i = 0; i < shapes.Count; ++i)
+			{	var shape = shapes[i];
+				var box = shape as BoxShape;
+				if (box != null)
+				{	var he = box.HalfExtents;
+					var verts = new List<Vector3>
+					{
+						new Vector3( he.X,  he.Y,  he.Z),
+						new Vector3( he.X,  he.Y, -he.Z),
+						new Vector3( he.X, -he.Y,  he.Z),
+						new Vector3( he.X, -he.Y, -he.Z),
+						new Vector3(-he.X,  he.Y,  he.Z),
+						new Vector3(-he.X,  he.Y, -he.Z),
+						new Vector3(-he.X, -he.Y,  he.Z),
+						new Vector3(-he.X, -he.Y, -he.Z),
+					};
+					for (int v = 0; v < verts.Count; ++v)
+						verts[v] = Vector3.Transform(verts[v], box.Transform);
+					shapes[i] = new ConvexHullShape { Vertices = verts };
+				}
+			}
 		}
 
 		protected override void UnloadData()
