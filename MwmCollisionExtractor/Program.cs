@@ -68,13 +68,24 @@ namespace MwmCollisionExtractor
             if (!shape.IsValid) return;
 
             // --- Wrapper shapes (transform + child) ---
-            if (shape.ShapeType == HkShapeType.ConvexTranslate || shape.ShapeType == HkShapeType.ConvexTransform)
+            if (shape.ShapeType == HkShapeType.ConvexTranslate)
             {
                 try
                 {
                     var cts = (HkConvexTranslateShape)shape;
                     var childShape = cts.ChildShape.Base;
                     Matrix nextTransform = currentTransform * Matrix.CreateTranslation(cts.Translation);
+                    Flatten(childShape, nextTransform, result);
+                }
+                catch { }
+            }
+            else if (shape.ShapeType == HkShapeType.ConvexTransform)
+            {
+                try
+                {
+                    var cts = (HkConvexTransformShape)shape;
+                    var childShape = cts.ChildShape.Base;
+                    Matrix nextTransform = currentTransform * cts.Transform;
                     Flatten(childShape, nextTransform, result);
                 }
                 catch { }
