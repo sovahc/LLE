@@ -421,33 +421,6 @@ namespace LLE
 			{
 				var matrix = blockMatrix * shape.Transform;
 
-				var box = shape as BoxShape;
-				if (box != null)
-				{	Color color = Color.Cyan;
-					
-					var bb = new BoundingBoxD(-box.HalfExtents, box.HalfExtents);
-					
-					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
-						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
-				}
-
-				var capsule = shape as CapsuleShape;
-				if(capsule != null)
-				{	Color color = Color.Magenta;
-
-					Vector3D v = new Vector3D(capsule.Radius);
-
-					var bb = new BoundingBoxD(-v+capsule.VertexA, v+capsule.VertexA);
-
-					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
-						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
-
-					bb = new BoundingBoxD(-v+capsule.VertexB, v+capsule.VertexB);
-
-					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
-						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
-				}
-
 				var convex = shape as ConvexHullShape;
 				if (convex != null)
 				{
@@ -480,6 +453,23 @@ namespace LLE
 					Vector3D v = new Vector3D(cylinder.Radius);
 
 					var bb = new BoundingBoxD(-v, v);
+
+					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+				}
+
+				var capsule = shape as CapsuleShape;
+				if(capsule != null)
+				{	Color color = Color.Magenta;
+
+					Vector3D v = new Vector3D(capsule.Radius);
+
+					var bb = new BoundingBoxD(-v+capsule.VertexA, v+capsule.VertexA);
+
+					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+
+					bb = new BoundingBoxD(-v+capsule.VertexB, v+capsule.VertexB);
 
 					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
 						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
