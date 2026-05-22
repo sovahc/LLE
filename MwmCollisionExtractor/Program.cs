@@ -223,7 +223,7 @@ namespace MwmCollisionExtractor
             HkBaseSystem.Init(5 * 1024 * 1024, msg => { }, deepProfiling: false, new NullSharedCriticalSection());
             try
             {
-                var allGeometry = new Dictionary<string, CollisionGeometry>();
+                var allGeometry = new Dictionary<DefinitionIdAsText, CollisionGeometry>();
                 var sbcFiles = Directory.GetFiles(sbcDir, "*.sbc");
                 
                 foreach (var file in sbcFiles)
@@ -234,8 +234,11 @@ namespace MwmCollisionExtractor
                     
                     foreach (var def in definitions)
                     {
+                        string typeId = def.Element("Id")?.Element("TypeId")?.Value;
                         string subtype = def.Element("Id")?.Element("SubtypeId")?.Value;
-                        if (string.IsNullOrEmpty(subtype)) continue;
+                        if (string.IsNullOrEmpty(typeId) || string.IsNullOrEmpty(subtype)) continue;
+                        var defId = new DefinitionIdAsText { TypeId = typeId, SubtypeId = subtype };
+
                         
                         string modelPath = def.Element("Model")?.Value;
                         
@@ -257,7 +260,7 @@ namespace MwmCollisionExtractor
                         string fullPath = Path.Combine(gameRoot, modelPath.Replace('\\', '/'));
                         if (!File.Exists(fullPath))
                         {
-                            Console.WriteLine($"  SKIP {subtype}: model not found: {fullPath}");
+                            Console.WriteLine($"  SKIP {defId.TypeId}:{defId.SubtypeId}: model not found: {fullPath}");
                             continue;
                         }
                         
@@ -269,12 +272,12 @@ namespace MwmCollisionExtractor
                             {
                                 Flatten(s, Matrix.Identity, geometry.Shapes);
                             }
-                            allGeometry[subtype] = geometry;
-                            Console.WriteLine($"  OK {subtype}: {geometry.Shapes.Count} shapes");
+                            allGeometry[defId] = geometry;
+                            Console.WriteLine($"  OK {defId.TypeId}:{defId.SubtypeId}: {geometry.Shapes.Count} shapes");
                         }
                         else
                         {
-                            Console.WriteLine($"  FAIL {subtype}: LoadMwmShapes returned false");
+                            Console.WriteLine($"  FAIL {defId.TypeId}:{defId.SubtypeId}: LoadMwmShapes returned false");
                         }
                     }
                 }

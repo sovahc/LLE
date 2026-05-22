@@ -25,6 +25,13 @@ namespace LLE
 	public enum ObjectType { Asteroid, LargeShip, SmallShip, Floating }
 
 	[ProtoContract]
+	public struct DefinitionIdAsText
+	{
+		[ProtoMember(1)] public string TypeId;
+		[ProtoMember(2)] public string SubtypeId;
+	}
+
+	[ProtoContract]
 	public class CollisionGeometry
 	{
 		[ProtoMember(1)] public List<CollisionShape> Shapes = new List<CollisionShape>();
