@@ -196,8 +196,6 @@ namespace LLE
 		AStar astar;
 		const int border = 1;
 
-		private Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
-
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
@@ -212,7 +210,7 @@ namespace LLE
 
 		public override void BeforeStart()
 		{
-			LoadCollisionGeometry();
+			Collisions.Load(ModContext);
 
 			var entities = new HashSet<IMyEntity>();
 			MyAPIGateway.Entities.GetEntities(entities);
@@ -221,82 +219,6 @@ namespace LLE
 
 			MyEntities.OnEntityAdd += OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered += OnChatMessage;
-		}
-
-		private void LoadCollisionGeometry()
-		{
-			const string collisions_bin = "Data/collisions.bin";
-			if (!MyAPIGateway.Utilities.FileExistsInModLocation(collisions_bin, ModContext.ModItem))
-			{
-				MyConsole.Add($"ERROR: {collisions_bin} not found in mod location", Color.Red);
-				return;
-			}
-
-			using (var reader = MyAPIGateway.Utilities.ReadBinaryFileInModLocation(collisions_bin, ModContext.ModItem))
-			{
-				var data = reader.ReadBytes((int)reader.BaseStream.Length);
-				var textDict = MyAPIGateway.Utilities.SerializeFromBinary<Dictionary<DefinitionIdAsText, CollisionGeometry>>(data);
-				_collisionGeometry = new Dictionary<MyDefinitionId, CollisionGeometry>(MyDefinitionId.Comparer);
-				foreach (var kv in textDict)
-				{
-					MyObjectBuilderType typeId;
-					if (!MyObjectBuilderType.TryParse(kv.Key.TypeId, out typeId))
-					{
-						Utilities.Log($"Error: Failed to parse TypeId: {kv.Key.TypeId}");
-						continue;
-					}
-					var subtypeId = MyStringHash.GetOrCompute(kv.Key.SubtypeId);
-
-					PreprocessCG(kv.Value);
-
-					_collisionGeometry[new MyDefinitionId(typeId, subtypeId)] = kv.Value;
-				}
-			}
-			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
-		}
-
-		private void PreprocessCG(CollisionGeometry geometry)
-		{
-			var shapes = geometry.Shapes;
-
-			for(int i = 0; i < shapes.Count; ++i)
-			{	var shape = shapes[i];
-				var box = shape as BoxShape;
-				if (box != null)
-				{	var he = box.HalfExtents;
-					var verts = new List<Vector3>
-					{
-						new Vector3( he.X,  he.Y,  he.Z),
-						new Vector3( he.X,  he.Y, -he.Z),
-						new Vector3( he.X, -he.Y,  he.Z),
-						new Vector3( he.X, -he.Y, -he.Z),
-						new Vector3(-he.X,  he.Y,  he.Z),
-						new Vector3(-he.X,  he.Y, -he.Z),
-						new Vector3(-he.X, -he.Y,  he.Z),
-						new Vector3(-he.X, -he.Y, -he.Z),
-					};
-					for (int v = 0; v < verts.Count; ++v)
-						verts[v] = Vector3.Transform(verts[v], box.Transform);
-					shapes[i] = new ConvexHullShape { Vertices = verts };
-				}
-				var cylinder = shape as CylinderShape;
-				if (cylinder != null)
-				{
-					var vv = new List<Vector3>();
-					int segments = 32;
-					for (int s = 0; s < segments; s++)
-					{
-						double angle = s * MathHelper.TwoPi / segments;
-						double c = Math.Cos(angle), sn = Math.Sin(angle);
-						vv.Add(new Vector3((float)c * cylinder.Radius, 0, (float)sn * cylinder.Radius) + cylinder.VertexA);
-						vv.Add(new Vector3((float)c * cylinder.Radius, 0, (float)sn * cylinder.Radius) + cylinder.VertexB);
-					}
-					for (int v = 0; v < vv.Count; ++v)
-						vv[v] = Vector3.Transform(vv[v], cylinder.Transform);
-
-					shapes[i] = new ConvexHullShape { Vertices = vv };
-				}
-			}
 		}
 
 		protected override void UnloadData()
@@ -402,31 +324,11 @@ namespace LLE
 			}
 
 			if (grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
-			if (grid_A != null && point_A != null && _collisionGeometry != null)
+			if (grid_A != null && point_A != null)
 			{	var block = grid_A.GetCubeBlock(point_A);
 				if (block != null)
 				{
-					CollisionGeometry geometry;
-
-					var id = block.BlockDefinition.Id;
-
-					if (!_collisionGeometry.TryGetValue(id, out geometry))
-					{	MyConsole.Add($"NOT FOUND {id}", Color.Red);
-					}
-					else
-					{
-						Matrix bo;
-						block.Orientation.GetMatrix(out bo);
-						Quaternion q = Quaternion.CreateFromRotationMatrix(grid_A.WorldMatrix);
-						
-						Matrix.Transform(ref bo, ref q, out bo);
-						MatrixD blockMatrix = new MatrixD(bo)
-						{
-							Translation = grid_A.GridIntegerToWorld(point_A)
-						};
-
-						Draw(geometry, blockMatrix);
-					}
+					Collisions.Draw(grid_A, block);
 				}
 			}
 			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
@@ -434,63 +336,6 @@ namespace LLE
 			MyConsole.Render(font);
 
 			Common.Call_Add_Billboards(); // just for sure
-		}
-
-		private void Draw(CollisionGeometry geometry, MatrixD blockMatrix)
-		{
-			var material = MyStringId.GetOrCompute("Square");
-			foreach (var shape in geometry.Shapes)
-			{
-				var matrix = blockMatrix * shape.Transform;
-
-				var convex = shape as ConvexHullShape;
-				if (convex != null)
-				{
-					var worldVerts = convex.Vertices.Select(v => Vector3D.Transform(v, matrix)).ToList();
-					var screenVerts = Drawing.WorldToScreen(worldVerts);
-					var hull = Geometry.ConvexHull(screenVerts);
-					if (hull.Count >= 2)
-					{
-						var hullArray = hull.ToArray();
-						Drawing.Contour(hullArray, true, 5e-5f, new Vector4(1f, 0f, 0f, 1f));
-					}
-				}
-
-				var sphere = shape as SphereShape;
-				if (sphere != null)
-					DrawScreenSphere(matrix, sphere.Radius, Vector3D.Zero, new Vector4(1f, 1f, 1f, 1f));
-
-
-				var capsule = shape as CapsuleShape;
-				if (capsule != null)
-				{
-					DrawScreenSphere(matrix, capsule.Radius, capsule.VertexA, new Vector4(1f, 0f, 1f, 1f));
-					DrawScreenSphere(matrix, capsule.Radius, capsule.VertexB, new Vector4(1f, 0f, 1f, 1f));
-				}
-			}
-		}
-
-		private void DrawScreenSphere(MatrixD matrix, float radius, Vector3D localCenter, Vector4 color)
-		{
-			var camera = MyAPIGateway.Session.Camera;
-			Vector3D worldCenter = Vector3D.Transform(localCenter, matrix);
-			Vector3D viewDir = Vector3D.Normalize(worldCenter - camera.Position);
-			
-			Vector3D up = Math.Abs(Vector3D.Dot(viewDir, Vector3D.Up)) > 0.99 ? Vector3D.Forward : Vector3D.Up;
-			Vector3D right = Vector3D.Normalize(Vector3D.Cross(viewDir, up));
-			Vector3D localUp = Vector3D.Cross(right, viewDir);
-			
-			int segments = 64;
-			var silhouettePoints = new List<Vector3D>();
-			for (int i = 0; i < segments; i++)
-			{
-				double angle = i * MathHelper.TwoPi / segments;
-				Vector3D worldPoint = worldCenter + Math.Cos(angle) * right * radius + Math.Sin(angle) * localUp * radius;
-				silhouettePoints.Add(worldPoint);
-			}
-			var projected = Drawing.WorldToScreen(silhouettePoints);
-			if (projected.Count >= 2)
-				Drawing.Contour(projected.ToArray(), true, 5e-5f, color);
 		}
 
 		void OnEntityAdd(IMyEntity entity)
