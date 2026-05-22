@@ -158,7 +158,7 @@ namespace MwmCollisionExtractor
         }
 
         // MWM binary format parser — extracts HavokCollisionGeometry tag and loads shapes from it
-        static bool LoadMwmShapes(string filePath, List<HkShape> outShapes)
+        static bool LoadMwmShapes(string filePath, List<HkShape> outShapes, out string error)
         {
             using (var fs = File.OpenRead(filePath))
             using (var reader = new BinaryReader(fs, System.Text.Encoding.UTF8, leaveOpen: true))
@@ -175,19 +175,19 @@ namespace MwmCollisionExtractor
                     {
                         int version = int.Parse(val[8..]);
                         if (version >= 01066002)
-                            return ReadMwmNewVersion(reader, outShapes);
+                            return ReadMwmNewVersion(reader, outShapes, out error);
 
-                        Console.Error.WriteLine($"Old MWM version {version} is not supported.");
+                        error = $"Old MWM version {version}";
                         return false;
                     }
                 }
             }
 
-            Console.Error.WriteLine("Unsupported MWM format");
+            error = "Unsupported MWM format";
             return false;
         }
 
-        static bool ReadMwmNewVersion(BinaryReader reader, List<HkShape> outShapes)
+        static bool ReadMwmNewVersion(BinaryReader reader, List<HkShape> outShapes, out string error)
         {
             // Index dictionary: tag name -> file offset
             int itemsCount = reader.ReadInt32();
@@ -202,7 +202,7 @@ namespace MwmCollisionExtractor
             // Look for HavokCollisionGeometry tag
             if (!indexDict.TryGetValue("HavokCollisionGeometry", out int collisionOffset))
             {
-                Console.Error.WriteLine("No HavokCollisionGeometry tag in MWM");
+                error = "No HavokCollisionGeometry tag";
                 return false;
             }
 
@@ -211,19 +211,28 @@ namespace MwmCollisionExtractor
             string tagCheck = reader.ReadString();
             if (tagCheck != "HavokCollisionGeometry")
             {
-                Console.Error.WriteLine($"Tag mismatch at offset {collisionOffset}: expected HavokCollisionGeometry, got '{tagCheck}'");
+                error = $"Tag mismatch: '{tagCheck}'";
                 return false;
             }
 
             int dataLen = reader.ReadInt32();
+            if (dataLen == 0)
+            {
+                error = null;
+                return true; // Empty collision is valid
+            }
             byte[] collisionData = reader.ReadBytes(dataLen);
 
             // Load shapes from the embedded Havok buffer
             bool containsScene; 
             bool containsDestruction;
             if (!HkShapeLoader.LoadShapesListFromBuffer(collisionData, outShapes, out containsScene, out containsDestruction))
+            {
+                error = "HkShapeLoader failed";
                 return false;
+            }
 
+            error = null;
             return true;
         }
         static void RunBatch(string outputFile)
@@ -276,7 +285,7 @@ namespace MwmCollisionExtractor
                         }
                         
                         var shapes = new List<HkShape>();
-                        if (LoadMwmShapes(fullPath, shapes))
+                        if (LoadMwmShapes(fullPath, shapes, out string loadError))
                         {
                             var geometry = new CollisionGeometry();
                             foreach (var s in shapes)
@@ -284,11 +293,14 @@ namespace MwmCollisionExtractor
                                 Flatten(s, Matrix.Identity, geometry.Shapes);
                             }
                             allGeometry[defId] = geometry;
-                            Console.WriteLine($"  OK {defId.TypeId}:{defId.SubtypeId}: {geometry.Shapes.Count} shapes");
+                            if (geometry.Shapes.Count == 0)
+                                Console.WriteLine($"  NO COLLISION {defId.TypeId}:{defId.SubtypeId}");
+                            else
+                                Console.WriteLine($"  OK {defId.TypeId}:{defId.SubtypeId}: {geometry.Shapes.Count} shapes");
                         }
                         else
                         {
-                            Console.WriteLine($"  FAIL {defId.TypeId}:{defId.SubtypeId}: LoadMwmShapes returned false");
+                            Console.WriteLine($"  FAIL {defId.TypeId}:{defId.SubtypeId}: {loadError}");
                         }
                     }
                 }
