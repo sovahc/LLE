@@ -1,14 +1,14 @@
 // MwmCollisionExtractor — extracts collision shapes from .hkt / .mwm files
-// Usage: MwmCollisionExtractor.exe <path/to/file.hkt or .mwm> [output.scad]
 //
 // Build (Linux, requires Wine for Havok.dll):
 //   dotnet publish -c Release -r win-x64 --self-contained -o win/
-//   cd win && wine MwmCollisionExtractor.exe <file.mwm> [output.scad]
-//
+//   cd win && wine MwmCollisionExtractor.exe
 // Build (Windows):
 //   dotnet publish -c Release -o publish/
-//   cd publish && MwmCollisionExtractor.exe <file.mwm> [output.scad]
+//   cd publish && MwmCollisionExtractor.exe
 
+using System.Xml.Linq;
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -59,72 +59,8 @@ namespace MwmCollisionExtractor
 
         static void Main(string[] args)
         {
-            if (args.Length == 0)
-            {
-                Console.WriteLine("Usage: MwmCollisionExtractor.exe <path/to/file.hkt or .mwm> [output.bin]");
-                return;
-            }
-
-            string filePath = Path.GetFullPath(args[0]);
-            if (!File.Exists(filePath))
-            {
-                Console.Error.WriteLine($"File not found: {filePath}");
-                return;
-            }
-
-            string outputPath = null;
-            if (args.Length >= 2)
-            {
-                outputPath = args[1];
-            }
-
-            // Initialize Havok base system (required before any shape operations)
-            HkBaseSystem.Init(5 * 1024 * 1024, msg => { }, deepProfiling: false, new NullSharedCriticalSection());
-
-            try
-            {
-                var geometry = new CollisionGeometry();
-                var shapes = new List<HkShape>();
-                bool ok;
-
-                if (filePath.EndsWith(".mwm", StringComparison.OrdinalIgnoreCase))
-                    ok = LoadMwmShapes(filePath, shapes);
-                else
-                    ok = HkShapeLoader.LoadShapesListFromFile(filePath, shapes);
-
-                if (!ok || shapes.Count == 0)
-                {
-                    Console.Error.WriteLine($"Failed to load shapes from: {filePath}");
-                    return;
-                }
-
-                Console.WriteLine($"Loaded {shapes.Count} root shape(s) from {Path.GetFileName(filePath)}");
-                Console.WriteLine(new string('-', 60));
-
-                for (int i = 0; i < shapes.Count; i++)
-                {
-                    Flatten(shapes[i], Matrix.Identity, geometry.Shapes);
-                }
-                Console.WriteLine(new string('-', 60));
-                Console.WriteLine($"Total shapes extracted: {geometry.Shapes.Count}");
-                foreach (var s in geometry.Shapes)
-                    Console.WriteLine(s.ToString());
-                Console.WriteLine(new string('-', 60));
-                Console.WriteLine(new string('-', 60));
-
-                if (outputPath != null)
-                {
-                    using (var fs = File.Create(outputPath))
-                    {
-                        Serializer.Serialize(fs, geometry);
-                    }
-                    Console.WriteLine($"Saved geometry to: {outputPath}");
-                }
-            }
-            finally
-            {
-                HkBaseSystem.Quit();
-            }
+            string outputPath = args.Length > 0 ? args[0] : "all_collisions.bin";
+            RunBatch(outputPath);
         }
 
         static void Flatten(HkShape shape, Matrix currentTransform, List<CollisionShape> result)
@@ -278,6 +214,81 @@ namespace MwmCollisionExtractor
                 return false;
 
             return true;
+        }
+        static void RunBatch(string outputFile)
+        {
+            const string sbcDir = "/home/cat/Projects/SpaceEngineers/Content/Data/CubeBlocks";
+            const string gameRoot = "/home/cat/Projects/SpaceEngineers/Content";
+            
+            HkBaseSystem.Init(5 * 1024 * 1024, msg => { }, deepProfiling: false, new NullSharedCriticalSection());
+            try
+            {
+                var allGeometry = new Dictionary<string, CollisionGeometry>();
+                var sbcFiles = Directory.GetFiles(sbcDir, "*.sbc");
+                
+                foreach (var file in sbcFiles)
+                {
+                    Console.WriteLine($"Processing {Path.GetFileName(file)}...");
+                    XDocument doc = XDocument.Load(file);
+                    var definitions = doc.Descendants("Definition");
+                    
+                    foreach (var def in definitions)
+                    {
+                        string subtype = def.Element("Id")?.Element("SubtypeId")?.Value;
+                        if (string.IsNullOrEmpty(subtype)) continue;
+                        
+                        string modelPath = def.Element("Model")?.Value;
+                        
+                        if (string.IsNullOrEmpty(modelPath))
+                        {
+                            var sides = def.Element("CubeDefinition")?.Element("Sides")?.Elements("Side").ToList();
+                            if (sides != null && sides.Count > 0)
+                            {
+                                var firstModel = sides[0].Attribute("Model")?.Value;
+                                if (sides.All(s => s.Attribute("Model")?.Value == firstModel))
+                                {
+                                    modelPath = firstModel;
+                                }
+                            }
+                        }
+                        
+                        if (string.IsNullOrEmpty(modelPath)) continue;
+                        
+                        string fullPath = Path.Combine(gameRoot, modelPath.Replace('\\', '/'));
+                        if (!File.Exists(fullPath))
+                        {
+                            Console.WriteLine($"  SKIP {subtype}: model not found: {fullPath}");
+                            continue;
+                        }
+                        
+                        var shapes = new List<HkShape>();
+                        if (LoadMwmShapes(fullPath, shapes))
+                        {
+                            var geometry = new CollisionGeometry();
+                            foreach (var s in shapes)
+                            {
+                                Flatten(s, Matrix.Identity, geometry.Shapes);
+                            }
+                            allGeometry[subtype] = geometry;
+                            Console.WriteLine($"  OK {subtype}: {geometry.Shapes.Count} shapes");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"  FAIL {subtype}: LoadMwmShapes returned false");
+                        }
+                    }
+                }
+                
+                using (var fs = File.Create(outputFile))
+                {
+                    Serializer.Serialize(fs, allGeometry);
+                }
+                Console.WriteLine($"\nBatch complete. Saved {allGeometry.Count} blocks to {outputFile}");
+            }
+            finally
+            {
+                HkBaseSystem.Quit();
+            }
         }
     }
 }
