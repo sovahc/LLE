@@ -408,7 +408,12 @@ namespace LLE
 				{
 					CollisionGeometry geometry;
 
-					if (_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry))
+					var id = block.BlockDefinition.Id;
+
+					if (!_collisionGeometry.TryGetValue(id, out geometry))
+					{	MyConsole.Add($"NOT FOUND {id}", Color.Red);
+					}
+					else
 					{
 						Matrix bo;
 						block.Orientation.GetMatrix(out bo);

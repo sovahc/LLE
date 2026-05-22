@@ -59,7 +59,7 @@ namespace MwmCollisionExtractor
 
         static void Main(string[] args)
         {
-            string outputPath = args.Length > 0 ? args[0] : "all_collisions.bin";
+            string outputPath = args.Length > 0 ? args[0] : "/home/cat/Projects/LLE/LLE/Data/collisions.bin";
             RunBatch(outputPath);
         }
 
@@ -236,10 +236,10 @@ namespace MwmCollisionExtractor
                     {
                         string typeId = def.Element("Id")?.Element("TypeId")?.Value;
                         string subtype = def.Element("Id")?.Element("SubtypeId")?.Value;
-                        if (string.IsNullOrEmpty(typeId) || string.IsNullOrEmpty(subtype)) continue;
+                        if (string.IsNullOrEmpty(typeId)) continue;
+                        if (string.IsNullOrEmpty(subtype)) subtype = "";
                         var defId = new DefinitionIdAsText { TypeId = typeId, SubtypeId = subtype };
 
-                        
                         string modelPath = def.Element("Model")?.Value;
                         
                         if (string.IsNullOrEmpty(modelPath))
