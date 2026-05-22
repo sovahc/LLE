@@ -246,18 +246,15 @@ namespace MwmCollisionExtractor
                 {
                     Console.WriteLine($"Processing {Path.GetFileName(file)}...");
                     XDocument doc = XDocument.Load(file);
-                    var definitions = doc.Descendants("Definition");
                     
-                    foreach (var def in definitions)
+                    var blocks = doc.Descendants("Definition").Select(def =>
                     {
                         string typeId = def.Element("Id")?.Element("TypeId")?.Value;
-                        string subtype = def.Element("Id")?.Element("SubtypeId")?.Value;
-                        if (string.IsNullOrEmpty(typeId)) continue;
-                        if (string.IsNullOrEmpty(subtype)) subtype = "";
+                        if (string.IsNullOrEmpty(typeId)) return null;
+                        string subtype = def.Element("Id")?.Element("SubtypeId")?.Value ?? "";
                         var defId = new DefinitionIdAsText { TypeId = typeId, SubtypeId = subtype };
-
-                        string modelPath = def.Element("Model")?.Value;
                         
+                        string modelPath = def.Element("Model")?.Value;
                         if (string.IsNullOrEmpty(modelPath))
                         {
                             var sides = def.Element("CubeDefinition")?.Element("Sides")?.Elements("Side").ToList();
@@ -265,18 +262,19 @@ namespace MwmCollisionExtractor
                             {
                                 var firstModel = sides[0].Attribute("Model")?.Value;
                                 if (sides.All(s => s.Attribute("Model")?.Value == firstModel))
-                                {
                                     modelPath = firstModel;
-                                }
                             }
                         }
                         
-                        if (string.IsNullOrEmpty(modelPath)) continue;
-                        
-                        string fullPath = Path.Combine(gameRoot, modelPath.Replace('\\', '/'));
+                        return string.IsNullOrEmpty(modelPath) ? null : new { DefId = defId, ModelPath = modelPath };
+                    }).Where(b => b != null).ToList();
+
+                    foreach (var block in blocks)
+                    {
+                        string fullPath = Path.Combine(gameRoot, block.ModelPath.Replace('\\', '/'));
                         if (!File.Exists(fullPath))
                         {
-                            Console.WriteLine($"  SKIP {defId.TypeId}:{defId.SubtypeId}: model not found: {fullPath}");
+                            Console.WriteLine($"  SKIP {block.DefId.TypeId}:{block.DefId.SubtypeId}: model not found: {fullPath}");
                             continue;
                         }
                         
@@ -285,18 +283,17 @@ namespace MwmCollisionExtractor
                         {
                             var geometry = new CollisionGeometry();
                             foreach (var s in shapes)
-                            {
                                 Flatten(s, Matrix.Identity, geometry.Shapes);
-                            }
-                            allGeometry[defId] = geometry;
+                            
+                            allGeometry[block.DefId] = geometry;
                             if (geometry.Shapes.Count == 0)
-                                Console.WriteLine($"  NO COLLISION {defId.TypeId}:{defId.SubtypeId}");
+                                Console.WriteLine($"  NO COLLISION {block.DefId.TypeId}:{block.DefId.SubtypeId}");
                             else
-                                Console.WriteLine($"  OK {defId.TypeId}:{defId.SubtypeId}: {geometry.Shapes.Count} shapes");
+                                Console.WriteLine($"  OK {block.DefId.TypeId}:{block.DefId.SubtypeId}: {geometry.Shapes.Count} shapes");
                         }
                         else
                         {
-                            Console.WriteLine($"  FAIL {defId.TypeId}:{defId.SubtypeId}: {loadError}");
+                            Console.WriteLine($"  FAIL {block.DefId.TypeId}:{block.DefId.SubtypeId}: {loadError}");
                         }
                     }
                 }
