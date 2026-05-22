@@ -10,6 +10,7 @@ using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRage.Utils;
+using VRage.ObjectBuilders;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
@@ -202,26 +203,29 @@ namespace LLE
 
 		public override void BeforeStart()
 		{
-			const string kitchenPath = "Data/kitchen.bin";
-			if (MyAPIGateway.Utilities.FileExistsInModLocation(kitchenPath, ModContext.ModItem))
-			{
-				using (var reader = MyAPIGateway.Utilities.ReadBinaryFileInModLocation(kitchenPath, ModContext.ModItem))
-				{
-					var data = reader.ReadBytes((int)reader.BaseStream.Length);
-					_kitchenCollision = MyAPIGateway.Utilities.SerializeFromBinary<CollisionGeometry>(data);
-
-					foreach (var shape in _kitchenCollision.Shapes)
-					{	var box = shape as BoxShape;
-						if (box != null)
-						{	MyConsole.Add($"{box}", Color.YellowGreen);
-						}
-					}
-				}
-				MyConsole.Add($"Loaded kitchen collision: {_kitchenCollision.Shapes.Count} root shapes", Color.White);
+			const string collisions_bin = "Data/collisions.bin";
+			if (!MyAPIGateway.Utilities.FileExistsInModLocation(collisions_bin, ModContext.ModItem))
+			{	MyConsole.Add($"ERROR: {collisions_bin} not found in mod location", Color.Red);
 			}
 			else
-			{
-				MyConsole.Add($"WARNING: {kitchenPath} not found in mod location", Color.White);
+			{	using (var reader = MyAPIGateway.Utilities.ReadBinaryFileInModLocation(collisions_bin, ModContext.ModItem))
+				{
+					var data = reader.ReadBytes((int)reader.BaseStream.Length);
+					var textDict = MyAPIGateway.Utilities.SerializeFromBinary<Dictionary<DefinitionIdAsText, CollisionGeometry>>(data);
+					_collisionGeometry = new Dictionary<MyDefinitionId, CollisionGeometry>(MyDefinitionId.Comparer);
+					foreach (var kv in textDict)
+					{
+						MyObjectBuilderType typeId;
+						if (!MyObjectBuilderType.TryParse(kv.Key.TypeId, out typeId))
+						{
+							Utilities.Log($"Error: Failed to parse TypeId: {kv.Key.TypeId}");
+							continue;
+						}
+						var subtypeId = MyStringHash.GetOrCompute(kv.Key.SubtypeId);
+						_collisionGeometry[new MyDefinitionId(typeId, subtypeId)] = kv.Value;
+					}
+				}
+				MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
 			}
 
 			var entities = new HashSet<IMyEntity>();
@@ -244,7 +248,7 @@ namespace LLE
 		AStar astar;
 		const int border = 1;
 
-		private CollisionGeometry _kitchenCollision;
+		private Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
 
 		public override void UpdateBeforeSimulation()
 		{
@@ -343,25 +347,30 @@ namespace LLE
 			}
 
 			if (grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
-			if (grid_A != null && point_A != null && _kitchenCollision != null)
+			if (grid_A != null && point_A != null && _collisionGeometry != null)
 			{	var block = grid_A.GetCubeBlock(point_A);
 				if (block != null)
-				{	
-					Vector3D world = grid_A.GridIntegerToWorld(point_A);
+				{
+					CollisionGeometry geometry;
 
-					MatrixD blockMatrix = grid_A.WorldMatrix;
-					blockMatrix.Translation = world;
+					if (_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry))
+					{
+						Vector3D world = grid_A.GridIntegerToWorld(point_A);
 
-					var material = MyStringId.GetOrCompute("Square");
-					foreach (var shape in _kitchenCollision.Shapes)
-					{	var box = shape as BoxShape;
-						if (box != null)
-						{	
-							var matrix = blockMatrix * box.Transform;
-							var bb = new BoundingBoxD(-box.HalfExtents, box.HalfExtents);
-							Color color = Color.White;
-							MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
-								MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+						MatrixD blockMatrix = grid_A.WorldMatrix;
+						blockMatrix.Translation = world;
+
+						var material = MyStringId.GetOrCompute("Square");
+						foreach (var shape in geometry.Shapes)
+						{	var box = shape as BoxShape;
+							if (box != null)
+							{
+								var matrix = blockMatrix * box.Transform;
+								var bb = new BoundingBoxD(-box.HalfExtents, box.HalfExtents);
+								Color color = Color.White;
+								MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+									MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+							}
 						}
 					}
 				}
