@@ -301,7 +301,7 @@ namespace LLE
 				foreach(var slim in blocks)
 				{	
 					var min = slim.Min;
-            		var max = slim.Max;
+					var max = slim.Max;
 
 					if(min == max)
 					{	astar.SetWeight(slim.Position - grid.Min + border, 255);
@@ -356,22 +356,10 @@ namespace LLE
 					if (_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry))
 					{
 						Vector3D world = grid_A.GridIntegerToWorld(point_A);
-
 						MatrixD blockMatrix = grid_A.WorldMatrix;
 						blockMatrix.Translation = world;
 
-						var material = MyStringId.GetOrCompute("Square");
-						foreach (var shape in geometry.Shapes)
-						{	var box = shape as BoxShape;
-							if (box != null)
-							{
-								var matrix = blockMatrix * box.Transform;
-								var bb = new BoundingBoxD(-box.HalfExtents, box.HalfExtents);
-								Color color = Color.White;
-								MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
-									MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
-							}
-						}
+						Draw(geometry, blockMatrix);
 					}
 				}
 			}
@@ -380,6 +368,23 @@ namespace LLE
 			MyConsole.Render(font);
 
 			Common.Call_Add_Billboards(); // just for sure
+		}
+
+		private void Draw(CollisionGeometry geometry, MatrixD blockMatrix)
+		{
+			var material = MyStringId.GetOrCompute("Square");
+			foreach (var shape in geometry.Shapes)
+			{
+				var box = shape as BoxShape;
+				if (box != null)
+				{
+					var matrix = blockMatrix * box.Transform;
+					var bb = new BoundingBoxD(-box.HalfExtents, box.HalfExtents);
+					Color color = Color.White;
+					MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
+						MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
+				}
+			}
 		}
 
 		void OnEntityAdd(IMyEntity entity)
