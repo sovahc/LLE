@@ -3,507 +3,393 @@ using VRageMath;
 
 namespace MwmCollisionExtractor
 {
-    public enum CubeTopology
-    {
-        Slope, RotatedSlope, RoundSlope, Corner, RotatedCorner, RoundCorner,
-        InvCorner, RoundInvCorner, Box, RoundedSlope, StandaloneBox,
-        Slope2Base, Slope2Tip, Corner2Base, Corner2Tip, InvCorner2Base, InvCorner2Tip,
-        HalfBox, HalfSlopeBox, HalfSlopeInverted, HalfSlopeCorner, HalfSlopeCornerInverted,
-        SlopedCornerTip, SlopedCornerBase, SlopedCorner, HalfSlopedCornerBase, HalfCorner,
-        CornerSquare, CornerSquareInverted, HalfSlopedCorner, RaisedSlopedCorner,
-        SlopeTransition, SlopeTransitionBase, SlopeTransitionBaseMirrored, SlopeTransitionMirrored,
-        SlopeTransitionTip, SlopeTransitionTipMirrored, SquareSlopedCornerBase,
-        SquareSlopedCornerTip, SquareSlopedCornerTipInv
-    }
+	public enum CubeTopology
+	{
+		Slope, RotatedSlope, RoundSlope, Corner, RotatedCorner, RoundCorner,
+		InvCorner, RoundInvCorner, Box, RoundedSlope, StandaloneBox,
+		Slope2Base, Slope2Tip, Corner2Base, Corner2Tip, InvCorner2Base, InvCorner2Tip,
+		HalfBox, HalfSlopeBox, HalfSlopeInverted, HalfSlopeCorner, HalfSlopeCornerInverted,
+		SlopedCornerTip, SlopedCornerBase, SlopedCorner, HalfSlopedCornerBase, HalfCorner,
+		CornerSquare, CornerSquareInverted, HalfSlopedCorner, RaisedSlopedCorner,
+		SlopeTransition, SlopeTransitionBase, SlopeTransitionBaseMirrored, SlopeTransitionMirrored,
+		SlopeTransitionTip, SlopeTransitionTipMirrored, SquareSlopedCornerBase,
+		SquareSlopedCornerTip, SquareSlopedCornerTipInv
+	}
 
-    public static class CubeTopologyVertices
-    {
-        public static Vector3[] GetVertices(CubeTopology topology)
-        {
-            switch (topology)
-            {
-                case CubeTopology.Slope:
-                case CubeTopology.RotatedSlope:
-                    return new[]
-                    {
-                        new Vector3(-1, 1, -1), new Vector3(1, 1, -1),
-                        new Vector3(1, -1, 1), new Vector3(-1, -1, 1),
-                        new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
-                        new Vector3(-1, 0, 0), new Vector3(-1, 0, -1),
-                        new Vector3(-1, -1, 0), new Vector3(0, 0, 0),
-                        new Vector3(0, 0, -1), new Vector3(0, -1, 0),
-                        new Vector3(1, 0, 0), new Vector3(1, 0, -1),
-                        new Vector3(1, -1, 0)
-                    };
-
-                case CubeTopology.RoundSlope:
-                    return new[]
-                    {
-                        new Vector3(-1, 1, -1), new Vector3(1, 1, -1),
-                        new Vector3(1, -1, 1), new Vector3(-1, -1, 1),
-                        new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
-                        new Vector3(-1f, 0.414f, 0.414f), new Vector3(1f, 0.414f, 0.414f),
-                        new Vector3(-1, 0, 0), new Vector3(-1, 0, -1),
-                        new Vector3(-1, -1, 0), new Vector3(0, 0, 0),
-                        new Vector3(0, 0, -1), new Vector3(0, -1, 0),
-                        new Vector3(1, 0, 0), new Vector3(1, 0, -1),
-                        new Vector3(1, -1, 0)
-                    };
-
-                case CubeTopology.Corner:
-                case CubeTopology.RotatedCorner:
-                    return new[]
-                    {
-                        new Vector3(1, 1, -1), new Vector3(1, -1, -1),
-                        new Vector3(-1, -1, -1), new Vector3(1, -1, 1),
-                        new Vector3(0, -1, 0), new Vector3(1, -1, 0),
-                        new Vector3(0, -1, -1), new Vector3(1, 0, -1),
-                        new Vector3(1, 0, 0), new Vector3(0, 0, -1)
-                    };
-
-                case CubeTopology.RoundCorner:
-                    return new[]
-                    {
-                        new Vector3(1, 1, -1), new Vector3(1, -1, -1),
-                        new Vector3(-1, -1, -1), new Vector3(1, -1, 1),
-                        new Vector3(-0.414f, 0.414f, -1f), new Vector3(-0.414f, -1f, 0.414f),
-                        new Vector3(1f, 0.414f, 0.414f),
-                        new Vector3(0, -1, 0), new Vector3(1, -1, 0),
-                        new Vector3(0, -1, -1), new Vector3(1, 0, -1),
-                        new Vector3(1, 0, 0), new Vector3(0, 0, -1)
-                    };
-
-                case CubeTopology.InvCorner:
-                    return new[]
-                    {
-                        new Vector3(1, 1, 1), new Vector3(1, 1, -1),
-                        new Vector3(1, -1, 1), new Vector3(-1, 1, 1),
-                        new Vector3(-1, 1, -1), new Vector3(-1, -1, 1),
-                        new Vector3(-1, -1, -1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
-                        new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
-                        new Vector3(-1, 1, 0), new Vector3(0, -1, 0),
-                        new Vector3(0, -1, 1), new Vector3(0, 0, -1),
-                        new Vector3(0, 0, 0), new Vector3(0, 0, 1),
-                        new Vector3(0, 1, -1), new Vector3(0, 1, 0),
-                        new Vector3(0, 1, 1), new Vector3(1, 0, 0),
-                        new Vector3(1, 0, 1), new Vector3(1, 1, 0)
-                    };
-
-                case CubeTopology.RoundInvCorner:
-                    return new[]
-                    {
-                        new Vector3(1, 1, 1), new Vector3(1, 1, -1),
-                        new Vector3(1, -1, 1), new Vector3(-1, 1, 1),
-                        new Vector3(-1, 1, -1), new Vector3(-1, -1, 1),
-                        new Vector3(-1, -1, -1),
-                        new Vector3(0.414f, -0.414f, -1f), new Vector3(0.414f, -1f, -0.414f),
-                        new Vector3(1f, -0.414f, -0.414f),
-                        new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
-                        new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
-                        new Vector3(-1, 1, 0), new Vector3(0, -1, 0),
-                        new Vector3(0, -1, 1), new Vector3(0, 0, -1),
-                        new Vector3(0, 0, 0), new Vector3(0, 0, 1),
-                        new Vector3(0, 1, -1), new Vector3(0, 1, 0),
-                        new Vector3(0, 1, 1), new Vector3(1, 0, 0),
-                        new Vector3(1, 0, 1), new Vector3(1, 1, 0)
-                    };
-
-                case CubeTopology.Box:
-                case CubeTopology.RoundedSlope:
-                    return new[]
-                    {
-                        new Vector3(1, 1, 1), new Vector3(1, 1, -1),
-                        new Vector3(1, -1, 1), new Vector3(1, -1, -1),
-                        new Vector3(-1, 1, 1), new Vector3(-1, 1, -1),
-                        new Vector3(-1, -1, 1), new Vector3(-1, -1, -1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
-                        new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
-                        new Vector3(-1, 1, 0), new Vector3(0, -1, -1),
-                        new Vector3(0, -1, 0), new Vector3(0, -1, 1),
-                        new Vector3(0, 0, -1), new Vector3(0, 0, 1),
-                        new Vector3(0, 1, -1), new Vector3(0, 1, 0),
-                        new Vector3(0, 1, 1), new Vector3(1, -1, 0),
-                        new Vector3(1, 0, -1), new Vector3(1, 0, 0),
-                        new Vector3(1, 0, 1), new Vector3(1, 1, 0)
-                    };
-
-                case CubeTopology.Slope2Base:
-                    return new[]
-                    {
-                        new Vector3(1, 0, 1), new Vector3(1, 1, -1),
-                        new Vector3(1, -1, 1), new Vector3(1, -1, -1),
-                        new Vector3(-1, 0, 1), new Vector3(-1, 1, -1),
-                        new Vector3(-1, -1, 1), new Vector3(-1, -1, -1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
-                        new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
-                        new Vector3(-1, 0.5f, 0), new Vector3(0, -1, -1),
-                        new Vector3(0, -1, 0), new Vector3(0, -1, 1),
-                        new Vector3(0, 0, -1), new Vector3(0, 0, 0),
-                        new Vector3(0, 0, 1), new Vector3(0, 1, -1),
-                        new Vector3(0, 0.5f, 0), new Vector3(0, 0, 1),
-                        new Vector3(1, -1, 0), new Vector3(1, 0, -1),
-                        new Vector3(1, 0, 0), new Vector3(1, 0, 1),
-                        new Vector3(1, 0.5f, 0)
-                    };
-
-                case CubeTopology.Slope2Tip:
-                    return new[]
-                    {
-                        new Vector3(-1, 0, -1), new Vector3(1, 0, -1),
-                        new Vector3(1, -1, 1), new Vector3(-1, -1, 1),
-                        new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
-                        new Vector3(-1, -0.5f, 0), new Vector3(-1, 0, -1),
-                        new Vector3(-1, -1, 0), new Vector3(0, -0.5f, 0),
-                        new Vector3(0, 0, -1), new Vector3(0, -1, 0),
-                        new Vector3(1, -0.5f, 0), new Vector3(1, 0, -1),
-                        new Vector3(1, -1, 0)
-                    };
-
-                case CubeTopology.Corner2Base:
-                    return new[]
-                    {
-                        new Vector3(-1, 1, -1), new Vector3(1, 0, -1),
-                        new Vector3(1, -1, 0), new Vector3(-1, -1, 1),
-                        new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
-                        new Vector3(-1, 0, 0), new Vector3(-1, 0, -1),
-                        new Vector3(-1, -1, 0), new Vector3(0.5f, -0.5f, 0),
-                        new Vector3(0, 0, -1), new Vector3(0, -1, 0),
-                        new Vector3(1, -0.5f, -0.5f), new Vector3(1, 0, -1),
-                        new Vector3(1, -1, 0)
-                    };
-
-                case CubeTopology.Corner2Tip:
-                    return new[]
-                    {
-                        new Vector3(1, 0, -1), new Vector3(1, -1, -1),
-                        new Vector3(0, -1, -1), new Vector3(1, -1, 1),
-                        new Vector3(0.5f, -1, 0), new Vector3(1, -1, 0),
-                        new Vector3(0, -1, -1), new Vector3(1, 0, -1),
-                        new Vector3(1, -0.5f, 0), new Vector3(0.5f, -0.5f, -1)
-                    };
-
-                case CubeTopology.InvCorner2Base:
-                    return new[]
-                    {
-                        new Vector3(1, 1, 1), new Vector3(1, 1, -1),
-                        new Vector3(1, -1, 1), new Vector3(1, 0, -1),
-                        new Vector3(0, -1, -1), new Vector3(-1, 1, 1),
-                        new Vector3(-1, 1, -1), new Vector3(-1, -1, 1),
-                        new Vector3(-1, -1, -1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
-                        new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
-                        new Vector3(-1, 1, 0), new Vector3(0, -1, 0),
-                        new Vector3(0, -1, 1), new Vector3(0, 0, -1),
-                        new Vector3(0, 0, 0), new Vector3(0, 0, 1),
-                        new Vector3(0, 1, -1), new Vector3(0, 1, 0),
-                        new Vector3(0, 1, 1), new Vector3(1, 0, 0),
-                        new Vector3(1, 0, 1), new Vector3(1, 1, 0)
-                    };
-
-                case CubeTopology.InvCorner2Tip:
-                    return new[]
-                    {
-                        new Vector3(1, 1, 1), new Vector3(1, 1, -1),
-                        new Vector3(-1, 1, 1), new Vector3(-1, 1, -1),
-                        new Vector3(-1, -1, 1), new Vector3(-1, -1, -1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
-                        new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
-                        new Vector3(-1, 1, 0), new Vector3(0, -1, 0),
-                        new Vector3(0, -1, 1), new Vector3(0, 0, -1),
-                        new Vector3(0, 0, 0), new Vector3(0, 0, 1),
-                        new Vector3(0, 1, -1), new Vector3(0, 1, 0),
-                        new Vector3(0, 1, 1), new Vector3(1, 0, 0),
-                        new Vector3(1, 0, 1), new Vector3(1, 1, 0)
-                    };
-
-                case CubeTopology.StandaloneBox:
-                    return Array.Empty<Vector3>();
-
-                case CubeTopology.HalfBox:
-                    return new[]
-                    {
-                        new Vector3(1, 1, 0), new Vector3(1, -1, 0),
-                        new Vector3(1, 1, -1), new Vector3(1, -1, -1),
-                        new Vector3(-1, 1, 0), new Vector3(-1, -1, 0),
-                        new Vector3(-1, 1, -1), new Vector3(-1, -1, -1)
-                    };
-
-                case CubeTopology.HalfSlopeBox:
-                    return new[]
-                    {
-                        new Vector3(-1, 0, -1), new Vector3(1, 0, -1),
-                        new Vector3(-1, -1, 0), new Vector3(1, -1, 0),
-                        new Vector3(-1, -1, -1), new Vector3(1, -1, -1)
-                    };
-
-                case CubeTopology.HalfSlopeInverted:
-                    return new[]
-                    {
-                        new Vector3(-1, -1, 1), new Vector3(-1, 0, 1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, -1, -1),
-                        new Vector3(-1, 0, -1), new Vector3(-1, 1, 1),
-                        new Vector3(-1, 1, 0), new Vector3(-1, 1, -1),
-                        new Vector3(1, -1, 1), new Vector3(0, -1, 1),
-                        new Vector3(1, -1, 0), new Vector3(1, -1, -1),
-                        new Vector3(0, -1, -1), new Vector3(0, 1, 1),
-                        new Vector3(1, 0, 1), new Vector3(0, 1, -1),
-                        new Vector3(1, 0, -1)
-                    };
-
-                case CubeTopology.HalfSlopeCorner:
-                    return new[]
-                    {
-                        new Vector3(1, -1, 1), new Vector3(0, -1, 1),
-                        new Vector3(1, -1, 0), new Vector3(1, 0, 1)
-                    };
-
-                case CubeTopology.HalfSlopeCornerInverted:
-                    return new[]
-                    {
-                        new Vector3(0, 1, -1), new Vector3(-1, 0, -1),
-                        new Vector3(-1, -1, -1), new Vector3(0, -1, -1),
-                        new Vector3(1, 1, -1), new Vector3(1, 0, -1),
-                        new Vector3(1, -1, -1), new Vector3(-0.5f, 0.5f, -1),
-                        new Vector3(-1, 1, 0), new Vector3(-1, -1, 0),
-                        new Vector3(-1, 1, 1), new Vector3(-1, 0, 1),
-                        new Vector3(-1, -1, 1), new Vector3(-1, 0.5f, -0.5f),
-                        new Vector3(1, 1, 0), new Vector3(0, 1, 1),
-                        new Vector3(1, 1, 1), new Vector3(-0.5f, 1, -0.5f),
-                        new Vector3(1, -1, 1), new Vector3(0, -1, 1),
-                        new Vector3(1, -1, 0), new Vector3(1, 0, 1)
-                    };
-
-                case CubeTopology.HalfSlopedCorner:
-                    return new[]
-                    {
-                        new Vector3(1, 0, -1), new Vector3(1, -1, -1),
-                        new Vector3(-1, -1, 1), new Vector3(-1, 0, 1),
-                        new Vector3(0, -1, 0), new Vector3(0, 0, 0),
-                        new Vector3(-1, 1, -1), new Vector3(0, 0.5f, -1),
-                        new Vector3(-1, 0.5f, 0), new Vector3(-1, -1, -1),
-                        new Vector3(-1, 0, -1), new Vector3(0, -1, -1),
-                        new Vector3(-1, -1, 0)
-                    };
-
-                case CubeTopology.HalfSlopedCornerBase:
-                    return new[]
-                    {
-                        new Vector3(1, -1, 1), new Vector3(-1, -1, 1),
-                        new Vector3(-1, 0, 1), new Vector3(0, -0.5f, 1),
-                        new Vector3(0, -1, 1), new Vector3(1, 0, -1),
-                        new Vector3(1, -0.5f, 0), new Vector3(0, 0, 0),
-                        new Vector3(-1, 0, -1), new Vector3(-1, 0, 0),
-                        new Vector3(0, 0, -1), new Vector3(-1, -1, -1),
-                        new Vector3(0, -1, -1), new Vector3(1, -1, -1),
-                        new Vector3(1, -1, 0), new Vector3(-1, -1, 0)
-                    };
-
-                case CubeTopology.HalfCorner:
-                    return new[]
-                    {
-                        new Vector3(-1, 0, -1), new Vector3(1, 0, -1),
-                        new Vector3(-1, 0, 1), new Vector3(-1, 0, 0),
-                        new Vector3(0, 0, 0), new Vector3(0, 0, -1),
-                        new Vector3(1, -1, -1), new Vector3(-1, -1, 1),
-                        new Vector3(0, -1, 0), new Vector3(-1, -1, -1),
-                        new Vector3(0, -1, -1), new Vector3(-1, -1, 0)
-                    };
-
-                case CubeTopology.CornerSquare:
-                    return new[]
-                    {
-                        new Vector3(-1, -1, -1), new Vector3(0, -1, -1),
-                        new Vector3(1, -1, -1), new Vector3(-1, 0, -1),
-                        new Vector3(0, 0, -1), new Vector3(-1, 1, -1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, -1, 1),
-                        new Vector3(-1, 0, 0), new Vector3(1, -1, 1),
-                        new Vector3(0, 0, 0), new Vector3(1, -1, 0),
-                        new Vector3(0, -1, 1)
-                    };
-
-                case CubeTopology.CornerSquareInverted:
-                    return new[]
-                    {
-                        new Vector3(1, -1, -1), new Vector3(1, -1, 0),
-                        new Vector3(1, -1, 1), new Vector3(1, 0, -1),
-                        new Vector3(1, 0, 0), new Vector3(1, 1, -1),
-                        new Vector3(-1, -1, 1), new Vector3(-1, 0, 1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, -1, -1),
-                        new Vector3(-1, 0, -1), new Vector3(-1, 1, 1),
-                        new Vector3(-1, 1, 0), new Vector3(-1, 1, -1),
-                        new Vector3(0, -1, 1), new Vector3(0, 0, 1),
-                        new Vector3(0, -1, -1), new Vector3(0, 1, -1),
-                        new Vector3(0, 0, 0)
-                    };
-
-                case CubeTopology.SlopedCorner:
-                    return new[]
-                    {
-                        new Vector3(-1, 1, -1), new Vector3(1, 0, -1),
-                        new Vector3(-1, 0, 1), new Vector3(1, -1, 1),
-                        new Vector3(1, -0.5f, 0), new Vector3(0, 0.5f, -1),
-                        new Vector3(-1, 0.5f, 0), new Vector3(0, -0.5f, 1),
-                        new Vector3(-1, -1, 1), new Vector3(-1, -1, 0),
-                        new Vector3(-1, -1, -1), new Vector3(-1, 0, -1),
-                        new Vector3(1, -1, -1), new Vector3(1, -1, 0),
-                        new Vector3(0, -1, 1), new Vector3(0, -1, -1)
-                    };
-
-                case CubeTopology.SlopedCornerBase:
-                    return new[]
-                    {
-                        new Vector3(1, 1, -1), new Vector3(0, 1, -1),
-                        new Vector3(-1, 1, -1), new Vector3(1, 1, 0),
-                        new Vector3(0, 1, 0), new Vector3(1, 1, 1),
-                        new Vector3(-1, 0, 1), new Vector3(-1, 0.5f, 0),
-                        new Vector3(0, 0.5f, 1), new Vector3(1, 0, -1),
-                        new Vector3(1, -1, -1), new Vector3(1, -1, 0),
-                        new Vector3(1, 0, 1), new Vector3(1, -1, 1),
-                        new Vector3(-1, -1, 1), new Vector3(-1, -1, 0),
-                        new Vector3(-1, -1, -1), new Vector3(-1, 0, -1),
-                        new Vector3(0, -1, -1), new Vector3(0, -1, 1)
-                    };
-
-                case CubeTopology.SlopedCornerTip:
-                    return new[]
-                    {
-                        new Vector3(1, -1, 1), new Vector3(-1, -1, 1),
-                        new Vector3(-1, 0, 1), new Vector3(0, -0.5f, 1),
-                        new Vector3(-1, -0.5f, 1), new Vector3(0, -1, 1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, -1, -1),
-                        new Vector3(0, -1, 0), new Vector3(-1, -0.5f, 0)
-                    };
-
-                case CubeTopology.RaisedSlopedCorner:
-                    return new[]
-                    {
-                        new Vector3(1, 0, -1), new Vector3(-1, 0, 1),
-                        new Vector3(-1, 1, -1), new Vector3(-1, 0, -1),
-                        new Vector3(1, 0, -1), new Vector3(-1, 0, 1),
-                        new Vector3(-1, -1, 1), new Vector3(-1, -1, -1),
-                        new Vector3(-1, 0, -1), new Vector3(1, 0, 1),
-                        new Vector3(1, -1, 1), new Vector3(1, -1, -1)
-                    };
-
-                case CubeTopology.SlopeTransition:
-                    return new[]
-                    {
-                        new Vector3(1, -1, -1), new Vector3(1, -1, 0),
-                        new Vector3(1, -1, 1), new Vector3(1, -0.5f, 0),
-                        new Vector3(1, 0, -1), new Vector3(-1, -1, -1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, -1, 1),
-                        new Vector3(-1, 0, -1), new Vector3(-1, 0, 0),
-                        new Vector3(-1, 1, -1), new Vector3(0, -1, -1),
-                        new Vector3(0, 0.5f, -1), new Vector3(0, -1, 1),
-                        new Vector3(0, 0, 0)
-                    };
-
-                case CubeTopology.SlopeTransitionBase:
-                    return new[]
-                    {
-                        new Vector3(-1, -1, 1), new Vector3(0, -1, 1),
-                        new Vector3(1, -1, 1), new Vector3(0, -0.5f, 1),
-                        new Vector3(-1, 0, 1), new Vector3(-1, 1, -1),
-                        new Vector3(0, 1, -1), new Vector3(-1, 0, -1),
-                        new Vector3(-1, -1, -1), new Vector3(0, -1, -1),
-                        new Vector3(1, 1, -1), new Vector3(1, 0, -1),
-                        new Vector3(1, -1, -1), new Vector3(1, 0, 0),
-                        new Vector3(0, 0.5f, 0), new Vector3(-1, -1, 0),
-                        new Vector3(1, -1, 0), new Vector3(-1, 0.5f, 0)
-                    };
-
-                case CubeTopology.SlopeTransitionBaseMirrored:
-                    return new[]
-                    {
-                        new Vector3(1, -1, -1), new Vector3(-1, 0, -1),
-                        new Vector3(1, 1, 1), new Vector3(0, -0.5f, -1),
-                        new Vector3(1, 0, 0), new Vector3(0, 0.5f, 0),
-                        new Vector3(-1, -1, -1), new Vector3(0, -1, -1),
-                        new Vector3(-1, -1, 1), new Vector3(-1, 0, 1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, 1, 1),
-                        new Vector3(-1, 0.5f, 0), new Vector3(0, 1, 1),
-                        new Vector3(0, -1, 1), new Vector3(1, -1, 0),
-                        new Vector3(1, -1, 1), new Vector3(1, 0, 1)
-                    };
-
-                case CubeTopology.SlopeTransitionMirrored:
-                    return new[]
-                    {
-                        new Vector3(-1, -1, 1), new Vector3(-1, -1, 0),
-                        new Vector3(-1, -1, -1), new Vector3(-1, 0, 1),
-                        new Vector3(-1, 0, 0), new Vector3(-1, 1, 1),
-                        new Vector3(1, -1, 1), new Vector3(1, -1, 0),
-                        new Vector3(1, -1, -1), new Vector3(1, -0.5f, 0),
-                        new Vector3(1, 0, 1), new Vector3(0, -1, -1),
-                        new Vector3(0, 0, 0), new Vector3(0, 0.5f, 1),
-                        new Vector3(0, -1, 1)
-                    };
-
-                case CubeTopology.SlopeTransitionTip:
-                    return new[]
-                    {
-                        new Vector3(-1, 0, -1), new Vector3(0, 0, -1),
-                        new Vector3(-1, -1, -1), new Vector3(0, -1, -1),
-                        new Vector3(1, 0, -1), new Vector3(1, -1, -1),
-                        new Vector3(-1, -1, 1), new Vector3(1, -1, 0),
-                        new Vector3(0, -0.5f, 0), new Vector3(0, -1, 0.5f),
-                        new Vector3(1, -0.5f, -0.5f), new Vector3(-1, -1, 0),
-                        new Vector3(-1, -0.5f, 0)
-                    };
-
-                case CubeTopology.SlopeTransitionTipMirrored:
-                    return new[]
-                    {
-                        new Vector3(-1, -1, 1), new Vector3(-1, -1, 0),
-                        new Vector3(-1, -1, -1), new Vector3(-1, -0.5f, 0),
-                        new Vector3(-1, 0, 1), new Vector3(1, 0, 1),
-                        new Vector3(1, -1, 0), new Vector3(0, -0.5f, 0),
-                        new Vector3(0, -1, -0.5f), new Vector3(1, -0.5f, 0.5f),
-                        new Vector3(0, 0, 1), new Vector3(1, -1, 1),
-                        new Vector3(0, -1, 1)
-                    };
-
-                case CubeTopology.SquareSlopedCornerBase:
-                    return new[]
-                    {
-                        new Vector3(-1, -1, 1), new Vector3(-1, 0, 1),
-                        new Vector3(-1, -1, 0), new Vector3(-1, -1, -1),
-                        new Vector3(-1, 0, -1), new Vector3(-1, 0.5f, 0),
-                        new Vector3(-1, 1, -1), new Vector3(0, -1, -1),
-                        new Vector3(0, -1, 1), new Vector3(1, -1, -1),
-                        new Vector3(1, -1, 0), new Vector3(1, -1, 1),
-                        new Vector3(1, 0, -1), new Vector3(1, 0, 1),
-                        new Vector3(0, 0.5f, -1), new Vector3(0, 0.5f, 0),
-                        new Vector3(1, 0, 0), new Vector3(0, 0, 1)
-                    };
-
-                case CubeTopology.SquareSlopedCornerTip:
-                    return new[]
-                    {
-                        new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
-                        new Vector3(-1, 0, -1), new Vector3(0, -0.5f, -1),
-                        new Vector3(0, -1, -1), new Vector3(-1, -0.5f, -1),
-                        new Vector3(-1, -1, 1), new Vector3(1, -1, 1),
-                        new Vector3(0, -1, 1), new Vector3(0, -0.5f, 0),
-                        new Vector3(-1, -0.5f, 0), new Vector3(1, -1, 0),
-                        new Vector3(-1, -1, 0)
-                    };
-
-                case CubeTopology.SquareSlopedCornerTipInv:
-                    return new[]
-                    {
-                        new Vector3(1, -1, -1), new Vector3(1, -1, 1),
-                        new Vector3(1, 0, -1), new Vector3(-1, 0, -1),
-                        new Vector3(-1, -1, -1), new Vector3(-1, -1, -1),
-                        new Vector3(-1, 0, -1), new Vector3(1, -1, 1),
-                        new Vector3(-1, 0, 1), new Vector3(-1, -1, 1),
-                        new Vector3(-1, -1, -1)
-                    };
-
-                default:
-                    return Array.Empty<Vector3>();
-            }
-        }
-    }
+	public static class CubeTopologyVertices
+	{
+		public static Vector3[] GetVertices(CubeTopology topology)
+		{
+			return topology switch
+			{
+				CubeTopology.Slope or CubeTopology.RotatedSlope => [
+						new Vector3(-1, 1, -1), new Vector3(1, 1, -1),
+						new Vector3(1, -1, 1), new Vector3(-1, -1, 1),
+						new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
+						new Vector3(-1, 0, 0), new Vector3(-1, 0, -1),
+						new Vector3(-1, -1, 0), new Vector3(0, 0, 0),
+						new Vector3(0, 0, -1), new Vector3(0, -1, 0),
+						new Vector3(1, 0, 0), new Vector3(1, 0, -1),
+						new Vector3(1, -1, 0)
+									],
+				CubeTopology.RoundSlope => [
+						new Vector3(-1, 1, -1), new Vector3(1, 1, -1),
+						new Vector3(1, -1, 1), new Vector3(-1, -1, 1),
+						new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
+						new Vector3(-1f, 0.414f, 0.414f), new Vector3(1f, 0.414f, 0.414f),
+						new Vector3(-1, 0, 0), new Vector3(-1, 0, -1),
+						new Vector3(-1, -1, 0), new Vector3(0, 0, 0),
+						new Vector3(0, 0, -1), new Vector3(0, -1, 0),
+						new Vector3(1, 0, 0), new Vector3(1, 0, -1),
+						new Vector3(1, -1, 0)
+									],
+				CubeTopology.Corner or CubeTopology.RotatedCorner => [
+						new Vector3(1, 1, -1), new Vector3(1, -1, -1),
+						new Vector3(-1, -1, -1), new Vector3(1, -1, 1),
+						new Vector3(0, -1, 0), new Vector3(1, -1, 0),
+						new Vector3(0, -1, -1), new Vector3(1, 0, -1),
+						new Vector3(1, 0, 0), new Vector3(0, 0, -1)
+									],
+				CubeTopology.RoundCorner => [
+						new Vector3(1, 1, -1), new Vector3(1, -1, -1),
+						new Vector3(-1, -1, -1), new Vector3(1, -1, 1),
+						new Vector3(-0.414f, 0.414f, -1f), new Vector3(-0.414f, -1f, 0.414f),
+						new Vector3(1f, 0.414f, 0.414f),
+						new Vector3(0, -1, 0), new Vector3(1, -1, 0),
+						new Vector3(0, -1, -1), new Vector3(1, 0, -1),
+						new Vector3(1, 0, 0), new Vector3(0, 0, -1)
+									],
+				CubeTopology.InvCorner => [
+						new Vector3(1, 1, 1), new Vector3(1, 1, -1),
+						new Vector3(1, -1, 1), new Vector3(-1, 1, 1),
+						new Vector3(-1, 1, -1), new Vector3(-1, -1, 1),
+						new Vector3(-1, -1, -1),
+						new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
+						new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
+						new Vector3(-1, 1, 0), new Vector3(0, -1, 0),
+						new Vector3(0, -1, 1), new Vector3(0, 0, -1),
+						new Vector3(0, 0, 0), new Vector3(0, 0, 1),
+						new Vector3(0, 1, -1), new Vector3(0, 1, 0),
+						new Vector3(0, 1, 1), new Vector3(1, 0, 0),
+						new Vector3(1, 0, 1), new Vector3(1, 1, 0)
+									],
+				CubeTopology.RoundInvCorner => [
+						new Vector3(1, 1, 1), new Vector3(1, 1, -1),
+						new Vector3(1, -1, 1), new Vector3(-1, 1, 1),
+						new Vector3(-1, 1, -1), new Vector3(-1, -1, 1),
+						new Vector3(-1, -1, -1),
+						new Vector3(0.414f, -0.414f, -1f), new Vector3(0.414f, -1f, -0.414f),
+						new Vector3(1f, -0.414f, -0.414f),
+						new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
+						new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
+						new Vector3(-1, 1, 0), new Vector3(0, -1, 0),
+						new Vector3(0, -1, 1), new Vector3(0, 0, -1),
+						new Vector3(0, 0, 0), new Vector3(0, 0, 1),
+						new Vector3(0, 1, -1), new Vector3(0, 1, 0),
+						new Vector3(0, 1, 1), new Vector3(1, 0, 0),
+						new Vector3(1, 0, 1), new Vector3(1, 1, 0)
+									],
+				CubeTopology.Box or CubeTopology.RoundedSlope => [
+						new Vector3(1, 1, 1), new Vector3(1, 1, -1),
+						new Vector3(1, -1, 1), new Vector3(1, -1, -1),
+						new Vector3(-1, 1, 1), new Vector3(-1, 1, -1),
+						new Vector3(-1, -1, 1), new Vector3(-1, -1, -1),
+						new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
+						new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
+						new Vector3(-1, 1, 0), new Vector3(0, -1, -1),
+						new Vector3(0, -1, 0), new Vector3(0, -1, 1),
+						new Vector3(0, 0, -1), new Vector3(0, 0, 1),
+						new Vector3(0, 1, -1), new Vector3(0, 1, 0),
+						new Vector3(0, 1, 1), new Vector3(1, -1, 0),
+						new Vector3(1, 0, -1), new Vector3(1, 0, 0),
+						new Vector3(1, 0, 1), new Vector3(1, 1, 0)
+									],
+				CubeTopology.Slope2Base => [
+						new Vector3(1, 0, 1), new Vector3(1, 1, -1),
+						new Vector3(1, -1, 1), new Vector3(1, -1, -1),
+						new Vector3(-1, 0, 1), new Vector3(-1, 1, -1),
+						new Vector3(-1, -1, 1), new Vector3(-1, -1, -1),
+						new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
+						new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
+						new Vector3(-1, 0.5f, 0), new Vector3(0, -1, -1),
+						new Vector3(0, -1, 0), new Vector3(0, -1, 1),
+						new Vector3(0, 0, -1), new Vector3(0, 0, 0),
+						new Vector3(0, 0, 1), new Vector3(0, 1, -1),
+						new Vector3(0, 0.5f, 0), new Vector3(0, 0, 1),
+						new Vector3(1, -1, 0), new Vector3(1, 0, -1),
+						new Vector3(1, 0, 0), new Vector3(1, 0, 1),
+						new Vector3(1, 0.5f, 0)
+									],
+				CubeTopology.Slope2Tip => [
+						new Vector3(-1, 0, -1), new Vector3(1, 0, -1),
+						new Vector3(1, -1, 1), new Vector3(-1, -1, 1),
+						new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
+						new Vector3(-1, -0.5f, 0), new Vector3(-1, 0, -1),
+						new Vector3(-1, -1, 0), new Vector3(0, -0.5f, 0),
+						new Vector3(0, 0, -1), new Vector3(0, -1, 0),
+						new Vector3(1, -0.5f, 0), new Vector3(1, 0, -1),
+						new Vector3(1, -1, 0)
+									],
+				CubeTopology.Corner2Base => [
+						new Vector3(-1, 1, -1), new Vector3(1, 0, -1),
+						new Vector3(1, -1, 0), new Vector3(-1, -1, 1),
+						new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
+						new Vector3(-1, 0, 0), new Vector3(-1, 0, -1),
+						new Vector3(-1, -1, 0), new Vector3(0.5f, -0.5f, 0),
+						new Vector3(0, 0, -1), new Vector3(0, -1, 0),
+						new Vector3(1, -0.5f, -0.5f), new Vector3(1, 0, -1),
+						new Vector3(1, -1, 0)
+									],
+				CubeTopology.Corner2Tip => [
+						new Vector3(1, 0, -1), new Vector3(1, -1, -1),
+						new Vector3(0, -1, -1), new Vector3(1, -1, 1),
+						new Vector3(0.5f, -1, 0), new Vector3(1, -1, 0),
+						new Vector3(0, -1, -1), new Vector3(1, 0, -1),
+						new Vector3(1, -0.5f, 0), new Vector3(0.5f, -0.5f, -1)
+									],
+				CubeTopology.InvCorner2Base => [
+						new Vector3(1, 1, 1), new Vector3(1, 1, -1),
+						new Vector3(1, -1, 1), new Vector3(1, 0, -1),
+						new Vector3(0, -1, -1), new Vector3(-1, 1, 1),
+						new Vector3(-1, 1, -1), new Vector3(-1, -1, 1),
+						new Vector3(-1, -1, -1),
+						new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
+						new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
+						new Vector3(-1, 1, 0), new Vector3(0, -1, 0),
+						new Vector3(0, -1, 1), new Vector3(0, 0, -1),
+						new Vector3(0, 0, 0), new Vector3(0, 0, 1),
+						new Vector3(0, 1, -1), new Vector3(0, 1, 0),
+						new Vector3(0, 1, 1), new Vector3(1, 0, 0),
+						new Vector3(1, 0, 1), new Vector3(1, 1, 0)
+									],
+				CubeTopology.InvCorner2Tip => [
+						new Vector3(1, 1, 1), new Vector3(1, 1, -1),
+						new Vector3(-1, 1, 1), new Vector3(-1, 1, -1),
+						new Vector3(-1, -1, 1), new Vector3(-1, -1, -1),
+						new Vector3(-1, -1, 0), new Vector3(-1, 0, -1),
+						new Vector3(-1, 0, 0), new Vector3(-1, 0, 1),
+						new Vector3(-1, 1, 0), new Vector3(0, -1, 0),
+						new Vector3(0, -1, 1), new Vector3(0, 0, -1),
+						new Vector3(0, 0, 0), new Vector3(0, 0, 1),
+						new Vector3(0, 1, -1), new Vector3(0, 1, 0),
+						new Vector3(0, 1, 1), new Vector3(1, 0, 0),
+						new Vector3(1, 0, 1), new Vector3(1, 1, 0)
+									],
+				CubeTopology.StandaloneBox => [],
+				CubeTopology.HalfBox => [
+						new Vector3(1, 1, 0), new Vector3(1, -1, 0),
+						new Vector3(1, 1, -1), new Vector3(1, -1, -1),
+						new Vector3(-1, 1, 0), new Vector3(-1, -1, 0),
+						new Vector3(-1, 1, -1), new Vector3(-1, -1, -1)
+									],
+				CubeTopology.HalfSlopeBox => [
+						new Vector3(-1, 0, -1), new Vector3(1, 0, -1),
+						new Vector3(-1, -1, 0), new Vector3(1, -1, 0),
+						new Vector3(-1, -1, -1), new Vector3(1, -1, -1)
+									],
+				CubeTopology.HalfSlopeInverted => [
+						new Vector3(-1, -1, 1), new Vector3(-1, 0, 1),
+						new Vector3(-1, -1, 0), new Vector3(-1, -1, -1),
+						new Vector3(-1, 0, -1), new Vector3(-1, 1, 1),
+						new Vector3(-1, 1, 0), new Vector3(-1, 1, -1),
+						new Vector3(1, -1, 1), new Vector3(0, -1, 1),
+						new Vector3(1, -1, 0), new Vector3(1, -1, -1),
+						new Vector3(0, -1, -1), new Vector3(0, 1, 1),
+						new Vector3(1, 0, 1), new Vector3(0, 1, -1),
+						new Vector3(1, 0, -1)
+									],
+				CubeTopology.HalfSlopeCorner => [
+						new Vector3(1, -1, 1), new Vector3(0, -1, 1),
+						new Vector3(1, -1, 0), new Vector3(1, 0, 1)
+									],
+				CubeTopology.HalfSlopeCornerInverted => [
+						new Vector3(0, 1, -1), new Vector3(-1, 0, -1),
+						new Vector3(-1, -1, -1), new Vector3(0, -1, -1),
+						new Vector3(1, 1, -1), new Vector3(1, 0, -1),
+						new Vector3(1, -1, -1), new Vector3(-0.5f, 0.5f, -1),
+						new Vector3(-1, 1, 0), new Vector3(-1, -1, 0),
+						new Vector3(-1, 1, 1), new Vector3(-1, 0, 1),
+						new Vector3(-1, -1, 1), new Vector3(-1, 0.5f, -0.5f),
+						new Vector3(1, 1, 0), new Vector3(0, 1, 1),
+						new Vector3(1, 1, 1), new Vector3(-0.5f, 1, -0.5f),
+						new Vector3(1, -1, 1), new Vector3(0, -1, 1),
+						new Vector3(1, -1, 0), new Vector3(1, 0, 1)
+									],
+				CubeTopology.HalfSlopedCorner => [
+						new Vector3(1, 0, -1), new Vector3(1, -1, -1),
+						new Vector3(-1, -1, 1), new Vector3(-1, 0, 1),
+						new Vector3(0, -1, 0), new Vector3(0, 0, 0),
+						new Vector3(-1, 1, -1), new Vector3(0, 0.5f, -1),
+						new Vector3(-1, 0.5f, 0), new Vector3(-1, -1, -1),
+						new Vector3(-1, 0, -1), new Vector3(0, -1, -1),
+						new Vector3(-1, -1, 0)
+									],
+				CubeTopology.HalfSlopedCornerBase => [
+						new Vector3(1, -1, 1), new Vector3(-1, -1, 1),
+						new Vector3(-1, 0, 1), new Vector3(0, -0.5f, 1),
+						new Vector3(0, -1, 1), new Vector3(1, 0, -1),
+						new Vector3(1, -0.5f, 0), new Vector3(0, 0, 0),
+						new Vector3(-1, 0, -1), new Vector3(-1, 0, 0),
+						new Vector3(0, 0, -1), new Vector3(-1, -1, -1),
+						new Vector3(0, -1, -1), new Vector3(1, -1, -1),
+						new Vector3(1, -1, 0), new Vector3(-1, -1, 0)
+									],
+				CubeTopology.HalfCorner => [
+						new Vector3(-1, 0, -1), new Vector3(1, 0, -1),
+						new Vector3(-1, 0, 1), new Vector3(-1, 0, 0),
+						new Vector3(0, 0, 0), new Vector3(0, 0, -1),
+						new Vector3(1, -1, -1), new Vector3(-1, -1, 1),
+						new Vector3(0, -1, 0), new Vector3(-1, -1, -1),
+						new Vector3(0, -1, -1), new Vector3(-1, -1, 0)
+									],
+				CubeTopology.CornerSquare => [
+						new Vector3(-1, -1, -1), new Vector3(0, -1, -1),
+						new Vector3(1, -1, -1), new Vector3(-1, 0, -1),
+						new Vector3(0, 0, -1), new Vector3(-1, 1, -1),
+						new Vector3(-1, -1, 0), new Vector3(-1, -1, 1),
+						new Vector3(-1, 0, 0), new Vector3(1, -1, 1),
+						new Vector3(0, 0, 0), new Vector3(1, -1, 0),
+						new Vector3(0, -1, 1)
+									],
+				CubeTopology.CornerSquareInverted => [
+						new Vector3(1, -1, -1), new Vector3(1, -1, 0),
+						new Vector3(1, -1, 1), new Vector3(1, 0, -1),
+						new Vector3(1, 0, 0), new Vector3(1, 1, -1),
+						new Vector3(-1, -1, 1), new Vector3(-1, 0, 1),
+						new Vector3(-1, -1, 0), new Vector3(-1, -1, -1),
+						new Vector3(-1, 0, -1), new Vector3(-1, 1, 1),
+						new Vector3(-1, 1, 0), new Vector3(-1, 1, -1),
+						new Vector3(0, -1, 1), new Vector3(0, 0, 1),
+						new Vector3(0, -1, -1), new Vector3(0, 1, -1),
+						new Vector3(0, 0, 0)
+									],
+				CubeTopology.SlopedCorner => [
+						new Vector3(-1, 1, -1), new Vector3(1, 0, -1),
+						new Vector3(-1, 0, 1), new Vector3(1, -1, 1),
+						new Vector3(1, -0.5f, 0), new Vector3(0, 0.5f, -1),
+						new Vector3(-1, 0.5f, 0), new Vector3(0, -0.5f, 1),
+						new Vector3(-1, -1, 1), new Vector3(-1, -1, 0),
+						new Vector3(-1, -1, -1), new Vector3(-1, 0, -1),
+						new Vector3(1, -1, -1), new Vector3(1, -1, 0),
+						new Vector3(0, -1, 1), new Vector3(0, -1, -1)
+									],
+				CubeTopology.SlopedCornerBase => [
+						new Vector3(1, 1, -1), new Vector3(0, 1, -1),
+						new Vector3(-1, 1, -1), new Vector3(1, 1, 0),
+						new Vector3(0, 1, 0), new Vector3(1, 1, 1),
+						new Vector3(-1, 0, 1), new Vector3(-1, 0.5f, 0),
+						new Vector3(0, 0.5f, 1), new Vector3(1, 0, -1),
+						new Vector3(1, -1, -1), new Vector3(1, -1, 0),
+						new Vector3(1, 0, 1), new Vector3(1, -1, 1),
+						new Vector3(-1, -1, 1), new Vector3(-1, -1, 0),
+						new Vector3(-1, -1, -1), new Vector3(-1, 0, -1),
+						new Vector3(0, -1, -1), new Vector3(0, -1, 1)
+									],
+				CubeTopology.SlopedCornerTip => [
+						new Vector3(1, -1, 1), new Vector3(-1, -1, 1),
+						new Vector3(-1, 0, 1), new Vector3(0, -0.5f, 1),
+						new Vector3(-1, -0.5f, 1), new Vector3(0, -1, 1),
+						new Vector3(-1, -1, 0), new Vector3(-1, -1, -1),
+						new Vector3(0, -1, 0), new Vector3(-1, -0.5f, 0)
+									],
+				CubeTopology.RaisedSlopedCorner => [
+						new Vector3(1, 0, -1), new Vector3(-1, 0, 1),
+						new Vector3(-1, 1, -1), new Vector3(-1, 0, -1),
+						new Vector3(1, 0, -1), new Vector3(-1, 0, 1),
+						new Vector3(-1, -1, 1), new Vector3(-1, -1, -1),
+						new Vector3(-1, 0, -1), new Vector3(1, 0, 1),
+						new Vector3(1, -1, 1), new Vector3(1, -1, -1)
+									],
+				CubeTopology.SlopeTransition => [
+						new Vector3(1, -1, -1), new Vector3(1, -1, 0),
+						new Vector3(1, -1, 1), new Vector3(1, -0.5f, 0),
+						new Vector3(1, 0, -1), new Vector3(-1, -1, -1),
+						new Vector3(-1, -1, 0), new Vector3(-1, -1, 1),
+						new Vector3(-1, 0, -1), new Vector3(-1, 0, 0),
+						new Vector3(-1, 1, -1), new Vector3(0, -1, -1),
+						new Vector3(0, 0.5f, -1), new Vector3(0, -1, 1),
+						new Vector3(0, 0, 0)
+									],
+				CubeTopology.SlopeTransitionBase => [
+						new Vector3(-1, -1, 1), new Vector3(0, -1, 1),
+						new Vector3(1, -1, 1), new Vector3(0, -0.5f, 1),
+						new Vector3(-1, 0, 1), new Vector3(-1, 1, -1),
+						new Vector3(0, 1, -1), new Vector3(-1, 0, -1),
+						new Vector3(-1, -1, -1), new Vector3(0, -1, -1),
+						new Vector3(1, 1, -1), new Vector3(1, 0, -1),
+						new Vector3(1, -1, -1), new Vector3(1, 0, 0),
+						new Vector3(0, 0.5f, 0), new Vector3(-1, -1, 0),
+						new Vector3(1, -1, 0), new Vector3(-1, 0.5f, 0)
+									],
+				CubeTopology.SlopeTransitionBaseMirrored => [
+						new Vector3(1, -1, -1), new Vector3(-1, 0, -1),
+						new Vector3(1, 1, 1), new Vector3(0, -0.5f, -1),
+						new Vector3(1, 0, 0), new Vector3(0, 0.5f, 0),
+						new Vector3(-1, -1, -1), new Vector3(0, -1, -1),
+						new Vector3(-1, -1, 1), new Vector3(-1, 0, 1),
+						new Vector3(-1, -1, 0), new Vector3(-1, 1, 1),
+						new Vector3(-1, 0.5f, 0), new Vector3(0, 1, 1),
+						new Vector3(0, -1, 1), new Vector3(1, -1, 0),
+						new Vector3(1, -1, 1), new Vector3(1, 0, 1)
+									],
+				CubeTopology.SlopeTransitionMirrored => [
+						new Vector3(-1, -1, 1), new Vector3(-1, -1, 0),
+						new Vector3(-1, -1, -1), new Vector3(-1, 0, 1),
+						new Vector3(-1, 0, 0), new Vector3(-1, 1, 1),
+						new Vector3(1, -1, 1), new Vector3(1, -1, 0),
+						new Vector3(1, -1, -1), new Vector3(1, -0.5f, 0),
+						new Vector3(1, 0, 1), new Vector3(0, -1, -1),
+						new Vector3(0, 0, 0), new Vector3(0, 0.5f, 1),
+						new Vector3(0, -1, 1)
+									],
+				CubeTopology.SlopeTransitionTip => [
+						new Vector3(-1, 0, -1), new Vector3(0, 0, -1),
+						new Vector3(-1, -1, -1), new Vector3(0, -1, -1),
+						new Vector3(1, 0, -1), new Vector3(1, -1, -1),
+						new Vector3(-1, -1, 1), new Vector3(1, -1, 0),
+						new Vector3(0, -0.5f, 0), new Vector3(0, -1, 0.5f),
+						new Vector3(1, -0.5f, -0.5f), new Vector3(-1, -1, 0),
+						new Vector3(-1, -0.5f, 0)
+									],
+				CubeTopology.SlopeTransitionTipMirrored => [
+						new Vector3(-1, -1, 1), new Vector3(-1, -1, 0),
+						new Vector3(-1, -1, -1), new Vector3(-1, -0.5f, 0),
+						new Vector3(-1, 0, 1), new Vector3(1, 0, 1),
+						new Vector3(1, -1, 0), new Vector3(0, -0.5f, 0),
+						new Vector3(0, -1, -0.5f), new Vector3(1, -0.5f, 0.5f),
+						new Vector3(0, 0, 1), new Vector3(1, -1, 1),
+						new Vector3(0, -1, 1)
+									],
+				CubeTopology.SquareSlopedCornerBase => [
+						new Vector3(-1, -1, 1), new Vector3(-1, 0, 1),
+						new Vector3(-1, -1, 0), new Vector3(-1, -1, -1),
+						new Vector3(-1, 0, -1), new Vector3(-1, 0.5f, 0),
+						new Vector3(-1, 1, -1), new Vector3(0, -1, -1),
+						new Vector3(0, -1, 1), new Vector3(1, -1, -1),
+						new Vector3(1, -1, 0), new Vector3(1, -1, 1),
+						new Vector3(1, 0, -1), new Vector3(1, 0, 1),
+						new Vector3(0, 0.5f, -1), new Vector3(0, 0.5f, 0),
+						new Vector3(1, 0, 0), new Vector3(0, 0, 1)
+									],
+				CubeTopology.SquareSlopedCornerTip => [
+						new Vector3(-1, -1, -1), new Vector3(1, -1, -1),
+						new Vector3(-1, 0, -1), new Vector3(0, -0.5f, -1),
+						new Vector3(0, -1, -1), new Vector3(-1, -0.5f, -1),
+						new Vector3(-1, -1, 1), new Vector3(1, -1, 1),
+						new Vector3(0, -1, 1), new Vector3(0, -0.5f, 0),
+						new Vector3(-1, -0.5f, 0), new Vector3(1, -1, 0),
+						new Vector3(-1, -1, 0)
+									],
+				CubeTopology.SquareSlopedCornerTipInv => [
+						new Vector3(1, -1, -1), new Vector3(1, -1, 1),
+						new Vector3(1, 0, -1), new Vector3(-1, 0, -1),
+						new Vector3(-1, -1, -1), new Vector3(-1, -1, -1),
+						new Vector3(-1, 0, -1), new Vector3(1, -1, 1),
+						new Vector3(-1, 0, 1), new Vector3(-1, -1, 1),
+						new Vector3(-1, -1, -1)
+									],
+				_ => [],
+			};
+		}
+	}
 }
