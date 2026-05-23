@@ -9,7 +9,6 @@ using VRageMath;
 
 using System.Linq;
 
-
 namespace LLE
 {
 	public class Collisions
@@ -54,11 +53,7 @@ namespace LLE
 
 			var id = block.BlockDefinition.Id;
 
-			if (!_collisionGeometry.TryGetValue(id, out geometry))
-			{
-				MyConsole.Add($"NOT FOUND {id}", Color.Red);
-			}
-			else
+			if (_collisionGeometry.TryGetValue(id, out geometry))
 			{
 				Matrix bo;
 				block.Orientation.GetMatrix(out bo);
@@ -96,8 +91,12 @@ namespace LLE
 
 				var sphere = shape as SphereShape;
 				if (sphere != null)
+				{	
+					// BUG wrong position
 					DrawScreenSphere(matrix, sphere.Radius, Vector3D.Zero, new Vector4(1f, 1f, 1f, 1f));
-
+					// Also wrong position
+					Drawing.RoundMarker(matrix.Translation, Color.BlueViolet);
+				}
 
 				var capsule = shape as CapsuleShape;
 				if (capsule != null)
@@ -160,6 +159,7 @@ namespace LLE
 				var cylinder = shape as CylinderShape;
 				if (cylinder != null)
 				{
+					// BUG: no rotation
 					var vv = new List<Vector3>();
 					int segments = 32;
 					for (int s = 0; s < segments; s++)

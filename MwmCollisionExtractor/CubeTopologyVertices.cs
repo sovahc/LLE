@@ -223,7 +223,7 @@ namespace MwmCollisionExtractor
 					new Vector3( 1, -1, -1),
 					new Vector3( 1, -1,  1)
 					],
-				CubeTopology.CornerSquareInverted => [
+				CubeTopology.CornerSquareInverted => [ // NOT CONVEX
 					new Vector3(-1, -1, -1),
 					new Vector3(-1, -1,  1),
 					new Vector3(-1,  1, -1),
