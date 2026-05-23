@@ -59,16 +59,12 @@ namespace LLE
 			matrix.Translation = world;
 
 			var v = new Vector3D(blockSize * 0.55);
-			//Drawing.AABB(matrix, new BoundingBoxD(-v, v), color, 0.01f);
 
 			var bb = new BoundingBoxD(-v, v);
 
 			var material = MyStringId.GetOrCompute("Square");
 			MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref bb, ref color,
 				MySimpleObjectRasterizer.Wireframe, 1, 0.01f, material, material);
-
-			//Drawing.RoundMarker(world, color);
-			//Drawing.RoundMarker(world, color);
 		}
 
 		public static void Tick(ref IEnumerator iter, string name)
@@ -293,9 +289,6 @@ namespace LLE
 
 			if(astar != null && !astar.Completed())
 				astar.Iteration();
-
-			//if ()
-			//trav.Iteration();
 		}
 
 		public override void Draw()
@@ -310,8 +303,6 @@ namespace LLE
 				new Vector2D(0.5, -0.97), 0.00075f, lp ? Color.White : Color.Red);
 
 			var pm = player.Character.GetHeadMatrix(false);
-			//Vision.HighlightVisible(pm.Translation, pm.Forward);
-			//trav.DrawDebug();
 
 			if(grid_A != null && astar != null && astar.Completed())
 			{	var path = astar.result;
@@ -324,10 +315,9 @@ namespace LLE
 			if (grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
 			if (grid_A != null && point_A != null)
 			{	var block = grid_A.GetCubeBlock(point_A);
-				if (block != null)
-				{
-					Collisions.Draw(grid_A, block);
-				}
+				
+				if (block != null) Collisions.Draw(grid_A, block);
+
 			}
 			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
