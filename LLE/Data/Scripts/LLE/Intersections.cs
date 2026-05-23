@@ -1,5 +1,6 @@
-using VRageMath;
+using System;
 using System.Collections.Generic;
+using VRageMath;
 
 namespace LLE
 {
@@ -9,13 +10,13 @@ namespace LLE
 		private const double ConvergenceRelativeEpsilon = 1e-6;
 		private const double IntersectionDistanceFactor = 1e-8;
 
-		private static GjkD gjk = new GjkD();
+		private static readonly GjkD gjk = new GjkD();
 
 		public static bool SphereIntersectsConvex(
 			Vector3D sphereCenter, double sphereRadius,
 			List<Vector3> convexVertices)
 		{
-			if (convexVertices == null || convexVertices.Count < 3)
+			if (convexVertices == null || convexVertices.Count < 3) // 4?
 				return false;
 
 			gjk.Reset();
@@ -60,9 +61,14 @@ namespace LLE
 				direction = -gjk.ClosestPoint;
 				distSq = direction.LengthSquared();
 
+				if (distSq <= ZeroEpsilon)
+					return true; // Point is inside or on the boundary
+
 				// Convergence check
-				if ((prevDistSq - distSq) / prevDistSq < ConvergenceRelativeEpsilon)
-					return false;
+				double improvement = prevDistSq - distSq;
+				if (improvement < ConvergenceRelativeEpsilon * Math.Max(prevDistSq, 1.0))
+					return false; // Algorithm stalled, no intersection
+
 				prevDistSq = distSq;
 
 			} while (distSq > IntersectionDistanceFactor * gjk.MaxLengthSquared);

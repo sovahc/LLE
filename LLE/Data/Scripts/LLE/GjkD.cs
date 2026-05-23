@@ -95,7 +95,7 @@ namespace LLE
         public void Reset()
         {
             this.simplexBits = 0;
-            this.maxLengthSq = 0.0f;
+            this.maxLengthSq = 0.0;
         }
 
         public bool AddSupportPoint(ref Vector3D newPoint)
@@ -191,9 +191,9 @@ namespace LLE
 
         private Vector3D ComputeClosestPoint()
         {
-            double num1 = 0.0f;
+            double num1 = 0.0;
             Vector3D zero = Vector3D.Zero;
-            this.maxLengthSq = 0.0f;
+            this.maxLengthSq = 0.0;
             int num2 = GjkD.BitsToIndices[this.simplexBits];
             while (num2 != 0)
             {
