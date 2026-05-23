@@ -71,45 +71,40 @@ namespace LLE
 
 		private static void Draw(CollisionGeometry geometry, MatrixD blockMatrix)
 		{
-			var material = MyStringId.GetOrCompute("Square");
 			foreach (var shape in geometry.Shapes)
 			{
-				var matrix = blockMatrix * shape.Transform;
-
 				var convex = shape as ConvexHullShape;
 				if (convex != null)
 				{
-					var worldVerts = convex.Vertices.Select(v => Vector3D.Transform(v, matrix)).ToList();
+					var worldVerts = convex.Vertices.Select(v => Vector3D.Transform(new Vector3D(Vector3.Transform(v, shape.Transform)), blockMatrix)).ToList();
 					var screenVerts = Drawing.WorldToScreen(worldVerts);
 					var hull = Geometry.ConvexHull(screenVerts);
 					if (hull.Count >= 2)
-					{
-						var hullArray = hull.ToArray();
-						Drawing.Contour(hullArray, true, 5e-5f, new Vector4(1f, 0f, 0f, 1f));
-					}
+						Drawing.Contour(hull.ToArray(), true, 5e-5f, new Vector4(1f, 0f, 0f, 1f));
 				}
 
 				var sphere = shape as SphereShape;
 				if (sphere != null)
 				{	
 					var worldCenter = Vector3D.Transform(new Vector3D(shape.Transform.Translation), blockMatrix);
-					DrawScreenSphere(MatrixD.CreateTranslation(worldCenter), sphere.Radius, Vector3D.Zero, new Vector4(1f, 1f, 1f, 1f));
+					DrawScreenSphere(worldCenter, sphere.Radius, new Vector4(1f, 1f, 1f, 1f));
 					Drawing.RoundMarker(worldCenter, Color.BlueViolet);
 				}
 
 				var capsule = shape as CapsuleShape;
 				if (capsule != null)
 				{
-					DrawScreenSphere(matrix, capsule.Radius, capsule.VertexA, new Vector4(1f, 0f, 1f, 1f));
-					DrawScreenSphere(matrix, capsule.Radius, capsule.VertexB, new Vector4(1f, 0f, 1f, 1f));
+					var worldA = Vector3D.Transform(new Vector3D(Vector3.Transform(capsule.VertexA, shape.Transform)), blockMatrix);
+					var worldB = Vector3D.Transform(new Vector3D(Vector3.Transform(capsule.VertexB, shape.Transform)), blockMatrix);
+					DrawScreenSphere(worldA, capsule.Radius, new Vector4(1f, 0f, 1f, 1f));
+					DrawScreenSphere(worldB, capsule.Radius, new Vector4(1f, 0f, 1f, 1f));
 				}
 			}
 		}
 
-		private static void DrawScreenSphere(MatrixD matrix, float radius, Vector3D localCenter, Vector4 color)
+		private static void DrawScreenSphere(Vector3D worldCenter, float radius, Vector4 color)
 		{
 			var camera = MyAPIGateway.Session.Camera;
-			Vector3D worldCenter = Vector3D.Transform(localCenter, matrix);
 			Vector3D viewDir = Vector3D.Normalize(worldCenter - camera.Position);
 
 			Vector3D right, localUp;
