@@ -200,6 +200,7 @@ namespace LLE
 		AStar astar;
 		const int border = 1;
 		Vector3D _testSphereCenter;
+		float _testSphereRadius = 1;
 		bool _testSphereIntersects;
 
 		public static void Log(string s) { Utilities.Log(s); }
@@ -249,8 +250,6 @@ namespace LLE
 
 			var pm = ch.GetHeadMatrix(false);
 
-			_testSphereCenter = pm.Translation + pm.Forward * 5;
-
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
 			{
 				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out selectedBlock, out point_A);
@@ -260,9 +259,6 @@ namespace LLE
 					if(block != null)
 						MyConsole.Add($"Id {block.BlockDefinition.Id}", Color.Wheat);
 				}
-			}
-			if(grid_A != null)
-			{	_testSphereIntersects = CheckSphereVsBlock(_testSphereCenter, 0.1, grid_A, grid_A.GetCubeBlock(selectedBlock));
 			}
 
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
@@ -313,15 +309,17 @@ namespace LLE
 		public override void Draw()
 		{
 			var player = MyAPIGateway.Session.Player;
-			if (player == null || player.Character == null) return;
+			if (player == null) return;
+			var ch = player.Character;
+			if (ch == null) return;
+
+			var pm = ch.GetHeadMatrix(false);
 
 			Common.StartFrame();
 
 			var lp = LLE_Loader.IsPresent();
 			font.String("LLE_Loader.IsPresent: " + lp.ToString(),
 				new Vector2D(0.5, -0.97), 0.00075f, lp ? Color.White : Color.Red);
-
-			var pm = player.Character.GetHeadMatrix(false);
 
 			if(grid_A != null && astar != null && astar.Completed())
 			{	var path = astar.result;
@@ -340,8 +338,12 @@ namespace LLE
 			}
 			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
+			_testSphereCenter = pm.Translation + pm.Forward * 5;
+			if(grid_A != null)
+			{	_testSphereIntersects = CheckSphereVsBlock(_testSphereCenter, _testSphereRadius, grid_A, grid_A.GetCubeBlock(selectedBlock));
+			}
 			var color = _testSphereIntersects ? Color.Red : Color.Green;
-			Drawing.ScreenSphere(_testSphereCenter, 0.1f, new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f));
+			Drawing.ScreenSphere(_testSphereCenter, _testSphereRadius, new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f));
 
 			MyConsole.Render(font);
 
