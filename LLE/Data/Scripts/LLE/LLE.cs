@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage.Game;
@@ -198,6 +199,8 @@ namespace LLE
 		Vector3I selectedBlock;
 		AStar astar;
 		const int border = 1;
+		Vector3D _testSphereCenter;
+		bool _testSphereIntersects;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -246,6 +249,8 @@ namespace LLE
 
 			var pm = ch.GetHeadMatrix(false);
 
+			_testSphereCenter = pm.Translation + pm.Forward * 5;
+
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
 			{
 				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out selectedBlock, out point_A);
@@ -253,10 +258,13 @@ namespace LLE
 				if(grid_A != null)
 				{	var block = grid_A.GetCubeBlock(selectedBlock);
 					if(block != null)
-					{	MyConsole.Add($"Id {block.BlockDefinition.Id}", Color.Wheat);
-					}
+						MyConsole.Add($"Id {block.BlockDefinition.Id}", Color.Wheat);
 				}
 			}
+			if(grid_A != null)
+			{	_testSphereIntersects = CheckSphereVsBlock(_testSphereCenter, 0.1, grid_A, grid_A.GetCubeBlock(selectedBlock));
+			}
+
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
 			{
 				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out selectedBlock, out point_B);
@@ -332,6 +340,9 @@ namespace LLE
 			}
 			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
+			var color = _testSphereIntersects ? Color.Red : Color.Green;
+			Drawing.ScreenSphere(_testSphereCenter, 0.1f, new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f));
+
 			MyConsole.Render(font);
 
 			Common.Call_Add_Billboards(); // just for sure
@@ -359,6 +370,36 @@ namespace LLE
 				grid.OnBlockRemoved -= Vision.Grid_OnBlockRemoved;
 				grid.OnGridChanged -= Vision.Grid_OnGridChanged;
 			}
+		}
+
+		bool CheckSphereVsBlock(Vector3D sphereCenter, double sphereRadius, IMyCubeGrid grid, IMySlimBlock block)
+		{
+			if(block == null) return false;
+
+			CollisionGeometry geometry;
+			if (!Collisions._collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry))
+				return false;
+
+			Matrix bo;
+			block.Orientation.GetMatrix(out bo);
+			Quaternion q = Quaternion.CreateFromRotationMatrix(grid.WorldMatrix);
+			Matrix.Transform(ref bo, ref q, out bo);
+
+			var blockCenter = 0.5 * (grid.GridIntegerToWorld(block.Min) + grid.GridIntegerToWorld(block.Max));
+			MatrixD blockMatrix = new MatrixD(bo) { Translation = blockCenter };
+
+			foreach (var shape in geometry.Shapes)
+			{
+				var convex = shape as ConvexHullShape;
+				if (convex != null)
+				{
+					var worldVerts = convex.Vertices.Select(v =>
+						(Vector3)Vector3D.Transform(new Vector3D(Vector3.Transform(v, shape.Transform)), blockMatrix)).ToList();
+					if (Intersections.SphereIntersectsConvex(sphereCenter, sphereRadius, worldVerts))
+						return true;
+				}
+			}
+			return false;
 		}
 
 		void OnChatMessage(string message, ref bool sendToOthers)

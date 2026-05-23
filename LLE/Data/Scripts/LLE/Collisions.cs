@@ -13,7 +13,7 @@ namespace LLE
 {
 	public class Collisions
 	{
-		private static Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
+		internal static Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
 
 		public static void Load(IMyModContext ModContext)
 		{

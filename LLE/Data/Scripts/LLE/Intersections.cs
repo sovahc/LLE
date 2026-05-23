@@ -49,15 +49,15 @@ namespace LLE
 				// Minkowski difference point
 				Vector3D minkowskiPoint = convexSupport - sphereSupport;
 
-				// If projection is positive, bodies intersect
+				// If projection is non-positive, new support point did not advance past origin
 				double proj = Vector3D.Dot(direction, minkowskiPoint);
-				if (proj > 0)
-					return true;
+				if (proj < -ZeroEpsilon)
+					return false;
 
 				if (!gjk.AddSupportPoint(ref minkowskiPoint))
 					return false; // no convergence, no intersection
 
-				direction = gjk.ClosestPoint;
+				direction = -gjk.ClosestPoint;
 				distSq = direction.LengthSquared();
 
 				// Convergence check
@@ -65,7 +65,7 @@ namespace LLE
 					return false;
 				prevDistSq = distSq;
 
-			} while (!gjk.FullSimplex && distSq > IntersectionDistanceFactor * gjk.MaxLengthSquared);
+			} while (distSq > IntersectionDistanceFactor * gjk.MaxLengthSquared);
 
 			return true;
 		}
