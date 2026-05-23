@@ -137,7 +137,7 @@ namespace LLE
 				{
 					var axis = Vector3.Normalize(cylinder.VertexB - cylinder.VertexA);
 					Vector3 right, localUp;
-					Geometry.GetOrthonormalBasis(axis, out right, out localUp);
+					Geometry.OrthonormalBasis(axis, out right, out localUp);
 					var vv = new List<Vector3>();
 					int segments = 32;
 					for (int s = 0; s < segments; s++)

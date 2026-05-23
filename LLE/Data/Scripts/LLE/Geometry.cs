@@ -6,14 +6,14 @@ namespace LLE
 {
 	public static class Geometry
 	{
-		public static void GetOrthonormalBasis(Vector3 axis, out Vector3 right, out Vector3 up)
+		public static void OrthonormalBasis(Vector3 axis, out Vector3 right, out Vector3 up)
 		{
 			var perp = Math.Abs(Vector3.Dot(axis, Vector3.Up)) > 0.99f ? Vector3.Forward : Vector3.Up;
 			right = Vector3.Normalize(Vector3.Cross(axis, perp));
 			up = Vector3.Cross(right, axis);
 		}
 
-		public static void GetOrthonormalBasis(Vector3D axis, out Vector3D right, out Vector3D up)
+		public static void OrthonormalBasis(Vector3D axis, out Vector3D right, out Vector3D up)
 		{
 			var perp = Math.Abs(Vector3D.Dot(axis, Vector3D.Up)) > 0.99 ? Vector3D.Forward : Vector3D.Up;
 			right = Vector3D.Normalize(Vector3D.Cross(axis, perp));

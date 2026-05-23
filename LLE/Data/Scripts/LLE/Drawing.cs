@@ -422,7 +422,7 @@ namespace LLE
 			Vector3D viewDir = Vector3D.Normalize(worldCenter - camera.Position);
 
 			Vector3D right, localUp;
-			Geometry.GetOrthonormalBasis(viewDir, out right, out localUp);
+			Geometry.OrthonormalBasis(viewDir, out right, out localUp);
 
 			int segments = 64;
 			var silhouettePoints = new List<Vector3D>();
