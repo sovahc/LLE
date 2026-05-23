@@ -159,10 +159,3 @@ To build a convex hull for an armor block from SBC data:
 6. Build `ConvexHullShape` from all world vertices
 
 **Note:** For undeformed blocks (all offsets = 127), the result is a simple box. The convex hull is only needed when bones are deformed.
-
-## Grid Sizes
-
-- Large grid: `GridSize = 0.5m`
-- Small grid: `GridSize = 0.25m`
-
-These determine `boneRange` and the scale of bone offsets.
