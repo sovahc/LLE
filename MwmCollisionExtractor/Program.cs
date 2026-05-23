@@ -59,6 +59,7 @@ namespace MwmCollisionExtractor
 
         const string Base = "/home/cat/Projects/";
         const string Bin64 = Base + "SpaceEngineers/Bin64";
+        const float PhysicsConvexRadius = 0; //0.05f; // MyPerGameSettings.PhysicsConvexRadius
 
         private class BlockInfo
         {
@@ -200,7 +201,7 @@ namespace MwmCollisionExtractor
         {
             using (var fs = File.Create(outputFile))
                 Serializer.Serialize(fs, allGeometry);
-            Console.WriteLine($"\nBatch complete. Saved {allGeometry.Count} blocks to {outputFile}");
+            Console.WriteLine($"\nSaved {allGeometry.Count} blocks to {outputFile}");
         }
 
         static void Flatten(HkShape shape, Matrix currentTransform, List<CollisionShape> result)
@@ -254,21 +255,34 @@ namespace MwmCollisionExtractor
             {
                 case HkShapeType.Box:
                     var box = (HkBoxShape)shape;
-                    return new BoxShape { HalfExtents = box.HalfExtents };
+                    return new BoxShape { HalfExtents = box.HalfExtents + PhysicsConvexRadius };
                 case HkShapeType.Sphere:
                     var sphere = (HkSphereShape)shape;
-                    return new SphereShape { Radius = sphere.Radius };
+                    return new SphereShape { Radius = sphere.Radius + PhysicsConvexRadius };
                 case HkShapeType.Capsule:
                     var capsule = (HkCapsuleShape)shape;
-                    return new CapsuleShape { VertexA = capsule.VertexA, VertexB = capsule.VertexB, Radius = capsule.Radius };
+                    return new CapsuleShape { VertexA = capsule.VertexA, VertexB = capsule.VertexB, Radius = capsule.Radius + PhysicsConvexRadius };
                 case HkShapeType.Cylinder:
                     var cylinder = (HkCylinderShape)shape;
+                    // xx PhysicsConvexRadius ?
                     return new CylinderShape { VertexA = cylinder.VertexA, VertexB = cylinder.VertexB, Radius = cylinder.Radius };
                 case HkShapeType.ConvexVertices:
                     var convex = (HkConvexVerticesShape)shape;
                     Vector3[] verts;
                     convex.GetVertices(out verts);
                     var hull = new ConvexHullShape();
+                    // Approximate: push vertices outward from centroid (not exact Minkowski sum)
+
+                    var centroid = Vector3.Zero;
+                    foreach (var v in verts) centroid += v;
+                    centroid /= verts.Length;
+                    for (int i = 0; i < verts.Length; i++)
+                    {
+                        var v = verts[i] - centroid;
+                        if(v.Length() == 0) throw new Exception();
+                        verts[i] = centroid + Vector3.Normalize(v) * (v.Length() + PhysicsConvexRadius);
+                    }
+
                     hull.Vertices.AddRange(verts);
                     return hull;
                 default:
