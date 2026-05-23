@@ -159,15 +159,19 @@ namespace LLE
 				var cylinder = shape as CylinderShape;
 				if (cylinder != null)
 				{
-					// BUG: no rotation
+					var axis = Vector3.Normalize(cylinder.VertexB - cylinder.VertexA);
+					var up = Math.Abs(Vector3.Dot(axis, Vector3.Up)) > 0.99f ? Vector3.Forward : Vector3.Up;
+					var right = Vector3.Normalize(Vector3.Cross(axis, up));
+					var localUp = Vector3.Cross(right, axis);
 					var vv = new List<Vector3>();
 					int segments = 32;
 					for (int s = 0; s < segments; s++)
 					{
 						double angle = s * MathHelper.TwoPi / segments;
 						double c = Math.Cos(angle), sn = Math.Sin(angle);
-						vv.Add(new Vector3((float)c * cylinder.Radius, 0, (float)sn * cylinder.Radius) + cylinder.VertexA);
-						vv.Add(new Vector3((float)c * cylinder.Radius, 0, (float)sn * cylinder.Radius) + cylinder.VertexB);
+						Vector3 offset = (float)c * right * cylinder.Radius + (float)sn * localUp * cylinder.Radius;
+						vv.Add(cylinder.VertexA + offset);
+						vv.Add(cylinder.VertexB + offset);
 					}
 					for (int v = 0; v < vv.Count; ++v)
 						vv[v] = Vector3.Transform(vv[v], cylinder.Transform);
