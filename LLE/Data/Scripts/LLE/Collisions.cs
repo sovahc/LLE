@@ -92,10 +92,9 @@ namespace LLE
 				var sphere = shape as SphereShape;
 				if (sphere != null)
 				{	
-					// BUG wrong position
-					DrawScreenSphere(matrix, sphere.Radius, Vector3D.Zero, new Vector4(1f, 1f, 1f, 1f));
-					// Also wrong position
-					Drawing.RoundMarker(matrix.Translation, Color.BlueViolet);
+					var worldCenter = Vector3D.Transform(new Vector3D(shape.Transform.Translation), blockMatrix);
+					DrawScreenSphere(MatrixD.CreateTranslation(worldCenter), sphere.Radius, Vector3D.Zero, new Vector4(1f, 1f, 1f, 1f));
+					Drawing.RoundMarker(worldCenter, Color.BlueViolet);
 				}
 
 				var capsule = shape as CapsuleShape;
