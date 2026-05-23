@@ -415,5 +415,25 @@ namespace LLE
 				font.String("x", sp, 0.00075f, color);
 			}
 		}
+
+		public static void ScreenSphere(Vector3D worldCenter, float radius, Vector4 color)
+		{
+			var camera = MyAPIGateway.Session.Camera;
+			Vector3D viewDir = Vector3D.Normalize(worldCenter - camera.Position);
+
+			Vector3D right, localUp;
+			Geometry.GetOrthonormalBasis(viewDir, out right, out localUp);
+
+			int segments = 64;
+			var silhouettePoints = new List<Vector3D>();
+			for (int i = 0; i < segments; i++)
+			{
+				double angle = i * MathHelper.TwoPi / segments;
+				Vector3D worldPoint = worldCenter + Math.Cos(angle) * right * radius + Math.Sin(angle) * localUp * radius;
+				silhouettePoints.Add(worldPoint);
+			}
+			var projected = WorldToScreen(silhouettePoints);
+			if (projected.Count >= 2) Contour(projected.ToArray(), true, 5e-5f, color);
+		}
 	}
 }
