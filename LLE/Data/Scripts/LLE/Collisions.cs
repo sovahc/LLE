@@ -39,6 +39,8 @@ namespace LLE
 					}
 					var subtypeId = MyStringHash.GetOrCompute(kv.Key.SubtypeId);
 
+					// XX: default collision is cube.
+
 					PreprocessCG(kv.Value);
 
 					_collisionGeometry[new MyDefinitionId(typeId, subtypeId)] = kv.Value;
