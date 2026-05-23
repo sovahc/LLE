@@ -129,7 +129,11 @@ namespace LLE
 		const int MaxLines = 50;
 
 		private static readonly Color textBackground = new Color(0, 0, 0, 127);
-		private static readonly Color defaultTextColor = Color.White;
+
+		public static void Add(string text)
+		{
+			Add(text, Color.White);
+		}
 
 		public static void Add(string text, Color color)
 		{
