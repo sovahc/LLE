@@ -86,26 +86,35 @@ namespace LLE
 		}
 	}
 
-	public struct Profiler
+	/// <inheritdoc cref="Profiler" />
+	/// <summary>
+	/// This code was provided by Digi as a simple profiler
+	/// Usage:
+	///		Wrap code you want to profile in:
+	///			using(new Profiler("somename"))
+	///			{
+	///				// code to profile
+	///			}
+	/// </summary>
+	public struct Profiler : IDisposable
 	{
 		private readonly string _name;
-		private long _start;
-		private long _end;
+		private readonly long _start;
+
 		public Profiler(string name = "unnamed")
 		{
 			_name = name;
 			_start = Stopwatch.GetTimestamp();
-			_end = long.MaxValue;
 		}
-		public void Start()
-		{	_start = Stopwatch.GetTimestamp();
-		}
-		public void Stop()
-		{	_end = Stopwatch.GetTimestamp();
-		}
+
 		public override string ToString()
-		{	return $"{_name} {new TimeSpan(_end - _start).TotalMilliseconds:0.##}ms";
+		{
+			long end = Stopwatch.GetTimestamp();
+			TimeSpan timespan = new TimeSpan(end - _start);
+			return $"{_name} {timespan.TotalMilliseconds:0.###}ms";
 		}
+
+		public void Dispose() { }
 	}
 
 	class MyConsole
@@ -266,18 +275,18 @@ namespace LLE
 				List<IMySlimBlock> blocks = new List<IMySlimBlock>();
 				grid.GetBlocks(blocks);
 
-				Profiler p = new Profiler("fill2");
-				foreach(var slim in blocks)
-				{	
-					var min = slim.Min;
-					var max = slim.Max;
+				using(var p = new Profiler("fill"))
+				{	foreach(var slim in blocks)
+					{	
+						var min = slim.Min;
+						var max = slim.Max;
 
-					if(min == max)
-					{	astar.SetWeight(slim.Position - grid.Min + border, 255);
+						if(min == max)
+						{	astar.SetWeight(slim.Position - grid.Min + border, 255);
+						}
 					}
+					MyConsole.Add($"{p}", Color.IndianRed);
 				}
-				p.Stop();
-				MyConsole.Add($"{p}", Color.IndianRed);
 
 				var a = point_A - grid.Min + border;
 				var b = point_B - grid.Min + border;
