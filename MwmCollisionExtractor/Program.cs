@@ -130,8 +130,8 @@ namespace MwmCollisionExtractor
             var allGeometry = new Dictionary<DefinitionIdAsText, CollisionGeometry>();
             foreach (var block in blocks)
             {
+                // Phase 1: Try loading collision from model file
                 CollisionGeometry geometry = null;
-
                 if (!string.IsNullOrEmpty(block.ModelPath))
                 {
                     string fullPath = Path.Combine(gameRoot, block.ModelPath.Replace('\\', '/'));
@@ -142,20 +142,18 @@ namespace MwmCollisionExtractor
                     }
 
                     var shapes = new List<HkShape>();
-                    if (LoadMwmShapes(fullPath, shapes, out string loadError))
-                    {
-                        geometry = new CollisionGeometry();
-                        foreach (var s in shapes)
-                            Flatten(s, Matrix.Identity, geometry.Shapes);
-                    }
-                    else
+                    if (!LoadMwmShapes(fullPath, shapes, out string loadError))
                     {
                         Console.WriteLine($"  FAIL {block.DefId.TypeId}:{block.DefId.SubtypeId}: {loadError}");
                         continue;
                     }
+
+                    geometry = new CollisionGeometry();
+                    foreach (var s in shapes)
+                        Flatten(s, Matrix.Identity, geometry.Shapes);
                 }
 
-                // Fallback: build from skeleton bones if no geometry or empty
+                // Phase 2: Fallback to skeleton if model produced no shapes
                 if (geometry == null || geometry.Shapes.Count == 0)
                 {
                     if (geometry != null)
@@ -193,42 +191,44 @@ namespace MwmCollisionExtractor
         {
             if (!shape.IsValid) return;
 
-            if (shape.ShapeType == HkShapeType.ConvexTranslate)
+            switch (shape.ShapeType)
             {
-                var cts = (HkConvexTranslateShape)shape;
-                Flatten(cts.ChildShape.Base, currentTransform * Matrix.CreateTranslation(cts.Translation), result);
-            }
-            else if (shape.ShapeType == HkShapeType.ConvexTransform)
-            {
-                var cts = (HkConvexTransformShape)shape;
-                Flatten(cts.ChildShape.Base, currentTransform * cts.Transform, result);
-            }
-            else if (shape.IsContainer())
-            {
-                if (shape.ShapeType == HkShapeType.StaticCompound)
-                {
+                case HkShapeType.ConvexTranslate:
+                    var cts = (HkConvexTranslateShape)shape;
+                    Flatten(cts.ChildShape.Base, currentTransform * Matrix.CreateTranslation(cts.Translation), result);
+                    break;
+
+                case HkShapeType.ConvexTransform:
+                    var cts2 = (HkConvexTransformShape)shape;
+                    Flatten(cts2.ChildShape.Base, currentTransform * cts2.Transform, result);
+                    break;
+
+                case HkShapeType.StaticCompound:
                     var sCompound = (HkStaticCompoundShape)shape;
                     for (int i = 0; i < sCompound.InstanceCount; i++)
                         Flatten(sCompound.GetInstance(i), currentTransform * sCompound.GetInstanceTransform(i), result);
-                }
-                else
-                {
-                    var iter = shape.GetContainer();
-                    while (iter.IsValid)
+                    break;
+
+                default:
+                    if (shape.IsContainer())
                     {
-                        Flatten(iter.CurrentValue, currentTransform, result);
-                        iter.Next();
+                        var iter = shape.GetContainer();
+                        while (iter.IsValid)
+                        {
+                            Flatten(iter.CurrentValue, currentTransform, result);
+                            iter.Next();
+                        }
                     }
-                }
-            }
-            else
-            {
-                var leaf = CreateLeaf(shape);
-                if (leaf != null)
-                {
-                    leaf.Transform = currentTransform;
-                    result.Add(leaf);
-                }
+                    else
+                    {
+                        var leaf = CreateLeaf(shape);
+                        if (leaf != null)
+                        {
+                            leaf.Transform = currentTransform;
+                            result.Add(leaf);
+                        }
+                    }
+                    break;
             }
         }
 
