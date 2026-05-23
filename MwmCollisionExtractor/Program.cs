@@ -70,7 +70,7 @@ namespace MwmCollisionExtractor
 
         static void Main(string[] args)
         {
-            string outputFile = args.Length > 0 ? args[0] : Base + "LLE/LLE/Data/collisions.bin";
+            string outputFile = Base + "LLE/LLE/Data/collisions.bin";
             const string gameRoot = Base + "SpaceEngineers/Content";
             const string sbcDir = Base + "SpaceEngineers/Content/Data/CubeBlocks";
 
@@ -194,13 +194,13 @@ namespace MwmCollisionExtractor
             switch (shape.ShapeType)
             {
                 case HkShapeType.ConvexTranslate:
-                    var cts = (HkConvexTranslateShape)shape;
-                    Flatten(cts.ChildShape.Base, currentTransform * Matrix.CreateTranslation(cts.Translation), result);
+                    var translate = (HkConvexTranslateShape)shape;
+                    Flatten(translate.ChildShape.Base, currentTransform * Matrix.CreateTranslation(translate.Translation), result);
                     break;
 
                 case HkShapeType.ConvexTransform:
-                    var cts2 = (HkConvexTransformShape)shape;
-                    Flatten(cts2.ChildShape.Base, currentTransform * cts2.Transform, result);
+                    var transform = (HkConvexTransformShape)shape;
+                    Flatten(transform.ChildShape.Base, currentTransform * transform.Transform, result);
                     break;
 
                 case HkShapeType.StaticCompound:
