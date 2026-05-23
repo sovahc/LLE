@@ -55,14 +55,14 @@ namespace MwmCollisionExtractor
             mat.Add(37, "M41"); mat.Add(40, "M42"); mat.Add(43, "M43"); mat.Add(46, "M44");
         }
 
-        const string Bin64 = "/home/cat/Projects/SpaceEngineers/Bin64";
-
+        const string Base = "/home/cat/Projects/";
+        const string Bin64 = Base+"SpaceEngineers/Bin64";
 
         static void Main(string[] args)
         {
-            string outputFile = args.Length > 0 ? args[0] : "/home/cat/Projects/LLE/LLE/Data/collisions.bin";
-            const string sbcDir = "/home/cat/Projects/SpaceEngineers/Content/Data/CubeBlocks";
-            const string gameRoot = "/home/cat/Projects/SpaceEngineers/Content";
+            string outputFile = args.Length > 0 ? args[0] : Base+"LLE/LLE/Data/collisions.bin";
+            const string gameRoot = Base+"SpaceEngineers/Content";
+            const string sbcDir = Base+"SpaceEngineers/Content/Data/CubeBlocks";
             
             HkBaseSystem.Init(5 * 1024 * 1024, msg => { }, deepProfiling: false, new NullSharedCriticalSection());
             try
@@ -242,40 +242,37 @@ namespace MwmCollisionExtractor
         // MWM binary format parser — extracts HavokCollisionGeometry tag and loads shapes from it
         static bool LoadMwmShapes(string filePath, List<HkShape> outShapes, out string error)
         {
-            using (var fs = File.OpenRead(filePath))
-            using (var reader = new BinaryReader(fs, System.Text.Encoding.UTF8, leaveOpen: true))
+            using var fs = File.OpenRead(filePath);
+            using var reader = new BinaryReader(fs, System.Text.Encoding.UTF8);
+
+            reader.ReadString(); // Skip first tag name
+            int strCount = reader.ReadInt32();
+            for (int i = 0; i < strCount; i++)
+                reader.ReadString(); // Skip header strings
+
+            int itemsCount = reader.ReadInt32();
+            var indexDict = new Dictionary<string, int>();
+            for (int i = 0; i < itemsCount; i++)
+                indexDict[reader.ReadString()] = reader.ReadInt32();
+
+            reader.BaseStream.Seek(indexDict["HavokCollisionGeometry"], SeekOrigin.Begin);
+            reader.ReadString(); // Skip tag name
+            int dataLen = reader.ReadInt32();
+            if (dataLen == 0)
             {
-                reader.ReadString(); // Skip first tag name
-                int strCount = reader.ReadInt32();
-                for (int i = 0; i < strCount; i++)
-                    reader.ReadString(); // Skip header strings
-
-                int itemsCount = reader.ReadInt32();
-                var indexDict = new Dictionary<string, int>();
-                for (int i = 0; i < itemsCount; i++)
-                    indexDict[reader.ReadString()] = reader.ReadInt32();
-
-                reader.BaseStream.Seek(indexDict["HavokCollisionGeometry"], SeekOrigin.Begin);
-                reader.ReadString(); // Skip tag name
-                int dataLen = reader.ReadInt32();
-                if (dataLen == 0)
-                {
-                    error = null;
-                    return true;
-                }
-
-                byte[] collisionData = reader.ReadBytes(dataLen);
-                bool containsScene; 
-                bool containsDestruction;
-                if (!HkShapeLoader.LoadShapesListFromBuffer(collisionData, outShapes, out containsScene, out containsDestruction))
-                {
-                    error = "HkShapeLoader failed";
-                    return false;
-                }
-
                 error = null;
                 return true;
             }
+
+            byte[] collisionData = reader.ReadBytes(dataLen);
+            if (!HkShapeLoader.LoadShapesListFromBuffer(collisionData, outShapes, out bool containsScene, out bool containsDestruction))
+            {
+                error = "HkShapeLoader failed";
+                return false;
+            }
+
+            error = null;
+            return true;
         }
 
         static Vector3 DenormalizeBoneOffset(byte x, byte y, byte z, float gridSize)
