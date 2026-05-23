@@ -129,19 +129,18 @@ namespace MwmCollisionExtractor
                             }
                         }
 
-                        // Fallback: build from skeleton bones
+                        // Fallback: build from skeleton bones if no geometry or empty
                         if (geometry == null || geometry.Shapes.Count == 0)
                         {
+                            if (geometry != null)
+                                Console.WriteLine($"  EMPTY {block.DefId.TypeId}:{block.DefId.SubtypeId}: model collision is empty");
+
                             if (BuildSkeletonConvex(block.Def, block.CubeSize, out var skeletonGeom))
                             {
                                 geometry = skeletonGeom;
                                 Console.WriteLine($"  SKELETON {block.DefId.TypeId}:{block.DefId.SubtypeId}: {skeletonGeom.Shapes.Count} shapes");
                             }
-                            else if (geometry != null)
-                            {
-                                Console.WriteLine($"  NO COLLISION {block.DefId.TypeId}:{block.DefId.SubtypeId}");
-                            }
-                            else
+                            else if (geometry == null)
                             {
                                 Console.WriteLine($"  SKIP {block.DefId.TypeId}:{block.DefId.SubtypeId}: no model, no skeleton");
                                 continue;
