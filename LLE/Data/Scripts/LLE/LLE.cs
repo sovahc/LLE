@@ -169,8 +169,6 @@ namespace LLE
 
 	class Vision
 	{
-		public static void OnClose(IMyEntity e) { }
-
 		public static void Grid_OnBlockAdded(IMySlimBlock block) { }
 
 		public static void Grid_OnBlockRemoved(IMySlimBlock block) { }
@@ -328,14 +326,25 @@ namespace LLE
 
 		void OnEntityAdd(IMyEntity entity)
 		{
-			entity.OnClose += Vision.OnClose;
-
 			var grid = entity as IMyCubeGrid;
 			if (grid != null)
 			{
+				grid.OnClose += OnClose;
+
 				grid.OnBlockAdded += Vision.Grid_OnBlockAdded;
 				grid.OnBlockRemoved += Vision.Grid_OnBlockRemoved;
 				grid.OnGridChanged += Vision.Grid_OnGridChanged;
+			}
+		}
+
+		void OnClose(IMyEntity entity)
+		{
+			var grid = entity as IMyCubeGrid;
+			if (grid != null)
+			{
+				grid.OnBlockAdded -= Vision.Grid_OnBlockAdded;
+				grid.OnBlockRemoved -= Vision.Grid_OnBlockRemoved;
+				grid.OnGridChanged -= Vision.Grid_OnGridChanged;
 			}
 		}
 
