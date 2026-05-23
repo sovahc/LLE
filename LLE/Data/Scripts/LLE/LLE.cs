@@ -12,41 +12,38 @@ using VRage.Utils;
 using VRageMath;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
-using System.Linq;
-
 namespace LLE
 {
 	class Utilities
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
-		public static bool MyRaycast(Vector3D origin, Vector3D direction,
-			out IMyCubeGrid grid, out Vector3I position, float range = 1000)
+		public static void MyRaycast(Vector3D origin, Vector3D direction,
+			out IMyCubeGrid grid, out Vector3I position, out Vector3I freeSpace, float range = 500)
 		{
 			grid = null;
 			position = Vector3I.Zero;
+			freeSpace = Vector3I.Zero;
 
 			IHitInfo hit;
 			MyAPIGateway.Physics.CastRay(origin, origin + direction * range, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 
-			if (hit == null) return false;
+			if (hit == null) return;
 
-			grid = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
-			if (grid == null) return false;
+			var g = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
+			if (g == null) return;
 
 			double dist;
 			IMySlimBlock slimBlock;
 			LineD line = new LineD(origin, origin + direction * range);
-			grid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
+			g.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
 
-			if (slimBlock == null) return false;
+			if (slimBlock == null) return;
 
+			grid = g;
 			position = slimBlock.Position;
 
-			//var fsCenter = origin + direction * (dist - grid.GridSize);
-			//var freeSpace = grid.WorldToGridInteger(fsCenter);
-			//position = freeSpace;
-			return true;
+			freeSpace = grid.WorldToGridInteger(origin + direction * (dist - grid.GridSize));
 		}
 
 		public static void HighlightCell(IMyCubeGrid grid, Vector3I position, Color color)
@@ -123,7 +120,7 @@ namespace LLE
 		const int MaxLines = 50;
 
 		private static readonly Color textBackground = new Color(0, 0, 0, 127);
-		private static readonly Color defultTextColor = Color.White;
+		private static readonly Color defaultTextColor = Color.White;
 
 		public static void Add(string text, Color color)
 		{
@@ -187,6 +184,7 @@ namespace LLE
 		private static Font font;
 		IMyCubeGrid grid_A, grid_B;
 		Vector3I point_A, point_B;
+		Vector3I selectedBlock;
 		AStar astar;
 		const int border = 1;
 
@@ -237,13 +235,12 @@ namespace LLE
 
 			var pm = ch.GetHeadMatrix(false);
 
-			bool pointChanged = false;
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
 			{
-				pointChanged |= Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out point_A);
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out selectedBlock, out point_A);
 
-				if(pointChanged)
-				{	var block = grid_A.GetCubeBlock(point_A);
+				if(grid_A != null)
+				{	var block = grid_A.GetCubeBlock(selectedBlock);
 					if(block != null)
 					{	MyConsole.Add($"Id {block.BlockDefinition.Id}", Color.Wheat);
 					}
@@ -251,10 +248,13 @@ namespace LLE
 			}
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
 			{
-				pointChanged |= Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out point_B);
+				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out selectedBlock, out point_B);
 			}
 
-			if (pointChanged && grid_A == grid_B && grid_A != null)
+			bool mouse = MyAPIGateway.Input.IsNewLeftMousePressed() ||
+				MyAPIGateway.Input.IsNewRightMousePressed();
+
+			if (mouse && grid_A == grid_B && grid_A != null)
 			{
 				var grid = grid_A;
 				Vector3I gridSize = grid.Max - grid.Min + 1;
@@ -313,8 +313,8 @@ namespace LLE
 			}
 
 			if (grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
-			if (grid_A != null && point_A != null)
-			{	var block = grid_A.GetCubeBlock(point_A);
+			if (grid_A != null && selectedBlock != null)
+			{	var block = grid_A.GetCubeBlock(selectedBlock);
 				
 				if (block != null) Collisions.Draw(grid_A, block);
 
