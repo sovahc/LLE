@@ -66,6 +66,7 @@ namespace MwmCollisionExtractor
             public string ModelPath;
             public XElement Def;
             public string CubeSize;
+            public Vector3I Size;
         }
 
         static void Main(string[] args)
@@ -118,7 +119,12 @@ namespace MwmCollisionExtractor
                     if (string.IsNullOrEmpty(modelPath) && blockTopology != "Cube")
                         return null;
                     string cubeSize = def.Element("CubeSize")?.Value ?? "Large";
-                    return new BlockInfo { DefId = defId, ModelPath = modelPath, Def = def, CubeSize = cubeSize };
+                    var sizeEl = def.Element("Size");
+                    var size = new Vector3I(
+                        int.Parse(sizeEl?.Attribute("x")?.Value ?? "1"),
+                        int.Parse(sizeEl?.Attribute("y")?.Value ?? "1"),
+                        int.Parse(sizeEl?.Attribute("z")?.Value ?? "1"));
+                    return new BlockInfo { DefId = defId, ModelPath = modelPath, Def = def, CubeSize = cubeSize, Size = size };
                 }).Where(b => b != null).ToList();
                 allBlocks.AddRange(blocks);
             }
@@ -135,7 +141,8 @@ namespace MwmCollisionExtractor
                 if (!string.IsNullOrEmpty(block.ModelPath))
                 {
                     string fullPath = Path.Combine(gameRoot, block.ModelPath.Replace('\\', '/'));
-                    if (!File.Exists(fullPath))
+                    fullPath = FindFileCaseInsensitive(fullPath);
+                    if (fullPath == null)
                     {
                         Console.WriteLine($"  SKIP {block.DefId.TypeId}:{block.DefId.SubtypeId}: model not found: {fullPath}");
                         continue;
@@ -164,10 +171,19 @@ namespace MwmCollisionExtractor
                         geometry = skeletonGeom;
                         Console.WriteLine($"  SKELETON {block.DefId.TypeId}:{block.DefId.SubtypeId}: {skeletonGeom.Shapes.Count} shapes");
                     }
-                    else if (geometry == null)
+                    else
                     {
-                        Console.WriteLine($"  SKIP {block.DefId.TypeId}:{block.DefId.SubtypeId}: no model, no skeleton");
-                        continue;
+                        // Phase 3: Fallback to AABB box by block Size
+                        float gridSize = block.CubeSize == "Small" ? 0.5f : 2.5f;
+                        geometry = new CollisionGeometry();
+                        geometry.Shapes.Add(new BoxShape
+                        {
+                            HalfExtents = new Vector3(
+                                block.Size.X * gridSize * 0.5f,
+                                block.Size.Y * gridSize * 0.5f,
+                                block.Size.Z * gridSize * 0.5f)
+                        });
+                        Console.WriteLine($"  BOX {block.DefId.TypeId}:{block.DefId.SubtypeId}: {block.Size} * {gridSize}");
                     }
                 }
                 else
@@ -258,6 +274,19 @@ namespace MwmCollisionExtractor
                 default:
                     return null;
             }
+        }
+
+
+        // Case-insensitive file lookup for Linux (Windows paths in SBC use mixed case)
+        static string FindFileCaseInsensitive(string path)
+        {
+            if (File.Exists(path)) return path;
+            var dir = Path.GetDirectoryName(path);
+            var name = Path.GetFileName(path);
+            if (!Directory.Exists(dir)) return null;
+            var match = Directory.GetFiles(dir).FirstOrDefault(f =>
+                string.Equals(Path.GetFileName(f), name, StringComparison.OrdinalIgnoreCase));
+            return match;
         }
 
         // MWM binary format parser — extracts HavokCollisionGeometry tag and loads shapes from it
