@@ -60,9 +60,11 @@ namespace LLE
 				Quaternion q = Quaternion.CreateFromRotationMatrix(grid_A.WorldMatrix);
 
 				Matrix.Transform(ref bo, ref q, out bo);
+
+				var blockCenter = 0.5 * (grid_A.GridIntegerToWorld(block.Min) + grid_A.GridIntegerToWorld(block.Max));
 				MatrixD blockMatrix = new MatrixD(bo)
 				{
-					Translation = grid_A.GridIntegerToWorld(block.Position)
+					Translation = blockCenter
 				};
 
 				Draw(geometry, blockMatrix);
