@@ -113,9 +113,8 @@ namespace LLE
 			Vector3D worldCenter = Vector3D.Transform(localCenter, matrix);
 			Vector3D viewDir = Vector3D.Normalize(worldCenter - camera.Position);
 
-			Vector3D up = Math.Abs(Vector3D.Dot(viewDir, Vector3D.Up)) > 0.99 ? Vector3D.Forward : Vector3D.Up;
-			Vector3D right = Vector3D.Normalize(Vector3D.Cross(viewDir, up));
-			Vector3D localUp = Vector3D.Cross(right, viewDir);
+			Vector3D right, localUp;
+			GetOrthonormalBasis(viewDir, out right, out localUp);
 
 			int segments = 64;
 			var silhouettePoints = new List<Vector3D>();
@@ -128,6 +127,20 @@ namespace LLE
 			var projected = Drawing.WorldToScreen(silhouettePoints);
 			if (projected.Count >= 2)
 				Drawing.Contour(projected.ToArray(), true, 5e-5f, color);
+		}
+
+		private static void GetOrthonormalBasis(Vector3 axis, out Vector3 right, out Vector3 up)
+		{
+			var perp = Math.Abs(Vector3.Dot(axis, Vector3.Up)) > 0.99f ? Vector3.Forward : Vector3.Up;
+			right = Vector3.Normalize(Vector3.Cross(axis, perp));
+			up = Vector3.Cross(right, axis);
+		}
+
+		private static void GetOrthonormalBasis(Vector3D axis, out Vector3D right, out Vector3D up)
+		{
+			var perp = Math.Abs(Vector3D.Dot(axis, Vector3D.Up)) > 0.99 ? Vector3D.Forward : Vector3D.Up;
+			right = Vector3D.Normalize(Vector3D.Cross(axis, perp));
+			up = Vector3D.Cross(right, axis);
 		}
 
 		private static void PreprocessCG(CollisionGeometry geometry)
@@ -160,9 +173,8 @@ namespace LLE
 				if (cylinder != null)
 				{
 					var axis = Vector3.Normalize(cylinder.VertexB - cylinder.VertexA);
-					var up = Math.Abs(Vector3.Dot(axis, Vector3.Up)) > 0.99f ? Vector3.Forward : Vector3.Up;
-					var right = Vector3.Normalize(Vector3.Cross(axis, up));
-					var localUp = Vector3.Cross(right, axis);
+					Vector3 right, localUp;
+					GetOrthonormalBasis(axis, out right, out localUp);
 					var vv = new List<Vector3>();
 					int segments = 32;
 					for (int s = 0; s < segments; s++)
