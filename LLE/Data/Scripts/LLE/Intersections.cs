@@ -132,16 +132,18 @@ namespace LLE
 
 		private static Vector3D GetConvexSupport(List<Vector3> vertices, Vector3D direction)
 		{
-			double maxDot = double.MinValue;
-			Vector3D best = new Vector3D(vertices[0].X, vertices[0].Y, vertices[0].Z);
+			var vv = vertices;
 
-			for (int i = 0; i < vertices.Count; i++)
+			double maxDot = double.MinValue;
+			Vector3D best = new Vector3D(vv[0].X, vv[0].Y, vv[0].Z);
+
+			for (int i = 0; i < vv.Count; i++)
 			{
-				double dot = Vector3D.Dot(new Vector3D(vertices[i].X, vertices[i].Y, vertices[i].Z), direction);
+				double dot = Vector3D.Dot(new Vector3D(vv[i].X, vv[i].Y, vv[i].Z), direction);
 				if (dot > maxDot)
 				{
 					maxDot = dot;
-					best = new Vector3D(vertices[i].X, vertices[i].Y, vertices[i].Z);
+					best = new Vector3D(vv[i].X, vv[i].Y, vv[i].Z);
 				}
 			}
 			return best;
