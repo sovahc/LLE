@@ -126,23 +126,13 @@ namespace LLE
 				var cylinder = shape as CylinderShape;
 				if (cylinder != null)
 				{
-					var axis = Vector3.Normalize(cylinder.VertexB - cylinder.VertexA);
-					Vector3 right, localUp;
-					Geometry.OrthonormalBasis(axis, out right, out localUp);
-					var vv = new List<Vector3>();
-					int segments = 32;
-					for (int s = 0; s < segments; s++)
-					{
-						double angle = s * MathHelper.TwoPi / segments;
-						double c = Math.Cos(angle), sn = Math.Sin(angle);
-						Vector3 offset = (float)c * right * cylinder.Radius + (float)sn * localUp * cylinder.Radius;
-						vv.Add(cylinder.VertexA + offset);
-						vv.Add(cylinder.VertexB + offset);
-					}
-					for (int v = 0; v < vv.Count; ++v)
-						vv[v] = Vector3.Transform(vv[v], cylinder.Transform);
+					var vertices = new List<Vector3>();
+					var c = cylinder;
+					Geometry.CylinderToConvex(c.VertexA, c.VertexB, c.Radius, vertices);
+					for (int v = 0; v < vertices.Count; ++v)
+						vertices[v] = Vector3.Transform(vertices[v], cylinder.Transform);
 
-					shapes[i] = new ConvexHullShape { Vertices = vv };
+					shapes[i] = new ConvexHullShape { Vertices = vertices };
 				}
 			}
 		}

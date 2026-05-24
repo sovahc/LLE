@@ -18,6 +18,25 @@ namespace LLE
 			result.Add(new Vector3(-he.X, -he.Y, -he.Z));
 		}
 
+		public static void CylinderToConvex(Vector3 a, Vector3 b, float R,
+			List<Vector3> out_vertices, int segments = 16)
+		{
+			var vv = out_vertices;
+
+			var axis = Vector3.Normalize(b - b);
+			Vector3 right, localUp;
+			Geometry.OrthonormalBasis(axis, out right, out localUp);
+
+			for (int s = 0; s < segments; s++)
+			{
+				double angle = s * MathHelper.TwoPi / segments;
+				double c = Math.Cos(angle), sn = Math.Sin(angle);
+				Vector3 offset = (float)c * right * R + (float)sn * localUp * R;
+				vv.Add(a + offset);
+				vv.Add(b + offset);
+			}
+		}
+
 		public static void OrthonormalBasis(Vector3 axis, out Vector3 right, out Vector3 up)
 		{
 			var perp = Math.Abs(Vector3.Dot(axis, Vector3.Up)) > 0.99f ? Vector3.Forward : Vector3.Up;
