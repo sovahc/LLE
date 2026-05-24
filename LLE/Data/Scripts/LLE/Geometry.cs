@@ -51,9 +51,6 @@ namespace LLE
 			up = Vector3D.Cross(right, axis);
 		}
 
-		// 3D cross product of OA and OB vectors (z-component of their 2D cross product).
-		// Returns positive if OAB makes a counter-clockwise turn,
-		// negative for clockwise, zero if collinear.
 		private static double Cross(Vector2D o, Vector2D a, Vector2D b)
 		{
 			return (a.X - o.X) * (b.Y - o.Y) - (a.Y - o.Y) * (b.X - o.X);
