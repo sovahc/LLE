@@ -144,7 +144,7 @@ namespace LLE
 		{	
 			if(clearTraversability)
 				foreach (var t in _traversability)
-					t.SetAll(true);
+					t.SetAll(false);
 
 			_closed.SetAll_0();
 			_inOpen.SetAll_0();
