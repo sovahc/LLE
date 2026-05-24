@@ -281,22 +281,37 @@ namespace LLE
 				List<IMySlimBlock> blocks = new List<IMySlimBlock>();
 				grid.GetBlocks(blocks);
 
-				using(var p = new Profiler("fill"))
-				{	foreach(var slim in blocks)
+				using(var prof = new Profiler("fill"))
+				{	
+					astar.Reset(true);
+
+					int unknownBlocks = 0;
+					foreach(var slim in blocks)
 					{	
 						var min = slim.Min;
 						var max = slim.Max;
 
 						if(min == max)
-						{	astar.SetWeight(slim.Position - grid.Min + border, 255);
+						{	
+							var p = slim.Position - grid.Min + border;
+
+							Traversability t;
+							if (Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
+							{	astar.SetTraversability(p, t);
+							}
+							else
+							{	astar.SetTraversability(p, Traversability.Blocked);
+								//MyConsole.Add($"UNK {slim.BlockDefinition.Id}", Color.Yellow);
+								++unknownBlocks;
+							}
 						}
 					}
-					MyConsole.Add($"{p}", Color.IndianRed);
+					MyConsole.Add($"unknownBlocks {unknownBlocks}", Color.Yellow);
+					MyConsole.Add($"{prof}", Color.IndianRed);
 				}
 
 				var a = point_A - grid.Min + border;
 				var b = point_B - grid.Min + border;
-				astar.Reset(false);
 				astar.RunCalculation(a, b);
 			}
 
@@ -358,8 +373,8 @@ namespace LLE
 							Vector3I dir = dirs[d];
 							Vector3I.TransformNormal(ref dir, ref m, out dir);
 							var world = (grid_A.GridIntegerToWorld(selectedBlock + dir) - zero) * 0.5 + zero;
-							bool pass = trav[dirs[d].X, dirs[d].Y, dirs[d].Z];
-							Drawing.RoundMarker(world, pass ? Color.Lime : Color.Red);
+							bool blocked = trav[dirs[d].X, dirs[d].Y, dirs[d].Z];
+							Drawing.RoundMarker(world, blocked ? Color.DarkRed : Color.Lime);
 						}
 					}
 				}

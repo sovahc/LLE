@@ -103,7 +103,7 @@ namespace LLE
 		private readonly BitField _inOpen;
 		private readonly FastPriorityQueue<MyNode> _open;
 		
-		private readonly byte[] _weights;
+		private readonly Traversability[] _traversability;
 		private readonly float[] _gScore;
 		private readonly int[] _parent;
 		private readonly MyNode[] _nodes;
@@ -130,7 +130,7 @@ namespace LLE
 			_inOpen = new BitField(c, 1);
 			_open = new FastPriorityQueue<MyNode>(c);
 
-			_weights = new byte[c];
+			_traversability = new Traversability[c];
 			_gScore = new float[c];
 			_parent = new int[c];
 			_nodes = new MyNode[c];
@@ -140,9 +140,11 @@ namespace LLE
 			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
 		}
 
-		public void Reset(bool clearWeights)
+		public void Reset(bool clearTraversability)
 		{	
-			if(clearWeights) Array.Clear(_weights, 0, _weights.Length);
+			if(clearTraversability)
+				foreach (var t in _traversability)
+					t.SetAll(true);
 
 			_closed.SetAll_0();
 			_inOpen.SetAll_0();
@@ -153,9 +155,9 @@ namespace LLE
 			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
 		}
 
-		public void SetWeight(Vector3I pos, byte weight)
+		public void SetTraversability(Vector3I pos, Traversability t)
 		{
-			_weights[_indexer.Index(pos)] = weight; // ! unchecked !
+			_traversability[_indexer.Index(pos)] = t; // ! unchecked !
 		}
 
 		public void RunCalculation(Vector3I start, Vector3I goal)
@@ -179,8 +181,8 @@ namespace LLE
 			int startIndex = _indexer.Index(start.X, start.Y, start.Z);
 			int goalIndex = _indexer.Index(goal.X, goal.Y, goal.Z);
 
-			if(_weights[startIndex] == 255 || _weights[goalIndex] == 255)
-			{	Utilities.Log($"FindPath Error - start or goal obstructed");
+			if(_traversability[startIndex].Center || _traversability[goalIndex].Center)
+			{	MyConsole.Add($"FindPath Error - start or goal obstructed", Color.Red);
 				yield break;
 			}
 
@@ -230,11 +232,11 @@ namespace LLE
 
 					int nextI = _indexer.Index(next);
 
-					if (_weights[nextI] == 255) continue;
+					if (_traversability[nextI].Center) continue;
 
 					if (_closed.Get(nextI) != 0) continue;
 
-					float tentativeG = curG + _weights[nextI] + 1;
+					float tentativeG = curG + 1;
 
 					bool isBetter = _parent[nextI] == -1 || tentativeG < _gScore[nextI];
 

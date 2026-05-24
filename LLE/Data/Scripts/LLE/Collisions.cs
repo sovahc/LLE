@@ -18,7 +18,14 @@ namespace LLE
 	/// </summary>
 	public struct Traversability
 	{
+		public static Traversability Blocked = new Traversability(All_1);
+
 		private uint _mask;
+		private static readonly uint All_1 = (1u << 27) - 1;
+
+		public Traversability(uint mask)
+		{	_mask = mask;
+		}
 
 		private void Check(int dx, int dy, int dz)
 		{	if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || dz < -1 || dz > 1)
@@ -47,16 +54,16 @@ namespace LLE
 		}
 
 		/// <summary>
-		/// Whether the engineer can stay/turn around in the center of the block.
+		/// Whether the engineer can turn around in the center of the block.
 		/// </summary>
-		public bool CanStayInCenter => this[0, 0, 0];
+		public bool Center => this[0, 0, 0];
 
 		public void Clear() => _mask = 0;
 
 		public void SetAll(bool value)
 		{
 			if (value)
-				_mask = (1u << 27) - 1; // Set first 27 bits to 1
+				_mask = All_1;
 			else
 				_mask = 0;
 		}
@@ -209,14 +216,14 @@ namespace LLE
 
 			float offset = blockSize - EngineerCapsuleHeight + 0.1f;
 
-			if (!ProbeIntersectsCollision(probe, geometry, 0, 0, 0)) trav[0, 0, 0] = true;
+			if (ProbeIntersectsCollision(probe, geometry, 0, 0, 0)) trav[0, 0, 0] = true;
 
-			if (!ProbeIntersectsCollision(probe, geometry, +offset, 0, 0)) trav[1, 0, 0] = true;
-			if (!ProbeIntersectsCollision(probe, geometry, -offset, 0, 0)) trav[-1, 0, 0] = true;
-			if (!ProbeIntersectsCollision(probe, geometry, 0, +offset, 0)) trav[0, 1, 0] = true;
-			if (!ProbeIntersectsCollision(probe, geometry, 0, -offset, 0)) trav[0, -1, 0] = true;
-			if (!ProbeIntersectsCollision(probe, geometry, 0, 0, +offset)) trav[0, 0, 1] = true;
-			if (!ProbeIntersectsCollision(probe, geometry, 0, 0, -offset)) trav[0, 0, -1] = true;
+			if (ProbeIntersectsCollision(probe, geometry, +offset, 0, 0)) trav[1, 0, 0] = true;
+			if (ProbeIntersectsCollision(probe, geometry, -offset, 0, 0)) trav[-1, 0, 0] = true;
+			if (ProbeIntersectsCollision(probe, geometry, 0, +offset, 0)) trav[0, 1, 0] = true;
+			if (ProbeIntersectsCollision(probe, geometry, 0, -offset, 0)) trav[0, -1, 0] = true;
+			if (ProbeIntersectsCollision(probe, geometry, 0, 0, +offset)) trav[0, 0, 1] = true;
+			if (ProbeIntersectsCollision(probe, geometry, 0, 0, -offset)) trav[0, 0, -1] = true;
 
 			return trav;
 		}
