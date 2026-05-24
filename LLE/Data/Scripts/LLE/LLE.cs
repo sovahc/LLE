@@ -335,15 +335,29 @@ namespace LLE
 			}
 			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
-			const float _testSphereRadius = 1;
-			bool _testSphereIntersects = false;
-			Vector3D _testSphereCenter = pm.Translation + pm.Forward * 5;
-			if(grid_A != null)
-			{	_testSphereIntersects = CheckSphereVsBlock(_testSphereCenter, _testSphereRadius, grid_A, grid_A.GetCubeBlock(selectedBlock));
-			}
-			var color = _testSphereIntersects ? Color.Red : Color.Green;
-			Drawing.ScreenSphere(_testSphereCenter, _testSphereRadius, new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f));
+			if (grid_A != null && selectedBlock != null)
+			{
+				var block = grid_A.GetCubeBlock(selectedBlock);
+				if (block != null)
+				{
+					bool intersects = CheckProbeVsBlock(block);
+					List<Vector3> probeVerts = new List<Vector3>();
+					Collisions.LongEngineerTestProbe(probeVerts);
 
+					Matrix bo;
+					block.Orientation.GetMatrix(out bo);
+					Quaternion q = Quaternion.CreateFromRotationMatrix(grid_A.WorldMatrix);
+					Matrix.Transform(ref bo, ref q, out bo);
+					var blockCenter = 0.5 * (grid_A.GridIntegerToWorld(block.Min) + grid_A.GridIntegerToWorld(block.Max));
+					MatrixD blockMatrix = new MatrixD(bo) { Translation = blockCenter };
+
+					var worldProbeVerts = probeVerts.Select(v => Vector3D.Transform(new Vector3D(v), blockMatrix)).ToList();
+					var screenProbeVerts = Drawing.WorldToScreen(worldProbeVerts);
+					var hull = Geometry.ConvexHull(screenProbeVerts);
+					var probeColor = intersects ? Color.Red : Color.Green;
+					Drawing.Contour(hull.ToArray(), true, 5e-5f, new Vector4(probeColor.R / 255f, probeColor.G / 255f, probeColor.B / 255f, probeColor.A / 255f));
+				}
+			}
 			MyConsole.Render(font);
 
 			Common.Call_Add_Billboards(); // just for sure
@@ -373,7 +387,7 @@ namespace LLE
 			}
 		}
 
-		bool CheckSphereVsBlock(Vector3D sphereCenter, double sphereRadius, IMyCubeGrid grid, IMySlimBlock block)
+		bool CheckProbeVsBlock(IMySlimBlock block)
 		{
 			if(block == null) return false;
 
@@ -381,22 +395,16 @@ namespace LLE
 			if (!Collisions._collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry))
 				return false;
 
-			Matrix bo;
-			block.Orientation.GetMatrix(out bo);
-			Quaternion q = Quaternion.CreateFromRotationMatrix(grid.WorldMatrix);
-			Matrix.Transform(ref bo, ref q, out bo);
-
-			var blockCenter = 0.5 * (grid.GridIntegerToWorld(block.Min) + grid.GridIntegerToWorld(block.Max));
-			MatrixD blockMatrix = new MatrixD(bo) { Translation = blockCenter };
+			List<Vector3> probeVerts = new List<Vector3>();
+			Collisions.LongEngineerTestProbe(probeVerts);
 
 			foreach (var shape in geometry.Shapes)
 			{
 				var convex = shape as ConvexHullShape;
 				if (convex != null)
 				{
-					var worldVerts = convex.Vertices.Select(v =>
-						(Vector3)Vector3D.Transform(new Vector3D(Vector3.Transform(v, shape.Transform)), blockMatrix)).ToList();
-					if (Intersections.SphereIntersectsConvex(sphereCenter, sphereRadius, worldVerts))
+					var localVerts = convex.Vertices.Select(v => Vector3.Transform(v, shape.Transform)).ToList();
+					if (Intersections.ConvexIntersectsConvex(probeVerts, localVerts))
 						return true;
 				}
 			}
