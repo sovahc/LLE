@@ -344,16 +344,20 @@ namespace LLE
 					Traversability trav;
 					if (Collisions._traversabilityCache.TryGetValue(block.BlockDefinition.Id, out trav))
 					{
+						MatrixI m = new MatrixI(block.Orientation);
 						Vector3I[] dirs = new Vector3I[]
 						{
+							new Vector3I(0, 0, 0),
 							new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0),
 							new Vector3I(0, 1, 0), new Vector3I(0, -1, 0),
 							new Vector3I(0, 0, 1), new Vector3I(0, 0, -1)
 						};
+						var zero = grid_A.GridIntegerToWorld(selectedBlock);
 						for (int d = 0; d < dirs.Length; ++d)
 						{
-							var pos = selectedBlock + dirs[d];
-							var world = grid_A.GridIntegerToWorld(pos);
+							Vector3I dir = dirs[d];
+							Vector3I.TransformNormal(ref dir, ref m, out dir);
+							var world = (grid_A.GridIntegerToWorld(selectedBlock + dir) - zero) * 0.5 + zero;
 							bool pass = trav[dirs[d].X, dirs[d].Y, dirs[d].Z];
 							Drawing.RoundMarker(world, pass ? Color.Lime : Color.Red);
 						}

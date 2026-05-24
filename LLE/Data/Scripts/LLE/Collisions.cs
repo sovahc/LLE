@@ -207,7 +207,9 @@ namespace LLE
 			var he = new Vector3(ech_d2, ech_d2, ech_d2);
 			Geometry.BoxToConvex(he, probe);
 
-			float offset = EngineerCapsuleHeight - blockSize - 0.1f;
+			float offset = blockSize - EngineerCapsuleHeight + 0.1f;
+
+			if (!ProbeIntersectsCollision(probe, geometry, 0, 0, 0)) trav[0, 0, 0] = true;
 
 			if (!ProbeIntersectsCollision(probe, geometry, +offset, 0, 0)) trav[1, 0, 0] = true;
 			if (!ProbeIntersectsCollision(probe, geometry, -offset, 0, 0)) trav[-1, 0, 0] = true;
