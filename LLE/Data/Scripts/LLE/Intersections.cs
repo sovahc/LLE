@@ -33,7 +33,7 @@ namespace LLE
 				direction = new Vector3D(1, 0, 0);
 
 			double prevDistSq = double.MaxValue;
-			double distSq = 0;
+			double distSq;
 
 			do
 			{
@@ -72,6 +72,60 @@ namespace LLE
 				prevDistSq = distSq;
 
 			} while (distSq > IntersectionDistanceFactor * gjk.MaxLengthSquared);
+			//} while (distSq > Math.Max(IntersectionDistanceFactor * gjk.MaxLengthSquared, ZeroEpsilon)); //?
+
+			return true;
+		}
+
+		public static bool ConvexIntersectsConvex(List<Vector3> verticesA, List<Vector3> verticesB)
+		{
+			if (verticesA == null || verticesA.Count < 3) return false;
+			if( verticesB == null || verticesB.Count < 3) return false;
+
+			gjk.Reset();
+
+			// Начальное направление: разность центроидов
+			Vector3D centroidA = Vector3D.Zero;
+			foreach (var v in verticesA) centroidA += new Vector3D(v.X, v.Y, v.Z);
+			centroidA /= verticesA.Count;
+
+			Vector3D centroidB = Vector3D.Zero;
+			foreach (var v in verticesB) centroidB += new Vector3D(v.X, v.Y, v.Z);
+			centroidB /= verticesB.Count;
+
+			Vector3D direction = centroidA - centroidB;
+			if (direction.LengthSquared() < ZeroEpsilon * ZeroEpsilon)
+				direction = new Vector3D(1, 0, 0);
+
+			double prevDistSq = double.MaxValue;
+			double distSq;
+
+			do
+			{
+				Vector3D supportA = GetConvexSupport(verticesA, direction);
+				Vector3D supportB = GetConvexSupport(verticesB, -direction);
+				Vector3D minkowskiPoint = supportA - supportB;
+
+				double proj = Vector3D.Dot(direction, minkowskiPoint);
+				if (proj < -ZeroEpsilon)
+					return false;
+
+				if (!gjk.AddSupportPoint(ref minkowskiPoint))
+					return false;
+
+				direction = -gjk.ClosestPoint;
+				distSq = direction.LengthSquared();
+
+				if (distSq <= ZeroEpsilon)
+					return true;
+
+				double improvement = prevDistSq - distSq;
+				if (improvement < ConvergenceRelativeEpsilon * Math.Max(prevDistSq, 1.0))
+					return false;
+
+				prevDistSq = distSq;
+
+			} while (distSq > IntersectionDistanceFactor * gjk.MaxLengthSquared);
 
 			return true;
 		}
@@ -94,3 +148,4 @@ namespace LLE
 		}
 	}
 }
+
