@@ -25,7 +25,7 @@ namespace LLE
 
 			var axis = Vector3.Normalize(b - b);
 			Vector3 right, localUp;
-			Geometry.OrthonormalBasis(axis, out right, out localUp);
+            OrthonormalBasis(axis, out right, out localUp);
 
 			for (int s = 0; s < segments; s++)
 			{

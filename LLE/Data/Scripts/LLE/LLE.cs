@@ -199,9 +199,6 @@ namespace LLE
 		Vector3I selectedBlock;
 		AStar astar;
 		const int border = 1;
-		Vector3D _testSphereCenter;
-		float _testSphereRadius = 1;
-		bool _testSphereIntersects;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -338,7 +335,9 @@ namespace LLE
 			}
 			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
-			_testSphereCenter = pm.Translation + pm.Forward * 5;
+			const float _testSphereRadius = 1;
+			bool _testSphereIntersects = false;
+			Vector3D _testSphereCenter = pm.Translation + pm.Forward * 5;
 			if(grid_A != null)
 			{	_testSphereIntersects = CheckSphereVsBlock(_testSphereCenter, _testSphereRadius, grid_A, grid_A.GetCubeBlock(selectedBlock));
 			}

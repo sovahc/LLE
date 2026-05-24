@@ -135,5 +135,14 @@ namespace LLE
 				}
 			}
 		}
+
+		public static void LongEngineerTestProbe(List<Vector3> out_convex)
+		{	const float EngineerCapsuleRadius = 1.0f;
+			const float EngineerCapsuleHeight = 1.8f;
+			const float MaxBlockDepth = 30f;
+
+			var he = new Vector3(EngineerCapsuleRadius/2, EngineerCapsuleHeight/2, MaxBlockDepth/2);
+			Geometry.BoxToConvex(he, out_convex);
+		}
 	}
 }
