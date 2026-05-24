@@ -6,6 +6,18 @@ namespace LLE
 {
 	public static class Geometry
 	{
+		public static void BoxToConvex(Vector3 he, List<Vector3> result)
+		{
+			result.Add(new Vector3( he.X,  he.Y,  he.Z));
+			result.Add(new Vector3( he.X,  he.Y, -he.Z));
+			result.Add(new Vector3( he.X, -he.Y,  he.Z));
+			result.Add(new Vector3( he.X, -he.Y, -he.Z));
+			result.Add(new Vector3(-he.X,  he.Y,  he.Z));
+			result.Add(new Vector3(-he.X,  he.Y, -he.Z));
+			result.Add(new Vector3(-he.X, -he.Y,  he.Z));
+			result.Add(new Vector3(-he.X, -he.Y, -he.Z));
+		}
+
 		public static void OrthonormalBasis(Vector3 axis, out Vector3 right, out Vector3 up)
 		{
 			var perp = Math.Abs(Vector3.Dot(axis, Vector3.Up)) > 0.99f ? Vector3.Forward : Vector3.Up;

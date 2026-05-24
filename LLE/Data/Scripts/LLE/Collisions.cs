@@ -116,21 +116,12 @@ namespace LLE
 				var box = shape as BoxShape;
 				if (box != null)
 				{
-					var he = box.HalfExtents;
-					var verts = new List<Vector3>
-					{
-						new Vector3( he.X,  he.Y,  he.Z),
-						new Vector3( he.X,  he.Y, -he.Z),
-						new Vector3( he.X, -he.Y,  he.Z),
-						new Vector3( he.X, -he.Y, -he.Z),
-						new Vector3(-he.X,  he.Y,  he.Z),
-						new Vector3(-he.X,  he.Y, -he.Z),
-						new Vector3(-he.X, -he.Y,  he.Z),
-						new Vector3(-he.X, -he.Y, -he.Z),
-					};
-					for (int v = 0; v < verts.Count; ++v)
-						verts[v] = Vector3.Transform(verts[v], box.Transform);
-					shapes[i] = new ConvexHullShape { Vertices = verts };
+					var vertices = new List<Vector3>();
+					Geometry.BoxToConvex(box.HalfExtents, vertices);
+
+					for (int v = 0; v < vertices.Count; ++v)
+						vertices[v] = Vector3.Transform(vertices[v], box.Transform);
+					shapes[i] = new ConvexHullShape { Vertices = vertices };
 				}
 				var cylinder = shape as CylinderShape;
 				if (cylinder != null)
