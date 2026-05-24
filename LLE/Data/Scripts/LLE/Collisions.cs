@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Sandbox.ModAPI;
 using VRage.Game;
@@ -7,12 +8,63 @@ using VRage.ObjectBuilders;
 using VRageMath;
 
 using System.Linq;
+using Sandbox.Definitions;
 
 namespace LLE
 {
+	/// <summary>
+		/// Stores block traversability data as a 3x3x3 bit cube.
+		/// Indexed from -1 to 1 along each axis.
+	/// </summary>
+	public struct Traversability
+	{
+		private uint _mask;
+
+		// Bit mask index: (dx+1)*9 + (dy+1)*3 + (dz+1)
+		// Range: 0..26
+		public bool this[int dx, int dy, int dz]
+		{
+			get
+			{
+				if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || dz < -1 || dz > 1)
+					throw new IndexOutOfRangeException($"Traversability index out of range: {dx}, {dy}, {dz}");
+
+				int bit = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+				return (_mask & (1u << bit)) != 0;
+			}
+			set
+			{
+				if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || dz < -1 || dz > 1)
+					throw new IndexOutOfRangeException($"Traversability index out of range: {dx}, {dy}, {dz}");
+
+				int bit = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
+				if (value)
+					_mask |= (1u << bit);
+				else
+					_mask &= ~(1u << bit);
+			}
+		}
+
+		/// <summary>
+		/// Whether the engineer can stay/turn around in the center of the block.
+		/// </summary>
+		public bool CanStayInCenter => this[0, 0, 0];
+
+		public void Clear() => _mask = 0;
+
+		public void SetAll(bool value)
+		{
+			if (value)
+				_mask = (1u << 27) - 1; // Set first 27 bits to 1
+			else
+				_mask = 0;
+		}
+	}
+
 	public class Collisions
 	{
 		internal static Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
+		internal static Dictionary<MyDefinitionId, Traversability> _traversabilityCache;
 
 		public static void Load(IMyModContext ModContext)
 		{
@@ -28,6 +80,7 @@ namespace LLE
 				var data = reader.ReadBytes((int)reader.BaseStream.Length);
 				var textDict = MyAPIGateway.Utilities.SerializeFromBinary<Dictionary<DefinitionIdAsText, CollisionGeometry>>(data);
 				_collisionGeometry = new Dictionary<MyDefinitionId, CollisionGeometry>(MyDefinitionId.Comparer);
+				_traversabilityCache = new Dictionary<MyDefinitionId, Traversability>(MyDefinitionId.Comparer);
 				foreach (var kv in textDict)
 				{
 					MyObjectBuilderType typeId;
@@ -42,7 +95,9 @@ namespace LLE
 
 					PreprocessCG(kv.Value);
 
-					_collisionGeometry[new MyDefinitionId(typeId, subtypeId)] = kv.Value;
+					var defId = new MyDefinitionId(typeId, subtypeId);
+					_collisionGeometry[defId] = kv.Value;
+					_traversabilityCache[defId] = CalculateTraversability(kv.Value);
 				}
 			}
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
@@ -136,13 +191,45 @@ namespace LLE
 			}
 		}
 
-		public static void LongEngineerTestProbe(List<Vector3> out_convex)
-		{	const float EngineerCapsuleRadius = 1.0f;
-			const float EngineerCapsuleHeight = 1.8f;
-			const float MaxBlockDepth = 30f;
 
-			var he = new Vector3(EngineerCapsuleRadius/2, EngineerCapsuleHeight/2, MaxBlockDepth/2);
-			Geometry.BoxToConvex(he, out_convex);
+		private static Traversability CalculateTraversability(CollisionGeometry geometry)
+		{
+			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
+
+			var trav = new Traversability();
+			var probe = new List<Vector3>();
+			
+			const float EngineerCapsuleHeight = 1.8f;
+			const float EngineerCapsuleRadius = 1.0f; // Don't delete this
+
+			var ech_d2 = EngineerCapsuleHeight/2;
+			var he = new Vector3(ech_d2, ech_d2, ech_d2);
+			Geometry.BoxToConvex(he, probe);
+
+			float offset = EngineerCapsuleHeight - blockSize - 0.1f;
+
+			if (!ProbeIntersectsCollision(probe, geometry, +offset, 0, 0)) trav[1, 0, 0] = true;
+			if (!ProbeIntersectsCollision(probe, geometry, -offset, 0, 0)) trav[-1, 0, 0] = true;
+			if (!ProbeIntersectsCollision(probe, geometry, 0, +offset, 0)) trav[0, 1, 0] = true;
+			if (!ProbeIntersectsCollision(probe, geometry, 0, -offset, 0)) trav[0, -1, 0] = true;
+			if (!ProbeIntersectsCollision(probe, geometry, 0, 0, +offset)) trav[0, 0, 1] = true;
+			if (!ProbeIntersectsCollision(probe, geometry, 0, 0, -offset)) trav[0, 0, -1] = true;
+
+			return trav;
+		}
+
+		private static bool ProbeIntersectsCollision(List<Vector3> probeConvex, CollisionGeometry geometry, float ox, float oy, float oz)
+		{
+			foreach (var shape in geometry.Shapes)
+			{
+				var convex = shape as ConvexHullShape;
+				if (convex == null) continue;
+
+				var shiftedProbe = probeConvex.Select(v => new Vector3(v.X + ox, v.Y + oy, v.Z + oz)).ToList();
+				if (Intersections.ConvexVsConvex(shiftedProbe, convex.Vertices))
+					return true;
+			}
+			return false;
 		}
 	}
 }

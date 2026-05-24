@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage.Game;
@@ -49,7 +50,7 @@ namespace LLE
 
 		public static void HighlightCell(IMyCubeGrid grid, Vector3I position, Color color)
 		{
-			double blockSize = grid.GridSizeEnum == MyCubeSize.Large ? 2.5 : 0.5;
+			float blockSize = MyDefinitionManager.Static.GetCubeSize(grid.GridSizeEnum);
 
 			Vector3D world = grid.GridIntegerToWorld(position);
 
@@ -342,7 +343,7 @@ namespace LLE
 				{
 					bool intersects = CheckProbeVsBlock(block);
 					List<Vector3> probeVerts = new List<Vector3>();
-					Collisions.LongEngineerTestProbe(probeVerts);
+					Collisions.ShortEngineerTestProbe(probeVerts);
 
 					Matrix bo;
 					block.Orientation.GetMatrix(out bo);
@@ -396,7 +397,7 @@ namespace LLE
 				return false;
 
 			List<Vector3> probeVerts = new List<Vector3>();
-			Collisions.LongEngineerTestProbe(probeVerts);
+			Collisions.ShortEngineerTestProbe(probeVerts);
 
 			foreach (var shape in geometry.Shapes)
 			{
@@ -404,7 +405,7 @@ namespace LLE
 				if (convex != null)
 				{
 					var localVerts = convex.Vertices.Select(v => Vector3.Transform(v, shape.Transform)).ToList();
-					if (Intersections.ConvexIntersectsConvex(probeVerts, localVerts))
+					if (Intersections.ConvexVsConvex(probeVerts, localVerts))
 						return true;
 				}
 			}

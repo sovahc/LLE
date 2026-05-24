@@ -12,7 +12,7 @@ namespace LLE
 
 		private static readonly GjkD gjk = new GjkD();
 
-		public static bool SphereIntersectsConvex(
+		public static bool SphereVsConvex(
 			Vector3D sphereCenter, double sphereRadius,
 			List<Vector3> convexVertices)
 		{
@@ -77,7 +77,7 @@ namespace LLE
 			return true;
 		}
 
-		public static bool ConvexIntersectsConvex(List<Vector3> verticesA, List<Vector3> verticesB)
+		public static bool ConvexVsConvex(List<Vector3> verticesA, List<Vector3> verticesB)
 		{
 			if (verticesA == null || verticesA.Count < 3) return false;
 			if( verticesB == null || verticesB.Count < 3) return false;
