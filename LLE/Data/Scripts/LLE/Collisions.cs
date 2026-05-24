@@ -13,29 +13,30 @@ using Sandbox.Definitions;
 namespace LLE
 {
 	/// <summary>
-		/// Stores block traversability data as a 3x3x3 bit cube.
-		/// Indexed from -1 to 1 along each axis.
+	/// Stores block traversability data as a 3x3x3 bit cube.
+	/// Indexed from -1 to 1 along each axis.
 	/// </summary>
 	public struct Traversability
 	{
 		private uint _mask;
+
+		private void Check(int dx, int dy, int dz)
+		{	if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || dz < -1 || dz > 1)
+				throw new Exception($"Traversability index out of range: {dx}, {dy}, {dz}");		
+		}
 
 		// Bit mask index: (dx+1)*9 + (dy+1)*3 + (dz+1)
 		// Range: 0..26
 		public bool this[int dx, int dy, int dz]
 		{
 			get
-			{
-				if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || dz < -1 || dz > 1)
-					throw new IndexOutOfRangeException($"Traversability index out of range: {dx}, {dy}, {dz}");
+			{	Check(dx, dy, dz);
 
 				int bit = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
 				return (_mask & (1u << bit)) != 0;
 			}
 			set
-			{
-				if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || dz < -1 || dz > 1)
-					throw new IndexOutOfRangeException($"Traversability index out of range: {dx}, {dy}, {dz}");
+			{	Check(dx, dy, dz);
 
 				int bit = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
 				if (value)

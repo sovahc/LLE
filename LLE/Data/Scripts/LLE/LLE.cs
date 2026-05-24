@@ -341,22 +341,23 @@ namespace LLE
 				var block = grid_A.GetCubeBlock(selectedBlock);
 				if (block != null)
 				{
-					bool intersects = CheckProbeVsBlock(block);
-					List<Vector3> probeVerts = new List<Vector3>();
-					Collisions.ShortEngineerTestProbe(probeVerts);
-
-					Matrix bo;
-					block.Orientation.GetMatrix(out bo);
-					Quaternion q = Quaternion.CreateFromRotationMatrix(grid_A.WorldMatrix);
-					Matrix.Transform(ref bo, ref q, out bo);
-					var blockCenter = 0.5 * (grid_A.GridIntegerToWorld(block.Min) + grid_A.GridIntegerToWorld(block.Max));
-					MatrixD blockMatrix = new MatrixD(bo) { Translation = blockCenter };
-
-					var worldProbeVerts = probeVerts.Select(v => Vector3D.Transform(new Vector3D(v), blockMatrix)).ToList();
-					var screenProbeVerts = Drawing.WorldToScreen(worldProbeVerts);
-					var hull = Geometry.ConvexHull(screenProbeVerts);
-					var probeColor = intersects ? Color.Red : Color.Green;
-					Drawing.Contour(hull.ToArray(), true, 5e-5f, new Vector4(probeColor.R / 255f, probeColor.G / 255f, probeColor.B / 255f, probeColor.A / 255f));
+					Traversability trav;
+					if (Collisions._traversabilityCache.TryGetValue(block.BlockDefinition.Id, out trav))
+					{
+						Vector3I[] dirs = new Vector3I[]
+						{
+							new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0),
+							new Vector3I(0, 1, 0), new Vector3I(0, -1, 0),
+							new Vector3I(0, 0, 1), new Vector3I(0, 0, -1)
+						};
+						for (int d = 0; d < dirs.Length; ++d)
+						{
+							var pos = selectedBlock + dirs[d];
+							var world = grid_A.GridIntegerToWorld(pos);
+							bool pass = trav[dirs[d].X, dirs[d].Y, dirs[d].Z];
+							Drawing.RoundMarker(world, pass ? Color.Lime : Color.Red);
+						}
+					}
 				}
 			}
 			MyConsole.Render(font);
@@ -386,30 +387,6 @@ namespace LLE
 				grid.OnBlockRemoved -= Vision.Grid_OnBlockRemoved;
 				grid.OnGridChanged -= Vision.Grid_OnGridChanged;
 			}
-		}
-
-		bool CheckProbeVsBlock(IMySlimBlock block)
-		{
-			if(block == null) return false;
-
-			CollisionGeometry geometry;
-			if (!Collisions._collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry))
-				return false;
-
-			List<Vector3> probeVerts = new List<Vector3>();
-			Collisions.ShortEngineerTestProbe(probeVerts);
-
-			foreach (var shape in geometry.Shapes)
-			{
-				var convex = shape as ConvexHullShape;
-				if (convex != null)
-				{
-					var localVerts = convex.Vertices.Select(v => Vector3.Transform(v, shape.Transform)).ToList();
-					if (Intersections.ConvexVsConvex(probeVerts, localVerts))
-						return true;
-				}
-			}
-			return false;
 		}
 
 		void OnChatMessage(string message, ref bool sendToOthers)
