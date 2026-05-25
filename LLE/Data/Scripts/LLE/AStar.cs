@@ -114,13 +114,6 @@ namespace LLE
 
 		public Vector3I Size => _indexer.Size;
 
-		private static readonly Vector3I[] Directions = new Vector3I[]
-		{
-			new Vector3I(1, 0, 0),  new Vector3I(-1, 0, 0),
-			new Vector3I(0, 1, 0),  new Vector3I(0, -1, 0),
-			new Vector3I(0, 0, 1),  new Vector3I(0, 0, -1),
-		};
-
 		public AStar(Vector3I size)
 		{
 			_indexer = new Indexer(size);
@@ -227,9 +220,9 @@ namespace LLE
 
 				float curG = _gScore[currentI];
 
-				for (int d = 0; d < Directions.Length; ++d)
+				for (int d = 0; d < Constants.SixDirections.Length; ++d)
 				{
-					var direction = Directions[d];
+					var direction = Constants.SixDirections[d];
 
 					Vector3I next = cv + direction;
 
