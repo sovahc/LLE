@@ -201,6 +201,9 @@ namespace LLE
 		AStar astar;
 		const int AStarBorder = 1;
 
+		MicroNavigation navigation = new MicroNavigation();
+		bool navigationActive;
+
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
@@ -273,7 +276,40 @@ namespace LLE
 			}
 
 			if (astar != null && !astar.Completed())
-				astar.Iteration();
+			{	astar.Iteration();
+				
+				if(astar.Completed())
+				{	
+					var grid = grid_A;
+					
+					List<Vector3D> path = new List<Vector3D>();
+					for(int i = 0; i < astar.result.Count; ++i)
+					{	
+						var v = astar.result[i] + grid.Min - AStarBorder;
+
+						path.Add(grid.GridIntegerToWorld(v));				
+					}
+					if(path.Count > 0)
+					{	navigationActive = true;
+						navigation.Run(path);
+						
+						mouse = false; //xx
+					}
+				}
+			}
+
+			if(navigationActive)
+			{	if(mouse)
+				{	MyConsole.Add("Navigation cancelled");
+					
+					navigationActive = false;
+					//ch.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
+				}
+				else
+				{	ch.Physics.LinearVelocity = navigation.ComputeDesiredVelocity(ch.GetPosition(), ch.Physics.LinearVelocity);
+					//ch.MoveAndRotate(v, Vector2.Zero, 0);
+				}
+			}
 		}
 
 		private void RunAstar(IMyCubeGrid grid)
@@ -327,7 +363,6 @@ namespace LLE
 								for (v.Y = Min.Y; v.Y <= Max.Y; ++v.Y)
 									for (v.X = Min.X; v.X <= Max.X; ++v.X)
 										astar.SetTraversability(v - grid.Min + AStarBorder, Traversability.Blocked);
-
 						}
 					}
 					else

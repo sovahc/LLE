@@ -84,7 +84,7 @@ namespace LLE
 
 			gjk.Reset();
 
-			// Начальное направление: разность центроидов
+			// Initial direction: centroid difference
 			Vector3D centroidA = Vector3D.Zero;
 			foreach (var v in verticesA) centroidA += new Vector3D(v.X, v.Y, v.Z);
 			centroidA /= verticesA.Count;
