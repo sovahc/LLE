@@ -237,9 +237,6 @@ namespace LLE
 			var trav = new Traversability();
 			var probe = new List<Vector3>();
 			
-			//const float EngineerCapsuleHeight = 1.8f; // Don't delete this
-			//const float EngineerCapsuleRadius = 1.0f; // Don't delete this
-
 			var probeSize = 1.5f;
 			Geometry.BoxToConvex(new Vector3(probeSize/2, probeSize/2, probeSize/2), probe);
 

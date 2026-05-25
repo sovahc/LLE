@@ -16,6 +16,17 @@ using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
+	class Constants
+	{
+		public const float EngineerCapsuleHeight = 1.8f;
+		public const float EngineerCapsuleRadius = 1.0f; // Don't delete this
+
+		public static readonly Vector3I[] SixDirections = new Vector3I[] {
+			new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0),
+			new Vector3I(0, 1, 0), new Vector3I(0, -1, 0),
+			new Vector3I(0, 0, 1), new Vector3I(0, 0, -1)};
+	}
+
 	class Utilities
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
@@ -270,7 +281,25 @@ namespace LLE
 			bool mouse = MyAPIGateway.Input.IsNewLeftMousePressed() ||
 				MyAPIGateway.Input.IsNewRightMousePressed();
 
-			if (mouse && grid_A == grid_B && grid_A != null)
+			if(navigationActive)
+			{	if(mouse)
+				{	navigationActive = false;
+					MyConsole.Add("Navigation: Cancelled", Color.Red);
+				}
+				else if(navigation.Arrived())
+				{	navigationActive = false;
+					MyConsole.Add("Navigation: Arrived", Color.BlueViolet);
+				}
+				else if(navigation.Stuck)
+				{	navigationActive = false;
+					MyConsole.Add("Navigation: Stuck", Color.DarkRed);
+				}
+				else
+				{	Vector3D center = ch.GetPosition() + Constants.EngineerCapsuleHeight * ch.WorldMatrix.Up;
+					ch.Physics.LinearVelocity = navigation.ComputeDesiredVelocity(center, ch.Physics.LinearVelocity);
+				}
+			}
+			else if (mouse && grid_A == grid_B && grid_A != null)
 			{
 				RunAstar(grid_A);
 			}
@@ -283,31 +312,18 @@ namespace LLE
 					var grid = grid_A;
 					
 					List<Vector3D> path = new List<Vector3D>();
+
+					path.Add(ch.GetPosition());
+
 					for(int i = 0; i < astar.result.Count; ++i)
 					{	
 						var v = astar.result[i] + grid.Min - AStarBorder;
 
 						path.Add(grid.GridIntegerToWorld(v));				
 					}
-					if(path.Count > 0)
-					{	navigationActive = true;
-						navigation.Run(path);
-						
-						mouse = false; //xx
-					}
-				}
-			}
-
-			if(navigationActive)
-			{	if(mouse)
-				{	MyConsole.Add("Navigation cancelled");
 					
-					navigationActive = false;
-					//ch.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
-				}
-				else
-				{	ch.Physics.LinearVelocity = navigation.ComputeDesiredVelocity(ch.GetPosition(), ch.Physics.LinearVelocity);
-					//ch.MoveAndRotate(v, Vector2.Zero, 0);
+					navigationActive = true;
+					navigation.Fly(path);
 				}
 			}
 		}
@@ -428,20 +444,17 @@ namespace LLE
 
 			Traversability trav = astar.GetTraversability(block.Position - grid_A.Min + AStarBorder);
 
-			Vector3I[] dirs = new Vector3I[]
-			{
-						new Vector3I(0, 0, 0),
-						new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0),
-						new Vector3I(0, 1, 0), new Vector3I(0, -1, 0),
-						new Vector3I(0, 0, 1), new Vector3I(0, 0, -1)
-			};
 			var zero = grid_A.GridIntegerToWorld(selectedBlock);
+
+			var dirs = Constants.SixDirections;
+
 			for (int d = 0; d < dirs.Length; ++d)
 			{
 				Vector3I dir = dirs[d];
 				var world = (grid_A.GridIntegerToWorld(selectedBlock + dir) - zero) * 0.5 + zero;
-				Drawing.RoundMarker(world, trav[dirs[d]] ? Color.Black : Color.Lime);
+				Drawing.RoundMarker(world, trav[dirs[d]] ? Color.Gray : Color.Lime);
 			}
+			Drawing.RoundMarker(zero, trav[0,0,0] ? Color.Black : Color.Green);
 		}
 
 		void OnEntityAdd(IMyEntity entity)
