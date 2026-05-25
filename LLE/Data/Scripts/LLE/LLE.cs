@@ -97,6 +97,11 @@ namespace LLE
 			var ms = (now - start) / (double)TimeSpan.TicksPerMillisecond;
 			MyConsole.Add($"{name}: {ms:0.##}", Color.IndianRed);
 		}
+
+		public static Vector3D GetEngineerCenter(IMyCharacter ch)
+		{
+			return ch.GetPosition() + Constants.EngineerCapsuleHeight / 2 * ch.WorldMatrix.Up;
+		}
 	}
 
 	/// <inheritdoc cref="Profiler" />
@@ -295,8 +300,9 @@ namespace LLE
 					MyConsole.Add("Navigation: Stuck", Color.DarkRed);
 				}
 				else
-				{	Vector3D center = ch.GetPosition() + Constants.EngineerCapsuleHeight * ch.WorldMatrix.Up;
-					ch.Physics.LinearVelocity = navigation.ComputeDesiredVelocity(center, ch.Physics.LinearVelocity);
+				{
+					ch.Physics.LinearVelocity = navigation.ComputeDesiredVelocity(
+						Utilities.GetEngineerCenter(ch), ch.Physics.LinearVelocity);
 				}
 			}
 			else if (mouse && grid_A == grid_B && grid_A != null)
@@ -313,7 +319,7 @@ namespace LLE
 					
 					List<Vector3D> path = new List<Vector3D>();
 
-					path.Add(ch.GetPosition());
+					//path.Add(Utilities.GetEngineerCenter(ch));
 
 					for(int i = 0; i < astar.result.Count; ++i)
 					{	
@@ -433,6 +439,11 @@ namespace LLE
 				var block = grid_A.GetCubeBlock(selectedBlock);
 				if (block != null) DrawTraversability(block);
 			}
+
+			if(navigationActive)
+			{	Drawing.RoundMarker(Utilities.GetEngineerCenter(ch), Color.BlueViolet);
+			}
+
 			MyConsole.Render(font);
 
 			Common.Call_Add_Billboards(); // just for sure

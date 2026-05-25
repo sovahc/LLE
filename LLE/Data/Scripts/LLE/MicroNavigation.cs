@@ -6,8 +6,8 @@ namespace LLE
 {
 	class MicroNavigation
 	{
-		private const double lookaheadDistance = 1.5;
-		private const double pathCorrectionStrength = 0.3;
+		private const double lookaheadDistance = 0.5;
+		private const double pathCorrectionStrength = 0.1;
 		private const double arrivalThreshold = 0.1;
 		private const double maxVelocity = 10.0;
 		private List<Vector3D> path;
@@ -132,7 +132,7 @@ namespace LLE
 
 	class StuckDetector
 	{
-		const double stuckThreshold = 3.0;
+		const double stuckThreshold = 15.0;
 		const double minMovement = 0.5;
 		Vector3D lastPosition;
 		double stuckTimer = 0;

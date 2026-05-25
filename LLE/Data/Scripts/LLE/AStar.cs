@@ -276,9 +276,29 @@ namespace LLE
 			}
 
 			path.Reverse();
-			return path;
+			return SimplifyPath(path);
 		}
 
+		private List<Vector3I> SimplifyPath(List<Vector3I> path)
+		{
+			if (path.Count <= 2)
+				return path;
+
+			var simplified = new List<Vector3I>();
+			simplified.Add(path[0]);
+
+			for (int i = 1; i < path.Count - 1; i++)
+			{
+				Vector3I prevDir = path[i] - path[i - 1];
+				Vector3I nextDir = path[i + 1] - path[i];
+
+				if (prevDir != nextDir)
+					simplified.Add(path[i]);
+			}
+
+			simplified.Add(path[path.Count - 1]);
+			return simplified;
+		}
 		private static float Manhattan(Vector3I a, Vector3I b)
 		{
 			return Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) + Math.Abs(a.Z - b.Z);
