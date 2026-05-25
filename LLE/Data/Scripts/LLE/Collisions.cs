@@ -18,7 +18,7 @@ namespace LLE
 	/// </summary>
 	public struct Traversability
 	{
-		public static Traversability Blocked = new Traversability(All_1);
+		public static readonly Traversability Blocked = new Traversability(All_1);
 
 		private uint _mask;
 		private static readonly uint All_1 = (1u << 27) - 1;
@@ -29,34 +29,45 @@ namespace LLE
 
 		private void Check(int dx, int dy, int dz)
 		{	if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || dz < -1 || dz > 1)
-				throw new Exception($"Traversability index out of range: {dx}, {dy}, {dz}");		
+				throw new Exception($"Traversability index out of range: {dx}, {dy}, {dz}");
 		}
 
-		// Bit mask index: (dx+1)*9 + (dy+1)*3 + (dz+1)
-		// Range: 0..26
-		public bool this[int dx, int dy, int dz]
+		private int Index(int x, int y, int z)
+		{	Check(x, y, z);	
+			return (x + 1) * 9 + (y + 1) * 3 + (z + 1);
+		}
+
+		private int Index(Vector3I v)
+		{	return Index(v.X, v.Y, v.Z);
+		}
+
+		public bool this[int x, int y, int z]
 		{
 			get
-			{	Check(dx, dy, dz);
-
-				int bit = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
-				return (_mask & (1u << bit)) != 0;
+			{	return (_mask & (1u << Index(x, y, z))) != 0;
 			}
 			set
-			{	Check(dx, dy, dz);
-
-				int bit = (dx + 1) * 9 + (dy + 1) * 3 + (dz + 1);
-				if (value)
-					_mask |= (1u << bit);
+			{	if (value)
+					_mask |= (1u << Index(x, y, z));
 				else
-					_mask &= ~(1u << bit);
+					_mask &= ~(1u << Index(x, y, z));
+			}
+		}
+
+		public bool this[Vector3I v]
+		{
+			get
+			{	return this[v.X, v.Y, v.Z];
+			}
+			set
+			{	this[v.X, v.Y, v.Z] = value;
 			}
 		}
 
 		/// <summary>
 		/// Whether the engineer can turn around in the center of the block.
 		/// </summary>
-		public bool Center => this[0, 0, 0];
+		public bool Center => this[new Vector3I(0,0,0)];
 
 		public void Clear() => _mask = 0;
 
@@ -207,22 +218,21 @@ namespace LLE
 			var trav = new Traversability();
 			var probe = new List<Vector3>();
 			
-			const float EngineerCapsuleHeight = 1.8f;
+			const float EngineerCapsuleHeight = 1.8f; // Don't delete this
 			const float EngineerCapsuleRadius = 1.0f; // Don't delete this
 
-			var ech_d2 = EngineerCapsuleHeight/2;
-			var he = new Vector3(ech_d2, ech_d2, ech_d2);
-			Geometry.BoxToConvex(he, probe);
+			var probeSize = 1.5f;
+			Geometry.BoxToConvex(new Vector3(probeSize/2, probeSize/2, probeSize/2), probe);
 
-			float offset = blockSize - EngineerCapsuleHeight + 0.1f;
+			float offset = blockSize - probeSize + 0.1f;
 
 			if (ProbeIntersectsCollision(probe, geometry, 0, 0, 0)) trav[0, 0, 0] = true;
 
-			if (ProbeIntersectsCollision(probe, geometry, +offset, 0, 0)) trav[1, 0, 0] = true;
+			if (ProbeIntersectsCollision(probe, geometry, +offset, 0, 0)) trav[+1, 0, 0] = true;
 			if (ProbeIntersectsCollision(probe, geometry, -offset, 0, 0)) trav[-1, 0, 0] = true;
-			if (ProbeIntersectsCollision(probe, geometry, 0, +offset, 0)) trav[0, 1, 0] = true;
+			if (ProbeIntersectsCollision(probe, geometry, 0, +offset, 0)) trav[0, +1, 0] = true;
 			if (ProbeIntersectsCollision(probe, geometry, 0, -offset, 0)) trav[0, -1, 0] = true;
-			if (ProbeIntersectsCollision(probe, geometry, 0, 0, +offset)) trav[0, 0, 1] = true;
+			if (ProbeIntersectsCollision(probe, geometry, 0, 0, +offset)) trav[0, 0, +1] = true;
 			if (ProbeIntersectsCollision(probe, geometry, 0, 0, -offset)) trav[0, 0, -1] = true;
 
 			return trav;
@@ -230,14 +240,18 @@ namespace LLE
 
 		private static bool ProbeIntersectsCollision(List<Vector3> probeConvex, CollisionGeometry geometry, float ox, float oy, float oz)
 		{
+			var shiftedProbe = probeConvex.Select(v => new Vector3(v.X + ox, v.Y + oy, v.Z + oz)).ToList();
+
 			foreach (var shape in geometry.Shapes)
 			{
 				var convex = shape as ConvexHullShape;
-				if (convex == null) continue;
-
-				var shiftedProbe = probeConvex.Select(v => new Vector3(v.X + ox, v.Y + oy, v.Z + oz)).ToList();
-				if (Intersections.ConvexVsConvex(shiftedProbe, convex.Vertices))
-					return true;
+				if (convex != null)
+					if (Intersections.ConvexVsConvex(shiftedProbe, convex.Vertices))
+						return true;
+				var sphere = shape as SphereShape;
+				if (sphere != null)
+					if (Intersections.SphereVsConvex(sphere.Transform.Translation, sphere.Radius, shiftedProbe))
+						return true;
 			}
 			return false;
 		}

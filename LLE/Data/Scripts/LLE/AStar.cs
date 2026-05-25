@@ -155,9 +155,14 @@ namespace LLE
 			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
 		}
 
-		public void SetTraversability(Vector3I pos, Traversability t)
-		{
-			_traversability[_indexer.Index(pos)] = t; // ! unchecked !
+		public void SetTraversability(Vector3I at, Traversability t)
+		{	if(!_indexer.In(at)) throw new Exception($"SetTraversability: index out of range: {at}");
+			_traversability[_indexer.Index(at)] = t;
+		}
+
+		public Traversability GetTraversability(Vector3I at)
+		{	if(!_indexer.In(at)) throw new Exception($"GetTraversability: index out of range: {at}");
+			return _traversability[_indexer.Index(at)];
 		}
 
 		public void RunCalculation(Vector3I start, Vector3I goal)
@@ -224,7 +229,9 @@ namespace LLE
 
 				for (int d = 0; d < Directions.Length; ++d)
 				{
-					Vector3I next = cv + Directions[d];
+					var direction = Directions[d];
+
+					Vector3I next = cv + direction;
 
 					if (!_indexer.In(next)) continue;
 
@@ -233,6 +240,8 @@ namespace LLE
 					int nextI = _indexer.Index(next);
 
 					if (_traversability[nextI].Center) continue;
+					if (_traversability[currentI][direction]) continue;
+					if (_traversability[nextI][-direction]) continue;
 
 					if (_closed.Get(nextI) != 0) continue;
 

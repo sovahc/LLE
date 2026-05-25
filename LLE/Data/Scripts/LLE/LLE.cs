@@ -199,7 +199,7 @@ namespace LLE
 		Vector3I point_A, point_B;
 		Vector3I selectedBlock;
 		AStar astar;
-		const int border = 1;
+		const int AStarBorder = 1;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -255,7 +255,7 @@ namespace LLE
 				if(grid_A != null)
 				{	var block = grid_A.GetCubeBlock(selectedBlock);
 					if(block != null)
-						MyConsole.Add($"Id {block.BlockDefinition.Id}", Color.Wheat);
+						MyConsole.Add($"Id {block.BlockDefinition.Id} {block.Min} {block.Max}", Color.Wheat);
 				}
 			}
 
@@ -274,7 +274,7 @@ namespace LLE
 
 				Log($"calculate_A_star {grid.Min} {grid.Max} {gridSize}");
 
-				var astarSize = gridSize + border + border;
+				var astarSize = gridSize + AStarBorder + AStarBorder;
 
 				if(astar == null || astar.Size != astarSize) astar = new AStar(astarSize);
 
@@ -288,30 +288,51 @@ namespace LLE
 					int unknownBlocks = 0;
 					foreach(var slim in blocks)
 					{	
-						var min = slim.Min;
-						var max = slim.Max;
+						var p = slim.Position - grid.Min + AStarBorder;
 
-						if(min == max)
-						{	
-							var p = slim.Position - grid.Min + border;
+						Traversability t;
+						if (Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
+						{
+							var Min = slim.Min;
+							var Max = slim.Max;
+							Vector3I v;
 
-							Traversability t;
-							if (Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
-							{	astar.SetTraversability(p, t);
+							if(Min == Max)
+							{	
+								MatrixI m = new MatrixI(slim.Orientation);
+								
+								Vector3I v2;
+								Traversability t2 = new Traversability();
+
+								for(v.Z = -1; v.Z <= 1; ++v.Z)
+									for(v.Y = -1; v.Y <= 1; ++v.Y)
+										for(v.X = -1; v.X <= 1; ++v.X)
+										{	Vector3I.TransformNormal(ref v, ref m, out v2);
+											t2[v2] = t[v];
+										}
+								astar.SetTraversability(p, t2);
 							}
 							else
-							{	astar.SetTraversability(p, Traversability.Blocked);
-								//MyConsole.Add($"UNK {slim.BlockDefinition.Id}", Color.Yellow);
-								++unknownBlocks;
+							{	for(v.Z = Min.Z; v.Z <= Max.Z; ++v.Z)
+									for(v.Y = Min.Y; v.Y <= Max.Y; ++v.Y)
+										for(v.X = Min.X; v.X <= Max.X; ++v.X)
+										{	//astar.SetTraversability(v - grid.Min + AStarBorder, Traversability.Blocked);
+											astar.SetTraversability(v - grid.Min + AStarBorder, t);
+										}
 							}
+						}
+						else
+						{	astar.SetTraversability(p, Traversability.Blocked);
+							//MyConsole.Add($"UNK {slim.BlockDefinition.Id}", Color.Yellow);
+							++unknownBlocks;
 						}
 					}
 					MyConsole.Add($"unknownBlocks {unknownBlocks}", Color.Yellow);
 					MyConsole.Add($"{prof}", Color.IndianRed);
 				}
 
-				var a = point_A - grid.Min + border;
-				var b = point_B - grid.Min + border;
+				var a = point_A - grid.Min + AStarBorder;
+				var b = point_B - grid.Min + AStarBorder;
 				astar.RunCalculation(a, b);
 			}
 
@@ -337,7 +358,7 @@ namespace LLE
 			if(grid_A != null && astar != null && astar.Completed())
 			{	var path = astar.result;
 				for (int p = 0; p < astar.result.Count; ++p)
-				{	var v = path[p] + grid_A.Min - border;
+				{	var v = path[p] + grid_A.Min - AStarBorder;
 					Drawing.RoundMarker(grid_A.GridIntegerToWorld(v), Color.Yellow);
 				}
 			}
@@ -354,28 +375,23 @@ namespace LLE
 			if (grid_A != null && selectedBlock != null)
 			{
 				var block = grid_A.GetCubeBlock(selectedBlock);
-				if (block != null)
+				if (block != null && astar != null)
 				{
-					Traversability trav;
-					if (Collisions._traversabilityCache.TryGetValue(block.BlockDefinition.Id, out trav))
+					Traversability trav = astar.GetTraversability(block.Position - grid_A.Min + AStarBorder);
+
+					Vector3I[] dirs = new Vector3I[]
 					{
-						MatrixI m = new MatrixI(block.Orientation);
-						Vector3I[] dirs = new Vector3I[]
-						{
-							new Vector3I(0, 0, 0),
-							new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0),
-							new Vector3I(0, 1, 0), new Vector3I(0, -1, 0),
-							new Vector3I(0, 0, 1), new Vector3I(0, 0, -1)
-						};
-						var zero = grid_A.GridIntegerToWorld(selectedBlock);
-						for (int d = 0; d < dirs.Length; ++d)
-						{
-							Vector3I dir = dirs[d];
-							Vector3I.TransformNormal(ref dir, ref m, out dir);
-							var world = (grid_A.GridIntegerToWorld(selectedBlock + dir) - zero) * 0.5 + zero;
-							bool blocked = trav[dirs[d].X, dirs[d].Y, dirs[d].Z];
-							Drawing.RoundMarker(world, blocked ? Color.DarkRed : Color.Lime);
-						}
+						new Vector3I(0, 0, 0),
+						new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0),
+						new Vector3I(0, 1, 0), new Vector3I(0, -1, 0),
+						new Vector3I(0, 0, 1), new Vector3I(0, 0, -1)
+					};
+					var zero = grid_A.GridIntegerToWorld(selectedBlock);
+					for (int d = 0; d < dirs.Length; ++d)
+					{
+						Vector3I dir = dirs[d];
+						var world = (grid_A.GridIntegerToWorld(selectedBlock + dir) - zero) * 0.5 + zero;
+						Drawing.RoundMarker(world, trav[dirs[d]] ? Color.Black : Color.Lime);
 					}
 				}
 			}
