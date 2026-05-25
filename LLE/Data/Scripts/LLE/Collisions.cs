@@ -22,6 +22,7 @@ namespace LLE
 		private static readonly uint All_1 = (1u << 27) - 1;
 
 		public static readonly Traversability Blocked = new Traversability(All_1);
+		public static readonly Traversability Free = new Traversability(0);
 
 		private uint _mask;
 

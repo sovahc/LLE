@@ -161,7 +161,7 @@ namespace LLE
 		}
 
 		public Traversability GetTraversability(Vector3I at)
-		{	if(!_indexer.In(at)) throw new Exception($"GetTraversability: index out of range: {at}");
+		{	if(!_indexer.In(at)) return Traversability.Free;
 			return _traversability[_indexer.Index(at)];
 		}
 
