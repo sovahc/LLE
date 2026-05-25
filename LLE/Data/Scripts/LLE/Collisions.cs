@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Sandbox.ModAPI;
 using VRage.Game;
 using VRage.Game.ModAPI;
@@ -18,10 +19,11 @@ namespace LLE
 	/// </summary>
 	public struct Traversability
 	{
+		private static readonly uint All_1 = (1u << 27) - 1;
+
 		public static readonly Traversability Blocked = new Traversability(All_1);
 
 		private uint _mask;
-		private static readonly uint All_1 = (1u << 27) - 1;
 
 		public Traversability(uint mask)
 		{	_mask = mask;
@@ -77,6 +79,22 @@ namespace LLE
 				_mask = All_1;
 			else
 				_mask = 0;
+		}
+
+		public override string ToString()
+		{
+			var sb = new StringBuilder();
+			for (int z = 1; z >= -1; --z)
+			{
+				for (int y = 1; y >= -1; --y)
+				{
+					for (int x = -1; x <= 1; ++x)
+						sb.Append(this[x, y, z] ? "#" : ".");
+					sb.Append(' ');
+				}
+				sb.Append('|');
+			}
+			return sb.ToString();
 		}
 	}
 

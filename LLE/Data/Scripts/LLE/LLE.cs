@@ -316,9 +316,8 @@ namespace LLE
 							{	for(v.Z = Min.Z; v.Z <= Max.Z; ++v.Z)
 									for(v.Y = Min.Y; v.Y <= Max.Y; ++v.Y)
 										for(v.X = Min.X; v.X <= Max.X; ++v.X)
-										{	//astar.SetTraversability(v - grid.Min + AStarBorder, Traversability.Blocked);
-											astar.SetTraversability(v - grid.Min + AStarBorder, t);
-										}
+											astar.SetTraversability(v - grid.Min + AStarBorder, Traversability.Blocked);
+
 							}
 						}
 						else
