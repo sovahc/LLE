@@ -269,74 +269,80 @@ namespace LLE
 
 			if (mouse && grid_A == grid_B && grid_A != null)
 			{
-				var grid = grid_A;
-				Vector3I gridSize = grid.Max - grid.Min + 1;
-
-				Log($"calculate_A_star {grid.Min} {grid.Max} {gridSize}");
-
-				var astarSize = gridSize + AStarBorder + AStarBorder;
-
-				if(astar == null || astar.Size != astarSize) astar = new AStar(astarSize);
-
-				List<IMySlimBlock> blocks = new List<IMySlimBlock>();
-				grid.GetBlocks(blocks);
-
-				using(var prof = new Profiler("fill"))
-				{	
-					astar.Reset(true);
-
-					int unknownBlocks = 0;
-					foreach(var slim in blocks)
-					{	
-						var p = slim.Position - grid.Min + AStarBorder;
-
-						Traversability t;
-						if (Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
-						{
-							var Min = slim.Min;
-							var Max = slim.Max;
-							Vector3I v;
-
-							if(Min == Max)
-							{	
-								MatrixI m = new MatrixI(slim.Orientation);
-								
-								Vector3I v2;
-								Traversability t2 = new Traversability();
-
-								for(v.Z = -1; v.Z <= 1; ++v.Z)
-									for(v.Y = -1; v.Y <= 1; ++v.Y)
-										for(v.X = -1; v.X <= 1; ++v.X)
-										{	Vector3I.TransformNormal(ref v, ref m, out v2);
-											t2[v2] = t[v];
-										}
-								astar.SetTraversability(p, t2);
-							}
-							else
-							{	for(v.Z = Min.Z; v.Z <= Max.Z; ++v.Z)
-									for(v.Y = Min.Y; v.Y <= Max.Y; ++v.Y)
-										for(v.X = Min.X; v.X <= Max.X; ++v.X)
-											astar.SetTraversability(v - grid.Min + AStarBorder, Traversability.Blocked);
-
-							}
-						}
-						else
-						{	astar.SetTraversability(p, Traversability.Blocked);
-							//MyConsole.Add($"UNK {slim.BlockDefinition.Id}", Color.Yellow);
-							++unknownBlocks;
-						}
-					}
-					MyConsole.Add($"unknownBlocks {unknownBlocks}", Color.Yellow);
-					MyConsole.Add($"{prof}", Color.IndianRed);
-				}
-
-				var a = point_A - grid.Min + AStarBorder;
-				var b = point_B - grid.Min + AStarBorder;
-				astar.RunCalculation(a, b);
+				RunAstar(grid_A);
 			}
 
-			if(astar != null && !astar.Completed())
+			if (astar != null && !astar.Completed())
 				astar.Iteration();
+		}
+
+		private void RunAstar(IMyCubeGrid grid)
+		{
+			Vector3I gridSize = grid.Max - grid.Min + 1;
+
+			Log($"RunAstar {grid.Min} {grid.Max} {gridSize}");
+
+			var astarSize = gridSize + AStarBorder + AStarBorder;
+
+			if (astar == null || astar.Size != astarSize) astar = new AStar(astarSize);
+
+			List<IMySlimBlock> blocks = new List<IMySlimBlock>();
+			grid.GetBlocks(blocks);
+
+			using (var prof = new Profiler("fill"))
+			{
+				astar.Reset(true);
+
+				int unknownBlocks = 0;
+				foreach (var slim in blocks)
+				{
+					var p = slim.Position - grid.Min + AStarBorder;
+
+					Traversability t;
+					if (Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
+					{
+						var Min = slim.Min;
+						var Max = slim.Max;
+						Vector3I v;
+
+						if (Min == Max)
+						{
+							MatrixI m = new MatrixI(slim.Orientation);
+
+							Vector3I v2;
+							Traversability t2 = new Traversability();
+
+							for (v.Z = -1; v.Z <= 1; ++v.Z)
+								for (v.Y = -1; v.Y <= 1; ++v.Y)
+									for (v.X = -1; v.X <= 1; ++v.X)
+									{
+										Vector3I.TransformNormal(ref v, ref m, out v2);
+										t2[v2] = t[v];
+									}
+							astar.SetTraversability(p, t2);
+						}
+						else
+						{
+							for (v.Z = Min.Z; v.Z <= Max.Z; ++v.Z)
+								for (v.Y = Min.Y; v.Y <= Max.Y; ++v.Y)
+									for (v.X = Min.X; v.X <= Max.X; ++v.X)
+										astar.SetTraversability(v - grid.Min + AStarBorder, Traversability.Blocked);
+
+						}
+					}
+					else
+					{
+						astar.SetTraversability(p, Traversability.Blocked);
+						++unknownBlocks;
+					}
+				}
+				MyConsole.Add($"unknownBlocks {unknownBlocks}", Color.Yellow);
+				MyConsole.Add($"{prof}", Color.IndianRed);
+			}
+
+			var a = point_A - grid.Min + AStarBorder;
+			var b = point_B - grid.Min + AStarBorder;
+			astar.RunCalculation(a, b);
 		}
 
 		public override void Draw()
@@ -374,29 +380,33 @@ namespace LLE
 			if (grid_A != null && selectedBlock != null)
 			{
 				var block = grid_A.GetCubeBlock(selectedBlock);
-				if (block != null && astar != null)
-				{
-					Traversability trav = astar.GetTraversability(block.Position - grid_A.Min + AStarBorder);
-
-					Vector3I[] dirs = new Vector3I[]
-					{
-						new Vector3I(0, 0, 0),
-						new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0),
-						new Vector3I(0, 1, 0), new Vector3I(0, -1, 0),
-						new Vector3I(0, 0, 1), new Vector3I(0, 0, -1)
-					};
-					var zero = grid_A.GridIntegerToWorld(selectedBlock);
-					for (int d = 0; d < dirs.Length; ++d)
-					{
-						Vector3I dir = dirs[d];
-						var world = (grid_A.GridIntegerToWorld(selectedBlock + dir) - zero) * 0.5 + zero;
-						Drawing.RoundMarker(world, trav[dirs[d]] ? Color.Black : Color.Lime);
-					}
-				}
+				if (block != null) DrawTraversability(block);
 			}
 			MyConsole.Render(font);
 
 			Common.Call_Add_Billboards(); // just for sure
+		}
+
+		private void DrawTraversability(IMySlimBlock block)
+		{
+			if(astar == null) return;
+
+			Traversability trav = astar.GetTraversability(block.Position - grid_A.Min + AStarBorder);
+
+			Vector3I[] dirs = new Vector3I[]
+			{
+						new Vector3I(0, 0, 0),
+						new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0),
+						new Vector3I(0, 1, 0), new Vector3I(0, -1, 0),
+						new Vector3I(0, 0, 1), new Vector3I(0, 0, -1)
+			};
+			var zero = grid_A.GridIntegerToWorld(selectedBlock);
+			for (int d = 0; d < dirs.Length; ++d)
+			{
+				Vector3I dir = dirs[d];
+				var world = (grid_A.GridIntegerToWorld(selectedBlock + dir) - zero) * 0.5 + zero;
+				Drawing.RoundMarker(world, trav[dirs[d]] ? Color.Black : Color.Lime);
+			}
 		}
 
 		void OnEntityAdd(IMyEntity entity)
