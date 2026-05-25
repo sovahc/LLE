@@ -198,15 +198,6 @@ namespace LLE
 
 	public static class Time { public static double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds; }
 
-	class Vision
-	{
-		public static void Grid_OnBlockAdded(IMySlimBlock block) { }
-
-		public static void Grid_OnBlockRemoved(IMySlimBlock block) { }
-
-		public static void Grid_OnGridChanged(IMyCubeGrid grid) { }
-	}
-
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
@@ -272,9 +263,7 @@ namespace LLE
 				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out selectedBlock, out point_A);
 
 				if(grid_A != null)
-				{	var block = grid_A.GetCubeBlock(selectedBlock);
-					if(block != null)
-						MyConsole.Add($"Id {block.BlockDefinition.Id} {block.Min} {block.Max}", Color.Wheat);
+				{	new GridInfo().Info(grid_A);
 				}
 			}
 
@@ -475,9 +464,9 @@ namespace LLE
 			{
 				grid.OnClose += OnClose;
 
-				grid.OnBlockAdded += Vision.Grid_OnBlockAdded;
-				grid.OnBlockRemoved += Vision.Grid_OnBlockRemoved;
-				grid.OnGridChanged += Vision.Grid_OnGridChanged;
+				grid.OnBlockAdded += Grid_OnBlockAdded;
+				grid.OnBlockRemoved += Grid_OnBlockRemoved;
+				grid.OnGridChanged += Grid_OnGridChanged;
 			}
 		}
 
@@ -486,11 +475,17 @@ namespace LLE
 			var grid = entity as IMyCubeGrid;
 			if (grid != null)
 			{
-				grid.OnBlockAdded -= Vision.Grid_OnBlockAdded;
-				grid.OnBlockRemoved -= Vision.Grid_OnBlockRemoved;
-				grid.OnGridChanged -= Vision.Grid_OnGridChanged;
+				grid.OnBlockAdded -= Grid_OnBlockAdded;
+				grid.OnBlockRemoved -= Grid_OnBlockRemoved;
+				grid.OnGridChanged -= Grid_OnGridChanged;
 			}
 		}
+
+		public static void Grid_OnBlockAdded(IMySlimBlock block) { }
+
+		public static void Grid_OnBlockRemoved(IMySlimBlock block) { }
+
+		public static void Grid_OnGridChanged(IMyCubeGrid grid) { }
 
 		void OnChatMessage(string message, ref bool sendToOthers)
 		{
