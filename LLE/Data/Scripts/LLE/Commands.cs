@@ -110,8 +110,6 @@ namespace LLE
 			return $"{d / 1000.0:F1}km";
 		}
 
-		private static bool IsVoid(string parameter) { return parameter == "" || parameter == "*"; }
-		
 		private static readonly char[] MyTrim = new char [] {' ', '\t', '"', '\''};
 
 		private static readonly Dictionary<string, string[]> TerminalBCategories = new Dictionary<string, string[]>
@@ -183,12 +181,17 @@ namespace LLE
 			return MyMarkdown.Result();
 		}
 
-		public static string Search(string name, Vector3D center, int radius = 500)
+		private static bool Include(string searchTermUc, string data)
+		{	if(searchTermUc == "" || searchTermUc == "*") return true;
+			return data.ToUpperInvariant().Contains(searchTermUc);
+		}
+	
+		public static string Search(string query, Vector3D center, int radius = 500)
 		{
-			name = name.Trim(MyTrim);
+			query = query.Trim(MyTrim);
 			
 			MyMarkdown.Clear();
-			MyMarkdown.Append($"# SEARCH RESULT '{name}' (RADIUS {Distance(radius)})");
+			MyMarkdown.Append($"# SEARCH RESULT '{query}' (RADIUS {Distance(radius)})");
 
 			BoundingSphereD S = new BoundingSphereD(center, radius);
 			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
@@ -206,11 +209,16 @@ namespace LLE
 					string description = $"* {Quotes(grid.DisplayName)} → {Distance(distance)}";
 
 					if(grid.IsStatic)
-						MyMarkdown.Add("## STATIONS", description);
+						if(Include(query, grid.DisplayName) || Include(query, "STATIONS"))
+							MyMarkdown.Add("## STATIONS", description);
+					
 					else if(grid.GridSizeEnum == MyCubeSize.Large)
-						MyMarkdown.Add("## LARGE GRIDS", description);
+						if(Include(query, grid.DisplayName) || Include(query, "LARGE GRIDS"))
+							MyMarkdown.Add("## LARGE GRIDS", description);
+					
 					else if(grid.GridSizeEnum == MyCubeSize.Small)
-						MyMarkdown.Add("## SMALL GRIDS", description);
+						if(Include(query, grid.DisplayName) || Include(query, "SMALL GRIDS"))
+							MyMarkdown.Add("## SMALL GRIDS", description);
 
 					continue;
 				}
@@ -218,15 +226,22 @@ namespace LLE
 				var voxel = e as MyVoxelBase;
 				if (voxel != null)
 				{	if (voxel is MyPlanet) continue;
-					string description = $"* {Quotes(voxel.DebugName)} → {Distance(distance)}";
-					MyMarkdown.Add("## ASTEROIDS", description);
+
+					if(Include(query, voxel.DebugName) || Include(query, "ASTEROIDS"))
+					{	
+						string description = $"* {Quotes(voxel.DebugName)} → {Distance(distance)}";
+						MyMarkdown.Add("## ASTEROIDS", description);
+					}
 					continue;
 				}
 
 				var floater = e as IMyFloatingObject;
 				if (floater != null)
-				{	string description = $"* {Quotes(floater.DisplayName)} → {Distance(distance)}";
-					MyMarkdown.Add("## FLOATING OBJECTS", description);
+				{	
+					if(Include(query, floater.DisplayName) || Include(query, "FLOATING OBJECTS") || Include(query, "FLOATERS"))
+					{	string description = $"* {Quotes(floater.DisplayName)} → {Distance(distance)}";
+						MyMarkdown.Add("## FLOATING OBJECTS", description);
+					}
 					continue;
 				}
 			}
