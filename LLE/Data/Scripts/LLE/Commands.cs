@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -98,7 +99,12 @@ namespace LLE
 			return($"'{s}'");
 		}
 
-		private static string Distance(double d) { return $"{d:0.#}m"; }
+		private static string Distance(double d)
+		{
+			if (d < 1000)
+				return $"{(int)Math.Round(d, 0, MidpointRounding.AwayFromZero)}m";
+			return $"{d / 1000.0:F1}km";
+		}
 
 		private static bool IsVoid(string parameter) { return parameter == "" || parameter == "*"; }
 		
@@ -196,7 +202,7 @@ namespace LLE
 		{
 			name = name.Trim(MyTrim);
 			
-			MyMarkdown.Start($"# SEARCH RESULT '{name}' (RADIUS {radius}m)");
+			MyMarkdown.Start($"# SEARCH RESULT '{name}' (RADIUS {Distance(radius)})");
 
 			BoundingSphereD S = new BoundingSphereD(center, radius);
 			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
