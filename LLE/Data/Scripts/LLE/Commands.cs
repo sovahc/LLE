@@ -33,41 +33,57 @@ vision         Get current visual input (what the bot sees right now).
 
 namespace LLE
 {
-	/*public class BlockInfo
+	public class MyMarkdown
 	{
-		public IMyTerminalBlock Block;
-		public string Name;
-		public string Type;
-		public bool IsWorking;
-		public bool IsFunctional;
-		public long EntityId;
-		public Vector3I Position;
-		public long OwnerId;
-	}*/
+		private static readonly Dictionary<string, StringBuilder> data = new Dictionary<string, StringBuilder>();
+
+		private static readonly StringBuilder result = new StringBuilder();
+
+		public static void Start(string header)
+		{	foreach(var b in data.Values) b.Clear();
+			
+			result.Clear();
+			result.Append(header);
+			result.Append('\n');
+		}
+
+		public static void Add(string category, string element)
+		{
+			StringBuilder b;
+
+			if(data.TryGetValue(category, out b))
+			{	b.Append('\n');
+				b.Append(element);
+				return;
+			}
+			
+			b = new StringBuilder();
+			b.Append(element);
+			data[category] = b;
+		}
+
+		public static string Result()
+		{
+			foreach(var kv in data)
+			{	
+				if(kv.Value.Length > 0)
+				{	result.Append(kv.Key);
+					result.Append('\n');
+					result.Append(kv.Value);
+					result.Append('\n');
+				}
+			}
+			return result.ToString();
+		}
+	}
 
 	public static class Commands
 	{
-		private static void Log(string s)
-		{
-			MyConsole.Add(s, Color.Gray);
-			MyLog.Default.WriteLine("LLE " + s);
-		}
-
 		private static readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
 		private static readonly Dictionary<MyDefinitionId, int> count2 = new Dictionary<MyDefinitionId, int>();
 		private static readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
 
 		private static readonly string removeIt = "MyObjectBuilder_";
-		private static readonly StringBuilder result = new StringBuilder();
-		private static readonly StringBuilder sb1 = new StringBuilder();
-		private static readonly StringBuilder sb2 = new StringBuilder();
-		private static readonly StringBuilder sb3 = new StringBuilder();
-		private static readonly StringBuilder sb4 = new StringBuilder();
-		private static readonly StringBuilder sb5 = new StringBuilder();
-
-		private static void ClearBuffers()
-		{	result.Clear(); sb1.Clear(); sb2.Clear(); sb3.Clear(); sb4.Clear(); sb5.Clear();
-		}
 
 		private static string GridType(IMyCubeGrid g)
 		{	if(g.IsStatic) return "Station";
@@ -113,8 +129,7 @@ namespace LLE
 
 		public static string GridInfo(IMyCubeGrid grid)
 		{
-			string gridType = "";
-			
+/*			string gridType = "";
 
 			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
 
@@ -124,7 +139,7 @@ namespace LLE
 
 			ts.GetBlocks(blocks);
 
-			result.Clear();
+			ClearBuffers();
 			result.Append($"# {gridType} '{grid.DisplayName}'\n");
 			result.Append($"## Name → count\n");
 
@@ -173,12 +188,13 @@ namespace LLE
 			}
 			result.Append($"\n# Total: {total}\n");
 
-			return result.ToString();
+			return result.ToString();*/
+			return "";
 		}
 
-		public static string Search(string name, Vector3D center, int radius = 100)
+		public static string Search(string name, Vector3D center, int radius = 500)
 		{
-			ClearBuffers();
+			MyMarkdown.Start($"# SEARCH RESULT '{name}' (RADIUS {radius}m)");
 
 			name = name.Trim(MyTrim);
 
@@ -195,14 +211,14 @@ namespace LLE
 				if (grid != null)
 				{	// Owners: {grid.BigOwners}
 
-					string description = $"* {Quotes(grid.DisplayName)} → {Distance(distance)}\n";
+					string description = $"* {Quotes(grid.DisplayName)} → {Distance(distance)}";
 
 					if(grid.IsStatic)
-						sb1.Append(description);
+						MyMarkdown.Add("## STATIONS", description);
 					else if(grid.GridSizeEnum == MyCubeSize.Large)
-						sb2.Append(description);
+						MyMarkdown.Add("## LARGE GRIDS", description);
 					else if(grid.GridSizeEnum == MyCubeSize.Small)
-						sb3.Append(description);
+						MyMarkdown.Add("## SMALL GRIDS", description);
 
 					continue;
 				}
@@ -210,40 +226,20 @@ namespace LLE
 				var voxel = e as MyVoxelBase;
 				if (voxel != null)
 				{	if (voxel is MyPlanet) continue;
-					sb4.Append($"* {Quotes(voxel.DebugName)} → {Distance(distance)}\n");
+					string description = $"* {Quotes(voxel.DebugName)} → {Distance(distance)}";
+					MyMarkdown.Add("## ASTEROIDS", description);
 					continue;
 				}
 
 				var floater = e as IMyFloatingObject;
 				if (floater != null)
-				{	sb5.Append($"* {Quotes(floater.DisplayName)} → {Distance(distance)}\n");
+				{	string description = $"* {Quotes(floater.DisplayName)} → {Distance(distance)}";
+					MyMarkdown.Add("## FLOATING OBJECTS", description);
 					continue;
 				}
 			}
 
-			result.Append($"# SEARCH RESULT '{name}' (RADIUS {radius}m)\n");
-			if(sb1.Length > 0)
-			{	result.Append("## STATIONS\n");
-				result.Append(sb1);
-			}
-			if(sb2.Length > 0)
-			{	result.Append("## LARGE GRIDS\n");
-				result.Append(sb2);
-			}
-			if(sb3.Length > 0)
-			{	result.Append("## SMALL GRIDS\n");
-				result.Append(sb3);
-			}
-			if(sb4.Length > 0)
-			{	result.Append("## ASTEROIDS\n");
-				result.Append(sb4);
-			}
-			if(sb5.Length > 0)
-			{	result.Append("## FLOATING OBJECTS\n");
-				result.Append(sb5);
-			}
-
-			return result.ToString();
+			return MyMarkdown.Result();
 		}
 	}
 }
