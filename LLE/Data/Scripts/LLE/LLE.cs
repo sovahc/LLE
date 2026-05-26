@@ -166,7 +166,12 @@ namespace LLE
 
 		public static void AddMultiline(string text)
 		{
-			foreach(var line in text.Split('\n')) Add(line);
+			foreach(var line in text.Split('\n'))
+			{	if(line.StartsWith("##")) Add(line, Color.Blue);
+				else if(line.StartsWith("#")) Add(line, Color.BlueViolet);
+				else if(line.StartsWith("*")) Add(line, Color.Gray);
+				else Add(line);
+			}
 		}
 
 		public static void Render(Font font)

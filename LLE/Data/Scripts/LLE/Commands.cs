@@ -52,7 +52,7 @@ namespace LLE
 			StringBuilder b;
 
 			if(data.TryGetValue(category, out b))
-			{	b.Append('\n');
+			{	if(b.Length > 0) b.Append('\n');
 				b.Append(element);
 				return;
 			}
@@ -194,9 +194,9 @@ namespace LLE
 
 		public static string Search(string name, Vector3D center, int radius = 500)
 		{
-			MyMarkdown.Start($"# SEARCH RESULT '{name}' (RADIUS {radius}m)");
-
 			name = name.Trim(MyTrim);
+			
+			MyMarkdown.Start($"# SEARCH RESULT '{name}' (RADIUS {radius}m)");
 
 			BoundingSphereD S = new BoundingSphereD(center, radius);
 			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
