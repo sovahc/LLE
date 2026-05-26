@@ -135,7 +135,7 @@ namespace LLE
 			//{ "Structure", new[] { ,  } },
 		};
 
-		public static string GridInfo(IMyCubeGrid grid)
+		internal static string GridInfo(IMyCubeGrid grid)
 		{
 			MyMarkdown.Clear();
 			MyMarkdown.Append($"# {GridType(grid)} '{grid.DisplayName}'\n");
@@ -181,12 +181,42 @@ namespace LLE
 			return MyMarkdown.Result();
 		}
 
-		private static bool Include(string searchTermUc, string data)
-		{	if(searchTermUc == "" || searchTermUc == "*") return true;
-			return data.ToUpperInvariant().Contains(searchTermUc);
+		private static bool Include(string searchTerm, string data)
+		{	if(searchTerm == "" || searchTerm == "*") return true;
+			return data.Contains(searchTerm);
+		}
+
+		private static void Description(MyEntity e, out string category, out string name)
+		{
+			category = "Unknown";
+			name = e.DisplayName;
+			if(name == null) name = e.ToString();
+
+			var grid = e as IMyCubeGrid;
+			if (grid != null)
+			{	if(grid.IsStatic) category = "STATION";
+				else if(grid.GridSizeEnum == MyCubeSize.Large) category = "LARGE GRID";
+				else if(grid.GridSizeEnum == MyCubeSize.Small) category = "SMALL GRID";
+				return;
+			}
+			var voxel = e as MyVoxelBase;
+			if (voxel != null)
+			{	if (voxel is MyPlanet)
+				{	category = "PLANET";
+					return;
+				}
+				category = "ASTEROID";
+				return;
+			}
+
+			var floater = e as IMyFloatingObject;
+			if (floater != null)
+			{	category = "FLOATING OBJECT";
+				return;
+			}
 		}
 	
-		public static string Search(string query, Vector3D center, int radius = 500)
+		internal static string Search(string query, Vector3D center, int radius = 500)
 		{
 			query = query.Trim(MyTrim);
 			
@@ -202,24 +232,36 @@ namespace LLE
 
 				double distance = (e.WorldMatrix.Translation - center).Length();
 
+				string category, name;
+
+				Description(e, out category, out name);
+
+				if(Include(query, name) || Include(query, category))
+					MyMarkdown.Add($"## {category}", $"* {Quotes(name)} → {Distance(distance)}");
+			}
+
+			return MyMarkdown.Result();
+		}
+
+		internal static void Fly(string to, Vector3D center)
+		{
+			to = to.Trim(MyTrim);
+
+			BoundingSphereD S = new BoundingSphereD(center, 1000);
+			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
+			
+			List<MyEntity> matches = new List<MyEntity>();
+
+			foreach(var e in entities)
+			{	
+				if (e.Closed) continue;
+
+				double distance = (e.WorldMatrix.Translation - center).Length();
+
 				var grid = e as IMyCubeGrid;
 				if (grid != null)
-				{	// Owners: {grid.BigOwners}
-
-					string description = $"* {Quotes(grid.DisplayName)} → {Distance(distance)}";
-
-					if(grid.IsStatic)
-						if(Include(query, grid.DisplayName) || Include(query, "STATIONS"))
-							MyMarkdown.Add("## STATIONS", description);
-					
-					else if(grid.GridSizeEnum == MyCubeSize.Large)
-						if(Include(query, grid.DisplayName) || Include(query, "LARGE GRIDS"))
-							MyMarkdown.Add("## LARGE GRIDS", description);
-					
-					else if(grid.GridSizeEnum == MyCubeSize.Small)
-						if(Include(query, grid.DisplayName) || Include(query, "SMALL GRIDS"))
-							MyMarkdown.Add("## SMALL GRIDS", description);
-
+				{	
+					if(Include(to, grid.DisplayName)) matches.Add(e);
 					continue;
 				}
 
@@ -227,26 +269,20 @@ namespace LLE
 				if (voxel != null)
 				{	if (voxel is MyPlanet) continue;
 
-					if(Include(query, voxel.DebugName) || Include(query, "ASTEROIDS"))
-					{	
-						string description = $"* {Quotes(voxel.DebugName)} → {Distance(distance)}";
-						MyMarkdown.Add("## ASTEROIDS", description);
-					}
+					if(Include(to, voxel.DebugName)) matches.Add(e);
 					continue;
 				}
 
 				var floater = e as IMyFloatingObject;
 				if (floater != null)
 				{	
-					if(Include(query, floater.DisplayName) || Include(query, "FLOATING OBJECTS") || Include(query, "FLOATERS"))
-					{	string description = $"* {Quotes(floater.DisplayName)} → {Distance(distance)}";
-						MyMarkdown.Add("## FLOATING OBJECTS", description);
-					}
+					if(Include(to, floater.DisplayName)) matches.Add(e);
 					continue;
 				}
 			}
 
-			return MyMarkdown.Result();
+			///
+
 		}
-	}
+    }
 }

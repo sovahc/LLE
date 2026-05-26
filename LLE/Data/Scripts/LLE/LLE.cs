@@ -262,11 +262,20 @@ namespace LLE
 
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
-			{	var p = cmd.Payload.Trim().ToUpperInvariant();
-				if(p.StartsWith("SEARCH"))
-				{	p = p.Substring(6);
-					string r = Commands.Search(p, Utilities.GetEngineerCenter(ch));
+			{	
+				var p = cmd.Payload.Trim();
+				int spaceIndex = p.IndexOf(' ');
+				string command = spaceIndex >= 0 ? p.Substring(0, spaceIndex) : p;
+				string arguments = spaceIndex >= 0 ? p.Substring(spaceIndex + 1) : "";
+
+				command = command.ToUpperInvariant();
+				
+				if(command == "SEARCH")
+				{	string r = Commands.Search(arguments, Utilities.GetEngineerCenter(ch));
 					MyConsole.AddMultiline(r);
+				}
+				else if(command == "FLY")
+				{	Commands.Fly(arguments, Utilities.GetEngineerCenter(ch));
 				}
 			}
 
