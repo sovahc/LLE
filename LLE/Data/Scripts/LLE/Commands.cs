@@ -245,7 +245,7 @@ namespace LLE
 			return MyMarkdown.Result();
 		}
 
-		internal static string Fly(Vector3D from, string to)
+		internal static bool Fly(Vector3D from, string to, out string message, out Vector3D point)
 		{
 			to = to.Trim(MyTrim);
 
@@ -284,7 +284,10 @@ namespace LLE
 			}
 
 			if(matches.Count == 0)
-				return $"Error: object '{to}' not found, use the exact object name.";
+			{	message = $"Error: object '{to}' not found, use the exact object name.";
+				point = Vector3D.Zero;
+				return false;
+			}
 			if(matches.Count != 1)
 			{	tmp.Clear();
 				tmp.Append($"Error: multiple objects match '{to}':\n");
@@ -295,10 +298,14 @@ namespace LLE
 					tmp.Append($"* {category} {Quotes(name)} → {Distance(distance)}\n");
 				}
 				tmp.Append("\n\n");
-				return tmp.ToString();
+				message = tmp.ToString();
+				point = Vector3D.Zero;
+				return false;
 			}
 
-			return "OK"; /// XXX
+			message = "Executing...";
+			point = matches[0].WorldMatrix.Translation;
+			return true;
 		}
     }
 }

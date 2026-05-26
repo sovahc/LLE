@@ -271,14 +271,24 @@ namespace LLE
 				command = command.ToUpperInvariant();
 
 				var engineer = Utilities.GetEngineerCenter(ch);
+				string message;
 				
 				if(command == "SEARCH")
 				{	string r = Commands.Search(engineer, 500, arguments);
 					MyConsole.AddMultiline(r);
 				}
 				else if(command == "FLY")
-				{	string r = Commands.Fly(engineer, arguments);
-					MyConsole.AddMultiline(r);
+				{	Vector3D point;
+					bool ok = Commands.Fly(engineer, arguments, out message, out point);
+					MyConsole.AddMultiline(message);
+
+					if(ok)
+					{	List<Vector3D> path = new List<Vector3D>();
+						path.Add(engineer);
+						path.Add(point);
+						navigationActive = true;
+						navigation.Fly(path);
+					}
 				}
 			}
 
