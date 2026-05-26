@@ -59,6 +59,34 @@ namespace LLE
 
 		private static readonly string removeIt = "MyObjectBuilder_";
 		private static readonly StringBuilder result = new StringBuilder();
+		private static readonly StringBuilder sb1 = new StringBuilder();
+		private static readonly StringBuilder sb2 = new StringBuilder();
+		private static readonly StringBuilder sb3 = new StringBuilder();
+		private static readonly StringBuilder sb4 = new StringBuilder();
+		private static readonly StringBuilder sb5 = new StringBuilder();
+
+		private static void ClearBuffers()
+		{	result.Clear(); sb1.Clear(); sb2.Clear(); sb3.Clear(); sb4.Clear(); sb5.Clear();
+		}
+
+		private static string GridType(IMyCubeGrid g)
+		{	if(g.IsStatic) return "Station";
+			else if(g.GridSizeEnum == MyCubeSize.Large) return "Large Grid";
+			else if(g.GridSizeEnum == MyCubeSize.Small) return "Small Grid";
+			else return "?";
+		}
+
+		private static string Quotes(string s)
+		{	if(s == null) return "(null)";
+			if(!s.Contains(' ')) return s;
+			return($"'{s}'");
+		}
+
+		private static string Distance(double d) { return $"{d:0.#}m"; }
+
+		private static bool IsVoid(string parameter) { return parameter == "" || parameter == "*"; }
+		
+		private static readonly char[] MyTrim = new char [] {' ', '\t', '"', '\''};
 
 		private static readonly Dictionary<string, string[]> TerminalBCategories = new Dictionary<string, string[]>
 		{
@@ -86,9 +114,7 @@ namespace LLE
 		public static string GridInfo(IMyCubeGrid grid)
 		{
 			string gridType = "";
-			if(grid.IsStatic) gridType = "Station";
-			else if(grid.GridSizeEnum == MyCubeSize.Large) gridType = "Large Grid";
-			else if(grid.GridSizeEnum == MyCubeSize.Small) gridType = "Small Grid";
+			
 
 			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
 
@@ -99,8 +125,8 @@ namespace LLE
 			ts.GetBlocks(blocks);
 
 			result.Clear();
-			result.Append($"## {gridType} '{grid.DisplayName}'\n");
-			result.Append($"# Name → count\n");
+			result.Append($"# {gridType} '{grid.DisplayName}'\n");
+			result.Append($"## Name → count\n");
 
 			//ts.CanAccess()
 
@@ -150,31 +176,74 @@ namespace LLE
 			return result.ToString();
 		}
 
-		private static bool IsVoid(string parameter) { return parameter == "" || parameter == "*"; }
-		
-		private static readonly char[] MyTrim = new char [] {' ', '\t', '"', '\''};
-
 		public static string Search(string name, Vector3D center, int radius = 100)
 		{
+			ClearBuffers();
+
 			name = name.Trim(MyTrim);
 
-			if(IsVoid(name))
-			{	BoundingSphereD S = new BoundingSphereD(center, radius);
-				List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
+			BoundingSphereD S = new BoundingSphereD(center, radius);
+			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
 			
-				result.Clear();
-				result.Append($"## SEARCH RESULT '{name}' (RADIUS {radius}m)\n");
+			foreach(var e in entities)
+			{	
+				if (e.Closed) continue;
 
-				foreach(var e in entities)
-				{	
-					double distance = (e.WorldMatrix.Translation - center).Length();
-				
-					result.Append($"* {e.DisplayName} → {distance:0.#}m\n");
+				double distance = (e.WorldMatrix.Translation - center).Length();
+
+				var grid = e as IMyCubeGrid;
+				if (grid != null)
+				{	// Owners: {grid.BigOwners}
+
+					string description = $"* {Quotes(grid.DisplayName)} → {Distance(distance)}\n";
+
+					if(grid.IsStatic)
+						sb1.Append(description);
+					else if(grid.GridSizeEnum == MyCubeSize.Large)
+						sb2.Append(description);
+					else if(grid.GridSizeEnum == MyCubeSize.Small)
+						sb3.Append(description);
+
+					continue;
 				}
 
-				return result.ToString();
+				var voxel = e as MyVoxelBase;
+				if (voxel != null)
+				{	if (voxel is MyPlanet) continue;
+					sb4.Append($"* {Quotes(voxel.DebugName)} → {Distance(distance)}\n");
+					continue;
+				}
+
+				var floater = e as IMyFloatingObject;
+				if (floater != null)
+				{	sb5.Append($"* {Quotes(floater.DisplayName)} → {Distance(distance)}\n");
+					continue;
+				}
 			}
-			return "Not implemented\n";
+
+			result.Append($"# SEARCH RESULT '{name}' (RADIUS {radius}m)\n");
+			if(sb1.Length > 0)
+			{	result.Append("## STATIONS\n");
+				result.Append(sb1);
+			}
+			if(sb2.Length > 0)
+			{	result.Append("## LARGE GRIDS\n");
+				result.Append(sb2);
+			}
+			if(sb3.Length > 0)
+			{	result.Append("## SMALL GRIDS\n");
+				result.Append(sb3);
+			}
+			if(sb4.Length > 0)
+			{	result.Append("## ASTEROIDS\n");
+				result.Append(sb4);
+			}
+			if(sb5.Length > 0)
+			{	result.Append("## FLOATING OBJECTS\n");
+				result.Append(sb5);
+			}
+
+			return result.ToString();
 		}
 	}
 }
