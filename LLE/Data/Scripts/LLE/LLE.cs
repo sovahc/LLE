@@ -326,6 +326,9 @@ namespace LLE
 				}
 				else
 				{
+					var v2 = MicroNavigation.ComputeRotationToPoint(ch.WorldMatrix, navigation.currentTargetPoint);
+					ch.MoveAndRotate(Vector3.Zero, v2, 0);
+					
 					ch.Physics.LinearVelocity = navigation.ComputeDesiredVelocity(
 						Utilities.GetEngineerCenter(ch), ch.Physics.LinearVelocity);
 				}

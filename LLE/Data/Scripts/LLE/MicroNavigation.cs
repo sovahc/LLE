@@ -28,19 +28,20 @@ namespace LLE
 		}
 
 		public bool Stuck;
+		public Vector3D currentTargetPoint;
 
 		public Vector3D ComputeDesiredVelocity(Vector3D currentPosition, Vector3D currentVelocity, double DeltaTime = 1.0 / 60)
 		{
 			if (Arrived()) return Vector3D.Zero;
 
 			// 1. Find the lookahead point on the path ahead
-			Vector3D targetPoint = FindLookaheadPoint(currentPosition, lookaheadDistance);
+			currentTargetPoint = FindLookaheadPoint(currentPosition, lookaheadDistance);
 			
 			// 1b. Find nearest point on current path segment (for correction)
 			Vector3D nearestOnPath = FindNearestPointOnPath(currentPosition);
 
 			// 2. Compute desired velocity (Seek + Arrive)
-			Vector3D toTarget = targetPoint - currentPosition;
+			Vector3D toTarget = currentTargetPoint - currentPosition;
 			double distance = toTarget.Length();
 
 			if (distance < arrivalThreshold)
@@ -59,7 +60,7 @@ namespace LLE
 			Vector3D correctionVelocity = (nearestOnPath - currentPosition) * pathCorrectionStrength * desiredSpeed;
 			Vector3D desiredVelocity = mainVelocity + correctionVelocity;
 
-			Stuck = stuckDetector.IsStuck(currentPosition, desiredVelocity, DeltaTime);
+			//Stuck = stuckDetector.IsStuck(currentPosition, desiredVelocity, DeltaTime); // diabled. buggy
 
 			// 4. Smooth acceleration (PD controller)
 			Vector3D velocityError = desiredVelocity - currentVelocity;
@@ -127,6 +128,30 @@ namespace LLE
 				if (dot < 0.8) return 4.0; // Medium turn
 			}
 			return 10.0; // Straight section
+		}
+		public static Vector2 ComputeRotationToPoint(MatrixD worldMatrix, Vector3D targetPoint, float maxRotationSpeed = 15f)
+		{
+			var botPosition = worldMatrix.Translation;
+			var vecToTarget = targetPoint - botPosition;
+
+			var up = worldMatrix.Up;
+			var projUp = Vector3D.Dot(vecToTarget, up) / Vector3D.Dot(up, up) * up;
+			var horizontalVec = vecToTarget - projUp;
+
+			if (horizontalVec.LengthSquared() < 0.001)
+				return Vector2.Zero;
+
+			var forward = worldMatrix.Forward;
+			var cosAngle = Vector3D.Dot(forward, horizontalVec) / (forward.Length() * horizontalVec.Length());
+			var angle = Math.Acos(Math.Max(-1.0, Math.Min(1.0, cosAngle)));
+
+			var relVector = Vector3D.TransformNormal(vecToTarget, MatrixD.Transpose(worldMatrix));
+
+			if (relVector.Z < 0 && Math.Abs(angle) < MathHelper.ToRadians(2))
+				return Vector2.Zero;
+
+			var speedFactor = (float)Math.Min(angle / MathHelper.PiOver2, 1.0);
+			return new Vector2(0, (float)angle * Math.Sign(relVector.X) * maxRotationSpeed * speedFactor);
 		}
 	}
 
