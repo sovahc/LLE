@@ -8,7 +8,7 @@ namespace LLE
 	{
 		private const double lookaheadDistance = 0.5;
 		private const double pathCorrectionStrength = 0.1;
-		private const double arrivalThreshold = 0.25;
+		private const double arrivalThreshold = 1.0;
 		private const double maxVelocity = 10.0;
 		private List<Vector3D> path;
 		private int currentWaypointIndex;

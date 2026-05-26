@@ -85,10 +85,7 @@ namespace LLE
 	public static class Commands
 	{
 		private static readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
-		private static readonly Dictionary<MyDefinitionId, int> count2 = new Dictionary<MyDefinitionId, int>();
 		private static readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
-
-		private static readonly string removeIt = "MyObjectBuilder_";
 
 		private static readonly StringBuilder tmp = new StringBuilder();
 
@@ -146,7 +143,6 @@ namespace LLE
 			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
 
 			count.Clear();
-			count2.Clear();
 			blocks.Clear();
 			ts.GetBlocks(blocks);
 
@@ -165,7 +161,7 @@ namespace LLE
 			foreach (var kv in count)
 			{
 				string type = kv.Key.ToString();
-				if(type.StartsWith(removeIt)) type = type.Substring(removeIt.Length);
+				if(type.StartsWith("MyObjectBuilder_")) type = type.Substring("MyObjectBuilder_".Length);
 
 				string category = "Other";
 				foreach (var cat in TerminalBCategories)
