@@ -90,6 +90,8 @@ namespace LLE
 
 		private static readonly string removeIt = "MyObjectBuilder_";
 
+		private static readonly StringBuilder tmp = new StringBuilder();
+
 		private static string GridType(IMyCubeGrid g)
 		{	if(g.IsStatic) return "Station";
 			else if(g.GridSizeEnum == MyCubeSize.Large) return "Large Grid";
@@ -243,7 +245,7 @@ namespace LLE
 			return MyMarkdown.Result();
 		}
 
-		internal static void Fly(string to, Vector3D center)
+		internal static string Fly(string to, Vector3D center)
 		{
 			to = to.Trim(MyTrim);
 
@@ -281,8 +283,22 @@ namespace LLE
 				}
 			}
 
-			///
+			if(matches.Count == 0)
+				return $"Error: object '{to}' not found, use the exact object name.";
+			if(matches.Count != 1)
+			{	tmp.Clear();
+				tmp.Append($"Error: multiple objects match '{to}':\n");
+				foreach(var e in matches)
+				{	string category, name;
+					Description(e, out category, out name);
+					double distance = (e.WorldMatrix.Translation - center).Length();
+					tmp.Append($"* {category} {Quotes(name)} → {Distance(distance)}\n");
+				}
+				tmp.Append("\n\n");
+				return tmp.ToString();
+			}
 
+			return "OK"; /// XXX
 		}
     }
 }

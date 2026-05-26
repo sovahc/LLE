@@ -275,7 +275,8 @@ namespace LLE
 					MyConsole.AddMultiline(r);
 				}
 				else if(command == "FLY")
-				{	Commands.Fly(arguments, Utilities.GetEngineerCenter(ch));
+				{	string r = Commands.Fly(arguments, Utilities.GetEngineerCenter(ch));
+					MyConsole.AddMultiline(r);
 				}
 			}
 
