@@ -218,7 +218,7 @@ namespace LLE
 			}
 		}
 	
-		internal static string Search(string query, Vector3D center, int radius = 500)
+		internal static string Search(Vector3D center, int radius, string query)
 		{
 			query = query.Trim(MyTrim);
 			
@@ -245,11 +245,11 @@ namespace LLE
 			return MyMarkdown.Result();
 		}
 
-		internal static string Fly(string to, Vector3D center)
+		internal static string Fly(Vector3D from, string to)
 		{
 			to = to.Trim(MyTrim);
 
-			BoundingSphereD S = new BoundingSphereD(center, 1000);
+			BoundingSphereD S = new BoundingSphereD(from, 1000);
 			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
 			
 			List<MyEntity> matches = new List<MyEntity>();
@@ -258,7 +258,7 @@ namespace LLE
 			{	
 				if (e.Closed) continue;
 
-				double distance = (e.WorldMatrix.Translation - center).Length();
+				double distance = (e.WorldMatrix.Translation - from).Length();
 
 				var grid = e as IMyCubeGrid;
 				if (grid != null)
@@ -291,7 +291,7 @@ namespace LLE
 				foreach(var e in matches)
 				{	string category, name;
 					Description(e, out category, out name);
-					double distance = (e.WorldMatrix.Translation - center).Length();
+					double distance = (e.WorldMatrix.Translation - from).Length();
 					tmp.Append($"* {category} {Quotes(name)} → {Distance(distance)}\n");
 				}
 				tmp.Append("\n\n");

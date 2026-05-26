@@ -269,13 +269,15 @@ namespace LLE
 				string arguments = spaceIndex >= 0 ? p.Substring(spaceIndex + 1) : "";
 
 				command = command.ToUpperInvariant();
+
+				var engineer = Utilities.GetEngineerCenter(ch);
 				
 				if(command == "SEARCH")
-				{	string r = Commands.Search(arguments, Utilities.GetEngineerCenter(ch));
+				{	string r = Commands.Search(engineer, 500, arguments);
 					MyConsole.AddMultiline(r);
 				}
 				else if(command == "FLY")
-				{	string r = Commands.Fly(arguments, Utilities.GetEngineerCenter(ch));
+				{	string r = Commands.Fly(engineer, arguments);
 					MyConsole.AddMultiline(r);
 				}
 			}
