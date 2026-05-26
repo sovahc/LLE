@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Sockets;
 using System.Text;
 using Sandbox.ModAPI;
 using VRage.Game;
@@ -8,6 +7,27 @@ using VRage.Game.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
 using VRageMath;
+
+/*
+# Command Reference
+
+info 'name'    Get detailed information about a specific block.
+search 'name'  Find blocks by name. Returns a list sorted by distance with status (e.g., `Reactor 1: 50m [fuel: 1kg]`).
+move_to 'name' Navigate to a specific block. Executes flight with periodic reports.
+grind 'name'   Grind a specific block.
+weld 'name'    Weld a specific block.
+mine 'name'    Mine a specific ore deposit.
+status         Check bot status: Battery, Oxygen, Cargo, Hull Integrity.
+stop           Immediately cancel the current action and return to IDLE.
+vision         Get current visual input (what the bot sees right now).
+
+## Execution Rules
+
+* Time Limits: All actions (`move_to`, `grind`, `weld`, `mine`) have a maximum execution time.
+* Reports: Long-running actions provide status updates every N seconds.
+* Interruption: Any action can be interrupted by the `stop` command.
+* Ambiguity: If a command target is ambiguous (e.g., multiple blocks with the same name), the bot returns a list of options instead of executing.
+*/
 
 namespace LLE
 {
