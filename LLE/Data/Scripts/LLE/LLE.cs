@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Mail;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -148,6 +149,11 @@ namespace LLE
 
 		private static readonly Color textBackground = new Color(0, 0, 0, 127);
 
+		public static void Clear()
+		{
+			_lines.Clear();
+		}
+
 		public static void Add(string text)
 		{
 			Add(text, Color.White);
@@ -155,14 +161,14 @@ namespace LLE
 
 		public static void Add(string text, Color color)
 		{
-			//Utilities.Log(text);
+			Utilities.Log(text);
 			_lines.Add(new LineData { Text = text, Color = color });
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
 		}
 
-		public static void Clear()
+		public static void AddMultiline(string text)
 		{
-			_lines.Clear();
+			foreach(var line in text.Split('\n')) Add(line);
 		}
 
 		public static void Render(Font font)
@@ -246,15 +252,20 @@ namespace LLE
 		{
 			LLE_Loader.Update();
 
-			ServerCommand cmd;
-			if (LLE_Loader.GetCommand(out cmd))
-			{	////
-			}
-
 			var player = MyAPIGateway.Session.Player;
 			if (player == null) return;
 			var ch = player.Character;
 			if (ch == null) return;
+
+			ServerCommand cmd;
+			if (LLE_Loader.GetCommand(out cmd))
+			{	var p = cmd.Payload.Trim().ToUpperInvariant();
+				if(p.StartsWith("SEARCH"))
+				{	p = p.Substring(6);
+					string r = Commands.Search(p, Utilities.GetEngineerCenter(ch));
+					MyConsole.AddMultiline(r);
+				}
+			}
 
 			var pm = ch.GetHeadMatrix(false);
 
@@ -263,7 +274,7 @@ namespace LLE
 				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out selectedBlock, out point_A);
 
 				if(grid_A != null)
-				{	new GridInfo().Info(grid_A);
+				{	Commands.GridInfo(grid_A);
 				}
 			}
 

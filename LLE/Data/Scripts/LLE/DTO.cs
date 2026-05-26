@@ -18,7 +18,6 @@ namespace LLE
 
 	public class ServerCommand
 	{
-		public int CommandType;
 		public string Payload;
 	}
 

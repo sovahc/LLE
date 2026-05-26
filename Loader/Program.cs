@@ -62,7 +62,7 @@ namespace LLELoader
 
 			if (text.Length > 0 && text[0] == '>')
 			{
-				_pendingCommand = new LLE.ServerCommand { CommandType = 0, Payload = text.Substring(1).Trim() };
+				_pendingCommand = new LLE.ServerCommand { Payload = text.Substring(1).Trim() };
 			}
 			else
 			{
@@ -85,7 +85,7 @@ namespace LLELoader
 				string llmReply = await AskLlm(context);
 				if (string.IsNullOrEmpty(llmReply)) return;
 				Logger.Write("[LLM] " + llmReply);
-				_pendingCommand = new LLE.ServerCommand { CommandType = 0, Payload = llmReply };
+				_pendingCommand = new LLE.ServerCommand { Payload = llmReply };
 			}
 			catch (Exception ex) { Logger.Write("[LLM] error: " + ex.Message); }
 		}

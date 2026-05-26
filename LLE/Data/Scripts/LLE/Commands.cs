@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage.Game;
+using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
@@ -11,8 +13,8 @@ using VRageMath;
 /*
 # Command Reference
 
-info 'name'    Get detailed information about a specific block.
 search 'name'  Find blocks by name. Returns a list sorted by distance with status (e.g., `Reactor 1: 50m [fuel: 1kg]`).
+info 'name'    Get detailed information about a specific block.
 move_to 'name' Navigate to a specific block. Executes flight with periodic reports.
 grind 'name'   Grind a specific block.
 weld 'name'    Weld a specific block.
@@ -43,7 +45,7 @@ namespace LLE
 		public long OwnerId;
 	}*/
 
-	public class GridInfo
+	public static class Commands
 	{
 		private static void Log(string s)
 		{
@@ -51,11 +53,12 @@ namespace LLE
 			MyLog.Default.WriteLine("LLE " + s);
 		}
 
-		private readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
-		private readonly Dictionary<MyDefinitionId, int> count2 = new Dictionary<MyDefinitionId, int>();
-		private readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
+		private static readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
+		private static readonly Dictionary<MyDefinitionId, int> count2 = new Dictionary<MyDefinitionId, int>();
+		private static readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
 
-		private readonly string removeIt = "MyObjectBuilder_";
+		private static readonly string removeIt = "MyObjectBuilder_";
+		private static readonly StringBuilder result = new StringBuilder();
 
 		private static readonly Dictionary<string, string[]> TerminalBCategories = new Dictionary<string, string[]>
 		{
@@ -80,7 +83,7 @@ namespace LLE
 			//{ "Structure", new[] { ,  } },
 		};
 
-		public void Info(IMyCubeGrid grid)
+		public static string GridInfo(IMyCubeGrid grid)
 		{
 			string gridType = "";
 			if(grid.IsStatic) gridType = "Station";
@@ -95,9 +98,9 @@ namespace LLE
 
 			ts.GetBlocks(blocks);
 
-			StringBuilder sb = new StringBuilder();
-			sb.Append($"## {gridType} '{grid.DisplayName}'\n");
-			sb.Append($"# Name → count\n");
+			result.Clear();
+			result.Append($"## {gridType} '{grid.DisplayName}'\n");
+			result.Append($"# Name → count\n");
 
 			//ts.CanAccess()
 
@@ -134,26 +137,44 @@ namespace LLE
 			
 			foreach (var cat in categorized.OrderBy(c => c.Key))
 			{
-				sb.Append($"\n### {cat.Key}\n");
+				result.Append($"\n### {cat.Key}\n");
 				foreach (var kv in cat.Value)
 				{
 					string type = kv.Key.ToString();
 					if(type.StartsWith(removeIt)) type = type.Substring(removeIt.Length);
-					sb.Append($"* {type} → {kv.Value}\n");
+					result.Append($"* {type} → {kv.Value}\n");
 				}
 			}
-			sb.Append($"\n# Total: {total}\n");
+			result.Append($"\n# Total: {total}\n");
 
-			Log($"\n\n{sb}\n");
+			return result.ToString();
+		}
 
-			//foreach (var kv in count2)
-			//	Log($"{kv.Key}: {kv.Value}");
+		private static bool IsVoid(string parameter) { return parameter == "" || parameter == "*"; }
+		
+		private static readonly char[] MyTrim = new char [] {' ', '\t', '"', '\''};
 
-			//Log($"{block.DisplayNameText}");
-			//Log($"{block.BlockDefinition.TypeIdString} {type} {block.BlockDefinition.SubtypeIdAttribute}");
-			//Log($"{block.IsWorking} {block.IsFunctional}");
-			//Log($"{block.Position}");
-			//Log($"{block.OwnerId}");
+		public static string Search(string name, Vector3D center, int radius = 100)
+		{
+			name = name.Trim(MyTrim);
+
+			if(IsVoid(name))
+			{	BoundingSphereD S = new BoundingSphereD(center, radius);
+				List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
+			
+				result.Clear();
+				result.Append($"## SEARCH RESULT '{name}' (RADIUS {radius}m)\n");
+
+				foreach(var e in entities)
+				{	
+					double distance = (e.WorldMatrix.Translation - center).Length();
+				
+					result.Append($"* {e.DisplayName} → {distance:0.#}m\n");
+				}
+
+				return result.ToString();
+			}
+			return "Not implemented\n";
 		}
 	}
 }
