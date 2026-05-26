@@ -40,11 +40,15 @@ namespace LLE
 
 		private static readonly StringBuilder result = new StringBuilder();
 
-		public static void Start(string header)
-		{	foreach(var b in data.Values) b.Clear();
-			
+		public static void Clear()
+		{	
 			result.Clear();
-			result.Append(header);
+			foreach(var b in data.Values) b.Clear();
+		}
+
+		public static void Append(string s)
+		{	
+			result.Append(s);
 			result.Append('\n');
 		}
 
@@ -53,13 +57,14 @@ namespace LLE
 			StringBuilder b;
 
 			if(data.TryGetValue(category, out b))
-			{	if(b.Length > 0) b.Append('\n');
-				b.Append(element);
+			{	b.Append(element);
+				b.Append('\n');
 				return;
 			}
 			
 			b = new StringBuilder();
 			b.Append(element);
+			b.Append('\n');
 			data[category] = b;
 		}
 
@@ -71,7 +76,6 @@ namespace LLE
 				{	result.Append(kv.Key);
 					result.Append('\n');
 					result.Append(kv.Value);
-					result.Append('\n');
 				}
 			}
 			return result.ToString();
@@ -135,38 +139,34 @@ namespace LLE
 
 		public static string GridInfo(IMyCubeGrid grid)
 		{
-/*			string gridType = "";
+			MyMarkdown.Clear();
+			MyMarkdown.Append($"# {GridType(grid)} '{grid.DisplayName}'\n");
+			MyMarkdown.Append($"(Name → count)");
 
 			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
 
 			count.Clear();
 			count2.Clear();
 			blocks.Clear();
-
 			ts.GetBlocks(blocks);
-
-			ClearBuffers();
-			result.Append($"# {gridType} '{grid.DisplayName}'\n");
-			result.Append($"## Name → count\n");
 
 			//ts.CanAccess()
 
+			int total = 0;
 			foreach (var block in blocks)
 			{
 				var type = block.BlockDefinition.TypeId;
 				if (!count.ContainsKey(type))
 					count[type] = 0;
 				++count[type];
+				++total;
 			}
 
-			var categorized = new Dictionary<string, List<KeyValuePair<MyObjectBuilderType, int>>>();
-			int total = 0;
 			foreach (var kv in count)
 			{
 				string type = kv.Key.ToString();
 				if(type.StartsWith(removeIt)) type = type.Substring(removeIt.Length);
-				total += kv.Value;
-				
+
 				string category = "Other";
 				foreach (var cat in TerminalBCategories)
 				{
@@ -176,33 +176,19 @@ namespace LLE
 						break;
 					}
 				}
-				
-				if (!categorized.ContainsKey(category))
-					categorized[category] = new List<KeyValuePair<MyObjectBuilderType, int>>();
-				categorized[category].Add(kv);
+
+				MyMarkdown.Add(category, $"* {type} → {kv.Value}");
 			}
 			
-			foreach (var cat in categorized.OrderBy(c => c.Key))
-			{
-				result.Append($"\n### {cat.Key}\n");
-				foreach (var kv in cat.Value)
-				{
-					string type = kv.Key.ToString();
-					if(type.StartsWith(removeIt)) type = type.Substring(removeIt.Length);
-					result.Append($"* {type} → {kv.Value}\n");
-				}
-			}
-			result.Append($"\n# Total: {total}\n");
-
-			return result.ToString();*/
-			return "";
+			return MyMarkdown.Result();
 		}
 
 		public static string Search(string name, Vector3D center, int radius = 500)
 		{
 			name = name.Trim(MyTrim);
 			
-			MyMarkdown.Start($"# SEARCH RESULT '{name}' (RADIUS {Distance(radius)})");
+			MyMarkdown.Clear();
+			MyMarkdown.Append($"# SEARCH RESULT '{name}' (RADIUS {Distance(radius)})");
 
 			BoundingSphereD S = new BoundingSphereD(center, radius);
 			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);

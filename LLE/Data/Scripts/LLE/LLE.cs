@@ -277,7 +277,7 @@ namespace LLE
 				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out selectedBlock, out point_A);
 
 				if(grid_A != null)
-				{	Commands.GridInfo(grid_A);
+				{	MyConsole.AddMultiline(Commands.GridInfo(grid_A));
 				}
 			}
 
