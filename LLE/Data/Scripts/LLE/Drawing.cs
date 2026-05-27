@@ -433,7 +433,7 @@ namespace LLE
 				silhouettePoints.Add(worldPoint);
 			}
 			var projected = WorldToScreen(silhouettePoints);
-			if (projected.Count >= 2) Contour(projected.ToArray(), true, 5e-5f, color);
+			Contour(projected.ToArray(), true, 5e-5f, color);
 		}
 	}
 }

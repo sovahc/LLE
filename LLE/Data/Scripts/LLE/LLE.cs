@@ -421,7 +421,6 @@ namespace LLE
 			astar.RunCalculation(a, b);
 		}
 
-		bool oneSHot;
 		Vector3D sweptCapsulePosition;
 
 		public override void Draw()
@@ -441,16 +440,16 @@ namespace LLE
 				return;
 			}
 
-			if(!oneSHot)
-			{	oneSHot = true;
-				sweptCapsulePosition = pm.Translation;	
-			}
+			if(MyAPIGateway.Input.IsNewRightMousePressed())
+				sweptCapsulePosition = pm.Translation + pm.Forward * 5;
+			
 			List<Vector3D> cap = new List<Vector3D>();
 			Geometry.SweptCapsule(Constants.EngineerCapsuleHeight/2, Constants.EngineerCapsuleRadius, 2, cap);
 
+			for(int i = 0; i < cap.Count; ++i) cap[i] += sweptCapsulePosition;			
+
 			foreach(var p in cap)
-			{	Drawing.RoundMarker(p + sweptCapsulePosition, Color.Magenta);
-			}
+				Drawing.RoundMarker(p, Color.Magenta);
 
 			if(grid_A != null && astar != null && astar.Completed())
 			{	var path = astar.result;
