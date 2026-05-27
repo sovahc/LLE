@@ -90,7 +90,7 @@ namespace LLE
 			return result;
 		}
 
-		public static void SweeptCapsule(double halfHeight, double radius, double halfSweep, List<Vector3D> result,
+		public static void SweptCapsule(double halfHeight, double radius, double halfSweep, List<Vector3D> result,
 			int segments = 2, int segments2 = 3)
 		{
 			for (int lat = 0; lat <= segments; lat++)

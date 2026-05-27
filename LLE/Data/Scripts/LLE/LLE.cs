@@ -422,7 +422,7 @@ namespace LLE
 		}
 
 		bool oneSHot;
-		Vector3D playerInitialPosition;
+		Vector3D sweptCapsulePosition;
 
 		public override void Draw()
 		{
@@ -443,13 +443,13 @@ namespace LLE
 
 			if(!oneSHot)
 			{	oneSHot = true;
-				playerInitialPosition = pm.Translation;	
+				sweptCapsulePosition = pm.Translation;	
 			}
 			List<Vector3D> cap = new List<Vector3D>();
-			Geometry.SweeptCapsule(Constants.EngineerCapsuleHeight/2, Constants.EngineerCapsuleRadius, 2, cap);
+			Geometry.SweptCapsule(Constants.EngineerCapsuleHeight/2, Constants.EngineerCapsuleRadius, 2, cap);
 
 			foreach(var p in cap)
-			{	Drawing.RoundMarker(p + playerInitialPosition, Color.Magenta);
+			{	Drawing.RoundMarker(p + sweptCapsulePosition, Color.Magenta);
 			}
 
 			if(grid_A != null && astar != null && astar.Completed())
