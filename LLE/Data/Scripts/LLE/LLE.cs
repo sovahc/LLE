@@ -296,18 +296,10 @@ namespace LLE
 			var pm = ch.GetHeadMatrix(false);
 
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
-			{
 				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out selectedBlock, out point_A);
 
-				if(grid_A != null)
-				{	MyConsole.AddMultiline(Commands.GridInfo(grid_A));
-				}
-			}
-
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
-			{
 				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out selectedBlock, out point_B);
-			}
 
 			bool mouse = MyAPIGateway.Input.IsNewLeftMousePressed() ||
 				MyAPIGateway.Input.IsNewRightMousePressed();
@@ -347,8 +339,6 @@ namespace LLE
 					var grid = grid_A;
 					
 					List<Vector3D> path = new List<Vector3D>();
-
-					//path.Add(Utilities.GetEngineerCenter(ch));
 
 					for(int i = 0; i < astar.result.Count; ++i)
 					{	
@@ -445,6 +435,12 @@ namespace LLE
 
 			Common.StartFrame();
 
+			if(!LLE_Loader.IsPresent())
+			{	font.String("No LLE_Loader is present.", new Vector2D(0.0, -0.1), 0.00075f, Color.Red);
+				Common.Call_Add_Billboards();
+				return;
+			}
+
 			if(!oneSHot)
 			{	oneSHot = true;
 				playerInitialPosition = pm.Translation;	
@@ -455,10 +451,6 @@ namespace LLE
 			foreach(var p in cap)
 			{	Drawing.RoundMarker(p + playerInitialPosition, Color.Magenta);
 			}
-
-			var lp = LLE_Loader.IsPresent();
-			font.String("LLE_Loader.IsPresent: " + lp.ToString(),
-				new Vector2D(0.5, -0.97), 0.00075f, lp ? Color.White : Color.Red);
 
 			if(grid_A != null && astar != null && astar.Completed())
 			{	var path = astar.result;
