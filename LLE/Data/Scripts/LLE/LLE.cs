@@ -221,6 +221,7 @@ namespace LLE
 
 		MicroNavigation navigation = new MicroNavigation();
 		bool navigationActive;
+		DampedSpringController springController = new DampedSpringController();
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -326,7 +327,7 @@ namespace LLE
 				{
 					Vector2 rot;
 					float roll;
-					MicroNavigation.ComputeRotationToPoint(ch.WorldMatrix, navigation.currentTargetPoint, grid_A.WorldMatrix.Up, out rot, out roll);
+					springController.Update(ch.WorldMatrix, navigation.currentTargetPoint, grid_A.WorldMatrix.Up, 1.0/60, out rot, out roll);
 					ch.MoveAndRotate(Vector3.Zero, rot, roll);
 					
 					ch.Physics.LinearVelocity = navigation.ComputeDesiredVelocity(

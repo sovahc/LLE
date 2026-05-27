@@ -36,7 +36,7 @@ namespace LLE
 
 			// 1. Find the lookahead point on the path ahead
 			currentTargetPoint = FindLookaheadPoint(currentPosition, lookaheadDistance);
-			
+
 			// 1b. Find nearest point on current path segment (for correction)
 			Vector3D nearestOnPath = FindNearestPointOnPath(currentPosition);
 
@@ -54,7 +54,7 @@ namespace LLE
 			// Maximum speed depends on distance (slow down before turns)
 			double maxSpeed = ComputeMaxSpeedForSegment(currentWaypointIndex);
 			double desiredSpeed = Math.Min(maxSpeed, distance * 2.0); // Arrive behavior
-			
+
 			// 3. Dual-target steering: main target + path correction
 			Vector3D mainVelocity = toTarget.Normalized() * desiredSpeed;
 			Vector3D correctionVelocity = (nearestOnPath - currentPosition) * pathCorrectionStrength * desiredSpeed;
@@ -67,8 +67,9 @@ namespace LLE
 			Vector3D acceleration = velocityError * 5.0; // P coefficient
 
 			currentVelocity += acceleration * DeltaTime;
-			if(currentVelocity.LengthSquared() > maxVelocity * maxVelocity)
-			{	currentVelocity = currentVelocity.Normalized() * maxVelocity;
+			if (currentVelocity.LengthSquared() > maxVelocity * maxVelocity)
+			{
+				currentVelocity = currentVelocity.Normalized() * maxVelocity;
 			}
 			return currentVelocity;
 		}
@@ -129,66 +130,66 @@ namespace LLE
 			}
 			return 10.0; // Straight section
 		}
-		public static void ComputeRotationToPoint(MatrixD worldMatrix, Vector3D targetPoint, Vector3D gridUp, out Vector2 rotation, out float roll, float maxRotationSpeed = 25f)
-		{
-			roll = 0f;
-			rotation = Vector2.Zero;
+	}
 
+	class DampedSpringController
+	{
+		const double omega = 4.0;
+		const double zeta = 1.0;
+
+		double yawPos, yawVel;
+		double pitchPos, pitchVel;
+		double rollPos, rollVel;
+
+		public void Update(MatrixD worldMatrix, Vector3D targetPoint, Vector3D gridUp,
+							double deltaTime, out Vector2 rotation, out float roll)
+		{
+			var botPos = worldMatrix.Translation;
+			var toTarget = targetPoint - botPos;
 			gridUp.Normalize();
 
-			var botPosition = worldMatrix.Translation;
-			var vecToTarget = targetPoint - botPosition;
+			var projUp = Vector3D.Dot(toTarget, gridUp) * gridUp;
+			var horizontal = toTarget - projUp;
+			double horizDist = Math.Max(horizontal.Length(), 0.1);
 
-			// Project target onto horizontal plane (perpendicular to gridUp)
-			var projUp = Vector3D.Dot(vecToTarget, gridUp) * gridUp;
-			var horizontalVec = vecToTarget - projUp;
-			double horizontalDistance = horizontalVec.Length();
-			
-			// Limit minimum horizontal distance to avoid extreme pitch angles when close to target
-			horizontalDistance = Math.Max(horizontalDistance, 0.1);
-			
-			var targetPitch = Math.Atan2(Vector3D.Dot(vecToTarget, gridUp), horizontalDistance);
+			double targetPitch = Math.Atan2(Vector3D.Dot(toTarget, gridUp), horizDist);
+			double currentPitch = Math.Asin(Vector3D.Dot(worldMatrix.Forward, gridUp));
 
-			if (horizontalVec.LengthSquared() < 0.001)
-				return;
-
-			horizontalVec.Normalize();
-			var desiredForward = horizontalVec;
-
-			// Project current Forward onto horizontal plane
-			var currentForwardFlat = worldMatrix.Forward - Vector3D.Dot(worldMatrix.Forward, gridUp) * gridUp;
-			if (currentForwardFlat.LengthSquared() < 0.001)
-				return;
-			currentForwardFlat.Normalize();
-
-			// Yaw: signed angle in horizontal plane from currentForwardFlat to desiredForward
-			var yawCross = Vector3D.Cross(currentForwardFlat, desiredForward);
-			var yawAngle = Math.Atan2(Vector3D.Dot(yawCross, gridUp), Vector3D.Dot(currentForwardFlat, desiredForward));
-
-			// Roll: angle to align Up with gridUp, measured around current Forward
-			var forward = worldMatrix.Forward;
-			var currentUp = worldMatrix.Up - Vector3D.Dot(worldMatrix.Up, forward) * forward;
-			var desiredUp = gridUp - Vector3D.Dot(gridUp, forward) * gridUp;
-
-			if (currentUp.LengthSquared() > 0.001 && desiredUp.LengthSquared() > 0.001)
+			double targetYaw = 0;
+			if (horizontal.LengthSquared() > 0.001)
 			{
-				currentUp.Normalize();
-				desiredUp.Normalize();
-				var rollCross = Vector3D.Cross(currentUp, desiredUp);
-				var rollAngle = Math.Atan2(Vector3D.Dot(rollCross, forward), Vector3D.Dot(currentUp, desiredUp));
-				roll = (float)rollAngle * maxRotationSpeed * 0.5f;
+				var forwardFlat = worldMatrix.Forward - Vector3D.Dot(worldMatrix.Forward, gridUp) * gridUp;
+				if (forwardFlat.LengthSquared() > 0.001)
+				{
+					forwardFlat.Normalize();
+					horizontal.Normalize();
+					var cross = Vector3D.Cross(forwardFlat, horizontal);
+					targetYaw = Math.Atan2(Vector3D.Dot(cross, gridUp), Vector3D.Dot(forwardFlat, horizontal));
+				}
 			}
 
-			// Dead zone
-			if (Math.Abs(yawAngle) < MathHelper.ToRadians(1))
-				yawAngle = 0;
+			UpdateSpring(ref yawPos, ref yawVel, targetYaw, deltaTime);
+			UpdateSpring(ref pitchPos, ref pitchVel, targetPitch, deltaTime);
+			UpdateSpring(ref rollPos, ref rollVel, 0, deltaTime);
 
-			var speedFactorYaw = (float)Math.Min(Math.Pow(Math.Abs(yawAngle), 0.25) / MathHelper.PiOver2, 0.5);
-			var currentPitch = Math.Asin(Vector3D.Dot(worldMatrix.Forward, gridUp));
-			var pitchAngle = targetPitch - currentPitch;
-			if (Math.Abs(pitchAngle) < MathHelper.ToRadians(1)) pitchAngle = 0;
-			var speedFactorPitch = (float)Math.Min(Math.Pow(Math.Abs(pitchAngle), 0.25) / MathHelper.PiOver2, 0.5);
-			rotation = new Vector2(-(float)pitchAngle * maxRotationSpeed * speedFactorPitch, -(float)yawAngle * maxRotationSpeed * speedFactorYaw);
+			rotation = new Vector2(
+				-(float)MathHelper.ToDegrees(pitchVel),
+				-(float)MathHelper.ToDegrees(yawVel));
+			roll = -(float)MathHelper.ToDegrees(rollVel);
+		}
+
+		void UpdateSpring(ref double pos, ref double vel, double target, double dt)
+		{
+			double error = target - pos;
+			double omegaZeta = omega * zeta;
+			double expTerm = Math.Exp(-omegaZeta * dt);
+			double timeExp = dt * expTerm;
+			double timeExpFreq = timeExp * omega;
+
+			double newPos = error * (timeExpFreq + expTerm) + vel * timeExp;
+			double newVel = error * (-omega * timeExpFreq) + vel * (-timeExpFreq + expTerm);
+			pos = target - newPos;
+			vel = newVel;
 		}
 	}
 
