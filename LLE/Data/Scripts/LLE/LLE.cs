@@ -484,7 +484,7 @@ namespace LLE
 							else
 								Utilities.HighlightCell(grid_B, v, Color.DarkCyan);
 						}
-				/// 222
+
 				if(MyAPIGateway.Input.IsNewRightMousePressed())
 					MyConsole.Add($"{blc}", Color.GreenYellow);
 			}
