@@ -460,21 +460,21 @@ namespace LLE
 
 				Vector3I v;
 
-				Vector3I minI = Vector3I.MaxValue;
-				Vector3I maxI = Vector3I.MinValue;
+				Vector3I min = Vector3I.MaxValue;
+				Vector3I max = Vector3I.MinValue;
 
 				for(int i = 0; i < cap.Count; ++i)
 				{	v = grid_B.WorldToGridInteger(cap[i]);
 
-					minI = Vector3I.Min(minI, v);
-					maxI = Vector3I.Max(maxI, v);
+					min = Vector3I.Min(min, v);
+					max = Vector3I.Max(max, v);
 				}
 
 				int blc = 0;
 
-				for(v.Z = minI.Z; v.Z <= maxI.Z; ++v.Z)
-					for(v.Y = minI.Y; v.Y <= maxI.Y; ++v.Y)
-						for(v.X = minI.X; v.X <= maxI.X; ++v.X)
+				for(v.Z = min.Z; v.Z <= max.Z; ++v.Z)
+					for(v.Y = min.Y; v.Y <= max.Y; ++v.Y)
+						for(v.X = min.X; v.X <= max.X; ++v.X)
 						{
 							IMySlimBlock b = grid_B.GetCubeBlock(v);
 							if(b != null)
