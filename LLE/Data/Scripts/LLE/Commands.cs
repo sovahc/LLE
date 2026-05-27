@@ -20,6 +20,7 @@ vision             - Get current visual input (what the bot sees right now).
 search 'substring' - Find any objects by partial match. Ex: `search`, `search STATION`, `search Steel Plate`
 info 'name'        - Get detailed information about a specific object.
 fly 'name'         - Fly to a specific object. Executes flight with periodic reports.
+look at 'name'     - Just rotate to object
 grind 'block_name' - Grind a specific block.
 hack 'block_name'  - Grind a specific block just below the hacking point (weld it back to restore functionality).
 weld 'block_name'  - Weld a specific block.
@@ -30,6 +31,9 @@ pickup 'name'      - Pick up a specified object.
 drop 'name' [quantity|all] - Drop a specified object.
 get 'item' from 'block name'
 put 'item' into 'block name'
+? move {forward|backward|left|right|up|down} {distance} - move to direction
+? unstuck movement
+? save to memory 'string'
 
 ## Execution Rules
 
@@ -130,13 +134,13 @@ namespace LLE
 			{ "Docking", new[] { "Connector", "Collector" } },
 			{ "Gas", new[] { "OxygenGenerator", "OxygenTank", "AirVent" } },
 			{ "Life Support", new[] { "CryoChamber", "MedicalRoom" } },
-			{ "Computers", new[] { "EventControllerBlock", "TimerBlock", "BroadcastController", "TurretControlBlock", "SensorBlock" } },
+			{ "Computers", new[] { "EventController", "Timer", "BroadcastController", "TurretControl", "Sensor" } },
 			{ "Doors", new[] { "Door" } },
 			{ "Gravity", new[] { "GravityGenerator", "VirtualMass", "SpaceBall" } },
 			{ "Rotors", new[] { "MotorAdvancedStator", "MotorStator", "Hinge" } },
 			{ "Movement", new[] { "Thrust", } },
 			{ "Storage", new[] { "CargoContainer" } },
-			{ "Decoration", new[] { "HeatVent", "LCDPanel", "TerminalBlock" } }
+			{ "Decoration", new[] { "HeatVent", "LCDPanel", "Terminal" } }
 			//{ "Other", new[] { "ButtonPanel", "Jukebox", "CameraBlock", "SoundBlock", "InteriorLight" } },
 			//{ "Structure", new[] { ,  } },
 		};

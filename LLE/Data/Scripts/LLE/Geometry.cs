@@ -89,5 +89,32 @@ namespace LLE
 				result.Add(h[i]);
 			return result;
 		}
+
+		public static void SweeptCapsule(double halfHeight, double radius, double halfSweep, List<Vector3D> result,
+			int segments = 2, int segments2 = 3)
+		{
+			for (int lat = 0; lat <= segments; lat++)
+			{
+				double phi = lat * Math.PI / 2.0 / segments;
+				double sinPhi = Math.Sin(phi);
+				double cosPhi = Math.Cos(phi);
+
+				for (int lon = 0; lon <= segments2; lon++)
+				{
+					double theta = lon * Math.PI / 1.0 / segments2;
+					double cosTheta = Math.Cos(theta);
+					double sinTheta = Math.Sin(theta);
+
+					double x = sinPhi * cosTheta * radius;
+					double z = sinPhi * sinTheta * radius;
+					double y = cosPhi * radius;
+
+					result.Add(new Vector3(x, +halfHeight + y, +halfSweep + z));
+					result.Add(new Vector3(x, -halfHeight - y, +halfSweep + z));
+					result.Add(new Vector3(x, +halfHeight + y, -halfSweep - z));
+					result.Add(new Vector3(x, -halfHeight - y, -halfSweep - z));
+				}
+			}
+		}
 	}
 }

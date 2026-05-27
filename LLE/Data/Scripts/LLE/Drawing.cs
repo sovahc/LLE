@@ -337,7 +337,7 @@ namespace LLE
 
 			point = camera.Position + viewDir;
 
-			float size = (float)(0.15 / (distance + 0.0001));
+			float size = (float)(0.05 / (distance + 0.0001));
 			if (size < 0.005f) size = 0.005f;
 			if (size > 0.25f) size = 0.25f;
 

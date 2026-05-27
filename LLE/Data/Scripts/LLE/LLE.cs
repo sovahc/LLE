@@ -17,8 +17,9 @@ namespace LLE
 {
 	class Constants
 	{
-		public const float EngineerCapsuleHeight = 1.8f;
-		public const float EngineerCapsuleRadius = 1.0f; // Don't delete this
+		public const float EngineerCapsuleHeight = 0.8f;
+		public const float EngineerCapsuleRadius = 0.5f;
+		public const float EngineerHeight = 1.8f;
 
 		public static readonly Vector3I[] SixDirections = new Vector3I[] {
 			new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0),
@@ -99,7 +100,7 @@ namespace LLE
 
 		public static Vector3D GetEngineerCenter(IMyCharacter ch)
 		{
-			return ch.GetPosition() + Constants.EngineerCapsuleHeight / 2 * ch.WorldMatrix.Up;
+			return ch.GetPosition() + Constants.EngineerHeight/2 * ch.WorldMatrix.Up;
 		}
 	}
 
@@ -430,6 +431,9 @@ namespace LLE
 			astar.RunCalculation(a, b);
 		}
 
+		bool oneSHot;
+		Vector3D playerInitialPosition;
+
 		public override void Draw()
 		{
 			var player = MyAPIGateway.Session.Player;
@@ -440,6 +444,17 @@ namespace LLE
 			var pm = ch.GetHeadMatrix(false);
 
 			Common.StartFrame();
+
+			if(!oneSHot)
+			{	oneSHot = true;
+				playerInitialPosition = pm.Translation;	
+			}
+			List<Vector3D> cap = new List<Vector3D>();
+			Geometry.SweeptCapsule(Constants.EngineerCapsuleHeight/2, Constants.EngineerCapsuleRadius, 2, cap);
+
+			foreach(var p in cap)
+			{	Drawing.RoundMarker(p + playerInitialPosition, Color.Magenta);
+			}
 
 			var lp = LLE_Loader.IsPresent();
 			font.String("LLE_Loader.IsPresent: " + lp.ToString(),
