@@ -147,18 +147,18 @@ namespace LLE
 			var toTarget = targetPoint - botPos;
 			gridUp.Normalize();
 
-			// --- 1. PITCH (Тангаж) ---
+			// 1. PITCH
 			var projUp = Vector3D.Dot(toTarget, gridUp) * gridUp;
 			var horizontal = toTarget - projUp;
 			double horizDist = Math.Max(horizontal.Length(), 0.1);
 
-			// Абсолютный угол цели и текущий угол бота
+			// Absolute target angle and current bot angle
 			double targetPitch = Math.Atan2(Vector3D.Dot(toTarget, gridUp), horizDist);
 			double currentPitch = Math.Asin(Vector3D.Dot(Forward, gridUp));
-			// Относительная ошибка
+			// Relative error
 			double relativePitch = targetPitch - currentPitch;
 
-			// --- 2. YAW (Рыскание) ---
+			// 2. YAW
 			double relativeYaw = 0;
 			if (horizontal.LengthSquared() > 0.001)
 			{
@@ -168,21 +168,21 @@ namespace LLE
 					forwardFlat.Normalize();
 					horizontal.Normalize();
 					var cross = Vector3D.Cross(forwardFlat, horizontal);
-					// Относительная ошибка (угол до цели)
+					// Relative error (angle to target)
 					relativeYaw = Math.Atan2(Vector3D.Dot(cross, gridUp), Vector3D.Dot(forwardFlat, horizontal));
 				}
 			}
 
-			// --- 3. ROLL (Крен) ---
-			// Вычисляем относительную ошибку крена (чтобы "верх" бота совпадал с gridUp)
+			// 3. ROLL
+			// Compute relative roll error (so the bot's "up" aligns with gridUp)
 			var crossRoll = Vector3D.Cross(Up, gridUp);
 			double sinRoll = Vector3D.Dot(crossRoll, Forward);
 			double cosRoll = Vector3D.Dot(Up, gridUp);
 			double relativeRoll = Math.Atan2(sinRoll, cosRoll);
 
-			// --- 4. ОБНОВЛЕНИЕ ПРУЖИН ---
-			// Мы "якорим" цель пружины к её текущему положению + ошибке. 
-			// Это создает стабильную абсолютную цель, которая идеально отслеживает ошибку без дрейфа.
+			// 4. SPRING UPDATE
+			// We "anchor" the spring target to its current position + error.
+			// This creates a stable absolute target that tracks the error perfectly without drift.
 
 			double oldYawPos = yawPos;
 			UpdateSpring(ref yawPos, ref yawVel, yawPos + relativeYaw, deltaTime, true);
@@ -193,14 +193,12 @@ namespace LLE
 			double oldRollPos = rollPos;
 			UpdateSpring(ref rollPos, ref rollVel, rollPos + relativeRoll, deltaTime, true);
 
-			// --- 5. ФОРМИРОВАНИЕ ДЕЛЬТЫ (Ввод контроллера / мыши) ---
-			// Игре нужна не скорость (vel), а дельта (на сколько градусов повернуть в этом кадре).
+			// 5. DELTA FORMATION (Controller / mouse input)
+			// The game needs delta (how many degrees to turn this frame), not velocity.
 			float deltaPitch = (float)MathHelper.ToDegrees(pitchPos - oldPitchPos);
 			float deltaYaw = (float)MathHelper.ToDegrees(yawPos - oldYawPos);
 			float deltaRoll = (float)MathHelper.ToDegrees(rollPos - oldRollPos);
 
-			// Примечание: Если бот по инерции поворачивает не в ту сторону (инверсия осей), 
-			// просто поставьте минус перед нужной дельтой (например, -deltaYaw).
 			rotation = new Vector2(-deltaPitch, -deltaYaw);
 			roll = deltaRoll;
 		}
