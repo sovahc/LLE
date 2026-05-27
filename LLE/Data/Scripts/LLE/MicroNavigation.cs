@@ -9,7 +9,7 @@ namespace LLE
 		private const double lookaheadDistance = 0.5;
 		private const double pathCorrectionStrength = 0.1;
 		private const double arrivalThreshold = 1.0;
-		private const double maxVelocity = 10.0;
+		private const double maxVelocity = 20.0;
 		private List<Vector3D> path;
 		private int currentWaypointIndex;
 		private StuckDetector stuckDetector = new StuckDetector();
@@ -129,7 +129,7 @@ namespace LLE
 			}
 			return 10.0; // Straight section
 		}
-		public static void ComputeRotationToPoint(MatrixD worldMatrix, Vector3D targetPoint, Vector3D gridUp, out Vector2 rotation, out float roll, float maxRotationSpeed = 15f)
+		public static void ComputeRotationToPoint(MatrixD worldMatrix, Vector3D targetPoint, Vector3D gridUp, out Vector2 rotation, out float roll, float maxRotationSpeed = 25f)
 		{
 			roll = 0f;
 			rotation = Vector2.Zero;
@@ -177,7 +177,7 @@ namespace LLE
 			if (Math.Abs(yawAngle) < MathHelper.ToRadians(1))
 				yawAngle = 0;
 
-			var speedFactor = (float)Math.Min(Math.Abs(yawAngle) / MathHelper.PiOver2, 1.0);
+			var speedFactor = (float)Math.Min(Math.Pow(Math.Abs(yawAngle), 0.25) / MathHelper.PiOver2, 0.5);
 			rotation = new Vector2(0, -(float)yawAngle * maxRotationSpeed * speedFactor);
 		}
 	}
