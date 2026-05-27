@@ -23,7 +23,7 @@ namespace LLE
 		{
 			var vv = out_vertices;
 
-			var axis = Vector3.Normalize(b - b);
+			var axis = Vector3.Normalize(b - a);
 			Vector3 right, localUp;
             OrthonormalBasis(axis, out right, out localUp);
 
@@ -109,10 +109,10 @@ namespace LLE
 					double z = sinPhi * sinTheta * radius;
 					double y = cosPhi * radius;
 
-					result.Add(new Vector3(x, +halfHeight + y, +halfSweep + z));
-					result.Add(new Vector3(x, -halfHeight - y, +halfSweep + z));
-					result.Add(new Vector3(x, +halfHeight + y, -halfSweep - z));
-					result.Add(new Vector3(x, -halfHeight - y, -halfSweep - z));
+					result.Add(new Vector3D(x, +halfHeight + y, +halfSweep + z));
+					result.Add(new Vector3D(x, -halfHeight - y, +halfSweep + z));
+					result.Add(new Vector3D(x, +halfHeight + y, -halfSweep - z));
+					result.Add(new Vector3D(x, -halfHeight - y, -halfSweep - z));
 				}
 			}
 		}
