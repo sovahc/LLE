@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
+using Sandbox.Game.World;
 using Sandbox.ModAPI;
 using VRage.Game;
 using VRage.Game.Components;
@@ -296,10 +297,14 @@ namespace LLE
 			var pm = ch.GetHeadMatrix(false);
 
 			if (MyAPIGateway.Input.IsNewLeftMousePressed())
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out selectedBlock, out point_A);
+			{	Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out selectedBlock, out point_A);
+				MyConsole.Add($"selected {selectedBlock}");
+			}
 
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
-				Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out selectedBlock, out point_B);
+			{	Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out selectedBlock, out point_B);
+				MyConsole.Add($"selected {selectedBlock}");
+			}
 
 			bool mouse = MyAPIGateway.Input.IsNewLeftMousePressed() ||
 				MyAPIGateway.Input.IsNewRightMousePressed();
@@ -443,13 +448,46 @@ namespace LLE
 			if(MyAPIGateway.Input.IsNewRightMousePressed())
 				sweptCapsulePosition = pm.Translation + pm.Forward * 5;
 			
-			List<Vector3D> cap = new List<Vector3D>();
-			Geometry.SweptCapsule(Constants.EngineerCapsuleHeight/2, Constants.EngineerCapsuleRadius, 2, cap);
+			if (grid_B != null)
+			{
+				List<Vector3D> cap = new List<Vector3D>();
+				Geometry.SweptCapsule(Constants.EngineerCapsuleHeight/2, Constants.EngineerCapsuleRadius, 2, cap);
 
-			for(int i = 0; i < cap.Count; ++i) cap[i] += sweptCapsulePosition;			
+				for(int i = 0; i < cap.Count; ++i) cap[i] += sweptCapsulePosition;
 
-			foreach(var p in cap)
-				Drawing.RoundMarker(p, Color.Magenta);
+				foreach(var p in cap)
+					Drawing.RoundMarker(p, Color.Magenta);
+
+				Vector3I v;
+
+				Vector3I minI = Vector3I.MaxValue;
+				Vector3I maxI = Vector3I.MinValue;
+
+				for(int i = 0; i < cap.Count; ++i)
+				{	v = grid_B.WorldToGridInteger(cap[i]);
+
+					minI = Vector3I.Min(minI, v);
+					maxI = Vector3I.Max(maxI, v);
+				}
+
+				int blc = 0;
+
+				for(v.Z = minI.Z; v.Z <= maxI.Z; ++v.Z)
+					for(v.Y = minI.Y; v.Y <= maxI.Y; ++v.Y)
+						for(v.X = minI.X; v.X <= maxI.X; ++v.X)
+						{
+							IMySlimBlock b = grid_B.GetCubeBlock(v);
+							if(b != null)
+							{	Utilities.HighlightCell(grid_B, v, Color.Cyan);
+								++blc;
+							}
+							else
+								Utilities.HighlightCell(grid_B, v, Color.DarkCyan);
+						}
+				/// 222
+				if(MyAPIGateway.Input.IsNewRightMousePressed())
+					MyConsole.Add($"{blc}", Color.GreenYellow);
+			}
 
 			if(grid_A != null && astar != null && astar.Completed())
 			{	var path = astar.result;
@@ -464,7 +502,6 @@ namespace LLE
 			{	var block = grid_A.GetCubeBlock(selectedBlock);
 				
 				if (block != null) Collisions.Draw(grid_A, block);
-
 			}
 			if (grid_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 

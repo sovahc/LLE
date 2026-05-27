@@ -116,5 +116,21 @@ namespace LLE
 				}
 			}
 		}
+
+		public static void MinMax(List<Vector3D> points, out Vector3D min, out Vector3D max)
+		{
+			min = Vector3D.MaxValue;
+			max = Vector3D.MinValue;
+
+			foreach(var p in points)
+			{	if(min.X > p.X) min.X = p.X;
+				if(min.Y > p.Y) min.Y = p.Y;
+				if(min.Z > p.Z) min.Z = p.Z;
+
+				if(max.X < p.X) max.X = p.X;
+				if(max.Y < p.Y) max.Y = p.Y;
+				if(max.Z < p.Z) max.Z = p.Z;
+			}
+		}
 	}
 }
