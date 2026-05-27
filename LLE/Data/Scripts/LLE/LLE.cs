@@ -324,8 +324,10 @@ namespace LLE
 				}
 				else
 				{
-					var v2 = MicroNavigation.ComputeRotationToPoint(ch.WorldMatrix, navigation.currentTargetPoint);
-					ch.MoveAndRotate(Vector3.Zero, v2, 0);
+					Vector2 rot;
+					float roll;
+					MicroNavigation.ComputeRotationToPoint(ch.WorldMatrix, navigation.currentTargetPoint, grid_A.WorldMatrix.Up, out rot, out roll);
+					ch.MoveAndRotate(Vector3.Zero, rot, roll);
 					
 					ch.Physics.LinearVelocity = navigation.ComputeDesiredVelocity(
 						Utilities.GetEngineerCenter(ch), ch.Physics.LinearVelocity);

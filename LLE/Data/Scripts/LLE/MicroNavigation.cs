@@ -129,29 +129,56 @@ namespace LLE
 			}
 			return 10.0; // Straight section
 		}
-		public static Vector2 ComputeRotationToPoint(MatrixD worldMatrix, Vector3D targetPoint, float maxRotationSpeed = 15f)
+		public static void ComputeRotationToPoint(MatrixD worldMatrix, Vector3D targetPoint, Vector3D gridUp, out Vector2 rotation, out float roll, float maxRotationSpeed = 15f)
 		{
+			roll = 0f;
+			rotation = Vector2.Zero;
+
+			gridUp.Normalize();
+
 			var botPosition = worldMatrix.Translation;
 			var vecToTarget = targetPoint - botPosition;
 
-			var up = worldMatrix.Up;
-			var projUp = Vector3D.Dot(vecToTarget, up) / Vector3D.Dot(up, up) * up;
+			// Project target onto horizontal plane (perpendicular to gridUp)
+			var projUp = Vector3D.Dot(vecToTarget, gridUp) * gridUp;
 			var horizontalVec = vecToTarget - projUp;
 
 			if (horizontalVec.LengthSquared() < 0.001)
-				return Vector2.Zero;
+				return;
 
+			horizontalVec.Normalize();
+			var desiredForward = horizontalVec;
+
+			// Project current Forward onto horizontal plane
+			var currentForwardFlat = worldMatrix.Forward - Vector3D.Dot(worldMatrix.Forward, gridUp) * gridUp;
+			if (currentForwardFlat.LengthSquared() < 0.001)
+				return;
+			currentForwardFlat.Normalize();
+
+			// Yaw: signed angle in horizontal plane from currentForwardFlat to desiredForward
+			var yawCross = Vector3D.Cross(currentForwardFlat, desiredForward);
+			var yawAngle = Math.Atan2(Vector3D.Dot(yawCross, gridUp), Vector3D.Dot(currentForwardFlat, desiredForward));
+
+			// Roll: angle to align Up with gridUp, measured around current Forward
 			var forward = worldMatrix.Forward;
-			var cosAngle = Vector3D.Dot(forward, horizontalVec) / horizontalVec.Length();
-			var angle = Math.Acos(Math.Max(-1.0, Math.Min(1.0, cosAngle)));
+			var currentUp = worldMatrix.Up - Vector3D.Dot(worldMatrix.Up, forward) * forward;
+			var desiredUp = gridUp - Vector3D.Dot(gridUp, forward) * gridUp;
 
-			var relVector = Vector3D.TransformNormal(vecToTarget, MatrixD.Transpose(worldMatrix));
+			if (currentUp.LengthSquared() > 0.001 && desiredUp.LengthSquared() > 0.001)
+			{
+				currentUp.Normalize();
+				desiredUp.Normalize();
+				var rollCross = Vector3D.Cross(currentUp, desiredUp);
+				var rollAngle = Math.Atan2(Vector3D.Dot(rollCross, forward), Vector3D.Dot(currentUp, desiredUp));
+				roll = (float)rollAngle * maxRotationSpeed * 0.5f;
+			}
 
-			if (relVector.Z < 0 && angle < MathHelper.ToRadians(2))
-				return Vector2.Zero;
+			// Dead zone
+			if (Math.Abs(yawAngle) < MathHelper.ToRadians(1))
+				yawAngle = 0;
 
-			var speedFactor = (float)Math.Min(angle / MathHelper.PiOver2, 1.0);
-			return new Vector2(0, (float)angle * Math.Sign(relVector.X) * maxRotationSpeed * speedFactor);
+			var speedFactor = (float)Math.Min(Math.Abs(yawAngle) / MathHelper.PiOver2, 1.0);
+			rotation = new Vector2(0, -(float)yawAngle * maxRotationSpeed * speedFactor);
 		}
 	}
 
