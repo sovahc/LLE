@@ -141,55 +141,88 @@ namespace LLE
 		double pitchPos, pitchVel;
 		double rollPos, rollVel;
 
-		public void Update(MatrixD worldMatrix, Vector3D targetPoint, Vector3D gridUp,
-							double deltaTime, out Vector2 rotation, out float roll)
+		public void Update(Vector3D botPos, Vector3D Forward, Vector3D Up, Vector3D targetPoint, Vector3D gridUp,
+			double deltaTime, out Vector2 rotation, out float roll)
 		{
-			var botPos = worldMatrix.Translation;
 			var toTarget = targetPoint - botPos;
 			gridUp.Normalize();
 
+			// --- 1. PITCH (Тангаж) ---
 			var projUp = Vector3D.Dot(toTarget, gridUp) * gridUp;
 			var horizontal = toTarget - projUp;
 			double horizDist = Math.Max(horizontal.Length(), 0.1);
 
+			// Абсолютный угол цели и текущий угол бота
 			double targetPitch = Math.Atan2(Vector3D.Dot(toTarget, gridUp), horizDist);
-			double currentPitch = Math.Asin(Vector3D.Dot(worldMatrix.Forward, gridUp));
+			double currentPitch = Math.Asin(Vector3D.Dot(Forward, gridUp));
+			// Относительная ошибка
+			double relativePitch = targetPitch - currentPitch;
 
-			double targetYaw = 0;
+			// --- 2. YAW (Рыскание) ---
+			double relativeYaw = 0;
 			if (horizontal.LengthSquared() > 0.001)
 			{
-				var forwardFlat = worldMatrix.Forward - Vector3D.Dot(worldMatrix.Forward, gridUp) * gridUp;
+				var forwardFlat = Forward - Vector3D.Dot(Forward, gridUp) * gridUp;
 				if (forwardFlat.LengthSquared() > 0.001)
 				{
 					forwardFlat.Normalize();
 					horizontal.Normalize();
 					var cross = Vector3D.Cross(forwardFlat, horizontal);
-					targetYaw = Math.Atan2(Vector3D.Dot(cross, gridUp), Vector3D.Dot(forwardFlat, horizontal));
+					// Относительная ошибка (угол до цели)
+					relativeYaw = Math.Atan2(Vector3D.Dot(cross, gridUp), Vector3D.Dot(forwardFlat, horizontal));
 				}
 			}
 
-			UpdateSpring(ref yawPos, ref yawVel, targetYaw, deltaTime);
-			UpdateSpring(ref pitchPos, ref pitchVel, targetPitch, deltaTime);
-			UpdateSpring(ref rollPos, ref rollVel, 0, deltaTime);
+			// --- 3. ROLL (Крен) ---
+			// Вычисляем относительную ошибку крена (чтобы "верх" бота совпадал с gridUp)
+			var crossRoll = Vector3D.Cross(Up, gridUp);
+			double sinRoll = Vector3D.Dot(crossRoll, Forward);
+			double cosRoll = Vector3D.Dot(Up, gridUp);
+			double relativeRoll = Math.Atan2(sinRoll, cosRoll);
 
-			rotation = new Vector2(
-				-(float)MathHelper.ToDegrees(pitchVel),
-				-(float)MathHelper.ToDegrees(yawVel));
-			roll = -(float)MathHelper.ToDegrees(rollVel);
+			// --- 4. ОБНОВЛЕНИЕ ПРУЖИН ---
+			// Мы "якорим" цель пружины к её текущему положению + ошибке. 
+			// Это создает стабильную абсолютную цель, которая идеально отслеживает ошибку без дрейфа.
+
+			double oldYawPos = yawPos;
+			UpdateSpring(ref yawPos, ref yawVel, yawPos + relativeYaw, deltaTime, true);
+
+			double oldPitchPos = pitchPos;
+			UpdateSpring(ref pitchPos, ref pitchVel, pitchPos + relativePitch, deltaTime, false);
+
+			double oldRollPos = rollPos;
+			UpdateSpring(ref rollPos, ref rollVel, rollPos + relativeRoll, deltaTime, true);
+
+			// --- 5. ФОРМИРОВАНИЕ ДЕЛЬТЫ (Ввод контроллера / мыши) ---
+			// Игре нужна не скорость (vel), а дельта (на сколько градусов повернуть в этом кадре).
+			float deltaPitch = (float)MathHelper.ToDegrees(pitchPos - oldPitchPos);
+			float deltaYaw = (float)MathHelper.ToDegrees(yawPos - oldYawPos);
+			float deltaRoll = (float)MathHelper.ToDegrees(rollPos - oldRollPos);
+
+			// Примечание: Если бот по инерции поворачивает не в ту сторону (инверсия осей), 
+			// просто поставьте минус перед нужной дельтой (например, -deltaYaw).
+			rotation = new Vector2(-deltaPitch, -deltaYaw);
+			roll = deltaRoll;
 		}
 
-		void UpdateSpring(ref double pos, ref double vel, double target, double dt)
+		void UpdateSpring(ref double pos, ref double vel, double target, double dt, bool wrapAngle)
 		{
-			double error = target - pos;
+			double x0 = pos - target;
+			if (wrapAngle)
+			{
+				x0 = Math.Atan2(Math.Sin(x0), Math.Cos(x0));
+			}
+
 			double omegaZeta = omega * zeta;
 			double expTerm = Math.Exp(-omegaZeta * dt);
 			double timeExp = dt * expTerm;
 			double timeExpFreq = timeExp * omega;
 
-			double newPos = error * (timeExpFreq + expTerm) + vel * timeExp;
-			double newVel = error * (-omega * timeExpFreq) + vel * (-timeExpFreq + expTerm);
-			pos = target - newPos;
-			vel = newVel;
+			double xNew = x0 * (timeExpFreq + expTerm) + vel * timeExp;
+			double vNew = x0 * (-omega * timeExpFreq) + vel * (-timeExpFreq + expTerm);
+
+			pos = target + xNew;
+			vel = vNew;
 		}
 	}
 

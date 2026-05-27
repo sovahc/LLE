@@ -327,7 +327,8 @@ namespace LLE
 				{
 					Vector2 rot;
 					float roll;
-					springController.Update(ch.WorldMatrix, navigation.currentTargetPoint, grid_A.WorldMatrix.Up, 1.0/60, out rot, out roll);
+					springController.Update(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
+						navigation.currentTargetPoint, grid_A.WorldMatrix.Up, 0.2, out rot, out roll);
 					ch.MoveAndRotate(Vector3.Zero, rot, roll);
 					
 					ch.Physics.LinearVelocity = navigation.ComputeDesiredVelocity(
