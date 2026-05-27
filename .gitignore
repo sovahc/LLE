@@ -1,1 +1,8 @@
-Nothing should be ignored based on the provided file changes. The only modified file is a source code file (.cs) without any build artifacts, dependencies, or temporary files in the changes.
+# VS / OmniSharp local artifacts
+*.user
+.vscode/
+*/bin
+*/obj
+*/win
+
+collisions.bin*
