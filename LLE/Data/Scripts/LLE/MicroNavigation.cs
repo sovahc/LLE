@@ -142,6 +142,7 @@ namespace LLE
 			// Project target onto horizontal plane (perpendicular to gridUp)
 			var projUp = Vector3D.Dot(vecToTarget, gridUp) * gridUp;
 			var horizontalVec = vecToTarget - projUp;
+			var targetPitch = Math.Atan2(Vector3D.Dot(vecToTarget, gridUp), horizontalVec.Length());
 
 			if (horizontalVec.LengthSquared() < 0.001)
 				return;
@@ -177,8 +178,12 @@ namespace LLE
 			if (Math.Abs(yawAngle) < MathHelper.ToRadians(1))
 				yawAngle = 0;
 
-			var speedFactor = (float)Math.Min(Math.Pow(Math.Abs(yawAngle), 0.25) / MathHelper.PiOver2, 0.5);
-			rotation = new Vector2(0, -(float)yawAngle * maxRotationSpeed * speedFactor);
+			var speedFactorYaw = (float)Math.Min(Math.Pow(Math.Abs(yawAngle), 0.25) / MathHelper.PiOver2, 0.5);
+			var currentPitch = Math.Asin(Vector3D.Dot(worldMatrix.Forward, gridUp));
+			var pitchAngle = targetPitch - currentPitch;
+			if (Math.Abs(pitchAngle) < MathHelper.ToRadians(1)) pitchAngle = 0;
+			var speedFactorPitch = (float)Math.Min(Math.Pow(Math.Abs(pitchAngle), 0.25) / MathHelper.PiOver2, 0.5);
+			rotation = new Vector2(-(float)pitchAngle * maxRotationSpeed * speedFactorPitch, -(float)yawAngle * maxRotationSpeed * speedFactorYaw);
 		}
 	}
 
