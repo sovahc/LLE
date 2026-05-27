@@ -43,7 +43,7 @@ namespace LLE
 		}
 
 		public void SetAll_1()
-		{	
+		{
 			for(int i = 0; i < _data.Length; ++i)
 				_data[i] = -1;
 		}
@@ -134,7 +134,7 @@ namespace LLE
 		}
 
 		public void Reset(bool clearTraversability)
-		{	
+		{
 			if(clearTraversability)
 				foreach (var t in _traversability)
 					t.SetAll(false);
@@ -142,7 +142,7 @@ namespace LLE
 			_closed.SetAll_0();
 			_inOpen.SetAll_0();
 			_open.Clear();
-			
+
 			Array.Clear(_gScore, 0, _gScore.Length);
 
 			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
@@ -164,7 +164,7 @@ namespace LLE
 		}
 
 		public bool Completed()
-		{	return iterator == null;			
+		{	return iterator == null;
 		}
 
 		public void Iteration() => Utilities.Tick(ref iterator, "AStar");
@@ -192,7 +192,7 @@ namespace LLE
 
 			_gScore[startIndex] = 0f;
 			_parent[startIndex] = -1;
-			float startF = Manhattan(start, goal);
+			float startF = Manhattan(start, goal) * 2;
 			_open.Enqueue(_nodes[startIndex], startF);
 			_inOpen.Set(startIndex, 1);
 
@@ -206,7 +206,7 @@ namespace LLE
 				int currentI = current.Index;
 
 				if (_closed.Get(currentI) != 0) continue;
-				
+
 				_closed.Set(currentI, 1);
 
 				Vector3I cv;
@@ -243,7 +243,7 @@ namespace LLE
 					bool isBetter = _parent[nextI] == -1 || tentativeG < _gScore[nextI];
 
 					if (!isBetter) continue;
-					
+
 					_gScore[nextI] = tentativeG;
 					_parent[nextI] = currentI;
 

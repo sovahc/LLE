@@ -15,6 +15,8 @@ using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
+	public static class Time { public static double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds; }
+
 	class Constants
 	{
 		public const float EngineerCapsuleHeight = 0.8f;
@@ -206,8 +208,6 @@ namespace LLE
 		}
 	}
 
-	public static class Time { public static double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds; }
-
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
@@ -263,7 +263,7 @@ namespace LLE
 
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
-			{	
+			{
 				var p = cmd.Payload.Trim();
 				int spaceIndex = p.IndexOf(' ');
 				string command = spaceIndex >= 0 ? p.Substring(0, spaceIndex) : p;
@@ -273,7 +273,7 @@ namespace LLE
 
 				var engineer = Utilities.GetEngineerCenter(ch);
 				string message;
-				
+
 				if(command == "SEARCH")
 				{	string r = Commands.Search(engineer, 500, arguments);
 					MyConsole.AddMultiline(r);
@@ -333,11 +333,11 @@ namespace LLE
 
 			if (astar != null && !astar.Completed())
 			{	astar.Iteration();
-				
+
 				if(astar.Completed())
-				{	
+				{
 					var grid = grid_A;
-					
+
 					List<Vector3D> path = new List<Vector3D>();
 
 					for(int i = 0; i < astar.result.Count; ++i)
@@ -346,7 +346,7 @@ namespace LLE
 
 						path.Add(grid.GridIntegerToWorld(v));				
 					}
-					
+	
 					navigationActive = true;
 					navigation.Fly(path);
 				}
@@ -460,14 +460,14 @@ namespace LLE
 				}
 			}
 
-			if (grid_A != null && point_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
-			if (grid_A != null && selectedBlock != null)
+			if (grid_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
+			if (grid_A != null)
 			{	var block = grid_A.GetCubeBlock(selectedBlock);
 				
 				if (block != null) Collisions.Draw(grid_A, block);
 
 			}
-			if (grid_B != null && point_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
+			if (grid_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
 
 			if (grid_A != null && selectedBlock != null)
 			{

@@ -31,7 +31,7 @@ namespace LLE
 				state.Y = p.Y;
 				state.Z = p.Z;
 				state.LastSeenAt = 0;
-				state.debug = "";
+				state.Debug = "";
 
 				lks.Add(entity.EntityId, state);
 			}
@@ -126,7 +126,7 @@ namespace LLE
 				if (!v.Visible) continue;
 
 				double distance = (rayOrigin - new Vector3D(v.X, v.Y, v.Z)).Length();
-				//MyConsole.Add($"{v.Type} {distance:F0} {delta:F0} {v.DisplayName} {v.debug}", Color.White);
+				//MyConsole.Add($"{v.Type} {distance:F0} {delta:F0} {v.DisplayName} {v.Debug}", Color.White);
 			}
 		}
 

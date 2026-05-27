@@ -172,7 +172,11 @@ namespace LLE
 				var convex = shape as ConvexHullShape;
 				if (convex != null)
 				{
-					var worldVerts = convex.Vertices.Select(v => Vector3D.Transform(new Vector3D(Vector3.Transform(v, shape.Transform)), blockMatrix)).ToList();
+					var worldVerts = convex.Vertices.Select(v =>
+					{
+						var localVert = Vector3.Transform(v, shape.Transform);
+						return Vector3D.Transform(new Vector3D(localVert), blockMatrix);
+					}).ToList();
 					var screenVerts = Drawing.WorldToScreen(worldVerts);
 					var hull = Geometry.ConvexHull(screenVerts);
 					if (hull.Count >= 2)
@@ -181,7 +185,7 @@ namespace LLE
 
 				var sphere = shape as SphereShape;
 				if (sphere != null)
-				{	
+				{
 					var worldCenter = Vector3D.Transform(new Vector3D(shape.Transform.Translation), blockMatrix);
 					Drawing.ScreenSphere(worldCenter, sphere.Radius, new Vector4(1f, 1f, 1f, 1f));
 					Drawing.RoundMarker(worldCenter, Color.BlueViolet);
@@ -229,14 +233,13 @@ namespace LLE
 			}
 		}
 
-
 		private static Traversability CalculateTraversability(CollisionGeometry geometry)
 		{
 			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
 
 			var trav = new Traversability();
 			var probe = new List<Vector3>();
-			
+
 			var probeSize = 1.5f;
 			Geometry.BoxToConvex(new Vector3(probeSize/2, probeSize/2, probeSize/2), probe);
 

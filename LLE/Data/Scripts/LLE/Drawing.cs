@@ -13,12 +13,12 @@ namespace LLE
 	public class Common
 	{
 		public static bool Enabled;
-		
+
 		public static float _nearPlane;
 		public static MatrixD _viewProj, _viewProjInv;
 		public static float _tanHalfFov, _aspectRatio;
 
-		private static readonly ObjectPooling<MyBillboard> _pool = new ObjectPooling<MyBillboard>();
+		private static readonly ObjectPool<MyBillboard> _pool = new ObjectPool<MyBillboard>();
 
 		public static MyBillboard GetFromPool()
 		{	return _pool.Get();
@@ -292,7 +292,7 @@ namespace LLE
 		{
 			if(!Common.Enabled) return;
 			if (points == null || points.Length < 2) return;
-			
+
 			var camera = MyAPIGateway.Session.Camera;
 			if (camera == null) return;
 
@@ -333,7 +333,7 @@ namespace LLE
 			if (camera == null) return;
 
 			Vector3D viewDir = Vector3D.Normalize(point - camera.Position);
-			double distance = (point - camera.Position).Normalize();
+			double distance = (point - camera.Position).Length();
 
 			point = camera.Position + viewDir;
 

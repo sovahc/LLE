@@ -25,7 +25,7 @@ namespace LLE
 
 			var axis = Vector3.Normalize(b - a);
 			Vector3 right, localUp;
-            OrthonormalBasis(axis, out right, out localUp);
+			OrthonormalBasis(axis, out right, out localUp);
 
 			for (int s = 0; s < segments; s++)
 			{
@@ -101,7 +101,7 @@ namespace LLE
 
 				for (int lon = 0; lon <= segments2; lon++)
 				{
-					double theta = lon * Math.PI / 1.0 / segments2;
+					double theta = lon * Math.PI / segments2;
 					double cosTheta = Math.Cos(theta);
 					double sinTheta = Math.Sin(theta);
 

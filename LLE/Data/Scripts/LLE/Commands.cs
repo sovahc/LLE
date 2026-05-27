@@ -110,7 +110,7 @@ namespace LLE
 		private static string Quotes(string s)
 		{	if(s == null) return "(null)";
 			if(!s.Contains(' ')) return s;
-			return($"'{s}'");
+			return $"'{s}'";
 		}
 
 		private static string Distance(double d)
@@ -138,7 +138,7 @@ namespace LLE
 			{ "Doors", new[] { "Door" } },
 			{ "Gravity", new[] { "GravityGenerator", "VirtualMass", "SpaceBall" } },
 			{ "Rotors", new[] { "MotorAdvancedStator", "MotorStator", "Hinge" } },
-			{ "Movement", new[] { "Thrust", } },
+			{ "Movement", new[] { "Thrust" } },
 			{ "Storage", new[] { "CargoContainer" } },
 			{ "Decoration", new[] { "HeatVent", "LCDPanel", "Terminal" } }
 			//{ "Other", new[] { "ButtonPanel", "Jukebox", "CameraBlock", "SoundBlock", "InteriorLight" } },
@@ -148,7 +148,7 @@ namespace LLE
 		internal static string GridInfo(IMyCubeGrid grid)
 		{
 			MyMarkdown.Clear();
-			MyMarkdown.Append($"# {GridType(grid)} '{grid.DisplayName}'\n");
+			MyMarkdown.Append($"# {GridType(grid)} '{grid.DisplayName}'");
 			MyMarkdown.Append($"(Name → count)");
 
 			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
@@ -224,7 +224,7 @@ namespace LLE
 				return;
 			}
 		}
-	
+
 		internal static string Search(Vector3D center, int radius, string query)
 		{
 			query = query.Trim(MyTrim);
@@ -314,5 +314,5 @@ namespace LLE
 			point = matches[0].WorldMatrix.Translation;
 			return true;
 		}
-    }
+	}
 }

@@ -60,7 +60,7 @@ namespace LLE
 			Vector3D correctionVelocity = (nearestOnPath - currentPosition) * pathCorrectionStrength * desiredSpeed;
 			Vector3D desiredVelocity = mainVelocity + correctionVelocity;
 
-			//Stuck = stuckDetector.IsStuck(currentPosition, desiredVelocity, DeltaTime); // diabled. buggy
+			//Stuck = stuckDetector.IsStuck(currentPosition, desiredVelocity, DeltaTime); // disabled. buggy
 
 			// 4. Smooth acceleration (PD controller)
 			Vector3D velocityError = desiredVelocity - currentVelocity;
@@ -142,12 +142,12 @@ namespace LLE
 				return Vector2.Zero;
 
 			var forward = worldMatrix.Forward;
-			var cosAngle = Vector3D.Dot(forward, horizontalVec) / (forward.Length() * horizontalVec.Length());
+			var cosAngle = Vector3D.Dot(forward, horizontalVec) / horizontalVec.Length();
 			var angle = Math.Acos(Math.Max(-1.0, Math.Min(1.0, cosAngle)));
 
 			var relVector = Vector3D.TransformNormal(vecToTarget, MatrixD.Transpose(worldMatrix));
 
-			if (relVector.Z < 0 && Math.Abs(angle) < MathHelper.ToRadians(2))
+			if (relVector.Z < 0 && angle < MathHelper.ToRadians(2))
 				return Vector2.Zero;
 
 			var speedFactor = (float)Math.Min(angle / MathHelper.PiOver2, 1.0);

@@ -119,13 +119,13 @@ namespace LLE
 
         private static double Dot(ref Vector3D a, ref Vector3D b)
         {
-            return (double)((double)a.X * (double)b.X + (double)a.Y * (double)b.Y + (double)a.Z * (double)b.Z);
+            return (double)(a.X * b.X + a.Y * b.Y + a.Z * b.Z);
         }
 
         private void UpdateDeterminant(int xmIdx)
         {
             int index1 = 1 << xmIdx;
-            this.det[index1][xmIdx] = 1f;
+            this.det[index1][xmIdx] = 1;
             int num1 = GjkD.BitsToIndices[this.simplexBits];
             int num2 = num1;
             int num3 = 0;
@@ -142,12 +142,12 @@ namespace LLE
                     int index5 = (num5 & 7) - 1;
                     int num6 = 1 << index5;
                     int index6 = index3 | num6;
-                    int index7 = (double)this.edgeLengthSq[index2][index5] < (double)this.edgeLengthSq[xmIdx][index5] ? index2 : xmIdx;
-                    this.det[index6][index5] = (double)((double)this.det[index3][index2] * (double)GjkD.Dot(ref this.edges[index7][index5], ref this.y[index2]) + (double)this.det[index3][xmIdx] * (double)GjkD.Dot(ref this.edges[index7][index5], ref this.y[xmIdx]));
-                    int index8 = (double)this.edgeLengthSq[index5][index2] < (double)this.edgeLengthSq[xmIdx][index2] ? index5 : xmIdx;
-                    this.det[index6][index2] = (double)((double)this.det[num6 | index1][index5] * (double)GjkD.Dot(ref this.edges[index8][index2], ref this.y[index5]) + (double)this.det[num6 | index1][xmIdx] * (double)GjkD.Dot(ref this.edges[index8][index2], ref this.y[xmIdx]));
-                    int index9 = (double)this.edgeLengthSq[index2][xmIdx] < (double)this.edgeLengthSq[index5][xmIdx] ? index2 : index5;
-                    this.det[index6][xmIdx] = (double)((double)this.det[num4 | num6][index5] * (double)GjkD.Dot(ref this.edges[index9][xmIdx], ref this.y[index5]) + (double)this.det[num4 | num6][index2] * (double)GjkD.Dot(ref this.edges[index9][xmIdx], ref this.y[index2]));
+                    int index7 = this.edgeLengthSq[index2][index5] < this.edgeLengthSq[xmIdx][index5] ? index2 : xmIdx;
+                    this.det[index6][index5] = this.det[index3][index2] * (double)GjkD.Dot(ref this.edges[index7][index5], ref this.y[index2]) + this.det[index3][xmIdx] * (double)GjkD.Dot(ref this.edges[index7][index5], ref this.y[xmIdx]);
+                    int index8 = this.edgeLengthSq[index5][index2] < this.edgeLengthSq[xmIdx][index2] ? index5 : xmIdx;
+                    this.det[index6][index2] = this.det[num6 | index1][index5] * (double)GjkD.Dot(ref this.edges[index8][index2], ref this.y[index5]) + this.det[num6 | index1][xmIdx] * (double)GjkD.Dot(ref this.edges[index8][index2], ref this.y[xmIdx]);
+                    int index9 = this.edgeLengthSq[index2][xmIdx] < this.edgeLengthSq[index5][xmIdx] ? index2 : index5;
+                    this.det[index6][xmIdx] = this.det[num4 | num6][index5] * (double)GjkD.Dot(ref this.edges[index9][xmIdx], ref this.y[index5]) + this.det[num4 | num6][index2] * (double)GjkD.Dot(ref this.edges[index9][xmIdx], ref this.y[index2]);
                     num5 >>= 3;
                 }
                 num2 >>= 3;
@@ -155,14 +155,14 @@ namespace LLE
             }
             if ((this.simplexBits | index1) != 15)
                 return;
-            int index10 = (double)this.edgeLengthSq[1][0] < (double)this.edgeLengthSq[2][0] ? ((double)this.edgeLengthSq[1][0] < (double)this.edgeLengthSq[3][0] ? 1 : 3) : ((double)this.edgeLengthSq[2][0] < (double)this.edgeLengthSq[3][0] ? 2 : 3);
-            this.det[15][0] = (double)((double)this.det[14][1] * (double)GjkD.Dot(ref this.edges[index10][0], ref this.y[1]) + (double)this.det[14][2] * (double)GjkD.Dot(ref this.edges[index10][0], ref this.y[2]) + (double)this.det[14][3] * (double)GjkD.Dot(ref this.edges[index10][0], ref this.y[3]));
-            int index11 = (double)this.edgeLengthSq[0][1] < (double)this.edgeLengthSq[2][1] ? ((double)this.edgeLengthSq[0][1] < (double)this.edgeLengthSq[3][1] ? 0 : 3) : ((double)this.edgeLengthSq[2][1] < (double)this.edgeLengthSq[3][1] ? 2 : 3);
-            this.det[15][1] = (double)((double)this.det[13][0] * (double)GjkD.Dot(ref this.edges[index11][1], ref this.y[0]) + (double)this.det[13][2] * (double)GjkD.Dot(ref this.edges[index11][1], ref this.y[2]) + (double)this.det[13][3] * (double)GjkD.Dot(ref this.edges[index11][1], ref this.y[3]));
-            int index12 = (double)this.edgeLengthSq[0][2] < (double)this.edgeLengthSq[1][2] ? ((double)this.edgeLengthSq[0][2] < (double)this.edgeLengthSq[3][2] ? 0 : 3) : ((double)this.edgeLengthSq[1][2] < (double)this.edgeLengthSq[3][2] ? 1 : 3);
-            this.det[15][2] = (double)((double)this.det[11][0] * (double)GjkD.Dot(ref this.edges[index12][2], ref this.y[0]) + (double)this.det[11][1] * (double)GjkD.Dot(ref this.edges[index12][2], ref this.y[1]) + (double)this.det[11][3] * (double)GjkD.Dot(ref this.edges[index12][2], ref this.y[3]));
-            int index13 = (double)this.edgeLengthSq[0][3] < (double)this.edgeLengthSq[1][3] ? ((double)this.edgeLengthSq[0][3] < (double)this.edgeLengthSq[2][3] ? 0 : 2) : ((double)this.edgeLengthSq[1][3] < (double)this.edgeLengthSq[2][3] ? 1 : 2);
-            this.det[15][3] = (double)((double)this.det[7][0] * (double)GjkD.Dot(ref this.edges[index13][3], ref this.y[0]) + (double)this.det[7][1] * (double)GjkD.Dot(ref this.edges[index13][3], ref this.y[1]) + (double)this.det[7][2] * (double)GjkD.Dot(ref this.edges[index13][3], ref this.y[2]));
+            int index10 = this.edgeLengthSq[1][0] < this.edgeLengthSq[2][0] ? (this.edgeLengthSq[1][0] < this.edgeLengthSq[3][0] ? 1 : 3) : (this.edgeLengthSq[2][0] < this.edgeLengthSq[3][0] ? 2 : 3);
+            this.det[15][0] = this.det[14][1] * (double)GjkD.Dot(ref this.edges[index10][0], ref this.y[1]) + this.det[14][2] * (double)GjkD.Dot(ref this.edges[index10][0], ref this.y[2]) + this.det[14][3] * (double)GjkD.Dot(ref this.edges[index10][0], ref this.y[3]);
+            int index11 = this.edgeLengthSq[0][1] < this.edgeLengthSq[2][1] ? (this.edgeLengthSq[0][1] < this.edgeLengthSq[3][1] ? 0 : 3) : (this.edgeLengthSq[2][1] < this.edgeLengthSq[3][1] ? 2 : 3);
+            this.det[15][1] = this.det[13][0] * (double)GjkD.Dot(ref this.edges[index11][1], ref this.y[0]) + this.det[13][2] * (double)GjkD.Dot(ref this.edges[index11][1], ref this.y[2]) + this.det[13][3] * (double)GjkD.Dot(ref this.edges[index11][1], ref this.y[3]);
+            int index12 = this.edgeLengthSq[0][2] < this.edgeLengthSq[1][2] ? (this.edgeLengthSq[0][2] < this.edgeLengthSq[3][2] ? 0 : 3) : (this.edgeLengthSq[1][2] < this.edgeLengthSq[3][2] ? 1 : 3);
+            this.det[15][2] = this.det[11][0] * (double)GjkD.Dot(ref this.edges[index12][2], ref this.y[0]) + this.det[11][1] * (double)GjkD.Dot(ref this.edges[index12][2], ref this.y[1]) + this.det[11][3] * (double)GjkD.Dot(ref this.edges[index12][2], ref this.y[3]);
+            int index13 = this.edgeLengthSq[0][3] < this.edgeLengthSq[1][3] ? (this.edgeLengthSq[0][3] < this.edgeLengthSq[2][3] ? 0 : 2) : (this.edgeLengthSq[1][3] < this.edgeLengthSq[2][3] ? 1 : 2);
+            this.det[15][3] = this.det[7][0] * (double)GjkD.Dot(ref this.edges[index13][3], ref this.y[0]) + this.det[7][1] * (double)GjkD.Dot(ref this.edges[index13][3], ref this.y[1]) + this.det[7][2] * (double)GjkD.Dot(ref this.edges[index13][3], ref this.y[2]);
         }
 
         private bool UpdateSimplex(int newIndex)
@@ -217,13 +217,13 @@ namespace LLE
                 int num2 = 1 << index;
                 if ((num2 & xBits) != 0)
                 {
-                    if ((double)this.det[xBits][index] <= 0.0)
+                    if (this.det[xBits][index] <= 0.0)
                     {
                         flag = false;
                         break;
                     }
                 }
-                else if ((double)this.det[xBits | num2][index] > 0.0)
+                else if (this.det[xBits | num2][index] > 0.0)
                 {
                     flag = false;
                     break;

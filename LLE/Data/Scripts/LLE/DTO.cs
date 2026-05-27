@@ -12,8 +12,8 @@ namespace LLE
 		public double X, Y, Z;
 		public double LastSeenAt;
 		public bool Visible;
-		
-		public string debug;
+
+		public string Debug;
 	}
 
 	public class ServerCommand

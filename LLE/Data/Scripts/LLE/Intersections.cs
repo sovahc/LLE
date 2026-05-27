@@ -16,7 +16,7 @@ namespace LLE
 			Vector3D sphereCenter, double sphereRadius,
 			List<Vector3> convexVertices)
 		{
-			if (convexVertices == null || convexVertices.Count < 3) // 4?
+			if (convexVertices == null || convexVertices.Count < 3)
 				return false;
 
 			gjk.Reset();
@@ -150,4 +150,3 @@ namespace LLE
 		}
 	}
 }
-
