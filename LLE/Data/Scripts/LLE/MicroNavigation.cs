@@ -142,7 +142,12 @@ namespace LLE
 			// Project target onto horizontal plane (perpendicular to gridUp)
 			var projUp = Vector3D.Dot(vecToTarget, gridUp) * gridUp;
 			var horizontalVec = vecToTarget - projUp;
-			var targetPitch = Math.Atan2(Vector3D.Dot(vecToTarget, gridUp), horizontalVec.Length());
+			double horizontalDistance = horizontalVec.Length();
+			
+			// Limit minimum horizontal distance to avoid extreme pitch angles when close to target
+			horizontalDistance = Math.Max(horizontalDistance, 0.1);
+			
+			var targetPitch = Math.Atan2(Vector3D.Dot(vecToTarget, gridUp), horizontalDistance);
 
 			if (horizontalVec.LengthSquared() < 0.001)
 				return;
