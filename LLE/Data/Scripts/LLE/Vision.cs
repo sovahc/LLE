@@ -13,7 +13,8 @@ namespace LLE
     class Vision
 	{
 		private static Random random = new Random();
-		private static int raycast_slowdown_offset;
+		private const int RAYCAST_SKIP_INTERVAL = 10;
+		private static int _frameSkipOffset;
 
 		internal static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
 
@@ -53,9 +54,8 @@ namespace LLE
 
 			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
 
-			const int RAYCAST_EVERY = 10;
-			int raycast_slowdown = raycast_slowdown_offset;
-			if (++raycast_slowdown_offset >= RAYCAST_EVERY) raycast_slowdown_offset = 0;
+			int localSkipCounter = _frameSkipOffset;
+			_frameSkipOffset = (_frameSkipOffset + 1) % RAYCAST_SKIP_INTERVAL;
 
 			int raycasts = 0;
 
@@ -104,7 +104,8 @@ namespace LLE
 				var floater = entity as IMyFloatingObject;
 				if (floater != null)
 				{
-					if (raycast_slowdown++ % RAYCAST_EVERY != 0) continue;
+					// Staggered sampling: process every Nth floater, shifting the window each frame
+					if (localSkipCounter++ % RAYCAST_SKIP_INTERVAL != 0) continue;
 
 					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
 					++raycasts;
