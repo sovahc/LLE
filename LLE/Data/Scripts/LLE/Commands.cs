@@ -14,13 +14,14 @@ using VRageMath;
 /*
 # Command Reference
 
-help                  - this message
-cancel                - Immediately cancel the current action and return to IDLE.
-stop                  - Stop movement
-vision                - Get current visual input (what the bot sees right now).
-select 'name'         - Select object of interest
-nearest ['substring'] - Show the nearest 5 blocks whose names contain 'substring'.
-search ['substring']  - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
+help                   - this message.
+cancel                 - Immediately cancel the current action and return to IDLE.
+stop                   - Stop movement.
+vision                 - Get current visual input (what the bot sees right now)
+select_grid 'name'     - Select ship or station on which grind, weld and other operations will be performed.
+select_asteroid 'name' - Select asteroid on which mine operations will be performed.
+nearest ['substring']  - Show the nearest 5 blocks whose names contain 'substring'.
+search ['substring']   - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
 info 'name'        - Get detailed information about a specific object.
 fly 'name'         - Fly to a specific object. Executes flight with periodic reports.
 fly I,J,K          - Fly to specific grid coorfinates
@@ -102,7 +103,8 @@ namespace LLE
 
 	public static class Commands
 	{
-		private static MyEntity selected;
+		private static MyEntity selectedGrid;
+		private static MyEntity selectedAsteroid;
 
 		private static readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
 		private static readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
@@ -335,7 +337,7 @@ namespace LLE
 			message = "NotImplemented";
 		}
 
-		internal static void Select(Vector3D engineer, string query, out string message, int radius = 1000)
+		internal static void Select(ObjectType type, Vector3D engineer, string query, out string message, int radius = 1000)
 		{
 			query = query.Trim(MyTrim);
 			
@@ -343,12 +345,12 @@ namespace LLE
 			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
 
 			List<MyEntity> matches = new List<MyEntity>();
+
+			string category, name;
 			
 			foreach(var e in entities)
 			{	
 				if (e.Closed) continue;
-
-				string category, name;
 
 				Description(e, out category, out name);
 
@@ -360,8 +362,20 @@ namespace LLE
 				return;
 			}
 
-			selected = matches[0];
-			message = "OK";
+			Description(matches[0], out category, out name);
+			message = $"Selected {category} {Quotes(name)}";
+
+			switch(type)
+			{	case ObjectType.LargeShip:
+					selectedGrid = matches[0];
+					break;
+				case ObjectType.Asteroid:
+					selectedAsteroid = matches[0];
+					break;
+				default:
+					message = "Internal error";
+					break;
+			}
 		}
 	}
 }

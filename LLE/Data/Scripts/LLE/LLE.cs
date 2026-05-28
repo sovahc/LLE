@@ -33,6 +33,14 @@ namespace LLE
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
+		public static string GetNextWord(ref string s)
+		{
+			int spaceIndex = s.IndexOf(' ');
+			string word = spaceIndex >= 0 ? s.Substring(0, spaceIndex) : s;
+			s = spaceIndex >= 0 ? s.Substring(spaceIndex + 1) : "";
+			return word;
+		}
+
 		public static void MyRaycast(Vector3D origin, Vector3D direction,
 			out IMyCubeGrid grid, out Vector3I position, out Vector3I freeSpace, float range = 500)
 		{
@@ -267,11 +275,10 @@ namespace LLE
 			if (LLE_Loader.GetCommand(out cmd))
 			{
 				var p = cmd.Payload.Trim();
-				int spaceIndex = p.IndexOf(' ');
-				string command = spaceIndex >= 0 ? p.Substring(0, spaceIndex) : p;
-				string arguments = spaceIndex >= 0 ? p.Substring(spaceIndex + 1) : "";
 
+				var command = Utilities.GetNextWord(ref p);
 				command = command.ToUpperInvariant();
+				var arguments = p; p = null;
 
 				MyConsole.Add($"command '{command}' arguments '{arguments}'", Color.LightCyan);
 
@@ -297,8 +304,11 @@ namespace LLE
 						navigation.Fly(path);
 					}
 				}
-				else if(command == "SELECT")
-				{	Commands.Select(engineer, arguments, out message);
+				else if(command == "SELECT_ASTEROID")
+				{	Commands.Select(ObjectType.Asteroid, engineer, arguments, out message);
+				}
+				else if(command == "SELECT_GRID")
+				{	Commands.Select(ObjectType.LargeShip, engineer, arguments, out message);
 				}
 				else if(command == "NEAREST")
 				{	Commands.Nearest(engineer, arguments, out message);
