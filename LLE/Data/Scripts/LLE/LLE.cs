@@ -325,14 +325,14 @@ namespace LLE
 				}
 				else
 				{
-					Vector2 rot;
-					float roll;
+					Vector2 rot; float roll;
 					springController.Update(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
 						navigation.currentTargetPoint, grid_A.WorldMatrix.Up, 0.2, out rot, out roll);
-					ch.MoveAndRotate(Vector3.Zero, rot, roll);
-					
-					ch.Physics.LinearVelocity = navigation.ComputeDesiredVelocity(
-						Utilities.GetEngineerCenter(ch), ch.Physics.LinearVelocity);
+
+					var center = Utilities.GetEngineerCenter(ch);
+					var desiredVel = navigation.ComputeDesiredVelocity(center, ch.Physics.LinearVelocity);
+					var move = navigation.ComputeMoveInput(desiredVel, ch.Physics.LinearVelocity, ch.WorldMatrix);
+					ch.MoveAndRotate(move, rot, roll);
 				}
 			}
 			else if (mouse && grid_A == grid_B && grid_A != null)

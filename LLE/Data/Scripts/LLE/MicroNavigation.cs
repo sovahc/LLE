@@ -74,6 +74,20 @@ namespace LLE
 			return currentVelocity;
 		}
 
+		public Vector3 ComputeMoveInput(Vector3D desiredVelocity, Vector3D currentVelocity, MatrixD worldMatrix)
+		{
+			Vector3D thrust = desiredVelocity - currentVelocity;
+			if (thrust.LengthSquared() < 0.01) return Vector3.Zero;
+
+			Vector3D localThrust = Vector3D.TransformNormal(thrust, MatrixD.Transpose(worldMatrix));
+			Vector3 move = (Vector3)localThrust;
+			
+			// Clamp to unit vector for MoveAndRotate input range
+			if (move.LengthSquared() > 1) move.Normalize();
+			
+			return move;
+		}
+
 		Vector3D FindLookaheadPoint(Vector3D pos, double distance)
 		{
 			// Walk along the path until distance meters are accumulated
