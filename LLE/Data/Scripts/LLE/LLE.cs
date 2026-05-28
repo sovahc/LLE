@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
-using Sandbox.Game.World;
 using Sandbox.ModAPI;
 using VRage.Game;
 using VRage.Game.Components;
@@ -273,6 +272,8 @@ namespace LLE
 
 				command = command.ToUpperInvariant();
 
+				Log($"command '{command}' arguments '{arguments}'");
+
 				var engineer = Utilities.GetEngineerCenter(ch);
 				string message;
 
@@ -330,9 +331,11 @@ namespace LLE
 					Vector2 rotation = Vector2.Zero;
 					float roll = 0;
 
+					var gridUp = grid_A != null ? grid_A.WorldMatrix.Up : ch.WorldMatrix.Up;
+
 					if(!navigation.ShortSegment)
 						springController.Update(ec, ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
-							navigation.currentTargetPoint, grid_A.WorldMatrix.Up, 0.2, out rotation, out roll);
+							navigation.currentTargetPoint, gridUp, 0.2, out rotation, out roll);
 
 					var desiredVelocity = navigation.ComputeDesiredVelocity(ec, ch.Physics.LinearVelocity);
 					var move = navigation.ComputeMoveInput(desiredVelocity, ch.Physics.LinearVelocity, ch.WorldMatrix);
