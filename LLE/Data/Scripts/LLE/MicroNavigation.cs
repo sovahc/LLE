@@ -25,6 +25,7 @@ namespace LLE
 		}
 
 		public bool Stuck;
+		public bool ShortSegment;
 		public Vector3D currentTargetPoint;
 
 		public Vector3D ComputeDesiredVelocity(Vector3D currentPosition, Vector3D currentVelocity, double DeltaTime = 1.0 / 60)
@@ -37,6 +38,8 @@ namespace LLE
 
 			Vector3D toTarget = currentTargetPoint - currentPosition;
 			double distance = toTarget.Length();
+
+			ShortSegment = distance < 4.0;
 
 			if (distance < arrivalThreshold)
 			{	++currentWaypointIndex;
