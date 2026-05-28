@@ -9,13 +9,13 @@ namespace LLE
 		private const double arrivalThreshold = 0.5;
 		private List<Vector3D> path;
 		private int currentWaypointIndex;
-		private StuckDetector stuckDetector = new StuckDetector();
+		private double StuckTimer;
 
 		public void Fly(List<Vector3D> path)
 		{
 			this.path = path;
 			currentWaypointIndex = 0;
-			stuckDetector.Reset();
+			StuckTimer = 0;
 			Stuck = false;
 		}
 
@@ -51,7 +51,12 @@ namespace LLE
 
 			Vector3D desiredVelocity = toTarget.Normalized() * desiredSpeed;
 
-			//Stuck = stuckDetector.IsStuck(currentPosition, desiredVelocity, DeltaTime); // disabled. buggy
+			if(currentVelocity.LengthSquared() < 1)
+			{	StuckTimer += DeltaTime;
+				if (StuckTimer > 3.0)
+				{	Stuck = true;
+				}
+			}
 
 			// Smooth acceleration (PD controller)
 			Vector3D velocityError = desiredVelocity - currentVelocity;
@@ -163,40 +168,6 @@ namespace LLE
 
 			pos = target + xNew;
 			vel = vNew;
-		}
-	}
-
-	class StuckDetector
-	{
-		const double stuckThreshold = 15.0;
-		const double minMovement = 0.5;
-		Vector3D lastPosition;
-		double stuckTimer = 0;
-
-		public void Reset()
-		{
-			stuckTimer = 0;
-		}
-
-		public bool IsStuck(Vector3D currentPosition, Vector3D desiredVelocity, double DeltaTime)
-		{
-			double movement = (currentPosition - lastPosition).Length();
-			lastPosition = currentPosition;
-
-			if (movement < minMovement && desiredVelocity.Length() > 1.0)
-			{
-				stuckTimer += DeltaTime;
-				if (stuckTimer > stuckThreshold)
-				{
-					stuckTimer = 0;
-					return true;
-				}
-			}
-			else
-			{
-				stuckTimer = 0;
-			}
-			return false;
 		}
 	}
 }
