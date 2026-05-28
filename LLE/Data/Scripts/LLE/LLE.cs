@@ -280,7 +280,7 @@ namespace LLE
 				command = command.ToUpperInvariant();
 				var arguments = p; p = null;
 
-				MyConsole.Add($"command '{command}' arguments '{arguments}'", Color.LightCyan);
+				MyConsole.Add($"command: {command} arguments: '{arguments}'", Color.Cyan);
 
 				var engineer = Utilities.GetEngineerCenter(ch);
 				string message = null;
@@ -310,8 +310,11 @@ namespace LLE
 				else if(command == "SELECT_GRID")
 				{	Commands.Select(ObjectType.LargeShip, engineer, arguments, out message);
 				}
-				else if(command == "NEAREST")
-				{	Commands.Nearest(engineer, arguments, out message);
+				else if(command == "NEAREST_BLOCKS")
+				{	Commands.Nearest_blocks(engineer, arguments, out message);
+				}
+				else
+				{	message = $"Unknown command {command}";
 				}
 				MyConsole.AddMultiline(message);
 			}

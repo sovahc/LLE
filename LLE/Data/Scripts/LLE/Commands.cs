@@ -103,8 +103,8 @@ namespace LLE
 
 	public static class Commands
 	{
-		private static MyEntity selectedGrid;
-		private static MyEntity selectedAsteroid;
+		private static IMyCubeGrid selectedGrid;
+		private static MyVoxelBase selectedAsteroid;
 
 		private static readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
 		private static readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
@@ -183,7 +183,7 @@ namespace LLE
 			foreach (var kv in count)
 			{
 				string type = kv.Key.ToString();
-				if(type.StartsWith("MyObjectBuilder_")) type = type.Substring("MyObjectBuilder_".Length);
+				type = Remove_MyObjectBuilder_(type);
 
 				string category = "Other";
 				foreach (var cat in TerminalBCategories)
@@ -197,8 +197,14 @@ namespace LLE
 
 				MyMarkdown.Add(category, $"* {type} → {kv.Value}");
 			}
-			
+
 			return MyMarkdown.Result();
+		}
+
+		private static string Remove_MyObjectBuilder_(string type)
+		{
+			if (type.StartsWith("MyObjectBuilder_")) type = type.Substring("MyObjectBuilder_".Length);
+			return type;
 		}
 
 		private static bool Include(string searchTerm, string data)
@@ -234,6 +240,11 @@ namespace LLE
 			{	category = "FLOATING OBJECT";
 				return;
 			}
+		}
+
+		private static string SlimBlockDescription(IMySlimBlock b)
+		{	var type = Remove_MyObjectBuilder_(b.BlockDefinition.Id.TypeId.ToString());
+			return type;
 		}
 
 		internal static string Search(Vector3D center, int radius, string query)
@@ -332,9 +343,34 @@ namespace LLE
 			return message;
 		}
 
-		internal static void Nearest(Vector3D engineer, string arguments, out string message)
+		internal static void Nearest_blocks(Vector3D engineer, string query, out string message)
 		{
-			message = "NotImplemented";
+			if(selectedGrid != null && selectedGrid.Closed) selectedGrid = null;
+
+			if(selectedGrid == null)
+			{	message = "You should select grid first using command: `select_grid name`.";
+				return;
+			}
+
+			int radius = 10;
+			query = query.Trim(MyTrim);
+
+			var bs = new BoundingSphereD(engineer, radius);
+			var blocks = selectedGrid.GetBlocksInsideSphere(ref bs);
+
+			MyMarkdown.Clear();
+			MyMarkdown.Append($"# NEAREST BLOCKS MATCHES '{query}' (RADIUS {Distance(radius)})");
+			foreach(var b in blocks)
+			{
+				if(b.FatBlock == null)
+				{	MyMarkdown.Add("SLIM BLOCKS", SlimBlockDescription(b));
+				}
+				else
+				{	MyMarkdown.Add("FAT BLOCKS", SlimBlockDescription(b));
+				}
+			}
+
+			message = MyMarkdown.Result();
 		}
 
 		internal static void Select(ObjectType type, Vector3D engineer, string query, out string message, int radius = 1000)
@@ -367,14 +403,16 @@ namespace LLE
 
 			switch(type)
 			{	case ObjectType.LargeShip:
-					selectedGrid = matches[0];
-					break;
+					selectedGrid = matches[0] as IMyCubeGrid;
+					if(selectedGrid == null) message = $"Error: {Quotes(name)} is {category}";
+					return;
 				case ObjectType.Asteroid:
-					selectedAsteroid = matches[0];
-					break;
+					selectedAsteroid = matches[0] as MyVoxelBase;
+					if(selectedAsteroid == null) message = $"Error: {Quotes(name)} is {category}";
+					return;
 				default:
 					message = "Internal error";
-					break;
+					return;
 			}
 		}
 	}
