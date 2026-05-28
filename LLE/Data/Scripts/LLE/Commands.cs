@@ -20,6 +20,7 @@ vision             - Get current visual input (what the bot sees right now).
 search 'substring' - Find any objects by partial match. Ex: `search`, `search STATION`, `search Steel Plate`
 info 'name'        - Get detailed information about a specific object.
 fly 'name'         - Fly to a specific object. Executes flight with periodic reports.
+fly I,J,K          - Fly to specific grid coorfinates
 look at 'name'     - Just rotate to object
 grind 'block_name' - Grind a specific block.
 hack 'block_name'  - Grind a specific block just below the hacking point (weld it back to restore functionality).
@@ -41,6 +42,9 @@ put 'item' into 'block name'
 * Interruption: Any action can be interrupted by the `cancel` command.
 * Ambiguity: If a command target is ambiguous (e.g., multiple blocks with the same name),
 * the execution layer returns an error and a list of options instead of executing.
+
+Path finding: safiest (default) / shortest / scouting / prefer open space
+
 */
 
 namespace LLE

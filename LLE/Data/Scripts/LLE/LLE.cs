@@ -277,7 +277,10 @@ namespace LLE
 				var engineer = Utilities.GetEngineerCenter(ch);
 				string message;
 
-				if(command == "SEARCH")
+				if(command == "HELP")
+				{	// TODO
+				}
+				else if(command == "SEARCH")
 				{	string r = Commands.Search(engineer, 500, arguments);
 					MyConsole.AddMultiline(r);
 				}
