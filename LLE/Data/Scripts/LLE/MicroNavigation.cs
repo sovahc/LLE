@@ -6,10 +6,8 @@ namespace LLE
 {
 	class MicroNavigation
 	{
-		private const double lookaheadDistance = 0.5;
 		private const double pathCorrectionStrength = 0.1;
-		private const double arrivalThreshold = 1.0;
-		private const double maxVelocity = 20.0;
+		private const double arrivalThreshold = 0.5;
 		private List<Vector3D> path;
 		private int currentWaypointIndex;
 		private StuckDetector stuckDetector = new StuckDetector();
@@ -35,10 +33,13 @@ namespace LLE
 			if (Arrived()) return Vector3D.Zero;
 
 			// 1. Find the lookahead point on the path ahead
-			currentTargetPoint = FindLookaheadPoint(currentPosition, lookaheadDistance);
+			currentTargetPoint = path[currentWaypointIndex]; //FindLookaheadPoint(lookaheadDistance);
 
 			// 1b. Find nearest point on current path segment (for correction)
 			Vector3D nearestOnPath = FindNearestPointOnPath(currentPosition);
+
+			Drawing.RoundMarker(currentTargetPoint, Color.HotPink);
+			Drawing.RoundMarker(nearestOnPath, Color.Brown);
 
 			// 2. Compute desired velocity (Seek + Arrive)
 			Vector3D toTarget = currentTargetPoint - currentPosition;
@@ -47,13 +48,14 @@ namespace LLE
 			if (distance < arrivalThreshold)
 			{
 				// Very close to waypoint, switch to next
-				currentWaypointIndex++;
+				++currentWaypointIndex;
 				return ComputeDesiredVelocity(currentPosition, currentVelocity);
 			}
 
 			// Maximum speed depends on distance (slow down before turns)
-			double maxSpeed = ComputeMaxSpeedForSegment(currentWaypointIndex);
-			double desiredSpeed = Math.Min(maxSpeed, distance * 2.0); // Arrive behavior
+			double maxSpeed = 5;
+			MyConsole.Add($"maxSpeed = {maxSpeed}");
+			double desiredSpeed = Math.Min(maxSpeed, distance * 5.0); // Arrive behavior
 
 			// 3. Dual-target steering: main target + path correction
 			Vector3D mainVelocity = toTarget.Normalized() * desiredSpeed;
@@ -67,10 +69,9 @@ namespace LLE
 			Vector3D acceleration = velocityError * 5.0; // P coefficient
 
 			currentVelocity += acceleration * DeltaTime;
-			if (currentVelocity.LengthSquared() > maxVelocity * maxVelocity)
-			{
-				currentVelocity = currentVelocity.Normalized() * maxVelocity;
-			}
+			//if (currentVelocity.LengthSquared() > maxVelocity * maxVelocity)
+			//	currentVelocity = currentVelocity.Normalized() * maxVelocity;
+
 			return currentVelocity;
 		}
 
@@ -82,31 +83,8 @@ namespace LLE
 			Vector3D localThrust = Vector3D.TransformNormal(thrust, MatrixD.Transpose(worldMatrix));
 			Vector3 move = (Vector3)localThrust;
 			
-			// Clamp to unit vector for MoveAndRotate input range
 			if (move.LengthSquared() > 1) move.Normalize();
-			
 			return move;
-		}
-
-		Vector3D FindLookaheadPoint(Vector3D pos, double distance)
-		{
-			// Walk along the path until distance meters are accumulated
-			double accumulated = 0;
-			for (int i = currentWaypointIndex; i < path.Count - 1; i++)
-			{
-				Vector3D segmentStart = path[i];
-				Vector3D segmentEnd = path[i + 1];
-				double segmentLength = (segmentEnd - segmentStart).Length();
-
-				if (accumulated + segmentLength > distance)
-				{
-					// Lookahead point is within this segment
-					double t = (distance - accumulated) / segmentLength;
-					return Vector3D.Lerp(segmentStart, segmentEnd, t);
-				}
-				accumulated += segmentLength;
-			}
-			return path[path.Count - 1]; // End of path
 		}
 
 		Vector3D FindNearestPointOnPath(Vector3D pos)
@@ -128,21 +106,6 @@ namespace LLE
 			t = Math.Max(0, Math.Min(1, t)); // Clamp to segment
 
 			return segmentStart + segment * t;
-		}
-
-		double ComputeMaxSpeedForSegment(int waypointIndex)
-		{
-			// Slow down before sharp turns
-			if (waypointIndex < path.Count - 2)
-			{
-				Vector3D dir1 = (path[waypointIndex + 1] - path[waypointIndex]).Normalized();
-				Vector3D dir2 = (path[waypointIndex + 2] - path[waypointIndex + 1]).Normalized();
-				double dot = Vector3D.Dot(dir1, dir2);
-
-				if (dot < 0.5) return 2.5; // Sharp turn
-				if (dot < 0.8) return 4.0; // Medium turn
-			}
-			return 10.0; // Straight section
 		}
 	}
 

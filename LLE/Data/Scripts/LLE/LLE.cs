@@ -325,14 +325,15 @@ namespace LLE
 				}
 				else
 				{
-					Vector2 rot; float roll;
-					springController.Update(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
-						navigation.currentTargetPoint, grid_A.WorldMatrix.Up, 0.2, out rot, out roll);
+					var ec = Utilities.GetEngineerCenter(ch);
 
-					var center = Utilities.GetEngineerCenter(ch);
-					var desiredVel = navigation.ComputeDesiredVelocity(center, ch.Physics.LinearVelocity);
-					var move = navigation.ComputeMoveInput(desiredVel, ch.Physics.LinearVelocity, ch.WorldMatrix);
-					ch.MoveAndRotate(move, rot, roll);
+					Vector2 rotation; float roll;
+					springController.Update(ec, ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
+						navigation.currentTargetPoint, grid_A.WorldMatrix.Up, 0.2, out rotation, out roll);
+
+					var desiredVelocity = navigation.ComputeDesiredVelocity(ec, ch.Physics.LinearVelocity);
+					var move = navigation.ComputeMoveInput(desiredVelocity, ch.Physics.LinearVelocity, ch.WorldMatrix);
+					ch.MoveAndRotate(move, rotation, roll);
 				}
 			}
 			else if (mouse && grid_A == grid_B && grid_A != null)
@@ -348,6 +349,8 @@ namespace LLE
 					var grid = grid_A;
 
 					List<Vector3D> path = new List<Vector3D>();
+
+					path.Add(Utilities.GetEngineerCenter(ch));
 
 					for(int i = 0; i < astar.result.Count; ++i)
 					{	
@@ -515,9 +518,7 @@ namespace LLE
 				if (block != null) DrawTraversability(block);
 			}
 
-			if(navigationActive)
-			{	Drawing.RoundMarker(Utilities.GetEngineerCenter(ch), Color.BlueViolet);
-			}
+			//if(navigationActive) Drawing.RoundMarker(Utilities.GetEngineerCenter(ch), Color.BlueViolet);
 
 			MyConsole.Render(font);
 
