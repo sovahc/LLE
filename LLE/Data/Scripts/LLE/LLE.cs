@@ -221,11 +221,9 @@ namespace LLE
 	public class LLE : MySessionComponentBase
 	{
 		private static Font font;
-		IMyCubeGrid grid_A, grid_B;
-		Vector3I point_A, point_B;
+
+		IMyCubeGrid selectedGrid;
 		Vector3I selectedBlock;
-		AStar astar;
-		const int AStarBorder = 1;
 
 		MicroNavigation navigation = new MicroNavigation();
 		bool navigationActive;
@@ -286,23 +284,7 @@ namespace LLE
 				string message = null;
 
 				if(command == "HELP")
-				{	// TODO
-				}
-				else if(command == "SEARCH")
-				{	string r = Commands.Search(engineer, 500, arguments);
-					MyConsole.AddMultiline(r);
-				}
-				else if(command == "FLY")
-				{	Vector3D point;
-					bool ok = Commands.Fly(engineer, arguments, out message, out point);
-
-					if(ok)
-					{	List<Vector3D> path = new List<Vector3D>();
-						path.Add(engineer);
-						path.Add(point);
-						navigationActive = true;
-						navigation.Fly(path);
-					}
+				{	Commands.Help(out message);
 				}
 				else if(command == "SELECT_ASTEROID")
 				{	Commands.Select(ObjectType.Asteroid, engineer, arguments, out message);
@@ -310,159 +292,17 @@ namespace LLE
 				else if(command == "SELECT_GRID")
 				{	Commands.Select(ObjectType.LargeShip, engineer, arguments, out message);
 				}
-				else if(command == "NEAREST_BLOCKS")
-				{	Commands.Nearest_blocks(engineer, arguments, out message);
+				else if(command == "FLY")
+				{	Commands.Fly(engineer, arguments, out message);
 				}
 				else
-				{	message = $"Unknown command {command}";
+				{	message = $"Unknown command '{command}'";
 				}
 				MyConsole.AddMultiline(message);
 			}
 
-			var pm = ch.GetHeadMatrix(false);
-
-			if (MyAPIGateway.Input.IsNewLeftMousePressed())
-			{	Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_A, out selectedBlock, out point_A);
-				MyConsole.Add($"selected {selectedBlock}");
-			}
-
-			if (MyAPIGateway.Input.IsNewRightMousePressed())
-			{	Utilities.MyRaycast(pm.Translation, pm.Forward, out grid_B, out selectedBlock, out point_B);
-				MyConsole.Add($"selected {selectedBlock}");
-			}
-
-			bool mouse = MyAPIGateway.Input.IsNewLeftMousePressed() ||
-				MyAPIGateway.Input.IsNewRightMousePressed();
-
-			if(navigationActive)
-			{	if(mouse)
-				{	navigationActive = false;
-					MyConsole.Add("Navigation: Cancelled", Color.Red);
-				}
-				else if(navigation.Arrived())
-				{	navigationActive = false;
-					MyConsole.Add("Navigation: Arrived", Color.BlueViolet);
-				}
-				else if(navigation.Stuck)
-				{	navigationActive = false;
-					MyConsole.Add("Navigation: Stuck", Color.DarkRed);
-				}
-				else
-				{
-					var ec = Utilities.GetEngineerCenter(ch);
-
-					Vector2 rotation = Vector2.Zero;
-					float roll = 0;
-
-					var gridUp = grid_A != null ? grid_A.WorldMatrix.Up : ch.WorldMatrix.Up;
-
-					if(!navigation.ShortSegment)
-						springController.Update(ec, ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
-							navigation.currentTargetPoint, gridUp, 0.2, out rotation, out roll);
-
-					var desiredVelocity = navigation.ComputeDesiredVelocity(ec, ch.Physics.LinearVelocity);
-					var move = navigation.ComputeMoveInput(desiredVelocity, ch.Physics.LinearVelocity, ch.WorldMatrix);
-					ch.MoveAndRotate(move, rotation, roll);
-				}
-			}
-			else if (mouse && grid_A == grid_B && grid_A != null)
-			{
-				RunAstar(grid_A);
-			}
-
-			if (astar != null && !astar.Completed())
-			{	astar.Iteration();
-
-				if(astar.Completed())
-				{
-					var grid = grid_A;
-
-					List<Vector3D> path = new List<Vector3D>();
-
-					path.Add(Utilities.GetEngineerCenter(ch));
-
-					for(int i = 0; i < astar.result.Count; ++i)
-					{	
-						var v = astar.result[i] + grid.Min - AStarBorder;
-
-						path.Add(grid.GridIntegerToWorld(v));				
-					}
-	
-					navigationActive = true;
-					navigation.Fly(path);
-				}
-			}
+			//var pm = ch.GetHeadMatrix(false);
 		}
-
-		private void RunAstar(IMyCubeGrid grid)
-		{
-			Vector3I gridSize = grid.Max - grid.Min + 1;
-
-			Log($"RunAstar {grid.Min} {grid.Max} {gridSize}");
-
-			var astarSize = gridSize + AStarBorder + AStarBorder;
-
-			if (astar == null || astar.Size != astarSize) astar = new AStar(astarSize);
-
-			List<IMySlimBlock> blocks = new List<IMySlimBlock>();
-			grid.GetBlocks(blocks);
-
-			using (var prof = new Profiler("fill"))
-			{
-				astar.Reset(true);
-
-				int unknownBlocks = 0;
-				foreach (var slim in blocks)
-				{
-					var p = slim.Position - grid.Min + AStarBorder;
-
-					Traversability t;
-					if (Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
-					{
-						var Min = slim.Min;
-						var Max = slim.Max;
-						Vector3I v;
-
-						if (Min == Max)
-						{
-							MatrixI m = new MatrixI(slim.Orientation);
-
-							Vector3I v2;
-							Traversability t2 = new Traversability();
-
-							for (v.Z = -1; v.Z <= 1; ++v.Z)
-								for (v.Y = -1; v.Y <= 1; ++v.Y)
-									for (v.X = -1; v.X <= 1; ++v.X)
-									{
-										Vector3I.TransformNormal(ref v, ref m, out v2);
-										t2[v2] = t[v];
-									}
-							astar.SetTraversability(p, t2);
-						}
-						else
-						{
-							for (v.Z = Min.Z; v.Z <= Max.Z; ++v.Z)
-								for (v.Y = Min.Y; v.Y <= Max.Y; ++v.Y)
-									for (v.X = Min.X; v.X <= Max.X; ++v.X)
-										astar.SetTraversability(v - grid.Min + AStarBorder, Traversability.Blocked);
-						}
-					}
-					else
-					{
-						astar.SetTraversability(p, Traversability.Blocked);
-						++unknownBlocks;
-					}
-				}
-				MyConsole.Add($"unknownBlocks {unknownBlocks}", Color.Yellow);
-				MyConsole.Add($"{prof}", Color.IndianRed);
-			}
-
-			var a = point_A - grid.Min + AStarBorder;
-			var b = point_B - grid.Min + AStarBorder;
-			astar.RunCalculation(a, b);
-		}
-
-		Vector3D sweptCapsulePosition;
 
 		public override void Draw()
 		{
@@ -481,96 +321,18 @@ namespace LLE
 				return;
 			}
 
-			if(MyAPIGateway.Input.IsNewRightMousePressed())
-				sweptCapsulePosition = pm.Translation + pm.Forward * 5;
-			
-			if (grid_B != null)
-			{
-				List<Vector3D> cap = new List<Vector3D>();
-				Geometry.SweptCapsule(Constants.EngineerCapsuleHeight/2, Constants.EngineerCapsuleRadius, 2, cap);
-
-				for(int i = 0; i < cap.Count; ++i) cap[i] += sweptCapsulePosition;
-
-				foreach(var p in cap)
-					Drawing.RoundMarker(p, Color.Magenta);
-
-				Vector3I v;
-
-				Vector3I min = Vector3I.MaxValue;
-				Vector3I max = Vector3I.MinValue;
-
-				for(int i = 0; i < cap.Count; ++i)
-				{	v = grid_B.WorldToGridInteger(cap[i]);
-
-					min = Vector3I.Min(min, v);
-					max = Vector3I.Max(max, v);
-				}
-
-				int blc = 0;
-
-				for(v.Z = min.Z; v.Z <= max.Z; ++v.Z)
-					for(v.Y = min.Y; v.Y <= max.Y; ++v.Y)
-						for(v.X = min.X; v.X <= max.X; ++v.X)
-						{
-							IMySlimBlock b = grid_B.GetCubeBlock(v);
-							if(b != null)
-							{	Utilities.HighlightCell(grid_B, v, Color.Cyan);
-								++blc;
-							}
-							else
-								Utilities.HighlightCell(grid_B, v, Color.DarkCyan);
-						}
-
-				if(MyAPIGateway.Input.IsNewRightMousePressed())
-					MyConsole.Add($"{blc}", Color.GreenYellow);
-			}
-
-			if(grid_A != null && astar != null && astar.Completed())
-			{	var path = astar.result;
-				for (int p = 0; p < astar.result.Count; ++p)
-				{	var v = path[p] + grid_A.Min - AStarBorder;
-					Drawing.RoundMarker(grid_A.GridIntegerToWorld(v), Color.Yellow);
-				}
-			}
-
-			if (grid_A != null) Utilities.HighlightCell(grid_A, point_A, Color.Green);
-			if (grid_A != null)
-			{	var block = grid_A.GetCubeBlock(selectedBlock);
+			if (selectedGrid != null)
+			{	var block = selectedGrid.GetCubeBlock(selectedBlock);
 				
-				if (block != null) Collisions.Draw(grid_A, block);
+				if (block != null)
+				{	Collisions.Draw(selectedGrid, block);
+					//DrawTraversability(block);
+				}
 			}
-			if (grid_B != null) Utilities.HighlightCell(grid_B, point_B, Color.Red);
-
-			if (grid_A != null && selectedBlock != null)
-			{
-				var block = grid_A.GetCubeBlock(selectedBlock);
-				if (block != null) DrawTraversability(block);
-			}
-
-			//if(navigationActive) Drawing.RoundMarker(Utilities.GetEngineerCenter(ch), Color.BlueViolet);
 
 			MyConsole.Render(font);
 
 			Common.Call_Add_Billboards(); // just for sure
-		}
-
-		private void DrawTraversability(IMySlimBlock block)
-		{
-			if(astar == null) return;
-
-			Traversability trav = astar.GetTraversability(block.Position - grid_A.Min + AStarBorder);
-
-			var zero = grid_A.GridIntegerToWorld(selectedBlock);
-
-			var dirs = Constants.SixDirections;
-
-			for (int d = 0; d < dirs.Length; ++d)
-			{
-				Vector3I dir = dirs[d];
-				var world = (grid_A.GridIntegerToWorld(selectedBlock + dir) - zero) * 0.5 + zero;
-				Drawing.RoundMarker(world, trav[dirs[d]] ? Color.Gray : Color.Lime);
-			}
-			Drawing.RoundMarker(zero, trav[0,0,0] ? Color.Black : Color.Green);
 		}
 
 		void OnEntityAdd(IMyEntity entity)
