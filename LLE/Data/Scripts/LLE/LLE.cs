@@ -168,7 +168,8 @@ namespace LLE
 		}
 
 		public static void AddMultiline(string text)
-		{
+		{	if(text == null) return;
+
 			foreach(var line in text.Split('\n'))
 			{	if(line.StartsWith("##")) Add(line, Color.Blue);
 				else if(line.StartsWith("#")) Add(line, Color.BlueViolet);
@@ -272,10 +273,10 @@ namespace LLE
 
 				command = command.ToUpperInvariant();
 
-				Log($"command '{command}' arguments '{arguments}'");
+				MyConsole.Add($"command '{command}' arguments '{arguments}'", Color.LightCyan);
 
 				var engineer = Utilities.GetEngineerCenter(ch);
-				string message;
+				string message = null;
 
 				if(command == "HELP")
 				{	// TODO
@@ -287,7 +288,6 @@ namespace LLE
 				else if(command == "FLY")
 				{	Vector3D point;
 					bool ok = Commands.Fly(engineer, arguments, out message, out point);
-					MyConsole.AddMultiline(message);
 
 					if(ok)
 					{	List<Vector3D> path = new List<Vector3D>();
@@ -297,6 +297,13 @@ namespace LLE
 						navigation.Fly(path);
 					}
 				}
+				else if(command == "SELECT")
+				{	Commands.Select(engineer, arguments, out message);
+				}
+				else if(command == "NEAREST")
+				{	Commands.Nearest(engineer, arguments, out message);
+				}
+				MyConsole.AddMultiline(message);
 			}
 
 			var pm = ch.GetHeadMatrix(false);

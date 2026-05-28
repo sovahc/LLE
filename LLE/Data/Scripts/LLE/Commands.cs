@@ -14,10 +14,13 @@ using VRageMath;
 /*
 # Command Reference
 
-cancel             - Immediately cancel the current action and return to IDLE.
-stop               - Stop movement
-vision             - Get current visual input (what the bot sees right now).
-search 'substring' - Find any objects by partial match. Ex: `search`, `search STATION`, `search Steel Plate`
+help                  - this message
+cancel                - Immediately cancel the current action and return to IDLE.
+stop                  - Stop movement
+vision                - Get current visual input (what the bot sees right now).
+select 'name'         - Select object of interest
+nearest ['substring'] - Show the nearest 5 blocks whose names contain 'substring'.
+search ['substring']  - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
 info 'name'        - Get detailed information about a specific object.
 fly 'name'         - Fly to a specific object. Executes flight with periodic reports.
 fly I,J,K          - Fly to specific grid coorfinates
@@ -99,6 +102,8 @@ namespace LLE
 
 	public static class Commands
 	{
+		private static MyEntity selected;
+
 		private static readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
 		private static readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
 
@@ -294,22 +299,8 @@ namespace LLE
 				}
 			}
 
-			if(matches.Count == 0)
-			{	message = $"Error: object '{to}' not found, use the exact object name.";
-				point = Vector3D.Zero;
-				return false;
-			}
 			if(matches.Count != 1)
-			{	tmp.Clear();
-				tmp.Append($"Error: multiple objects match '{to}':\n");
-				foreach(var e in matches)
-				{	string category, name;
-					Description(e, out category, out name);
-					double distance = (e.WorldMatrix.Translation - from).Length();
-					tmp.Append($"* {category} {Quotes(name)} → {Distance(distance)}\n");
-				}
-				tmp.Append("\n\n");
-				message = tmp.ToString();
+			{	message = MyError(from, to, matches);
 				point = Vector3D.Zero;
 				return false;
 			}
@@ -317,6 +308,60 @@ namespace LLE
 			message = "Executing...";
 			point = matches[0].WorldMatrix.Translation;
 			return true;
+		}
+
+		private static string MyError(Vector3D engineer, string query, List<MyEntity> matches)
+		{
+			if(matches.Count == 0)
+				return $"Error: object '{query}' not found, use the exact object name.";
+
+			string message;
+			tmp.Clear();
+			tmp.Append($"Error: multiple objects match '{query}':\n");
+			foreach (var e in matches)
+			{
+				string category, name;
+				Description(e, out category, out name);
+				double distance = (e.WorldMatrix.Translation - engineer).Length();
+				tmp.Append($"* {category} {Quotes(name)} → {Distance(distance)}\n");
+			}
+			tmp.Append("\n\n");
+			message = tmp.ToString();
+			return message;
+		}
+
+		internal static void Nearest(Vector3D engineer, string arguments, out string message)
+		{
+			message = "NotImplemented";
+		}
+
+		internal static void Select(Vector3D engineer, string query, out string message, int radius = 1000)
+		{
+			query = query.Trim(MyTrim);
+			
+			BoundingSphereD S = new BoundingSphereD(engineer, radius);
+			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
+
+			List<MyEntity> matches = new List<MyEntity>();
+			
+			foreach(var e in entities)
+			{	
+				if (e.Closed) continue;
+
+				string category, name;
+
+				Description(e, out category, out name);
+
+				if(Include(query, name) || Include(query, category)) matches.Add(e);
+			}
+
+			if(matches.Count != 1)
+			{	message = MyError(engineer, query, matches);
+				return;
+			}
+
+			selected = matches[0];
+			message = "OK";
 		}
 	}
 }
