@@ -6,7 +6,6 @@ namespace LLE
 {
 	class MicroNavigation
 	{
-		private const double pathCorrectionStrength = 0.1;
 		private const double arrivalThreshold = 0.5;
 		private List<Vector3D> path;
 		private int currentWaypointIndex;
@@ -32,47 +31,31 @@ namespace LLE
 		{
 			if (Arrived()) return Vector3D.Zero;
 
-			// 1. Find the lookahead point on the path ahead
-			currentTargetPoint = path[currentWaypointIndex]; //FindLookaheadPoint(lookaheadDistance);
-
-			// 1b. Find nearest point on current path segment (for correction)
-			Vector3D nearestOnPath = FindNearestPointOnPath(currentPosition);
+			currentTargetPoint = path[currentWaypointIndex];
 
 			Drawing.RoundMarker(currentTargetPoint, Color.HotPink);
-			Drawing.RoundMarker(nearestOnPath, Color.Brown);
 
-			// 2. Compute desired velocity (Seek + Arrive)
 			Vector3D toTarget = currentTargetPoint - currentPosition;
 			double distance = toTarget.Length();
 
 			if (distance < arrivalThreshold)
-			{
-				// Very close to waypoint, switch to next
-				++currentWaypointIndex;
+			{	++currentWaypointIndex;
 				return ComputeDesiredVelocity(currentPosition, currentVelocity);
 			}
 
-			// Maximum speed depends on distance (slow down before turns)
-			double maxSpeed = 5;
-			MyConsole.Add($"maxSpeed = {maxSpeed}");
-			double desiredSpeed = Math.Min(maxSpeed, distance * 5.0); // Arrive behavior
+			double maximalSpeed = 10;
+			double desiredSpeed = Math.Min(maximalSpeed, distance * 5.0); // Arrive behavior
 
-			// 3. Dual-target steering: main target + path correction
-			Vector3D mainVelocity = toTarget.Normalized() * desiredSpeed;
-			Vector3D correctionVelocity = (nearestOnPath - currentPosition) * pathCorrectionStrength * desiredSpeed;
-			Vector3D desiredVelocity = mainVelocity + correctionVelocity;
+			Vector3D desiredVelocity = toTarget.Normalized() * desiredSpeed;
 
 			//Stuck = stuckDetector.IsStuck(currentPosition, desiredVelocity, DeltaTime); // disabled. buggy
 
-			// 4. Smooth acceleration (PD controller)
+			// Smooth acceleration (PD controller)
 			Vector3D velocityError = desiredVelocity - currentVelocity;
-			Vector3D acceleration = velocityError * 5.0; // P coefficient
+			var P_coefficient = 5.0;
+			Vector3D acceleration = velocityError * P_coefficient;
 
-			currentVelocity += acceleration * DeltaTime;
-			//if (currentVelocity.LengthSquared() > maxVelocity * maxVelocity)
-			//	currentVelocity = currentVelocity.Normalized() * maxVelocity;
-
-			return currentVelocity;
+			return currentVelocity + acceleration * DeltaTime;
 		}
 
 		public Vector3 ComputeMoveInput(Vector3D desiredVelocity, Vector3D currentVelocity, MatrixD worldMatrix)
@@ -85,27 +68,6 @@ namespace LLE
 			
 			if (move.LengthSquared() > 1) move.Normalize();
 			return move;
-		}
-
-		Vector3D FindNearestPointOnPath(Vector3D pos)
-		{
-			// Find nearest point on current segment to prevent drift
-			if (currentWaypointIndex >= path.Count - 1)
-				return path[path.Count - 1];
-
-			Vector3D segmentStart = path[currentWaypointIndex];
-			Vector3D segmentEnd = path[currentWaypointIndex + 1];
-			Vector3D segment = segmentEnd - segmentStart;
-			double segmentLength = segment.Length();
-
-			if (segmentLength < 0.001)
-				return segmentStart;
-
-			// Project position onto segment
-			double t = Vector3D.Dot(pos - segmentStart, segment) / (segmentLength * segmentLength);
-			t = Math.Max(0, Math.Min(1, t)); // Clamp to segment
-
-			return segmentStart + segment * t;
 		}
 	}
 
