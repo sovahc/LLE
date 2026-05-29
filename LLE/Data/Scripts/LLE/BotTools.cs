@@ -12,15 +12,25 @@ namespace LLE
 	public class BotTools
 	{
 		private MyEntity3DSoundEmitter emitter;
+		private IMySlimBlock targetBlock;
+		private IMyCharacter bot;
 
-		public void Stop()
-		{	if(emitter == null) return;
-			emitter.StopSound(false);
-			emitter = null;
+		public BotTools(IMyCharacter bot_)
+		{	bot = bot_;
 		}
 
-		public bool GrindBlock(IMyCharacter bot, IMySlimBlock block)
+		internal void Stop()
+		{	targetBlock = null;
+			
+			if(emitter != null)
+			{	emitter.StopSound(false);
+				emitter = null;
+			}
+		}
+
+		internal bool GrindBlock()
 		{
+			var block = targetBlock;
 			if(block == null) return false;
 
 			var inventory = bot.GetInventory();
@@ -86,7 +96,7 @@ namespace LLE
 			return true;
 		}
 
-		public static void GetStockpileComponents(IMySlimBlock block, Dictionary<string, int> components)
+		internal static void GetStockpileComponents(IMySlimBlock block, Dictionary<string, int> components)
 		{
 			components.Clear();
 
@@ -104,6 +114,11 @@ namespace LLE
 			block.GetMissingComponents(missing);
 
 			foreach (var kv in missing) components[kv.Key] -= kv.Value;
+		}
+
+		internal void SetTargetBlock(IMySlimBlock block)
+		{
+			targetBlock = block;
 		}
 	}
 }

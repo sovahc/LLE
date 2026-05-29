@@ -18,9 +18,7 @@ namespace LLE
 
 		IMyCubeGrid selectedGrid;
 		Vector3I selectedBlock, selectedFreeSpace;
-		bool grind;
-
-		BotTools botTools = new BotTools();
+		Commands commands;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -62,11 +60,13 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			Navigation.Update(ch);
+			if(commands != null) commands.Update();
 
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
 			{
+				if(commands == null) commands = new Commands(ch);
+
 				var p = cmd.Payload.Trim();
 
 				var command = Utilities.GetNextWord(ref p);
@@ -82,17 +82,16 @@ namespace LLE
 				{	Commands.Help(out message);
 				}
 				else if(command == "SELECT_ASTEROID")
-				{	Commands.Select(ObjectType.Asteroid, engineer, arguments, out message);
+				{	commands.Select(ObjectType.Asteroid, engineer, arguments, out message);
 				}
 				else if(command == "SELECT_GRID" || command == "SELECT")
-				{	Commands.Select(ObjectType.LargeShip, engineer, arguments, out message);
+				{	commands.Select(ObjectType.LargeShip, engineer, arguments, out message);
 				}
 				else if(command == "FLY")
-				{	Commands.Fly(ch, arguments, out message);
+				{	commands.Fly(arguments, out message);
 				}
 				else if(command == "GRIND")
-				{	if(selectedGrid != null) grind = true;
-					message = "Grinding...";
+				{	commands.Grind(arguments, out message);
 				}
 				else if(command == "TEST")
 				{	if(selectedGrid != null)
@@ -112,15 +111,6 @@ namespace LLE
 				{	message = $"Unknown command '{command}' use `help` to list all avialable commands.";
 				}
 				MyConsole.AddMultiline(message);
-			}
-
-			if(grind)
-			{	if(!botTools.GrindBlock(ch, selectedGrid.GetCubeBlock(selectedBlock)))
-				{	grind = false;
-					botTools.Stop();
-					MyConsole.Add("Stop");
-					//message = $"result {r}";
-				}
 			}
 
 			//var pm = ch.GetHeadMatrix(false);

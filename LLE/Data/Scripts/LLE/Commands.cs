@@ -12,19 +12,34 @@ using VRageMath;
 
 namespace LLE
 {
-	public static class Commands
+	public class Commands
 	{
-		private static IMyCubeGrid selectedGrid;
-		private static MyVoxelBase selectedAsteroid;
+		enum Action
+		{	Idle,
+			Flying,
+			Welding,
+			Grinding,			
+		}
 
-		private static readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
-		private static readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
+		private Action currentAction = Action.Idle;
 
-		private static readonly StringBuilder tmp = new StringBuilder();
+		private IMyCubeGrid selectedGrid;
+		private MyVoxelBase selectedAsteroid;
+
+		private IMyCharacter character;
+		
+		private Navigation navigation;
+		private BotTools botTools;
+
+		private readonly StringBuilder tmp = new StringBuilder();
 
 		private static readonly char[] MyTrim = new char [] {' ', '\t', '"', '\''};
 
-		public static void Help(out string message)
+		public Commands(IMyCharacter character_)
+		{	character = character_;			
+		}
+
+		internal static void Help(out string message)
 		{
 			message = @"# Command Reference
 
@@ -97,7 +112,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			return data.Contains(searchTerm);
 		}
 
-		private static string MyError(Vector3D engineer, string query, List<MyEntity> matches)
+		private string MyError(Vector3D engineer, string query, List<MyEntity> matches)
 		{
 			if(matches.Count == 0)
 				return $"Error: object '{query}' not found, use the exact object name.";
@@ -324,7 +339,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			message = MyMarkdown.Result();
 		}
 */
-		internal static void Select(ObjectType type, Vector3D engineer, string query, out string message, int radius = 1000)
+		internal void Select(ObjectType type, Vector3D engineer, string query, out string message, int radius = 1000)
 		{
 			query = query.Trim(MyTrim);
 			
@@ -382,7 +397,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			return false;
 		}
 
-		internal static void Fly(IMyCharacter ch, string arguments, out string message)
+		internal void Fly(string arguments, out string message)
 		{	
 			Vector3I to;
 			if(!TryParseIJK(arguments, out to))
@@ -395,7 +410,54 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			}
 
 			message = null;
-			Navigation.FlyToGrid(ch, selectedGrid, to);
+
+			navigation.FlyToGrid(selectedGrid, to);
+			currentAction = Action.Flying;
+		}
+
+		internal void Grind(string arguments, out string message)
+		{
+			Vector3I what;
+			if(!TryParseIJK(arguments, out what))
+			{	message = $"Error: invalid vector '{arguments}', use integer numbers, e.g `fly -1 5 2`";
+				return;
+			}
+			if(selectedGrid == null)
+			{	message = $"Error: you should select a grid first, use `select_grid name`";
+				return;
+			}
+			var block = selectedGrid.GetCubeBlock(what);
+			if(block == null)
+			{	message = $"Error: no block at {what}";
+				return;
+			}
+
+			botTools.SetTargetBlock(block);
+
+			currentAction = Action.Grinding;
+			message = "Grinding...";
+		}
+
+		internal void Update()
+		{
+			if(botTools == null) botTools = new BotTools(character);
+			if(navigation == null) navigation = new Navigation(character);
+
+			switch(currentAction)
+			{	case Action.Idle:
+					return;
+				case Action.Flying:
+					if(!navigation.Step())
+						currentAction = Action.Idle;
+					return;
+				case Action.Grinding:
+					if(!botTools.GrindBlock())
+					{	botTools.Stop();
+						MyConsole.Add("Stop");
+						currentAction = Action.Idle;
+					}
+					return;
+			}
 		}
 	}
 }

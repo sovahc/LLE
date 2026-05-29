@@ -1,26 +1,22 @@
-using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
-using Sandbox.Definitions;
-using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
-using VRage.Game;
-using VRage.Game.Components;
 using VRage.Game.ModAPI;
-using VRage.ModAPI;
-using VRage.Utils;
 using VRageMath;
 
 namespace LLE
 {
-	public static class Navigation
+	public class Navigation
 	{
-		private static MicroNavigation micro = new MicroNavigation();
-		private static DampedSpringController springController = new DampedSpringController();
-		private static Vector3D up;
+		private MicroNavigation micro = new MicroNavigation();
+		private DampedSpringController springController = new DampedSpringController();
+		private Vector3D up;
+		private IMyCharacter ch;
+
+		public Navigation(IMyCharacter ch_)
+		{	ch = ch_;
+		}
 		
-		internal static void FlyToGrid(IMyCharacter ch, IMyCubeGrid largeGrid, Vector3I toI)
+		internal void FlyToGrid(IMyCubeGrid largeGrid, Vector3I toI)
 		{
 			up = largeGrid.WorldMatrix.Up;
 
@@ -43,9 +39,9 @@ namespace LLE
 			MyConsole.Add("No direct path to destination point", Color.Red);
 		}
 
-		internal static void Update(IMyCharacter ch)
+		internal bool Step()
 		{
-			if(micro.Arrived()) return;
+			if(micro.Arrived()) return false;
 
 			bool mouse = MyAPIGateway.Input.IsNewLeftMousePressed() ||
 				MyAPIGateway.Input.IsNewRightMousePressed();
@@ -53,18 +49,18 @@ namespace LLE
 			if(mouse)
 			{	micro.Stop();
 				MyConsole.Add("Navigation: Cancelled", Color.Red);
-				return;
+				return false;
 			}
 			
 			if(micro.Arrived())
 			{	MyConsole.Add("Navigation: Arrived", Color.BlueViolet);
-				return;
+				return false;
 			}
 			
 			if(micro.Stuck)
 			{	micro.Stop();
 				MyConsole.Add("Navigation: Stuck", Color.DarkRed);
-				return;
+				return false;
 			}
 
 			var ec = Utilities.GetEngineerCenter(ch);
@@ -80,6 +76,8 @@ namespace LLE
 			var move = micro.ComputeMoveInput(desiredVelocity, ch.Physics.LinearVelocity, ch.WorldMatrix);
 			
 			ch.MoveAndRotate(move, rotation, roll);
+
+			return true;
 		}
 
 /*		AStar astar;
