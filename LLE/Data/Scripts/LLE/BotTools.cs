@@ -6,8 +6,6 @@ using VRage.Game.Entity;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using System.Collections.Generic;
-using System.Linq;
-using VRage.ObjectBuilders;
 
 namespace LLE
 {
