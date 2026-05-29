@@ -53,32 +53,34 @@ namespace LLE
 			if(mouse)
 			{	micro.Stop();
 				MyConsole.Add("Navigation: Cancelled", Color.Red);
+				return;
 			}
-			else if(micro.Arrived())
+			
+			if(micro.Arrived())
 			{	MyConsole.Add("Navigation: Arrived", Color.BlueViolet);
+				return;
 			}
-			else if(micro.Stuck)
+			
+			if(micro.Stuck)
 			{	micro.Stop();
 				MyConsole.Add("Navigation: Stuck", Color.DarkRed);
+				return;
 			}
-			else
-			{
-				var ec = Utilities.GetEngineerCenter(ch);
 
-				Vector2 rotation = Vector2.Zero;
-				float roll = 0;
+			var ec = Utilities.GetEngineerCenter(ch);
 
-				if(!micro.ShortSegment)
-					springController.Update(ec, ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
-						micro.currentTargetPoint, up, 0.2, out rotation, out roll);
+			Vector2 rotation = Vector2.Zero;
+			float roll = 0;
 
-				var desiredVelocity = micro.ComputeDesiredVelocity(ec, ch.Physics.LinearVelocity);
-				var move = micro.ComputeMoveInput(desiredVelocity, ch.Physics.LinearVelocity, ch.WorldMatrix);
-				
-				ch.MoveAndRotate(move, rotation, roll);
-			}
+			if(!micro.ShortSegment)
+				springController.Update(ec, ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
+					micro.currentTargetPoint, up, 0.2, out rotation, out roll);
+
+			var desiredVelocity = micro.ComputeDesiredVelocity(ec, ch.Physics.LinearVelocity);
+			var move = micro.ComputeMoveInput(desiredVelocity, ch.Physics.LinearVelocity, ch.WorldMatrix);
+			
+			ch.MoveAndRotate(move, rotation, roll);
 		}
-
 
 /*		AStar astar;
 		const int AStarBorder = 1;

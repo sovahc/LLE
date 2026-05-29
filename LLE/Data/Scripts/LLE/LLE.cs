@@ -223,7 +223,7 @@ namespace LLE
 		private static Font font;
 
 		IMyCubeGrid selectedGrid;
-		Vector3I selectedBlock;
+		Vector3I selectedBlock, selectedFreeSpace;
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -279,7 +279,7 @@ namespace LLE
 				MyConsole.Add($"command: {command} arguments: '{arguments}'", Color.Cyan);
 
 				var engineer = Utilities.GetEngineerCenter(ch);
-				string message = null;
+				string message;
 
 				if(command == "HELP")
 				{	Commands.Help(out message);
@@ -287,14 +287,14 @@ namespace LLE
 				else if(command == "SELECT_ASTEROID")
 				{	Commands.Select(ObjectType.Asteroid, engineer, arguments, out message);
 				}
-				else if(command == "SELECT_GRID")
+				else if(command == "SELECT_GRID" || command == "SELECT")
 				{	Commands.Select(ObjectType.LargeShip, engineer, arguments, out message);
 				}
 				else if(command == "FLY")
 				{	Commands.Fly(ch, arguments, out message);
 				}
 				else
-				{	message = $"Unknown command '{command}'";
+				{	message = $"Unknown command '{command}' use `help` to list all avialable commands.";
 				}
 				MyConsole.AddMultiline(message);
 			}
@@ -317,6 +317,11 @@ namespace LLE
 			{	font.String("No LLE_Loader is present.", new Vector2D(0.0, -0.1), 0.00075f, Color.Red);
 				Common.Call_Add_Billboards();
 				return;
+			}
+
+			if(MyAPIGateway.Input.IsNewLeftMousePressed())
+			{	Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
+					out selectedGrid, out selectedBlock, out selectedFreeSpace);
 			}
 
 			if (selectedGrid != null)
