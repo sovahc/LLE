@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text;
 using Sandbox.Definitions;
 using Sandbox.ModAPI;
 using VRage.Game;
@@ -209,6 +210,54 @@ namespace LLE
 
 			MyTransparentGeometry.AddBillboard(bb, false);
 			Common.Call_Add_Billboards();
+		}
+	}
+
+    public class MyMarkdown
+	{
+		private static readonly Dictionary<string, StringBuilder> data = new Dictionary<string, StringBuilder>();
+
+		private static readonly StringBuilder result = new StringBuilder();
+
+		public static void Clear()
+		{	
+			result.Clear();
+			foreach(var b in data.Values) b.Clear();
+		}
+
+		public static void Append(string s)
+		{	
+			result.Append(s);
+			result.Append('\n');
+		}
+
+		public static void Add(string category, string element)
+		{
+			StringBuilder b;
+
+			if(data.TryGetValue(category, out b))
+			{	b.Append(element);
+				b.Append('\n');
+				return;
+			}
+			
+			b = new StringBuilder();
+			b.Append(element);
+			b.Append('\n');
+			data[category] = b;
+		}
+
+		public static string Result()
+		{
+			foreach(var kv in data)
+			{	
+				if(kv.Value.Length > 0)
+				{	result.Append(kv.Key);
+					result.Append('\n');
+					result.Append(kv.Value);
+				}
+			}
+			return result.ToString();
 		}
 	}
 }
