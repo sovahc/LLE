@@ -6,6 +6,7 @@ using VRage.Game.Entity;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using System.Collections.Generic;
+using VRageMath;
 
 namespace LLE
 {
@@ -14,6 +15,7 @@ namespace LLE
 		private MyEntity3DSoundEmitter emitter;
 		private IMySlimBlock targetBlock;
 		private IMyCharacter bot;
+		private MyParticleEffect particleEffect;
 
 		public BotTools(IMyCharacter bot_)
 		{	bot = bot_;
@@ -23,8 +25,14 @@ namespace LLE
 		{	targetBlock = null;
 			
 			if(emitter != null)
-			{	emitter.StopSound(false);
+			{
+				emitter.StopSound(false);
 				emitter = null;
+			}
+			if(particleEffect != null)
+			{
+				particleEffect.Stop();
+				particleEffect = null;
 			}
 		}
 
@@ -82,9 +90,20 @@ namespace LLE
 				emitter.PlaySound(new MySoundPair(sound));
 			}
 
-			var ParticleName = isWelder ? MyParticleEffectsNameEnum.WelderContactPoint : "AiEnabled_AngleGrinder";
-
-			// TODO Particle effect
+			if (particleEffect == null)
+			{
+				var particleName = isWelder ? MyParticleEffectsNameEnum.WelderContactPoint : MyParticleEffectsNameEnum.ShipGrinder;
+				MatrixD m = MatrixD.Identity;
+				Vector3D pos = Vector3D.Zero;
+				if (MyParticlesManager.TryCreateParticleEffect(particleName, ref m, ref pos, uint.MaxValue, out particleEffect))
+					particleEffect.UserRadiusMultiplier = isWelder ? 4f : 2f;
+			}
+			if (particleEffect != null)
+			{
+				BoundingBoxD box;
+				block.GetWorldBoundingBox(out box, false);
+				particleEffect.WorldMatrix = box.Matrix;
+			}
 
 			// Handle block destruction
 			if (block.IsDestroyed && block.StockpileEmpty)
