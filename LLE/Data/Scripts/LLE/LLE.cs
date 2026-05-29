@@ -322,6 +322,7 @@ namespace LLE
 			if(MyAPIGateway.Input.IsNewLeftMousePressed())
 			{	Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
 					out selectedGrid, out selectedBlock, out selectedFreeSpace);
+				MyConsole.Add($"selectedFreeSpace {selectedFreeSpace}", Color.DarkSalmon);
 			}
 
 			if (selectedGrid != null)
@@ -331,6 +332,7 @@ namespace LLE
 				{	Collisions.Draw(selectedGrid, block);
 					//DrawTraversability(block);
 				}
+				Utilities.HighlightCell(selectedGrid, selectedFreeSpace, Color.GreenYellow);
 			}
 
 			MyConsole.Render(font);

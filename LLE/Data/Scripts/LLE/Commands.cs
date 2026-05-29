@@ -437,7 +437,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				return;
 			}
 
-			message = "Executing...";
+			message = null;
 			MacroNavigation.FlyToGrid(ch, selectedGrid, to);
 		}
 	}

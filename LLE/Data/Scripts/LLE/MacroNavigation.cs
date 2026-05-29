@@ -25,7 +25,7 @@ namespace LLE
 			up = largeGrid.WorldMatrix.Up;
 
 			Vector3D from = Utilities.GetEngineerCenter(ch);
-			Vector3D to = largeGrid.WorldToGridInteger(toI);
+			Vector3D to = largeGrid.GridIntegerToWorld(toI);
 
 			double dist;
 			IMySlimBlock slimBlock;
