@@ -80,7 +80,7 @@ namespace LLE
 * select_grid 'name'		- Select ship or station on which grind, weld and other operations will be performed.
 * select_asteroid 'name'	- Select asteroid on which mine operations will be performed.
 
-* nearest9					- Return 9 blocks around you, including block you stand on
+* nearest9					- Return 9 blocks around you, including the block you stand on
 * fly I J K					- Fly to specific grid coordinates (integer values)
 * grind I J K				- Grind a block at specific coordinates.
 * weld I J K				- Weld a block at specific coordinates.
@@ -99,7 +99,7 @@ nearest ['substring']  - Show the nearest 5 blocks whose names contain 'substrin
 search ['substring']   - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
 info 'name'        - Get detailed information about a specific object.
 fly 'name'         - Fly to a specific object. Executes flight with periodic reports.
-look at 'name'     - Just rotate to object
+look at 'name'     - Just rotate to the object
 hack 'block_name'  - Grind a specific block just below the hacking point (weld it back to restore functionality).
 weld 'block_name'  - Weld a specific block.
 mine 'block_name'  - Mine a specific ore deposit.
@@ -108,8 +108,8 @@ pickup 'name'      - Pick up a specified object.
 drop 'name' [quantity|all] - Drop a specified object.
 get 'item' from 'block name'
 put 'item' into 'block name'
-? move {forward|backward|left|right|up|down} {distance} - move to direction
-? unstuck movement
+? move {forward|backward|left|right|up|down} {distance} - move in direction
+? recover from stuck
 ? save to memory 'string'
 
 ## Execution Rules
@@ -119,7 +119,7 @@ put 'item' into 'block name'
 * Ambiguity: If a command target is ambiguous (e.g., multiple blocks with the same name),
 * the execution layer returns an error and a list of options instead of executing.
 
-Path finding: safiest (default) / shortest / scouting / prefer open space
+Path finding: safest (default) / shortest / scouting / prefer open space
 
 */
 
@@ -343,7 +343,7 @@ Path finding: safiest (default) / shortest / scouting / prefer open space
 			if(selectedGrid != null && selectedGrid.Closed) selectedGrid = null;
 
 			if(selectedGrid == null)
-			{	message = "You should select grid first using command: `select_grid name`.";
+			{	message = "You should select a grid first using command: `select_grid name`.";
 				return;
 			}
 
@@ -434,7 +434,7 @@ Path finding: safiest (default) / shortest / scouting / prefer open space
 				return;
 			}
 			if(selectedGrid == null)
-			{	message = $"Error: you should select grid first, use `select_grid name`";
+			{	message = $"Error: you should select a grid first, use `select_grid name`";
 				return;
 			}
 			
