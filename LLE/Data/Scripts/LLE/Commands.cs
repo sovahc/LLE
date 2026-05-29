@@ -8,7 +8,6 @@ using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ObjectBuilders;
-using VRage.Utils;
 using VRageMath;
 
 namespace LLE
@@ -426,7 +425,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			return false;
 		}
 
-		internal static void Fly(Vector3D from, string arguments, out string message)
+		internal static void Fly(IMyCharacter ch, string arguments, out string message)
 		{	
 			Vector3I to;
 			if(!TryParseIJK(arguments, out to))
@@ -437,8 +436,9 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			{	message = $"Error: you should select a grid first, use `select_grid name`";
 				return;
 			}
-			
-			message = "not implemented";
+
+			message = "Executing...";
+			MacroNavigation.FlyToGrid(ch, selectedGrid, to);
 		}
 	}
 }

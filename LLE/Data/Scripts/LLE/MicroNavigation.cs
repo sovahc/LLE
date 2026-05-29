@@ -7,7 +7,7 @@ namespace LLE
 	class MicroNavigation
 	{
 		private const double arrivalThreshold = 0.5;
-		private List<Vector3D> path;
+		private List<Vector3D> path = new List<Vector3D>();
 		private int currentWaypointIndex;
 		private double StuckTimer;
 
@@ -22,6 +22,10 @@ namespace LLE
 		public bool Arrived()
 		{
 			return currentWaypointIndex >= path.Count;
+		}
+
+		public void Stop()
+		{	path.Clear();		
 		}
 
 		public bool Stuck;

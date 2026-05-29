@@ -1,7 +1,85 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using Sandbox.Definitions;
+using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
+using VRage.Game;
+using VRage.Game.Components;
+using VRage.Game.ModAPI;
+using VRage.ModAPI;
+using VRage.Utils;
+using VRageMath;
+
 namespace LLE
 {
 	public static class MacroNavigation
 	{
+		private static MicroNavigation micro = new MicroNavigation();
+		private static DampedSpringController springController = new DampedSpringController();
+		private static Vector3D up;
+		
+		internal static void FlyToGrid(IMyCharacter ch, IMyCubeGrid largeGrid, Vector3I toI)
+		{
+			up = largeGrid.WorldMatrix.Up;
+
+			Vector3D from = Utilities.GetEngineerCenter(ch);
+			Vector3D to = largeGrid.WorldToGridInteger(toI);
+
+			double dist;
+			IMySlimBlock slimBlock;
+			LineD line = new LineD(from, to);
+			largeGrid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
+
+			if (slimBlock == null)
+			{	List<Vector3D> path = new List<Vector3D>();
+				path.Add(from);
+				path.Add(to);
+				micro.Fly(path);
+				return;
+			}
+
+			MyConsole.Add("No direct path to destination point", Color.Red);
+		}
+
+		internal static void Update(IMyCharacter ch)
+		{
+			if(micro.Arrived()) return;
+
+			bool mouse = MyAPIGateway.Input.IsNewLeftMousePressed() ||
+				MyAPIGateway.Input.IsNewRightMousePressed();
+
+			if(mouse)
+			{	micro.Stop();
+				MyConsole.Add("Navigation: Cancelled", Color.Red);
+			}
+			else if(micro.Arrived())
+			{	MyConsole.Add("Navigation: Arrived", Color.BlueViolet);
+			}
+			else if(micro.Stuck)
+			{	micro.Stop();
+				MyConsole.Add("Navigation: Stuck", Color.DarkRed);
+			}
+			else
+			{
+				var ec = Utilities.GetEngineerCenter(ch);
+
+				Vector2 rotation = Vector2.Zero;
+				float roll = 0;
+
+				if(!micro.ShortSegment)
+					springController.Update(ec, ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
+						micro.currentTargetPoint, up, 0.2, out rotation, out roll);
+
+				var desiredVelocity = micro.ComputeDesiredVelocity(ec, ch.Physics.LinearVelocity);
+				var move = micro.ComputeMoveInput(desiredVelocity, ch.Physics.LinearVelocity, ch.WorldMatrix);
+				
+				ch.MoveAndRotate(move, rotation, roll);
+			}
+		}
+
+
 /*		AStar astar;
 		const int AStarBorder = 1;
 
@@ -9,40 +87,9 @@ namespace LLE
 		{
 			var pm = ch.GetHeadMatrix(false);
 
-			bool mouse = MyAPIGateway.Input.IsNewLeftMousePressed() ||
-				MyAPIGateway.Input.IsNewRightMousePressed();
+			
 
-			if(navigationActive)
-			{	if(mouse)
-				{	navigationActive = false;
-					MyConsole.Add("Navigation: Cancelled", Color.Red);
-				}
-				else if(navigation.Arrived())
-				{	navigationActive = false;
-					MyConsole.Add("Navigation: Arrived", Color.BlueViolet);
-				}
-				else if(navigation.Stuck)
-				{	navigationActive = false;
-					MyConsole.Add("Navigation: Stuck", Color.DarkRed);
-				}
-				else
-				{
-					var ec = Utilities.GetEngineerCenter(ch);
-
-					Vector2 rotation = Vector2.Zero;
-					float roll = 0;
-
-					var gridUp = grid_A != null ? grid_A.WorldMatrix.Up : ch.WorldMatrix.Up;
-
-					if(!navigation.ShortSegment)
-						springController.Update(ec, ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
-							navigation.currentTargetPoint, gridUp, 0.2, out rotation, out roll);
-
-					var desiredVelocity = navigation.ComputeDesiredVelocity(ec, ch.Physics.LinearVelocity);
-					var move = navigation.ComputeMoveInput(desiredVelocity, ch.Physics.LinearVelocity, ch.WorldMatrix);
-					ch.MoveAndRotate(move, rotation, roll);
-				}
-			}
+			
 			else if (mouse && grid_A == grid_B && grid_A != null)
 			{
 				RunAstar(grid_A);

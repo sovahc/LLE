@@ -225,10 +225,6 @@ namespace LLE
 		IMyCubeGrid selectedGrid;
 		Vector3I selectedBlock;
 
-		MicroNavigation navigation = new MicroNavigation();
-		bool navigationActive;
-		DampedSpringController springController = new DampedSpringController();
-
 		public static void Log(string s) { Utilities.Log(s); }
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
@@ -269,6 +265,8 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
+			MacroNavigation.Update(ch);
+
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
 			{
@@ -293,7 +291,7 @@ namespace LLE
 				{	Commands.Select(ObjectType.LargeShip, engineer, arguments, out message);
 				}
 				else if(command == "FLY")
-				{	Commands.Fly(engineer, arguments, out message);
+				{	Commands.Fly(ch, arguments, out message);
 				}
 				else
 				{	message = $"Unknown command '{command}'";
