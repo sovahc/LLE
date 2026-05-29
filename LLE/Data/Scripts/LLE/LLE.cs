@@ -224,6 +224,9 @@ namespace LLE
 
 		IMyCubeGrid selectedGrid;
 		Vector3I selectedBlock, selectedFreeSpace;
+		bool grind;
+
+		BotTools botTools = new BotTools();
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -293,10 +296,37 @@ namespace LLE
 				else if(command == "FLY")
 				{	Commands.Fly(ch, arguments, out message);
 				}
+				else if(command == "GRIND")
+				{	if(selectedGrid != null) grind = true;
+					message = "Grind";
+				}
+				else if(command == "TEST")
+				{	if(selectedGrid != null)
+					{	var block = selectedGrid.GetCubeBlock(selectedBlock);
+						
+						message = "";
+						Dictionary<string, int> comp = new Dictionary<string, int>();
+						BotTools.GetStockpileComponents(block, comp);
+
+						foreach(var kv in comp) message += $"E {kv.Key} {kv.Value}\n";
+					}
+					else
+					{	message  = "error";
+					}
+				}
 				else
 				{	message = $"Unknown command '{command}' use `help` to list all avialable commands.";
 				}
 				MyConsole.AddMultiline(message);
+			}
+
+			if(grind)
+			{	if(!botTools.GrindBlock(ch, selectedGrid.GetCubeBlock(selectedBlock)))
+				{	grind = false;
+					botTools.Stop();
+					MyConsole.Add("Stop");
+					//message = $"result {r}";
+				}
 			}
 
 			//var pm = ch.GetHeadMatrix(false);
