@@ -76,26 +76,7 @@ namespace LLE
 
 			var ParticleName = isWelder ? MyParticleEffectsNameEnum.WelderContactPoint : "AiEnabled_AngleGrinder";
 
-			//var ParticleMatrix = bot.WorldMatrix;
-			//var position = ParticleMatrix.Translation;
-			//MyParticleEffect particle;
-			//if (MyParticlesManager.TryCreateParticleEffect(ParticleName, ref ParticleMatrix, ref position, uint.MaxValue, out particle))			{
-		  	//	particle.UserScale = 3;
-		  	//	//particle.OnDelete += Particle_OnDelete;
-			//}
-
-			// Play 3D sound
-			//var emitter = new MyEntity3DSoundEmitter(bot as MyEntity);
-			//emitter.SetPosition((Vector3)bot.GetPosition());
-			//var soundPair = new MySoundPair("ToolPlayGrindMetal");
-			//emitter.PlaySoundWithDistance(soundPair.SoundId);
-			//emitter.Update();
-			// Spawn particles (local only, for multiplayer sync use packets)
-			//MyParticleEffect effect;
-			//if(MyParticlesManager.TryCreateParticleEffect("MaterialHit_MoonSoil", fo.WorldMatrix, out effect))
-			//{	effect.UserRadiusMultiplier = 0.4f;
-			//	effect.UserLifeMultiplier = 0.4f;
-			//}
+			// TODO Particle effect
 
 			// Handle block destruction
 			if (block.IsDestroyed && block.StockpileEmpty)
