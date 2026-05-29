@@ -40,13 +40,7 @@ namespace LLE
 			if (toolBaseDef != null)
 				speedMultiplier = toolBaseDef.SpeedMultiplier;
 
-			// Calculate damage amount per tick
-			// Base rate: 2/30 per second (from AiEnabled logic), interval: 250ms
-			const float BaseGrindRatePerSecond = 2.0f / 30.0f;
-			const float ToolCooldownSeconds = 1.0f;
-
-			float grindAmount = BaseGrindRatePerSecond * speedMultiplier *
-								MyAPIGateway.Session.GrinderSpeedMultiplier * ToolCooldownSeconds;
+			float grindAmount = 0.03f * speedMultiplier * MyAPIGateway.Session.GrinderSpeedMultiplier;
 
 			// Check if inventory can accept at least one unit of any stockpile component
 			Dictionary<string, int> stock = new Dictionary<string, int>();
@@ -63,8 +57,6 @@ namespace LLE
 				{	canAccept = true;
 					break;
 				}
-				else
-					MyConsole.Add($"- {c.Definition.Id}");
 			}
 			if (!canAccept) return false;
 
