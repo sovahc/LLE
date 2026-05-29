@@ -7,13 +7,13 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using System.Collections.Generic;
 using System.Linq;
+using VRage.ObjectBuilders;
 
 namespace LLE
 {
 	public class BotTools
 	{
 		private MyEntity3DSoundEmitter emitter;
-		private Dictionary<string, int> components = new Dictionary<string, int>();
 
 		public void Stop()
 		{	if(emitter == null) return;
@@ -48,21 +48,25 @@ namespace LLE
 			float grindAmount = BaseGrindRatePerSecond * speedMultiplier *
 								MyAPIGateway.Session.GrinderSpeedMultiplier * ToolCooldownSeconds;
 
-			// Check if inventory has space for this block's components
+			// Check if inventory can accept at least one unit of any stockpile component
+			Dictionary<string, int> stock = new Dictionary<string, int>();
+			GetStockpileComponents(block, stock);
 
-			Dictionary<string, int> missing = new Dictionary<string, int>();
-			block.GetMissingComponents(missing);
-
-			Dictionary<string, int> total = new Dictionary<string, int>();
 			var def = block.BlockDefinition as MyCubeBlockDefinition;
+			bool canAccept = false;
+			foreach (var c in def.Components)
+			{	var k = c.Definition.Id.SubtypeName;
+				
+				if(stock[k] == 0) continue;
 
-			foreach (var comp in def.Components)
-			{
-				total[comp.Definition.Id.SubtypeName] = comp.Count;
+				if(inventory.CanItemsBeAdded(1, c.Definition.Id))
+				{	canAccept = true;
+					break;
+				}
+				else
+					MyConsole.Add($"- {c.Definition.Id}");
 			}
-
-			//if (comp.Definition != null && inventory.CanItemsBeAdded(1, comp.Definition.Id))
-
+			if (!canAccept) return false;
 
 			// Apply grinding
 			block.DecreaseMountLevel(grindAmount, inventory);
