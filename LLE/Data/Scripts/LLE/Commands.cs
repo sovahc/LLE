@@ -121,6 +121,11 @@ put 'item' into 'block name'
 Path finding: safest (default) / shortest / scouting / prefer open space
 
 */
+		private static string Remove_MyObjectBuilder_(string type)
+		{
+			if (type.StartsWith("MyObjectBuilder_")) type = type.Substring("MyObjectBuilder_".Length);
+			return type;
+		}
 
 		private static string Quotes(string s)
 		{	if(s == null) return "(null)";
@@ -438,27 +443,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			}
 
 			message = null;
-			MacroNavigation.FlyToGrid(ch, selectedGrid, to);
+			Navigation.FlyToGrid(ch, selectedGrid, to);
 		}
 	}
 }
-
-
-/*		private static string GridType(IMyCubeGrid g)
-		{	if(g.IsStatic) return "Station";
-			else if(g.GridSizeEnum == MyCubeSize.Large) return "Large Grid";
-			else if(g.GridSizeEnum == MyCubeSize.Small) return "Small Grid";
-			else return "?";
-		}
-
-		private static string Remove_MyObjectBuilder_(string type)
-		{
-			if (type.StartsWith("MyObjectBuilder_")) type = type.Substring("MyObjectBuilder_".Length);
-			return type;
-		}
-
-		private static string SlimBlockDescription(IMySlimBlock b)
-		{	var type = Remove_MyObjectBuilder_(b.BlockDefinition.Id.TypeId.ToString());
-			return type;
-		}
-*/

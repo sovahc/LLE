@@ -14,7 +14,7 @@ using VRageMath;
 
 namespace LLE
 {
-	public static class MacroNavigation
+	public static class Navigation
 	{
 		private static MicroNavigation micro = new MicroNavigation();
 		private static DampedSpringController springController = new DampedSpringController();

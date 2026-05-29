@@ -268,7 +268,7 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			MacroNavigation.Update(ch);
+			Navigation.Update(ch);
 
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
@@ -298,7 +298,7 @@ namespace LLE
 				}
 				else if(command == "GRIND")
 				{	if(selectedGrid != null) grind = true;
-					message = "Grind";
+					message = "Grinding...";
 				}
 				else if(command == "TEST")
 				{	if(selectedGrid != null)
