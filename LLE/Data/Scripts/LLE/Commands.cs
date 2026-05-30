@@ -6,7 +6,6 @@ using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
-using MyItemType = VRage.Game.ModAPI.Ingame.MyItemType;
 using VRage.Game;
 using VRage;
 using VRage.Game.Entity;
@@ -626,11 +625,15 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 				for (int i = 0; i < items.Count; i++)
 				{
-					var itemDef = MyDefinitionManager.Static.GetDefinition((MyDefinitionId)items[i].Type) as MyPhysicalItemDefinition;
+					var def = (MyDefinitionId)items[i].Type;
+					var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
+
 					if (itemDef != null && itemDef.DisplayNameText == item)
 					{
 						var amount = (MyFixedPoint)Math.Min(count, (double)items[i].Amount);
-						if (sourceInv.TransferItemTo((VRage.Game.ModAPI.IMyInventory)inv, i, null, true, amount, false))
+						var wtf = (VRage.Game.ModAPI.IMyInventory)inv;
+
+						if (sourceInv.TransferItemTo(wtf, i, null, true, amount, false))
 						{
 							commandResult = $"Transferred {count} {Formatter.Quote(item)} from {Formatter.Quote(name)}";
 							return;
@@ -664,8 +667,8 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				return;
 			}
 
-			var charInv = character.GetInventory() as IMyInventory;
-			if (charInv == null) { commandResult = "Internal error"; return; }
+			var inv = character.GetInventory() as IMyInventory;
+			if (inv == null) { commandResult = "Internal error"; return; }
 
 			var name = Formatter.Description(block);
 			var fat = block.FatBlock;
@@ -675,13 +678,15 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				return;
 			}
 
-			List<MyInventoryItem> charItems = new List<MyInventoryItem>();
-			charInv.GetItems(charItems);
+			List<MyInventoryItem> items = new List<MyInventoryItem>();
+			inv.GetItems(items);
 
 			int srcItemIndex = -1;
-			for (int i = 0; i < charItems.Count; i++)
+			for (int i = 0; i < items.Count; i++)
 			{
-				var itemDef = MyDefinitionManager.Static.GetDefinition((MyDefinitionId)charItems[i].Type) as MyPhysicalItemDefinition;
+				var def = (MyDefinitionId)items[i].Type;
+				var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
+
 				if (itemDef != null && itemDef.DisplayNameText == item)
 				{
 					srcItemIndex = i;
@@ -694,26 +699,24 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				return;
 			}
 
-			double transferred = 0;
-			for (int ii = 0; ii < fat.InventoryCount && transferred < count; ++ii)
-			{
-				var destInv = fat.GetInventory(ii);
-				var remaining = count - transferred;
-				var amount = (MyFixedPoint)(float)remaining;
+			var srcItem = items[srcItemIndex];
 
-				if (destInv.CanItemsBeAdded(amount, charItems[srcItemIndex].Type) && charInv.CanTransferItemTo(destInv, charItems[srcItemIndex].Type))
+			for (int ii = 0; ii < fat.InventoryCount; ++ii)
+			{
+				var destination = fat.GetInventory(ii);
+				var amount = (MyFixedPoint)count;
+
+				if (destination.CanItemsBeAdded(amount, srcItem.Type))
 				{
-					if (((VRage.Game.ModAPI.IMyInventory)charInv).TransferItemTo((VRage.Game.ModAPI.IMyInventory)destInv, srcItemIndex, null, true, amount, false))
-					{
-						transferred += remaining;
-					}
+					var wtf = (VRage.Game.ModAPI.IMyInventory)inv;
+
+					wtf.TransferItemTo(destination, srcItemIndex, 0, true, amount, false);
+					commandResult = $"Transferred {amount} {Formatter.Quote(item)} into {Formatter.Quote(name)}";
+					return;
 				}
 			}
 
-			if (transferred > 0)
-				commandResult = $"Transferred {transferred} {Formatter.Quote(item)} into {Formatter.Quote(name)}";
-			else
-				commandResult = $"Cannot transfer {Formatter.Quote(item)} into {Formatter.Quote(name)} (no suitable inventory)";
+			commandResult = $"Cannot transfer {Formatter.Quote(item)} into {Formatter.Quote(name)}";
 		}
 
 		internal void Update()
@@ -746,3 +749,31 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 		}
 	}
 }
+
+/*
+      public static VRage.MyFixedPoint MaxItemsAddable(this IMyInventory destInventory, VRage.MyFixedPoint maxNeeded, MyItemType itemType)
+      {
+         if (destInventory.CanItemsBeAdded(maxNeeded, itemType))
+         {
+            return maxNeeded;
+         }
+
+         int maxPossible = 0;
+         int currentStep = Math.Max((int)maxNeeded / 2, 1);
+         int currentTry = 0;
+         while (currentStep > 0)
+         {
+            currentTry = maxPossible + currentStep;
+            if (destInventory.CanItemsBeAdded(currentTry, itemType))
+            {
+               maxPossible = currentTry;
+            }
+            else
+            {
+               if (currentStep <= 1) break;
+            }
+            if (currentStep > 1) currentStep = currentStep / 2;
+         }
+         return maxPossible;
+      }      
+*/
