@@ -105,8 +105,8 @@ namespace LLE
 				else if(command == "NEAR")
 				{	commands.Near(arguments);
 				}
-				else if(command == "TEST")
-				{	commands.commandResult = "Ok";
+				else if(command == "INVENTORY")
+				{	commands.Inventory(arguments);
 				}
 				else
 				{	commands.commandResult = $"Unknown command '{command}' use `help` to list all avialable commands.";

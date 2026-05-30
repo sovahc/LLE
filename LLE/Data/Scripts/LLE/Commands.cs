@@ -509,6 +509,30 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			commandResult = MyMarkdown.Result();
 		}
 
+
+		internal void Inventory(string arguments)
+		{
+			if(arguments == "")
+			{	var inventory = character.GetInventory() as MyInventory;
+				if (inventory == null)
+				{	commandResult = "Internal error";
+					return;
+				}
+				
+				List<MyInventoryItem> invItems = new List<MyInventoryItem>();
+				invItems.Clear();
+				inventory.GetItems(invItems); // заполняет список
+
+				for (int i = 0; i < invItems.Count; i++)
+				{
+					var item = invItems[i];
+					var type = item.Type;      // MyItemType (TypeId + SubtypeId)
+					var amount = item.Amount;  // MyFixedPoint
+					var itemId = item.ItemId;  // uint, уникальный в инвентаре
+				}
+			}
+		}
+
 		internal void Update()
 		{
 			if(botTools == null) botTools = new BotTools(character);
