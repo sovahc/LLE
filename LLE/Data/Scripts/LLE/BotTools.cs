@@ -12,12 +12,14 @@ namespace LLE
 {
 	public class BotTools
 	{
-		private MyEntity3DSoundEmitter soundEmitter;
-		private IMySlimBlock targetBlock;
-		private IMyCharacter bot;
-		private MyParticleEffect particleEffect;
 		private readonly float WELD_AND_GRIND_SPEED = 0.03f;
 		private readonly float SOUND_VOLUME = 0.5f;
+		
+		private IMySlimBlock targetBlock;
+		private IMyCharacter bot;
+		
+		private MyEntity3DSoundEmitter soundEmitter;
+		private MyParticleEffect particleEffect;
 
 		public BotTools(IMyCharacter bot_)
 		{	bot = bot_;
