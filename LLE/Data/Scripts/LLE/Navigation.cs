@@ -10,23 +10,31 @@ namespace LLE
 		private MicroNavigation micro = new MicroNavigation();
 		private DampedSpringController springController = new DampedSpringController();
 		private Vector3D up;
-		private IMyCharacter ch;
+		private IMyCharacter character;
 
-		public Navigation(IMyCharacter ch_)
-		{	ch = ch_;
+		IMyCubeGrid grid;
+		private AStar astar;
+		private const int AStarBorder = 1;
+
+		public Navigation(IMyCharacter character)
+		{	this.character = character;
 		}
 		
-		internal void FlyToGrid(IMyCubeGrid largeGrid, Vector3I toI)
+		internal void FlyInsideGrid(IMyCubeGrid largeGrid, Vector3I toI)
 		{
-			up = largeGrid.WorldMatrix.Up;
+			grid = largeGrid;
 
-			Vector3D from = Utilities.GetEngineerCenter(ch);
-			Vector3D to = largeGrid.GridIntegerToWorld(toI);
+			up = grid.WorldMatrix.Up;
+
+			Vector3D from = Utilities.GetEngineerCenter(character);
+			Vector3D to = grid.GridIntegerToWorld(toI);
+
+			// try direct path to point
 
 			double dist;
 			IMySlimBlock slimBlock;
 			LineD line = new LineD(from, to);
-			largeGrid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
+			grid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
 
 			if (slimBlock == null)
 			{	List<Vector3D> path = new List<Vector3D>();
@@ -36,11 +44,38 @@ namespace LLE
 				return;
 			}
 
-			MyConsole.Add("No direct path to destination point", Color.Red);
+			// run A*
+
+			var fromI = grid.WorldToGridInteger(from);
+
+			RunAstar(fromI, toI);
 		}
 
 		internal bool Step()
 		{
+			if (astar != null && !astar.Completed())
+			{	
+				astar.Iteration();
+
+				if(astar.Completed())
+				{
+					List<Vector3D> path = new List<Vector3D>();
+
+					path.Add(Utilities.GetEngineerCenter(character));
+
+					for(int i = 0; i < astar.result.Count; ++i)
+					{	
+						var v = astar.result[i] + grid.Min - AStarBorder;
+
+						path.Add(grid.GridIntegerToWorld(v));				
+					}
+	
+					micro.Fly(path);
+				}
+
+				return true; // "thinking"
+			}
+
 			if(micro.Arrived()) return false;
 
 			bool mouse = MyAPIGateway.Input.IsNewLeftMousePressed() ||
@@ -63,67 +98,28 @@ namespace LLE
 				return false;
 			}
 
-			var ec = Utilities.GetEngineerCenter(ch);
+			var ec = Utilities.GetEngineerCenter(character);
 
 			Vector2 rotation = Vector2.Zero;
 			float roll = 0;
 
 			if(!micro.ShortSegment)
-				springController.Update(ec, ch.WorldMatrix.Forward, ch.WorldMatrix.Up,
+				springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
 					micro.currentTargetPoint, up, 0.2, out rotation, out roll);
 
-			var desiredVelocity = micro.ComputeDesiredVelocity(ec, ch.Physics.LinearVelocity);
-			var move = micro.ComputeMoveInput(desiredVelocity, ch.Physics.LinearVelocity, ch.WorldMatrix);
+			var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
+			var move = micro.ComputeMoveInput(desiredVelocity, character.Physics.LinearVelocity, character.WorldMatrix);
 			
-			ch.MoveAndRotate(move, rotation, roll);
+			character.MoveAndRotate(move, rotation, roll);
 
 			return true;
 		}
 
-/*		AStar astar;
-		const int AStarBorder = 1;
-
-		public void Update()
-		{
-			var pm = ch.GetHeadMatrix(false);
-
-			
-
-			
-			else if (mouse && grid_A == grid_B && grid_A != null)
-			{
-				RunAstar(grid_A);
-			}
-
-			if (astar != null && !astar.Completed())
-			{	astar.Iteration();
-
-				if(astar.Completed())
-				{
-					var grid = grid_A;
-
-					List<Vector3D> path = new List<Vector3D>();
-
-					path.Add(Utilities.GetEngineerCenter(ch));
-
-					for(int i = 0; i < astar.result.Count; ++i)
-					{	
-						var v = astar.result[i] + grid.Min - AStarBorder;
-
-						path.Add(grid.GridIntegerToWorld(v));				
-					}
-	
-					navigationActive = true;
-					navigation.Fly(path);
-				}
-			}
-		}
-
-		private void RunAstar(IMyCubeGrid grid)
+		private void RunAstar(Vector3I point_A, Vector3I point_B)
 		{
 			Vector3I gridSize = grid.Max - grid.Min + 1;
 
-			Log($"RunAstar {grid.Min} {grid.Max} {gridSize}");
+			Utilities.Log($"RunAstar {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
 
 			var astarSize = gridSize + AStarBorder + AStarBorder;
 
@@ -187,24 +183,23 @@ namespace LLE
 			astar.RunCalculation(a, b);
 		}
 
-		private void DrawTraversability(IMySlimBlock block)
+		private void DrawTraversability(IMySlimBlock block, Vector3I v)
 		{
 			if(astar == null) return;
 
-			Traversability trav = astar.GetTraversability(block.Position - grid_A.Min + AStarBorder);
+			Traversability trav = astar.GetTraversability(block.Position - grid.Min + AStarBorder);
 
-			var zero = grid_A.GridIntegerToWorld(selectedBlock);
+			var zero = grid.GridIntegerToWorld(v);
 
 			var dirs = Constants.SixDirections;
 
 			for (int d = 0; d < dirs.Length; ++d)
 			{
 				Vector3I dir = dirs[d];
-				var world = (grid_A.GridIntegerToWorld(selectedBlock + dir) - zero) * 0.5 + zero;
+				var world = (grid.GridIntegerToWorld(v + dir) - zero) * 0.5 + zero;
 				Drawing.RoundMarker(world, trav[dirs[d]] ? Color.Gray : Color.Lime);
 			}
 			Drawing.RoundMarker(zero, trav[0,0,0] ? Color.Black : Color.Green);
 		}
-*/
 	}
 }

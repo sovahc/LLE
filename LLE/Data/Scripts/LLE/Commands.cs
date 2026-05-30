@@ -432,7 +432,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			if(!GridIsSet()) return;
 			if(!TryParseIJK(arguments, out to)) return;
 
-			navigation.FlyToGrid(selectedGrid, to);
+			navigation.FlyInsideGrid(selectedGrid, to);
 			currentAction = Action.Flying;
 		}
 
@@ -483,18 +483,17 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			if(arguments != "") MyMarkdown.Append("Warning: Nearest9 doesn't support arguments\n");
 
 			var center = Utilities.GetEngineerCenter(character);
+			var cI = selectedGrid.WorldToGridInteger(center);
 
-			var cp = selectedGrid.WorldToGridInteger(center);
-
-			var name = Formatter.Description(selectedGrid.GetCubeBlock(cp));
-			MyMarkdown.Append($"## Your current position: {cp} Block: {Formatter.Quote(name)}");
+			var name = Formatter.Description(selectedGrid.GetCubeBlock(cI));
+			MyMarkdown.Append($"## Your current position: {cI} Block: {Formatter.Quote(name)}");
 
 			int added = 0;
 			Debug.grid = selectedGrid;
 			Debug.highlightCells.Clear();
 
 			foreach (var direction in Constants.SixDirections)
-			{	var v = cp + direction;
+			{	var v = cI + direction;
 				var block = selectedGrid.GetCubeBlock(v);
 
 				if(block == null) continue;
