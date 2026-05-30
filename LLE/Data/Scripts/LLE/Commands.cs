@@ -6,6 +6,7 @@ using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
+using MyItemType = VRage.Game.ModAPI.Ingame.MyItemType;
 using VRage.Game;
 using VRage;
 using VRage.Game.Entity;
@@ -639,6 +640,80 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				items.Clear();
 			}
 			commandResult = $"Item {Formatter.Quote(item)} not found in {Formatter.Quote(name)}";
+		}
+
+		internal void Put(string arguments)
+		{
+			if(!GridIsSet()) return;
+
+			var item = Utilities.GetNextWord(ref arguments);
+			var countS = Utilities.GetNextWord(ref arguments);
+			var into = Utilities.GetNextWord(ref arguments);
+			var ijkS = arguments;
+			
+			double count; Vector3I ijk;
+
+			if(into != "into" || !double.TryParse(countS, out count) || !TryParseIJK(ijkS, out ijk))
+			{	commandResult = $"Malformed request: item='{item}' count='{countS}' into='{into}' ijk={ijkS}";
+				return;
+			}
+
+			var block = selectedGrid.GetCubeBlock(ijk);
+			if(block == null)
+			{	commandResult = $"Error: no block at {ijk}";
+				return;
+			}
+
+			var charInv = character.GetInventory() as IMyInventory;
+			if (charInv == null) { commandResult = "Internal error"; return; }
+
+			var name = Formatter.Description(block);
+			var fat = block.FatBlock;
+
+			if(fat == null || !fat.HasInventory)
+			{	commandResult = $"Block {Formatter.Quote(name)} does not have an inventory.";
+				return;
+			}
+
+			List<MyInventoryItem> charItems = new List<MyInventoryItem>();
+			charInv.GetItems(charItems);
+
+			int srcItemIndex = -1;
+			for (int i = 0; i < charItems.Count; i++)
+			{
+				var itemDef = MyDefinitionManager.Static.GetDefinition((MyDefinitionId)charItems[i].Type) as MyPhysicalItemDefinition;
+				if (itemDef != null && itemDef.DisplayNameText == item)
+				{
+					srcItemIndex = i;
+					break;
+				}
+			}
+
+			if (srcItemIndex < 0)
+			{	commandResult = $"Item {Formatter.Quote(item)} not found in your inventory";
+				return;
+			}
+
+			double transferred = 0;
+			for (int ii = 0; ii < fat.InventoryCount && transferred < count; ++ii)
+			{
+				var destInv = fat.GetInventory(ii);
+				var remaining = count - transferred;
+				var amount = (MyFixedPoint)(float)remaining;
+
+				if (destInv.CanItemsBeAdded(amount, charItems[srcItemIndex].Type) && charInv.CanTransferItemTo(destInv, charItems[srcItemIndex].Type))
+				{
+					if (((VRage.Game.ModAPI.IMyInventory)charInv).TransferItemTo((VRage.Game.ModAPI.IMyInventory)destInv, srcItemIndex, null, true, amount, false))
+					{
+						transferred += remaining;
+					}
+				}
+			}
+
+			if (transferred > 0)
+				commandResult = $"Transferred {transferred} {Formatter.Quote(item)} into {Formatter.Quote(name)}";
+			else
+				commandResult = $"Cannot transfer {Formatter.Quote(item)} into {Formatter.Quote(name)} (no suitable inventory)";
 		}
 
 		internal void Update()

@@ -111,6 +111,9 @@ namespace LLE
 				else if(command == "GET")
 				{	commands.Get(arguments);
 				}
+				else if(command == "PUT")
+				{	commands.Put(arguments);
+				}
 				else
 				{	commands.commandResult = $"Unknown command '{command}' use `help` to list all avialable commands.";
 				}
