@@ -68,16 +68,10 @@ namespace LLE
 			}
 		}
 
-		public static void Description(IMySlimBlock block, out string category, out string name)
-		{	if(block == null)
-			{	category = "";
-				name = "none";
-				return;
-			}
-			var id = block.BlockDefinition.Id;
-			category = Remove_MyObjectBuilder_(id.TypeId.ToString());
-			name = id.SubtypeId.ToString();
-			if (name == "") name = category;
+		public static string Description(IMySlimBlock block)
+		{    
+			if(block == null) return "none";
+			return block.BlockDefinition.DisplayNameText;
 		}
 	}
 
@@ -492,10 +486,8 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 			var cp = selectedGrid.WorldToGridInteger(center);
 
-			string category, name;
-			
-			Formatter.Description(selectedGrid.GetCubeBlock(cp), out category, out name);
-			MyMarkdown.Append($"## Your current position: {cp} Block: {name}");
+			var name = Formatter.Description(selectedGrid.GetCubeBlock(cp));
+			MyMarkdown.Append($"## Your current position: {cp} Block: {Formatter.Quote(name)}");
 
 			int added = 0;
 			Debug.grid = selectedGrid;
@@ -509,9 +501,9 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 				Debug.highlightCells.Add(v);
 
-				Formatter.Description(block, out category, out name);
+				name = Formatter.Description(block);
 
-				MyMarkdown.Add(name, $"{Formatter.IJK(v)}");
+				MyMarkdown.Add(Formatter.Quote(name), $"{Formatter.IJK(v)}");
 				++added;
 			}
 			if(added == 0)
