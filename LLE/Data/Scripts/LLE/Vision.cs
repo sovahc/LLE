@@ -10,6 +10,8 @@ using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
+	// Deltas: NEW, GONE, MOVED, grouping
+
     class Vision
 	{
 		private static Random random = new Random();
