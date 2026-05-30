@@ -10,7 +10,6 @@ using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRageMath;
-using VRage.Utils;
 
 namespace LLE
 {
@@ -33,6 +32,11 @@ namespace LLE
 			if (d < 1000)
 				return $"{(int)Math.Round(d, 0, MidpointRounding.AwayFromZero)}m";
 			return $"{d / 1000.0:F1}km";
+		}
+
+		public static string Percent(float f)
+		{	var ff = (int)Math.Round(f * 100, 0, MidpointRounding.AwayFromZero);
+			return $"{ff}%";
 		}
 
 		public static string IJK(Vector3I v)
@@ -73,14 +77,6 @@ namespace LLE
 		{    
 			if(block == null) return "none";
 			return block.BlockDefinition.DisplayNameText;
-		}
-
-		public static string Description(MyInventoryItem item)
-		{	var def = (MyDefinitionId)item.Type;
-			Utilities.Log($"def {def}");
-			var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
-			Utilities.Log($"itemDef {itemDef}");
-			return itemDef.DisplayNameText;
 		}
 	}
 
@@ -521,26 +517,32 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			commandResult = MyMarkdown.Result();
 		}
 
-
 		internal void Inventory(string arguments)
 		{
 			if(arguments == "")
-			{	var inventory = character.GetInventory() as IMyInventory;
-				if (inventory == null)
+			{	var inv = character.GetInventory() as IMyInventory;
+				if (inv == null)
 				{	commandResult = "Internal error";
 					return;
 				}
-				
-				List<MyInventoryItem> items = new List<MyInventoryItem>();
-				items.Clear();
-				inventory.GetItems(items);
 
 				tmp.Clear();
+				tmp.Append($"Used {inv.CurrentVolume}/{inv.MaxVolume} m^3 ({Formatter.Percent(inv.VolumeFillFactor)})\n");
+
+				List<MyInventoryItem> items = new List<MyInventoryItem>();
+				items.Clear();
+				inv.GetItems(items);
 
 				for (int i = 0; i < items.Count; i++)
 				{
 					var item = items[i];
-					tmp.Append($"{Formatter.Description(item)} → {item.Amount}\n");
+
+					var def = (MyDefinitionId)item.Type;
+					var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
+
+					float volume = (float)item.Amount * itemDef.Volume;
+   
+					tmp.Append($"* {itemDef.DisplayNameText} → {item.Amount} ({Formatter.Percent(volume)})\n");
 				}
 
 				commandResult = tmp.ToString();
