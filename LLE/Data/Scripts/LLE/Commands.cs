@@ -7,6 +7,7 @@ using Sandbox.Game.Entities;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using VRage.Game;
+using VRage;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRageMath;
@@ -521,11 +522,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			if(arguments == "")
 			{
 				var inv = character.GetInventory() as IMyInventory;
-				if (inv == null)
-				{
-					commandResult = "Internal error";
-					return;
-				}
+				if (inv == null) { commandResult = "Internal error"; return; }
 
 				tmp.Clear();
 				tmp.Append($"Your inventory:\n");
@@ -589,7 +586,59 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 		internal void Get(string arguments)
 		{
+			if(!GridIsSet()) return;
+
+			var item = Utilities.GetNextWord(ref arguments);
+			var countS = Utilities.GetNextWord(ref arguments);
+			var from = Utilities.GetNextWord(ref arguments);
+			var ijkS = arguments;
 			
+			double count; Vector3I ijk;
+
+			if(from != "from" || !double.TryParse(countS, out count) || !TryParseIJK(ijkS, out ijk))
+			{	commandResult = $"Mailformed request: item='{item}' count='{countS}' from='{from}' ijk={ijkS}";
+				return;
+			}
+
+			var block = selectedGrid.GetCubeBlock(ijk);
+			if(block == null)
+			{	commandResult = $"Error: no block at {ijk}";
+				return;
+			}
+
+			var inv = character.GetInventory() as IMyInventory;
+			if (inv == null) { commandResult = "Internal error"; return; }
+
+			var name = Formatter.Description(block);
+			var fat = block.FatBlock;
+
+			if(fat == null || !fat.HasInventory)
+			{	commandResult = $"Block {Formatter.Quote(name)} does not have an inventory.";
+				return;
+			}
+
+			List<MyInventoryItem> items = new List<MyInventoryItem>();
+			for (int ii = 0; ii < fat.InventoryCount; ++ii)
+			{
+				var sourceInv = fat.GetInventory(ii);
+				sourceInv.GetItems(items);
+
+				for (int i = 0; i < items.Count; i++)
+				{
+					var itemDef = MyDefinitionManager.Static.GetDefinition((MyDefinitionId)items[i].Type) as MyPhysicalItemDefinition;
+					if (itemDef != null && itemDef.DisplayNameText == item)
+					{
+						var amount = (MyFixedPoint)Math.Min(count, (double)items[i].Amount);
+						if (sourceInv.TransferItemTo((VRage.Game.ModAPI.IMyInventory)inv, i, null, true, amount, false))
+						{
+							commandResult = $"Transferred {count} {Formatter.Quote(item)} from {Formatter.Quote(name)}";
+							return;
+						}
+					}
+				}
+				items.Clear();
+			}
+			commandResult = $"Item {Formatter.Quote(item)} not found in {Formatter.Quote(name)}";
 		}
 
 		internal void Update()

@@ -36,6 +36,26 @@ namespace LLE
 
 		public static string GetNextWord(ref string s)
 		{
+			if (s.Length == 0) return "";
+
+			if (s[0] == '"' || s[0] == '\'')
+			{
+				int quote2 = s.IndexOf(s[0], 1);
+				if (quote2 < 0) return s.Substring(1);
+
+				string quotedFragment = s.Substring(1, quote2 - 1);
+				
+				if(quote2 + 1 < s.Length)
+					s = s.Substring(quote2 + 1);
+				else
+					s = "";
+
+				if (s.Length > 0 && s[0] == ' ')
+					s = s.Substring(1);
+				
+				return quotedFragment;
+			}
+
 			int spaceIndex = s.IndexOf(' ');
 			string word = spaceIndex >= 0 ? s.Substring(0, spaceIndex) : s;
 			s = spaceIndex >= 0 ? s.Substring(spaceIndex + 1) : "";
