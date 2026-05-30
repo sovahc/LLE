@@ -108,6 +108,9 @@ namespace LLE
 				else if(command == "INVENTORY")
 				{	commands.Inventory(arguments);
 				}
+				else if(command == "GET")
+				{	commands.Get(arguments);
+				}
 				else
 				{	commands.commandResult = $"Unknown command '{command}' use `help` to list all avialable commands.";
 				}

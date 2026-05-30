@@ -113,20 +113,21 @@ namespace LLE
 		{
 			commandResult = @"# Command Reference
 
-* select_grid 'name'   		- Select ship or station on which to grind, weld and perform other operations.
-* select_asteroid 'name'	- Select asteroid on which to mine.
+* select_grid 'name'    		- Select a ship or station on which to grind, weld, and perform other operations.
+* select_asteroid 'name'		- Select an asteroid on which to mine.
 
-* fly I J K					- Fly to specific grid coordinates (integer values)
-* grind I J K				- Grind a block at specific coordinates.
-* weld I J K				- Weld a block at specific coordinates.
-* near						- Return 6 accessible blocks around you, and the block you stand on
+* fly I J K						- Fly to specific grid coordinates (integer values)
+* grind I J K					- Grind a block at specific coordinates.
+* weld I J K					- Weld a block at specific coordinates.
+* near							- Return 6 accessible blocks around you and the block you are standing on.
+* inventory						- Return the items in your inventory.
+* inventory I J K				- Return the inventory of the container at specific coordinates.
+* get 'item' count from I J K	- Transfer an item from a container to your inventory. Ex `get 'Gold Ingot' 10 from -1 5 2`
+* put 'item' count into I J K	- Transfer an item from your inventory to a container. Ex `put 'Medkit' 1 to 14 0 2`
 ";
-		}
+}
 
 /*
-
-
-inventory              - Return bot inventory items.
 vision                 - Get current visual input (what the bot sees right now)
 help                   - this message.
 cancel                 - Immediately cancel the current action and return to IDLE.
@@ -135,17 +136,15 @@ nearest ['substring']  - Show the nearest 5 blocks whose names contain 'substrin
 search ['substring']   - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
 info 'name'        - Get detailed information about a specific object.
 fly 'name'         - Fly to a specific object. Executes flight with periodic reports.
-look at 'name'     - Just rotate to the object
+look at 'name'     - Rotate to face the object
 hack 'block_name'  - Grind a specific block just below the hacking point (weld it back to restore functionality).
 weld 'block_name'  - Weld a specific block.
 mine 'block_name'  - Mine a specific ore deposit.
 status             - Check bot status: Battery, Hydrogen, Oxygen.
 pickup 'name'      - Pick up a specified object.
 drop 'name' [quantity|all] - Drop a specified object.
-get 'item' from 'block name'
-put 'item' into 'block name'
-? move {forward|backward|left|right|up|down} {distance} - move in direction
-? recover from stuck
+? move {forward|backward|left|right|up|down} {distance} - move in a direction
+? recover from being stuck
 ? save to memory 'string'
 
 ## Execution Rules
@@ -168,7 +167,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 		private string MyError(Vector3D engineer, string query, List<MyEntity> matches)
 		{
 			if(matches.Count == 0)
-				return $"Error: object '{query}' not found, use the exact object name.";
+				return $"Error: object '{query}' not found. Use the exact object name.";
 
 			string message;
 			tmp.Clear();
@@ -338,7 +337,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			if(selectedGrid != null && selectedGrid.Closed) selectedGrid = null;
 
 			if(selectedGrid == null)
-			{	message = "You should select a grid first using the command: `select_grid name`.";
+			{message = "You should select a grid first with the command: `select_grid name`.";
 				return;
 			}
 
@@ -418,13 +417,13 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				return true;
 			}
 			v = Vector3I.Zero;
-			commandResult = $"Error: invalid vector '{s}', use integer numbers e.g `command -1 5 2`";
+			commandResult = $"Error: invalid vector '{s}', use integer numbers, e.g. `command -1 5 2`";
 			return false;
 		}
 
 		private bool GridIsSet()
 		{	if(selectedGrid == null)
-			{	commandResult = $"Error: you should select a grid first, use `select_grid name`";
+			{commandResult = $"Error: you should select a grid first. Use `select_grid name`";
 				return false;
 			}
 			return true;
@@ -550,7 +549,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				var fat = block.FatBlock;
 
 				if(fat == null || !fat.HasInventory)
-				{	commandResult = $"Block {Formatter.Quote(name)} has no inventory.";
+				{	commandResult = $"Block {Formatter.Quote(name)} does not have an inventory.";
 					return;
 				}
 
@@ -586,6 +585,11 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 				tmp.Append($"* {itemDef.DisplayNameText} → {item.Amount} ({Formatter.Percent(volume)})\n");
 			}
+		}
+
+		internal void Get(string arguments)
+		{
+			
 		}
 
 		internal void Update()
