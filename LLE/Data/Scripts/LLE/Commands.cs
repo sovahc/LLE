@@ -69,10 +69,15 @@ namespace LLE
 		}
 
 		public static void Description(IMySlimBlock block, out string category, out string name)
-		{	
+		{	if(block == null)
+			{	category = "";
+				name = "none";
+				return;
+			}
 			var id = block.BlockDefinition.Id;
 			category = Remove_MyObjectBuilder_(id.TypeId.ToString());
 			name = id.SubtypeId.ToString();
+			if (name == "") name = category;
 		}
 	}
 
@@ -115,7 +120,7 @@ namespace LLE
 * fly I J K					- Fly to specific grid coordinates (integer values)
 * grind I J K				- Grind a block at specific coordinates.
 * weld I J K				- Weld a block at specific coordinates.
-* nearest					- Return 27 blocks around you, including the block you stand on
+* nearest					- Return 6 accesiible blocks around you, an the block you stand on
 ";
 		}
 
@@ -486,18 +491,21 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			var center = Utilities.GetEngineerCenter(character);
 
 			var cp = selectedGrid.WorldToGridInteger(center);
-			var min = cp - Vector3I.One;
-			var max = cp + Vector3I.One;
 
-			MyMarkdown.Append($"# Your current position: {cp}");
+			string category, name;
+			
+			Formatter.Description(selectedGrid.GetCubeBlock(cp), out category, out name);
+			MyMarkdown.Append($"## Your current position: {cp} Block: {name}");
 
 			int added = 0;
-			foreach (var v in new Vector3I_RangeEnumerable(ref min, ref max))
+			//var min = cp - Vector3I.One;
+			//var max = cp + Vector3I.One;
+			//foreach (var v in new Vector3I_RangeEnumerable(ref min, ref max))
+			foreach (var v in Constants.SixDirections)
 			{	var block = selectedGrid.GetCubeBlock(v);
 
 				if(block == null) continue;
 
-				string category, name;
 				Formatter.Description(block, out category, out name);
 
 				MyMarkdown.Add(name, $"{Formatter.IJK(v)}");
@@ -507,7 +515,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			{	MyMarkdown.Append("No any blocks around you.");
 			}
 
-			commandResult = MyMarkdown.Result();				;
+			commandResult = MyMarkdown.Result();
 		}
 
 		internal void Update()
