@@ -11,13 +11,19 @@ namespace LLE
 {
 	public static class Time { public static double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds; }
 
+	public static class Debug
+	{
+		public static IMyCubeGrid grid;
+		public static List<Vector3I> highlightCells = new List<Vector3I>();
+	}
+
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
 	public class LLE : MySessionComponentBase
 	{
 		private static Font font;
 
 		IMyCubeGrid selectedGrid;
-		Vector3I selectedBlock, selectedFreeSpace;
+		Vector3I selectedBlock;
 		Commands commands;
 
 		public static void Log(string s) { Utilities.Log(s); }
@@ -129,9 +135,9 @@ namespace LLE
 			}
 
 			if(MyAPIGateway.Input.IsNewLeftMousePressed())
-			{	Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
-					out selectedGrid, out selectedBlock, out selectedFreeSpace);
-				MyConsole.Add($"selectedFreeSpace {selectedFreeSpace}", Color.DarkSalmon);
+			{	Vector3I unused;
+				Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
+					out selectedGrid, out selectedBlock, out unused);
 			}
 
 			if (selectedGrid != null)
@@ -141,7 +147,11 @@ namespace LLE
 				{	Collisions.Draw(selectedGrid, block);
 					//DrawTraversability(block);
 				}
-				Utilities.HighlightCell(selectedGrid, selectedFreeSpace, Color.GreenYellow);
+			}
+
+			if(Debug.grid != null)
+			{	foreach(var cell in Debug.highlightCells)
+					Utilities.HighlightCell(Debug.grid, cell, Color.Brown);
 			}
 
 			MyConsole.Render(font);

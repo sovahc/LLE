@@ -498,13 +498,16 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			MyMarkdown.Append($"## Your current position: {cp} Block: {name}");
 
 			int added = 0;
-			//var min = cp - Vector3I.One;
-			//var max = cp + Vector3I.One;
-			//foreach (var v in new Vector3I_RangeEnumerable(ref min, ref max))
-			foreach (var v in Constants.SixDirections)
-			{	var block = selectedGrid.GetCubeBlock(v);
+			Debug.grid = selectedGrid;
+			Debug.highlightCells.Clear();
+
+			foreach (var direction in Constants.SixDirections)
+			{	var v = cp + direction;
+				var block = selectedGrid.GetCubeBlock(v);
 
 				if(block == null) continue;
+
+				Debug.highlightCells.Add(v);
 
 				Formatter.Description(block, out category, out name);
 
