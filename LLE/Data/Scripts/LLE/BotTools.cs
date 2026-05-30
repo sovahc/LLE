@@ -12,7 +12,7 @@ namespace LLE
 {
 	public class BotTools
 	{
-		private MyEntity3DSoundEmitter emitter;
+		private MyEntity3DSoundEmitter soundEmitter;
 		private IMySlimBlock targetBlock;
 		private IMyCharacter bot;
 		private MyParticleEffect particleEffect;
@@ -24,10 +24,10 @@ namespace LLE
 		internal void Stop()
 		{	targetBlock = null;
 			
-			if(emitter != null)
+			if(soundEmitter != null)
 			{
-				emitter.StopSound(false);
-				emitter = null;
+				soundEmitter.StopSound(false);
+				soundEmitter = null;
 			}
 			if(particleEffect != null)
 			{
@@ -80,23 +80,21 @@ namespace LLE
 			block.DecreaseMountLevel(grindAmount, inventory);
 			block.MoveItemsFromConstructionStockpile(inventory);
 
-			var isWelder = false;
-	  		
-			var sound = isWelder ? "ToolPlayWeldMetal" : "ToolPlayGrindMetal";
+  			var sound = "ToolPlayGrindMetal";
 
-			if(emitter == null)
-			{	emitter = new MyEntity3DSoundEmitter(bot as MyEntity);
-				emitter.VolumeMultiplier = 0.5f;
-				emitter.PlaySound(new MySoundPair(sound));
+			if(soundEmitter == null)
+			{	soundEmitter = new MyEntity3DSoundEmitter(bot as MyEntity);
+				soundEmitter.VolumeMultiplier = 0.5f;
+				soundEmitter.PlaySound(new MySoundPair(sound));
 			}
 
 			if (particleEffect == null)
 			{
-				var particleName = isWelder ? MyParticleEffectsNameEnum.WelderContactPoint : MyParticleEffectsNameEnum.ShipGrinder;
+				var particleName = MyParticleEffectsNameEnum.ShipGrinder;
 				MatrixD m = MatrixD.Identity;
 				Vector3D pos = Vector3D.Zero;
 				if (MyParticlesManager.TryCreateParticleEffect(particleName, ref m, ref pos, uint.MaxValue, out particleEffect))
-					particleEffect.UserRadiusMultiplier = isWelder ? 4f : 2f;
+					particleEffect.UserRadiusMultiplier = 2f;
 			}
 			if (particleEffect != null)
 			{
@@ -115,6 +113,61 @@ namespace LLE
 			return true;
 		}
 
+		internal bool WeldBlock()
+		{
+			var block = targetBlock;
+			if(block == null) return false;
+
+			var inventory = bot.GetInventory();
+			if (inventory == null) return false;
+
+			var equippedTool = bot.EquippedTool as IMyWelder;
+			if (equippedTool == null) return false;
+
+			float speedMultiplier = 1.0f;
+
+			var physicalItem = MyDefinitionManager.Static.GetPhysicalItemForHandItem(equippedTool.DefinitionId);
+			var handItemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(physicalItem.Id);
+			var toolBaseDef = handItemDef as MyEngineerToolBaseDefinition;
+
+			if (toolBaseDef != null)
+				speedMultiplier = toolBaseDef.SpeedMultiplier;
+
+			float weldAmount = 0.03f * speedMultiplier * MyAPIGateway.Session.WelderSpeedMultiplier;
+
+			// Check if block can accept components from inventory
+			if (!block.CanContinueBuild(inventory)) return false;
+
+			// Apply welding
+			block.MoveItemsToConstructionStockpile(inventory);
+			block.IncreaseMountLevel(weldAmount, bot.ControllerInfo.ControllingIdentityId, inventory, 1.0f);
+
+			var sound = "ToolPlayWeldMetal";
+
+			if(soundEmitter == null)
+			{
+				soundEmitter = new MyEntity3DSoundEmitter(bot as MyEntity);
+				soundEmitter.VolumeMultiplier = 0.5f;
+				soundEmitter.PlaySound(new MySoundPair(sound));
+			}
+
+			if (particleEffect == null)
+			{
+				var particleName = MyParticleEffectsNameEnum.WelderContactPoint;
+				MatrixD m = MatrixD.Identity;
+				Vector3D pos = Vector3D.Zero;
+				if (MyParticlesManager.TryCreateParticleEffect(particleName, ref m, ref pos, uint.MaxValue, out particleEffect))
+					particleEffect.UserRadiusMultiplier = 4f;
+			}
+			if (particleEffect != null)
+			{
+				BoundingBoxD box;
+				block.GetWorldBoundingBox(out box, false);
+				particleEffect.WorldMatrix = box.Matrix;
+			}
+
+			return true;
+		}
 		internal static void GetStockpileComponents(IMySlimBlock block, Dictionary<string, int> components)
 		{
 			components.Clear();

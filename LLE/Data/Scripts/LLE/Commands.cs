@@ -438,6 +438,29 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			message = "Grinding...";
 		}
 
+		internal void Weld(string arguments, out string message)
+		{
+			Vector3I what;
+			if(!TryParseIJK(arguments, out what))
+			{	message = $"Error: invalid vector '{arguments}', use integer numbers, e.g `fly -1 5 2`";
+				return;
+			}
+			if(selectedGrid == null)
+			{	message = $"Error: you should select a grid first, use `select_grid name`";
+				return;
+			}
+			var block = selectedGrid.GetCubeBlock(what);
+			if(block == null)
+			{	message = $"Error: no block at {what}";
+				return;
+			}
+
+			botTools.SetTargetBlock(block);
+
+			currentAction = Action.Welding;
+			message = "Welding...";
+		}
+
 		internal void Update()
 		{
 			if(botTools == null) botTools = new BotTools(character);
@@ -452,6 +475,13 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 					return;
 				case Action.Grinding:
 					if(!botTools.GrindBlock())
+					{	botTools.Stop();
+						MyConsole.Add("Stop");
+						currentAction = Action.Idle;
+					}
+					return;
+				case Action.Welding:
+					if(!botTools.WeldBlock())
 					{	botTools.Stop();
 						MyConsole.Add("Stop");
 						currentAction = Action.Idle;

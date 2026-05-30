@@ -93,6 +93,9 @@ namespace LLE
 				else if(command == "GRIND")
 				{	commands.Grind(arguments, out message);
 				}
+				else if(command == "WELD")
+				{	commands.Weld(arguments, out message);
+				}
 				else if(command == "TEST")
 				{	if(selectedGrid != null)
 					{	var block = selectedGrid.GetCubeBlock(selectedBlock);
