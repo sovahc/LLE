@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
@@ -9,6 +10,7 @@ using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRageMath;
+using VRage.Utils;
 
 namespace LLE
 {
@@ -71,6 +73,14 @@ namespace LLE
 		{    
 			if(block == null) return "none";
 			return block.BlockDefinition.DisplayNameText;
+		}
+
+		public static string Description(MyInventoryItem item)
+		{	var def = (MyDefinitionId)item.Type;
+			Utilities.Log($"def {def}");
+			var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
+			Utilities.Log($"itemDef {itemDef}");
+			return itemDef.DisplayNameText;
 		}
 	}
 
@@ -521,20 +531,16 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 					return;
 				}
 				
-				List<MyInventoryItem> invItems = new List<MyInventoryItem>();
-				invItems.Clear();
-				inventory.GetItems(invItems);
+				List<MyInventoryItem> items = new List<MyInventoryItem>();
+				items.Clear();
+				inventory.GetItems(items);
 
 				tmp.Clear();
 
-				for (int i = 0; i < invItems.Count; i++)
+				for (int i = 0; i < items.Count; i++)
 				{
-					var item = invItems[i];
-					var type = item.Type;      // MyItemType (TypeId + SubtypeId)
-					var amount = item.Amount;  // MyFixedPoint
-					var itemId = item.ItemId;  // uint, уникальный в инвентаре
-
-					tmp.Append($"{type} {amount}\n");
+					var item = items[i];
+					tmp.Append($"{Formatter.Description(item)} → {item.Amount}\n");
 				}
 
 				commandResult = tmp.ToString();
