@@ -16,6 +16,8 @@ namespace LLE
 		private IMySlimBlock targetBlock;
 		private IMyCharacter bot;
 		private MyParticleEffect particleEffect;
+		private readonly float WELD_AND_GRIND_SPEED = 0.03f;
+		private readonly float SOUND_VOLUME = 0.5f;
 
 		public BotTools(IMyCharacter bot_)
 		{	bot = bot_;
@@ -49,14 +51,14 @@ namespace LLE
 
 			float speedMultiplier = 1.0f;
 
-			var physicalItem = MyDefinitionManager.Static.GetPhysicalItemForHandItem(equippedTool.DefinitionId);
-			var handItemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(physicalItem.Id);
-			var toolBaseDef = handItemDef as MyEngineerToolBaseDefinition;
+			var item = MyDefinitionManager.Static.GetPhysicalItemForHandItem(equippedTool.DefinitionId);
+			var itemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(item.Id);
+			var toolBaseDef = itemDef as MyEngineerToolBaseDefinition;
 
 			if (toolBaseDef != null)
 				speedMultiplier = toolBaseDef.SpeedMultiplier;
 
-			float grindAmount = 0.03f * speedMultiplier * MyAPIGateway.Session.GrinderSpeedMultiplier;
+			float grindAmount = WELD_AND_GRIND_SPEED * speedMultiplier * MyAPIGateway.Session.GrinderSpeedMultiplier;
 
 			// Check if inventory can accept at least one unit of any stockpile component
 			Dictionary<string, int> stock = new Dictionary<string, int>();
@@ -84,7 +86,7 @@ namespace LLE
 
 			if(soundEmitter == null)
 			{	soundEmitter = new MyEntity3DSoundEmitter(bot as MyEntity);
-				soundEmitter.VolumeMultiplier = 0.5f;
+				soundEmitter.VolumeMultiplier = SOUND_VOLUME;
 				soundEmitter.PlaySound(new MySoundPair(sound));
 			}
 
@@ -126,14 +128,14 @@ namespace LLE
 
 			float speedMultiplier = 1.0f;
 
-			var physicalItem = MyDefinitionManager.Static.GetPhysicalItemForHandItem(equippedTool.DefinitionId);
-			var handItemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(physicalItem.Id);
-			var toolBaseDef = handItemDef as MyEngineerToolBaseDefinition;
+			var item = MyDefinitionManager.Static.GetPhysicalItemForHandItem(equippedTool.DefinitionId);
+			var itemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(item.Id);
+			var toolBaseDef = itemDef as MyEngineerToolBaseDefinition;
 
 			if (toolBaseDef != null)
 				speedMultiplier = toolBaseDef.SpeedMultiplier;
 
-			float weldAmount = 0.03f * speedMultiplier * MyAPIGateway.Session.WelderSpeedMultiplier;
+			float weldAmount = WELD_AND_GRIND_SPEED * speedMultiplier * MyAPIGateway.Session.WelderSpeedMultiplier;
 
 			// Check if block can accept components from inventory
 			if (!block.CanContinueBuild(inventory)) return false;
@@ -147,7 +149,7 @@ namespace LLE
 			if(soundEmitter == null)
 			{
 				soundEmitter = new MyEntity3DSoundEmitter(bot as MyEntity);
-				soundEmitter.VolumeMultiplier = 0.5f;
+				soundEmitter.VolumeMultiplier = SOUND_VOLUME;
 				soundEmitter.PlaySound(new MySoundPair(sound));
 			}
 
