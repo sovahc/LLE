@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using Sandbox.Game.Entities;
@@ -12,6 +13,69 @@ using VRageMath;
 
 namespace LLE
 {
+	public static class Formatter
+	{
+		public static string Remove_MyObjectBuilder_(string type)
+		{
+			if (type.StartsWith("MyObjectBuilder_")) type = type.Substring("MyObjectBuilder_".Length);
+			return type;
+		}
+
+		public static string Quote(string s)
+		{	if(s == null) return "(null)";
+			if(!s.Contains(' ')) return s;
+			return $"'{s}'";
+		}
+
+		public static string Distance(double d)
+		{
+			if (d < 1000)
+				return $"{(int)Math.Round(d, 0, MidpointRounding.AwayFromZero)}m";
+			return $"{d / 1000.0:F1}km";
+		}
+
+		public static string IJK(Vector3I v)
+		{	return $"{v.X} {v.Y} {v.Z}";
+		}
+
+		public static void Description(MyEntity e, out string category, out string name)
+		{
+			category = "Unknown";
+			name = e.DisplayName;
+			if(name == null) name = e.ToString();
+
+			var grid = e as IMyCubeGrid;
+			if (grid != null)
+			{	if(grid.IsStatic) category = "STATION";
+				else if(grid.GridSizeEnum == MyCubeSize.Large) category = "LARGE GRID";
+				else if(grid.GridSizeEnum == MyCubeSize.Small) category = "SMALL GRID";
+				return;
+			}
+			var voxel = e as MyVoxelBase;
+			if (voxel != null)
+			{	if (voxel is MyPlanet)
+				{	category = "PLANET";
+					return;
+				}
+				category = "ASTEROID";
+				return;
+			}
+
+			var floater = e as IMyFloatingObject;
+			if (floater != null)
+			{	category = "FLOATING OBJECT";
+				return;
+			}
+		}
+
+		public static void Description(IMySlimBlock block, out string category, out string name)
+		{	
+			var id = block.BlockDefinition.Id;
+			category = Remove_MyObjectBuilder_(id.TypeId.ToString());
+			name = id.SubtypeId.ToString();
+		}
+	}
+
 	public class Commands
 	{
 		enum Action
@@ -26,7 +90,7 @@ namespace LLE
 		private IMyCubeGrid selectedGrid;
 		private MyVoxelBase selectedAsteroid;
 
-		private IMyCharacter character;
+		private readonly IMyCharacter character;
 		
 		private Navigation navigation;
 		private BotTools botTools;
@@ -51,7 +115,7 @@ namespace LLE
 * fly I J K					- Fly to specific grid coordinates (integer values)
 * grind I J K				- Grind a block at specific coordinates.
 * weld I J K				- Weld a block at specific coordinates.
-* nearest9					- Return 9 blocks around you, including the block you stand on
+* nearest					- Return 27 blocks around you, including the block you stand on
 ";
 		}
 
@@ -90,24 +154,7 @@ put 'item' into 'block name'
 Path finding: safest (default) / shortest / scouting / prefer open space
 
 */
-		private static string Remove_MyObjectBuilder_(string type)
-		{
-			if (type.StartsWith("MyObjectBuilder_")) type = type.Substring("MyObjectBuilder_".Length);
-			return type;
-		}
-
-		private static string Quotes(string s)
-		{	if(s == null) return "(null)";
-			if(!s.Contains(' ')) return s;
-			return $"'{s}'";
-		}
-
-		private static string Distance(double d)
-		{
-			if (d < 1000)
-				return $"{(int)Math.Round(d, 0, MidpointRounding.AwayFromZero)}m";
-			return $"{d / 1000.0:F1}km";
-		}
+		
 
 		private static bool Include(string searchTerm, string data)
 		{	if(searchTerm == "" || searchTerm == "*") return true;
@@ -125,44 +172,15 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			foreach (var e in matches)
 			{
 				string category, name;
-				Description(e, out category, out name);
+				Formatter.Description(e, out category, out name);
 				double distance = (e.WorldMatrix.Translation - engineer).Length();
-				tmp.Append($"* {category} {Quotes(name)} → {Distance(distance)}\n");
+				tmp.Append($"* {category} {Formatter.Quote(name)} → {Formatter.Distance(distance)}\n");
 			}
 			tmp.Append("\n\n");
 			message = tmp.ToString();
 			return message;
 		}
 
-		private static void Description(MyEntity e, out string category, out string name)
-		{
-			category = "Unknown";
-			name = e.DisplayName;
-			if(name == null) name = e.ToString();
-
-			var grid = e as IMyCubeGrid;
-			if (grid != null)
-			{	if(grid.IsStatic) category = "STATION";
-				else if(grid.GridSizeEnum == MyCubeSize.Large) category = "LARGE GRID";
-				else if(grid.GridSizeEnum == MyCubeSize.Small) category = "SMALL GRID";
-				return;
-			}
-			var voxel = e as MyVoxelBase;
-			if (voxel != null)
-			{	if (voxel is MyPlanet)
-				{	category = "PLANET";
-					return;
-				}
-				category = "ASTEROID";
-				return;
-			}
-
-			var floater = e as IMyFloatingObject;
-			if (floater != null)
-			{	category = "FLOATING OBJECT";
-				return;
-			}
-		}
 /*
 		private static readonly Dictionary<string, string[]> TerminalBCategories = new Dictionary<string, string[]>
 		{
@@ -356,7 +374,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			{	
 				if (e.Closed) continue;
 
-				Description(e, out category, out name);
+				Formatter.Description(e, out category, out name);
 
 				if(Include(query, name) || Include(query, category)) matches.Add(e);
 			}
@@ -366,17 +384,17 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				return;
 			}
 
-			Description(matches[0], out category, out name);
-			commandResult = $"Selected {category} {Quotes(name)}";
+			Formatter.Description(matches[0], out category, out name);
+			commandResult = $"Selected {category} {Formatter.Quote(name)}";
 
 			switch(type)
 			{	case ObjectType.LargeShip:
 					selectedGrid = matches[0] as IMyCubeGrid;
-					if(selectedGrid == null) commandResult = $"Error: {Quotes(name)} is {category}";
+					if(selectedGrid == null) commandResult = $"Error: {Formatter.Quote(name)} is {category}";
 					return;
 				case ObjectType.Asteroid:
 					selectedAsteroid = matches[0] as MyVoxelBase;
-					if(selectedAsteroid == null) commandResult = $"Error: {Quotes(name)} is {category}";
+					if(selectedAsteroid == null) commandResult = $"Error: {Formatter.Quote(name)} is {category}";
 					return;
 				default:
 					commandResult = "Internal error";
@@ -457,14 +475,39 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			commandResult = "Welding...";
 		}
 
-		internal void Nearest9(string arguments)
+		internal void Nearest(string arguments)
 		{	
 			if(!GridIsSet()) return;
 
-			tmp.Clear();
-			if(arguments != "") tmp.Append("Warning: Nearest9 doesn't support arguments\n");
+			MyMarkdown.Clear();
 
-			
+			if(arguments != "") MyMarkdown.Append("Warning: Nearest9 doesn't support arguments\n");
+
+			var center = Utilities.GetEngineerCenter(character);
+
+			var cp = selectedGrid.WorldToGridInteger(center);
+			var min = cp - Vector3I.One;
+			var max = cp + Vector3I.One;
+
+			MyMarkdown.Append($"# Your current position: {cp}");
+
+			int added = 0;
+			foreach (var v in new Vector3I_RangeEnumerable(ref min, ref max))
+			{	var block = selectedGrid.GetCubeBlock(v);
+
+				if(block == null) continue;
+
+				string category, name;
+				Formatter.Description(block, out category, out name);
+
+				MyMarkdown.Add(name, $"{Formatter.IJK(v)}");
+				++added;
+			}
+			if(added == 0)
+			{	MyMarkdown.Append("No any blocks around you.");
+			}
+
+			commandResult = MyMarkdown.Result();				;
 		}
 
 		internal void Update()

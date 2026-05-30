@@ -96,8 +96,8 @@ namespace LLE
 				else if(command == "WELD")
 				{	commands.Weld(arguments);
 				}
-				else if(command == "NEAREST9")
-				{	commands.Nearest9(arguments);
+				else if(command == "NEAREST")
+				{	commands.Nearest(arguments);
 				}
 				else if(command == "TEST")
 				{	commands.commandResult = "Ok";

@@ -19,10 +19,12 @@ namespace LLE
 		public const float EngineerCapsuleRadius = 0.5f;
 		public const float EngineerHeight = 1.8f;
 
-		public static readonly Vector3I[] SixDirections = new Vector3I[] {
-			new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0),
-			new Vector3I(0, 1, 0), new Vector3I(0, -1, 0),
-			new Vector3I(0, 0, 1), new Vector3I(0, 0, -1)};
+		public static readonly Vector3I[] SixDirections = new Vector3I[]
+		{	
+			new Vector3I(-1, 0, 0), new Vector3I(1, 0, 0),
+			new Vector3I(0, -1, 0), new Vector3I(0, 1, 0),
+			new Vector3I(0, 0, -1), new Vector3I(0, 0, 1)
+		};
 	}
 
 	class Utilities
@@ -258,6 +260,32 @@ namespace LLE
 				}
 			}
 			return result.ToString();
+		}
+	}
+
+	public class Vector3I_RangeEnumerable : IEnumerable<Vector3I>
+	{
+		private Vector3I _min, _max;
+
+		public Vector3I_RangeEnumerable(ref Vector3I min, ref Vector3I max)
+		{
+			_min = min;
+			_max = max;
+		}
+
+		public IEnumerator<Vector3I> GetEnumerator()
+		{
+			var iter = new Vector3I_RangeIterator(ref _min, ref _max);
+			while (iter.IsValid())
+			{
+				yield return iter.Current;
+				iter.MoveNext();
+			}
+		}
+
+		IEnumerator IEnumerable.GetEnumerator()
+		{
+			return GetEnumerator();
 		}
 	}
 }
