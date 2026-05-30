@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Sandbox.Game.Entities;
+using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
+using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
@@ -513,7 +515,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 		internal void Inventory(string arguments)
 		{
 			if(arguments == "")
-			{	var inventory = character.GetInventory() as MyInventory;
+			{	var inventory = character.GetInventory() as IMyInventory;
 				if (inventory == null)
 				{	commandResult = "Internal error";
 					return;
@@ -521,7 +523,9 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				
 				List<MyInventoryItem> invItems = new List<MyInventoryItem>();
 				invItems.Clear();
-				inventory.GetItems(invItems); // заполняет список
+				inventory.GetItems(invItems);
+
+				tmp.Clear();
 
 				for (int i = 0; i < invItems.Count; i++)
 				{
@@ -529,7 +533,11 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 					var type = item.Type;      // MyItemType (TypeId + SubtypeId)
 					var amount = item.Amount;  // MyFixedPoint
 					var itemId = item.ItemId;  // uint, уникальный в инвентаре
+
+					tmp.Append($"{type} {amount}\n");
 				}
+
+				commandResult = tmp.ToString();
 			}
 		}
 
