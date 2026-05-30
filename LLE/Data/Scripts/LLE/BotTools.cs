@@ -12,9 +12,6 @@ namespace LLE
 {
 	public class BotTools
 	{
-		private readonly float WELD_AND_GRIND_SPEED = 0.03f;
-		private readonly float SOUND_VOLUME = 0.5f;
-		
 		private IMySlimBlock targetBlock;
 		private IMyCharacter bot;
 		
@@ -60,7 +57,7 @@ namespace LLE
 			if (toolBaseDef != null)
 				speedMultiplier = toolBaseDef.SpeedMultiplier;
 
-			float grindAmount = WELD_AND_GRIND_SPEED * speedMultiplier * MyAPIGateway.Session.GrinderSpeedMultiplier;
+			float grindAmount = Constants.WeldAndGrindSpeed * speedMultiplier * MyAPIGateway.Session.GrinderSpeedMultiplier;
 
 			// Check if inventory can accept at least one unit of any stockpile component
 			Dictionary<string, int> stock = new Dictionary<string, int>();
@@ -88,7 +85,7 @@ namespace LLE
 
 			if(soundEmitter == null)
 			{	soundEmitter = new MyEntity3DSoundEmitter(bot as MyEntity);
-				soundEmitter.VolumeMultiplier = SOUND_VOLUME;
+				soundEmitter.VolumeMultiplier = Constants.SoundVolume;
 				soundEmitter.PlaySound(new MySoundPair(sound));
 			}
 
@@ -137,7 +134,7 @@ namespace LLE
 			if (toolBaseDef != null)
 				speedMultiplier = toolBaseDef.SpeedMultiplier;
 
-			float weldAmount = WELD_AND_GRIND_SPEED * speedMultiplier * MyAPIGateway.Session.WelderSpeedMultiplier;
+			float weldAmount = Constants.WeldAndGrindSpeed * speedMultiplier * MyAPIGateway.Session.WelderSpeedMultiplier;
 
 			// Check if block can accept components from inventory
 			if (!block.CanContinueBuild(inventory)) return false;
@@ -151,7 +148,7 @@ namespace LLE
 			if(soundEmitter == null)
 			{
 				soundEmitter = new MyEntity3DSoundEmitter(bot as MyEntity);
-				soundEmitter.VolumeMultiplier = SOUND_VOLUME;
+				soundEmitter.VolumeMultiplier = Constants.SoundVolume;
 				soundEmitter.PlaySound(new MySoundPair(sound));
 			}
 
