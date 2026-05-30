@@ -35,21 +35,23 @@ namespace LLE
 
 		private static readonly char[] MyTrim = new char [] {' ', '\t', '"', '\''};
 
+		public string commandResult;
+
 		public Commands(IMyCharacter character_)
 		{	character = character_;			
 		}
 
-		internal static void Help(out string message)
+		internal void Help()
 		{
-			message = @"# Command Reference
+			commandResult = @"# Command Reference
 
 * select_grid 'name'		- Select ship or station on which grind, weld and other operations will be performed.
 * select_asteroid 'name'	- Select asteroid on which mine operations will be performed.
 
-* nearest9					- Return 9 blocks around you, including the block you stand on
 * fly I J K					- Fly to specific grid coordinates (integer values)
 * grind I J K				- Grind a block at specific coordinates.
 * weld I J K				- Weld a block at specific coordinates.
+* nearest9					- Return 9 blocks around you, including the block you stand on
 ";
 		}
 
@@ -339,7 +341,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			message = MyMarkdown.Result();
 		}
 */
-		internal void Select(ObjectType type, Vector3D engineer, string query, out string message, int radius = 1000)
+		internal void Select(ObjectType type, Vector3D engineer, string query, int radius = 1000)
 		{
 			query = query.Trim(MyTrim);
 			
@@ -360,29 +362,29 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			}
 
 			if(matches.Count != 1)
-			{	message = MyError(engineer, query, matches);
+			{	commandResult = MyError(engineer, query, matches);
 				return;
 			}
 
 			Description(matches[0], out category, out name);
-			message = $"Selected {category} {Quotes(name)}";
+			commandResult = $"Selected {category} {Quotes(name)}";
 
 			switch(type)
 			{	case ObjectType.LargeShip:
 					selectedGrid = matches[0] as IMyCubeGrid;
-					if(selectedGrid == null) message = $"Error: {Quotes(name)} is {category}";
+					if(selectedGrid == null) commandResult = $"Error: {Quotes(name)} is {category}";
 					return;
 				case ObjectType.Asteroid:
 					selectedAsteroid = matches[0] as MyVoxelBase;
-					if(selectedAsteroid == null) message = $"Error: {Quotes(name)} is {category}";
+					if(selectedAsteroid == null) commandResult = $"Error: {Quotes(name)} is {category}";
 					return;
 				default:
-					message = "Internal error";
+					commandResult = "Internal error";
 					return;
 			}
 		}
 
-		private static bool TryParseIJK(string s, out Vector3I v)
+		private bool TryParseIJK(string s, out Vector3I v)
 		{	string[] parts = s.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 			int x, y, z;
 			if (parts.Length == 3 && 
@@ -394,71 +396,75 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				return true;
 			}
 			v = Vector3I.Zero;
+			commandResult = $"Error: invalid vector '{s}', use integer numbers e.g `command -1 5 2`";
 			return false;
 		}
 
-		internal void Fly(string arguments, out string message)
+		private bool GridIsSet()
+		{	if(selectedGrid == null)
+			{	commandResult = $"Error: you should select a grid first, use `select_grid name`";
+				return false;
+			}
+			return true;
+		}
+
+		internal void Fly(string arguments)
 		{	
 			Vector3I to;
-			if(!TryParseIJK(arguments, out to))
-			{	message = $"Error: invalid vector '{arguments}', use integer numbers, e.g `fly -1 5 2`";
-				return;
-			}
-			if(selectedGrid == null)
-			{	message = $"Error: you should select a grid first, use `select_grid name`";
-				return;
-			}
 
-			message = null;
+			if(!GridIsSet()) return;
+			if(!TryParseIJK(arguments, out to)) return;
 
 			navigation.FlyToGrid(selectedGrid, to);
 			currentAction = Action.Flying;
 		}
 
-		internal void Grind(string arguments, out string message)
+		internal void Grind(string arguments)
 		{
 			Vector3I what;
-			if(!TryParseIJK(arguments, out what))
-			{	message = $"Error: invalid vector '{arguments}', use integer numbers, e.g `fly -1 5 2`";
-				return;
-			}
-			if(selectedGrid == null)
-			{	message = $"Error: you should select a grid first, use `select_grid name`";
-				return;
-			}
+
+			if(!GridIsSet()) return;
+			if(!TryParseIJK(arguments, out what)) return;
+			
 			var block = selectedGrid.GetCubeBlock(what);
 			if(block == null)
-			{	message = $"Error: no block at {what}";
+			{	commandResult = $"Error: no block at {what}";
 				return;
 			}
 
 			botTools.SetTargetBlock(block);
 
 			currentAction = Action.Grinding;
-			message = "Grinding...";
+			commandResult = "Grinding...";
 		}
 
-		internal void Weld(string arguments, out string message)
+		internal void Weld(string arguments)
 		{
 			Vector3I what;
-			if(!TryParseIJK(arguments, out what))
-			{	message = $"Error: invalid vector '{arguments}', use integer numbers, e.g `fly -1 5 2`";
-				return;
-			}
-			if(selectedGrid == null)
-			{	message = $"Error: you should select a grid first, use `select_grid name`";
-				return;
-			}
+
+			if(!GridIsSet()) return;
+			if(!TryParseIJK(arguments, out what)) return;
+			
 			var block = selectedGrid.GetCubeBlock(what);
 			if(block == null)
-			{	message = $"Error: no block at {what}";
+			{	commandResult = $"Error: no block at {what}";
 				return;
 			}
 
 			botTools.SetTargetBlock(block);
 
 			currentAction = Action.Welding;
-			message = "Welding...";
+			commandResult = "Welding...";
+		}
+
+		internal void Nearest9(string arguments)
+		{	
+			if(!GridIsSet()) return;
+
+			tmp.Clear();
+			if(arguments != "") tmp.Append("Warning: Nearest9 doesn't support arguments\n");
+
+			
 		}
 
 		internal void Update()

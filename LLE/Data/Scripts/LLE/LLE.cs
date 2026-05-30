@@ -76,44 +76,36 @@ namespace LLE
 				MyConsole.Add($"command: {command} arguments: '{arguments}'", Color.Cyan);
 
 				var engineer = Utilities.GetEngineerCenter(ch);
-				string message;
+				commands.commandResult = null;
 
 				if(command == "HELP")
-				{	Commands.Help(out message);
+				{	commands.Help();
 				}
 				else if(command == "SELECT_ASTEROID")
-				{	commands.Select(ObjectType.Asteroid, engineer, arguments, out message);
+				{	commands.Select(ObjectType.Asteroid, engineer, arguments);
 				}
 				else if(command == "SELECT_GRID" || command == "SELECT")
-				{	commands.Select(ObjectType.LargeShip, engineer, arguments, out message);
+				{	commands.Select(ObjectType.LargeShip, engineer, arguments);
 				}
 				else if(command == "FLY")
-				{	commands.Fly(arguments, out message);
+				{	commands.Fly(arguments);
 				}
 				else if(command == "GRIND")
-				{	commands.Grind(arguments, out message);
+				{	commands.Grind(arguments);
 				}
 				else if(command == "WELD")
-				{	commands.Weld(arguments, out message);
+				{	commands.Weld(arguments);
+				}
+				else if(command == "NEAREST9")
+				{	commands.Nearest9(arguments);
 				}
 				else if(command == "TEST")
-				{	if(selectedGrid != null)
-					{	var block = selectedGrid.GetCubeBlock(selectedBlock);
-						
-						message = "";
-						Dictionary<string, int> comp = new Dictionary<string, int>();
-						BotTools.GetStockpileComponents(block, comp);
-
-						foreach(var kv in comp) message += $"E {kv.Key} {kv.Value}\n";
-					}
-					else
-					{	message  = "error";
-					}
+				{	commands.commandResult = "Ok";
 				}
 				else
-				{	message = $"Unknown command '{command}' use `help` to list all avialable commands.";
+				{	commands.commandResult = $"Unknown command '{command}' use `help` to list all avialable commands.";
 				}
-				MyConsole.AddMultiline(message);
+				MyConsole.AddMultiline(commands.commandResult);
 			}
 
 			//var pm = ch.GetHeadMatrix(false);
