@@ -520,32 +520,71 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 		internal void Inventory(string arguments)
 		{
 			if(arguments == "")
-			{	var inv = character.GetInventory() as IMyInventory;
+			{
+				var inv = character.GetInventory() as IMyInventory;
 				if (inv == null)
-				{	commandResult = "Internal error";
+				{
+					commandResult = "Internal error";
 					return;
 				}
 
 				tmp.Clear();
-				tmp.Append($"Used {inv.CurrentVolume}/{inv.MaxVolume} m^3 ({Formatter.Percent(inv.VolumeFillFactor)})\n");
+				tmp.Append($"Your inventory:\n");
+				InventoryToText(inv);
 
-				List<MyInventoryItem> items = new List<MyInventoryItem>();
-				items.Clear();
-				inv.GetItems(items);
+				commandResult = tmp.ToString();
+			}
+			else
+			{	Vector3I where;
+				
+				if(!GridIsSet()) return;
+				if(!TryParseIJK(arguments, out where)) return;
+			
+				var block = selectedGrid.GetCubeBlock(where);
+				if(block == null)
+				{	commandResult = $"Error: no block at {where}";
+					return;
+				}
 
-				for (int i = 0; i < items.Count; i++)
-				{
-					var item = items[i];
+				var name = Formatter.Description(block);
+				var fat = block.FatBlock;
 
-					var def = (MyDefinitionId)item.Type;
-					var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
+				if(fat == null || !fat.HasInventory)
+				{	commandResult = $"Block {Formatter.Quote(name)} has no inventory.";
+					return;
+				}
 
-					float volume = (float)item.Amount * itemDef.Volume;
-   
-					tmp.Append($"* {itemDef.DisplayNameText} → {item.Amount} ({Formatter.Percent(volume)})\n");
+				tmp.Clear();
+				var es = fat.InventoryCount == 1 ? "" : "es";
+				tmp.Append($"Current inventory{es} of {Formatter.Quote(name)} (at {Formatter.IJK(where)}):\n");
+				
+				for(int i = 0; i < fat.InventoryCount; ++i)
+				{	var inv = fat.GetInventory(i);
+					InventoryToText(inv);
 				}
 
 				commandResult = tmp.ToString();
+			}
+		}
+
+		private void InventoryToText(IMyInventory inv)
+		{
+			tmp.Append($"Used {inv.CurrentVolume}/{inv.MaxVolume} m^3 ({Formatter.Percent(inv.VolumeFillFactor)})\n");
+
+			List<MyInventoryItem> items = new List<MyInventoryItem>();
+			items.Clear();
+			inv.GetItems(items);
+
+			for (int i = 0; i < items.Count; i++)
+			{
+				var item = items[i];
+
+				var def = (MyDefinitionId)item.Type;
+				var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
+
+				float volume = (float)item.Amount * itemDef.Volume;
+
+				tmp.Append($"* {itemDef.DisplayNameText} → {item.Amount} ({Formatter.Percent(volume)})\n");
 			}
 		}
 
