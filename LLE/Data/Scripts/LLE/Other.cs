@@ -263,32 +263,6 @@ namespace LLE
 		}
 	}
 
-	public class Vector3I_RangeEnumerable : IEnumerable<Vector3I>
-	{
-		private Vector3I _min, _max;
-
-		public Vector3I_RangeEnumerable(ref Vector3I min, ref Vector3I max)
-		{
-			_min = min;
-			_max = max;
-		}
-
-		public IEnumerator<Vector3I> GetEnumerator()
-		{
-			var iter = new Vector3I_RangeIterator(ref _min, ref _max);
-			while (iter.IsValid())
-			{
-				yield return iter.Current;
-				iter.MoveNext();
-			}
-		}
-
-		IEnumerator IEnumerable.GetEnumerator()
-		{
-			return GetEnumerator();
-		}
-	}
-
 	public class BitField
 	{
 		private readonly long[] _data;
