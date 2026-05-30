@@ -6,6 +6,7 @@ using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
+using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
 using VRage.Game;
 using VRage;
 using VRage.Game.Entity;
@@ -123,8 +124,8 @@ namespace LLE
 * near							- Return 6 accessible blocks around you and the block you are standing on.
 * inventory						- Return the items in your inventory.
 * inventory I J K				- Return the inventory of the container at specific coordinates.
-* get 'item' count from I J K	- Transfer an item from a container to your inventory. Ex `get 'Gold Ingot' 10 from -1 5 2`
-* put 'item' count into I J K	- Transfer an item from your inventory to a container. Ex `put 'Medkit' 1 to 14 0 2`
+* get count 'item' from I J K	- Transfer an item from a container to your inventory. Ex `get 10 'Gold Ingot' from -1 5 2`
+* put count 'item' into I J K	- Transfer an item from your inventory to a container. Ex `put 1 'Medkit' to 14 0 2`
 ";
 }
 
@@ -526,7 +527,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 				tmp.Clear();
 				tmp.Append($"Your inventory:\n");
-				InventoryToText(inv);
+				InventoryToText(inv, tmp);
 
 				commandResult = tmp.ToString();
 			}
@@ -556,16 +557,16 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				
 				for(int i = 0; i < fat.InventoryCount; ++i)
 				{	var inv = fat.GetInventory(i);
-					InventoryToText(inv);
+					InventoryToText(inv, tmp);
 				}
 
 				commandResult = tmp.ToString();
 			}
 		}
 
-		private void InventoryToText(IMyInventory inv)
+		private static void InventoryToText(IMyInventory inv, StringBuilder output)
 		{
-			tmp.Append($"Used {inv.CurrentVolume}/{inv.MaxVolume} m^3 ({Formatter.Percent(inv.VolumeFillFactor)})\n");
+			output.Append($"Used {inv.CurrentVolume}/{inv.MaxVolume} m^3 ({Formatter.Percent(inv.VolumeFillFactor)})\n");
 
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 			items.Clear();
@@ -580,7 +581,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 				float volume = (float)item.Amount * itemDef.Volume;
 
-				tmp.Append($"* {itemDef.DisplayNameText} → {item.Amount} ({Formatter.Percent(volume)})\n");
+				output.Append($"* {itemDef.DisplayNameText} → {item.Amount} ({Formatter.Percent(volume)})\n");
 			}
 		}
 
@@ -588,15 +589,15 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 		{
 			if(!GridIsSet()) return;
 
-			var item = Utilities.GetNextWord(ref arguments);
 			var countS = Utilities.GetNextWord(ref arguments);
+			var item = Utilities.GetNextWord(ref arguments);
 			var from = Utilities.GetNextWord(ref arguments);
 			var ijkS = arguments;
 			
 			double count; Vector3I ijk;
 
 			if(from != "from" || !double.TryParse(countS, out count) || !TryParseIJK(ijkS, out ijk))
-			{	commandResult = $"Mailformed request: item='{item}' count='{countS}' from='{from}' ijk={ijkS}";
+			{	commandResult = $"Malformed request: item='{item}' count='{countS}' from='{from}' ijk={ijkS}";
 				return;
 			}
 
@@ -606,51 +607,31 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				return;
 			}
 
-			var inv = character.GetInventory() as IMyInventory;
-			if (inv == null) { commandResult = "Internal error"; return; }
-
-			var name = Formatter.Description(block);
 			var fat = block.FatBlock;
+			var fromName = Formatter.Description(block);
 
 			if(fat == null || !fat.HasInventory)
-			{	commandResult = $"Block {Formatter.Quote(name)} does not have an inventory.";
+			{	commandResult = $"Block {Formatter.Quote(fromName)} does not have an inventory.";
 				return;
 			}
 
-			List<MyInventoryItem> items = new List<MyInventoryItem>();
+			List<IMyInventory> fromList = new List<IMyInventory>();
+			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
+
 			for (int ii = 0; ii < fat.InventoryCount; ++ii)
-			{
-				var sourceInv = fat.GetInventory(ii);
-				sourceInv.GetItems(items);
+				fromList.Add(fat.GetInventory(ii));
 
-				for (int i = 0; i < items.Count; i++)
-				{
-					var def = (MyDefinitionId)items[i].Type;
-					var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
+			toList.Add(character.GetInventory());
 
-					if (itemDef != null && itemDef.DisplayNameText == item)
-					{
-						var amount = (MyFixedPoint)Math.Min(count, (double)items[i].Amount);
-						var wtf = (VRage.Game.ModAPI.IMyInventory)inv;
-
-						if (sourceInv.TransferItemTo(wtf, i, null, true, amount, false))
-						{
-							commandResult = $"Transferred {count} {Formatter.Quote(item)} from {Formatter.Quote(name)}";
-							return;
-						}
-					}
-				}
-				items.Clear();
-			}
-			commandResult = $"Item {Formatter.Quote(item)} not found in {Formatter.Quote(name)}";
+			InventoryTransfer(fromList, toList, fromName, "your inventory", item, (MyFixedPoint)count, out commandResult);
 		}
 
 		internal void Put(string arguments)
 		{
 			if(!GridIsSet()) return;
 
-			var item = Utilities.GetNextWord(ref arguments);
 			var countS = Utilities.GetNextWord(ref arguments);
+			var item = Utilities.GetNextWord(ref arguments);
 			var into = Utilities.GetNextWord(ref arguments);
 			var ijkS = arguments;
 			
@@ -670,53 +651,73 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			var inv = character.GetInventory() as IMyInventory;
 			if (inv == null) { commandResult = "Internal error"; return; }
 
-			var name = Formatter.Description(block);
 			var fat = block.FatBlock;
+			var toName = Formatter.Description(block);
 
 			if(fat == null || !fat.HasInventory)
-			{	commandResult = $"Block {Formatter.Quote(name)} does not have an inventory.";
+			{	commandResult = $"Block {Formatter.Quote(toName)} does not have an inventory.";
 				return;
 			}
 
-			List<MyInventoryItem> items = new List<MyInventoryItem>();
-			inv.GetItems(items);
+			List<IMyInventory> fromList = new List<IMyInventory>();
+			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
 
-			int srcItemIndex = -1;
-			for (int i = 0; i < items.Count; i++)
-			{
-				var def = (MyDefinitionId)items[i].Type;
-				var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
-
-				if (itemDef != null && itemDef.DisplayNameText == item)
-				{
-					srcItemIndex = i;
-					break;
-				}
-			}
-
-			if (srcItemIndex < 0)
-			{	commandResult = $"Item {Formatter.Quote(item)} not found in your inventory";
-				return;
-			}
-
-			var srcItem = items[srcItemIndex];
+			fromList.Add(character.GetInventory());
 
 			for (int ii = 0; ii < fat.InventoryCount; ++ii)
+				toList.Add(fat.GetInventory(ii));
+
+			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out commandResult);
+		}
+
+		internal static void InventoryTransfer(List<IMyInventory> fromList, List<WTF_IMyInventory> toList,
+			string fromName, string toName, string itemName, MyFixedPoint amount, out string result)
+		{	
+			List<MyInventoryItem> items = new List<MyInventoryItem>();
+
+			IMyInventory from = null;
+			int fromIndex = -1;
+
+			for(int f = 0; f < fromList.Count; ++f)
 			{
-				var destination = fat.GetInventory(ii);
-				var amount = (MyFixedPoint)count;
+				from = fromList[f];
 
-				if (destination.CanItemsBeAdded(amount, srcItem.Type))
+				items.Clear();
+				from.GetItems(items);
+
+				for (int i = 0; i < items.Count; i++)
 				{
-					var wtf = (VRage.Game.ModAPI.IMyInventory)inv;
+					var def = (MyDefinitionId)items[i].Type;
+					var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
 
-					wtf.TransferItemTo(destination, srcItemIndex, 0, true, amount, false);
-					commandResult = $"Transferred {amount} {Formatter.Quote(item)} into {Formatter.Quote(name)}";
+					if (itemDef != null && itemDef.DisplayNameText == itemName)
+					{
+						fromIndex = i;
+						break;
+					}
+				}
+
+				if(fromIndex >= 0) break;
+			}
+
+			if (fromIndex < 0)
+			{	result = $"Item {Formatter.Quote(itemName)} not found in inventory";
+				return;
+			}
+
+			var item = items[fromIndex];
+
+			foreach (var to in toList)
+			{
+				if (to.CanItemsBeAdded(amount, item.Type))
+				{
+					((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, 0, true, amount, false);
+					result = $"Transferred {amount} {Formatter.Quote(itemName)} from {Formatter.Quote(fromName)} into {Formatter.Quote(toName)}";
 					return;
 				}
 			}
 
-			commandResult = $"Cannot transfer {Formatter.Quote(item)} into {Formatter.Quote(name)}";
+			result = $"Cannot transfer {Formatter.Quote(itemName)} into {Formatter.Quote(toName)}";
 		}
 
 		internal void Update()
