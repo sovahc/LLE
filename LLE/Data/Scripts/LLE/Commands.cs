@@ -108,13 +108,13 @@ namespace LLE
 		{
 			commandResult = @"# Command Reference
 
-* select_grid 'name'		- Select ship or station on which grind, weld and other operations will be performed.
-* select_asteroid 'name'	- Select asteroid on which mine operations will be performed.
+* select_grid 'name'   		- Select ship or station on which to grind, weld and perform other operations.
+* select_asteroid 'name'	- Select asteroid on which to mine.
 
 * fly I J K					- Fly to specific grid coordinates (integer values)
 * grind I J K				- Grind a block at specific coordinates.
 * weld I J K				- Weld a block at specific coordinates.
-* nearest					- Return 6 accesiible blocks around you, an the block you stand on
+* near						- Return 6 accessible blocks around you, and the block you stand on
 ";
 		}
 
@@ -333,7 +333,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			if(selectedGrid != null && selectedGrid.Closed) selectedGrid = null;
 
 			if(selectedGrid == null)
-			{	message = "You should select a grid first using command: `select_grid name`.";
+			{	message = "You should select a grid first using the command: `select_grid name`.";
 				return;
 			}
 
@@ -474,13 +474,13 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			commandResult = "Welding...";
 		}
 
-		internal void Nearest(string arguments)
+		internal void Near(string arguments)
 		{	
 			if(!GridIsSet()) return;
 
 			MyMarkdown.Clear();
 
-			if(arguments != "") MyMarkdown.Append("Warning: Nearest9 doesn't support arguments\n");
+			if(arguments != "") MyMarkdown.Append("Warning: `near` doesn't have arguments\n");
 
 			var center = Utilities.GetEngineerCenter(character);
 			var cI = selectedGrid.WorldToGridInteger(center);
@@ -506,7 +506,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				++added;
 			}
 			if(added == 0)
-			{	MyMarkdown.Append("No any blocks around you.");
+			{	MyMarkdown.Append("No blocks around you.");
 			}
 
 			commandResult = MyMarkdown.Result();
