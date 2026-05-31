@@ -110,8 +110,6 @@ namespace LLE
 
 		private readonly StringBuilder tmp = new StringBuilder();
 
-		private static readonly char[] MyTrim = new char [] {' ', '\t', '"', '\''};
-
 		internal TokenParser tokenParser;
 		public string commandResult;
 
@@ -126,6 +124,8 @@ namespace LLE
 * select_grid 'name'    		- Select a ship or station on which to grind, weld, and perform other operations.
 * select_asteroid 'name'		- Select an asteroid on which to mine.
 
+* overview						- List grid blocks by category.
+* search 'substring'			- Search blocks coordinates by name.
 * fly I J K						- Fly to specific grid coordinates (integer values)
 * grind I J K					- Grind a block at specific coordinates.
 * weld I J K					- Weld a block at specific coordinates.
@@ -215,9 +215,10 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 		};
 
 		private static readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
-		private static readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
+		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
+		private static readonly List<IMySlimBlock> slimBlocks = new List<IMySlimBlock>();
 
-		internal void Info()
+		internal void Overview()
 		{
 			if(!GridIsSet()) return;
 
@@ -231,11 +232,11 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 
 			count.Clear();
-			blocks.Clear();
-			ts.GetBlocks(blocks);
+			terminalBlocks.Clear();
+			ts.GetBlocks(terminalBlocks);
 
 			int total = 0;
-			foreach (var block in blocks)
+			foreach (var block in terminalBlocks)
 			{
 				var type = block.BlockDefinition.TypeId;
 				if (!count.ContainsKey(type))
@@ -260,6 +261,38 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				}
 
 				MyMarkdown.Add(category, $"* {type} → {kv.Value}");
+			}
+
+			count.Clear();
+			terminalBlocks.Clear();
+
+			commandResult = MyMarkdown.Result();
+		}
+
+		internal void Search()
+		{
+			if(!GridIsSet()) return;
+
+			string query = tokenParser.NextString();
+			if(query == "")
+			{	commandResult = "Error: query should not be ''";
+				return;
+			}
+
+			string category, name;
+			Formatter.Description(selectedGrid as MyEntity, out category, out name);
+
+			MyMarkdown.Clear();
+			MyMarkdown.Append($"# SEARCH ON {category} '{name}' QUERY: '{query}'");
+
+			selectedGrid.GetBlocks(slimBlocks);
+
+			foreach(var block in slimBlocks)
+			{	name = Formatter.Description(block);
+
+				if(Include(query, name))
+				{	MyMarkdown.Add(name, Formatter.IJK(block.Position));
+				}
 			}
 
 			commandResult = MyMarkdown.Result();
@@ -722,75 +755,49 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 			MyConsole.Add($"command: '{command}'", Color.Cyan);
 
-			if(tp.Match("HELP"))
+			if(tp.Match("Help"))
 			{	Help();
 			}
-			else if(tp.Match("INFO"))
-			{	Info();
+			else if(tp.Match("Overview"))
+			{	Overview();
 			}
-			else if(tp.Match("SELECT_ASTEROID"))
+			else if(tp.Match("Search"))
+			{	Search();
+			}
+			else if(tp.Match("Select_Asteroid"))
 			{	Select(ObjectType.Asteroid);
 			}
-			else if(tp.Match("SELECT_GRID") || tp.Match("SELECT"))
+			else if(tp.Match("Select_grid") || tp.Match("Select"))
 			{	Select(ObjectType.LargeShip);
 			}
-			else if(tp.Match("FLY"))
+			else if(tp.Match("Fly"))
 			{	Fly();
 			}
-			else if(tp.Match("GRIND"))
+			else if(tp.Match("Grind"))
 			{	Grind();
 			}
-			else if(tp.Match("WELD"))
+			else if(tp.Match("Weld"))
 			{	Weld();
 			}
-			else if(tp.Match("NEAR"))
+			else if(tp.Match("Near"))
 			{	Near();
 			}
-			else if(tp.Match("INVENTORY"))
+			else if(tp.Match("Inventory"))
 			{	Inventory();
 			}
-			else if(tp.Match("GET"))
+			else if(tp.Match("Get"))
 			{	Get();
 			}
-			else if(tp.Match("PUT"))
+			else if(tp.Match("Put"))
 			{	Put();
 			}
-			else if(tp.Match("TRANSFER"))
+			else if(tp.Match("Transfer"))
 			{	Transfer();
 			}
 			else
-			{	commandResult = $"Unknown command '{command}' use `help` to list all available commands.";
+			{	commandResult = $"Unknown command '{tp.NextString()}' use `help` to list all available commands.";
 			}
 			MyConsole.AddMultiline(commandResult);
 		}
 	}
 }
-
-/*
-		internal static string Search(Vector3D center, int radius, string query)
-		{
-			query = query.Trim(MyTrim);
-			
-			MyMarkdown.Clear();
-			MyMarkdown.Append($"# SEARCH RESULT '{query}' (RADIUS {Distance(radius)})");
-
-			BoundingSphereD S = new BoundingSphereD(center, radius);
-			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
-			
-			foreach(var e in entities)
-			{	
-				if (e.Closed) continue;
-
-				double distance = (e.WorldMatrix.Translation - center).Length();
-
-				string category, name;
-
-				Description(e, out category, out name);
-
-				if(Include(query, name) || Include(query, category))
-					MyMarkdown.Add($"## {category}", $"* {Quotes(name)} → {Distance(distance)}");
-			}
-
-			return MyMarkdown.Result();
-		}
-*/
