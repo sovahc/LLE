@@ -199,13 +199,36 @@ namespace LLE
 		public static void AddMultiline(string text, Color defaultColor)
 		{	if(text == null) return;
 
-			foreach(var line in text.Split('\n'))
+			for(;;)
+			{	if(text.Length == 0) return;
+				
+				var eol = text.IndexOf('\n');
+				string part = eol < 0 ? text : text.Substring(0, eol);
+
+				if (_lines.Count > 0)
+				{
+					var last = _lines[_lines.Count-1];
+					last.Text += part;
+					last.Color = defaultColor;
+					_lines[_lines.Count-1] = last;
+				}
+				else
+				{	Add(part, defaultColor);
+				}
+
+				if(eol < 0) return;
+				text = text.Substring(eol+1);
+				Add("", defaultColor);
+			}
+		}
+
+/*					foreach(var line in text.Split('\n'))
 			{	if(line.StartsWith("##")) Add(line, Color.Violet);
 				else if(line.StartsWith("#")) Add(line, Color.BlueViolet);
 				else if(line.StartsWith("*")) Add(line, Color.Gray);
 				else Add(line, defaultColor);
 			}
-		}
+*/
 
 		public static void Render(Font font)
 		{

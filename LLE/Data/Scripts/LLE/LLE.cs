@@ -60,8 +60,6 @@ namespace LLE
 
 		public override void UpdateBeforeSimulation()
 		{
-			LLE_Loader.Update();
-
 			var player = MyAPIGateway.Session.Player;
 			if (player == null) return;
 			var ch = player.Character;
@@ -73,13 +71,14 @@ namespace LLE
 
 			if (commands.commandResult != null)
 			{	MyConsole.AddMultiline(commands.commandResult, Color.OrangeRed);
-				LLE_Loader.SetResult(commands.commandResult);
+				LLE_Loader.SendMessageToLLM(commands.commandResult);
 				commands.commandResult = null;
 			}
 
-			MessageFromLLM m;
-			if (LLE_Loader.GetMessageFromLLM(out m))
-			{	MyConsole.Add(m.Payload, Color.Cyan);
+			FromLLM m;
+			for(int i = 0; i < 100; ++i)
+			{	if (!LLE_Loader.GetChunkFromLLM(out m)) break;
+				MyConsole.AddMultiline(m.Payload, m.Type == MessageType.Reasoning ? Color.Gray : Color.Cyan);
 				//commands.Execute(m.Payload);
 			}
 
@@ -179,17 +178,15 @@ namespace LLE
 			var player = MyAPIGateway.Session.Player;
 			if (player == null) return;
 
-			MyConsole.AddMultiline(message, Color.Chocolate);
-			LLE_Loader.SetChat(player.DisplayName, message);
+			MyConsole.Add(message, Color.Chocolate);
+			LLE_Loader.SendMessageToLLM($"[GAME CHAT] {player.DisplayName}: {message}");
 		}
 	}
 
 	public static class LLE_Loader
 	{
 		public static bool IsPresent() => false;
-		public static void Update() { }
-		public static void SetChat(string author, string text) { }
-		public static bool GetMessageFromLLM(out MessageFromLLM cmd) { cmd = null; return false; }
-		public static void SetResult(string result) { }
+		public static bool GetChunkFromLLM(out FromLLM m) { m = null; return false; }
+		public static void SendMessageToLLM(string text) { }
 	}
 }

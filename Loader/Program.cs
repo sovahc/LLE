@@ -43,7 +43,7 @@ namespace LLELoader
 	{
 		private static readonly Queue<string> _chatContext = new Queue<string>();
 
-		private static readonly ConcurrentQueue<LLE.MessageFromLLM> _commandQueue = new ConcurrentQueue<LLE.MessageFromLLM>();
+		private static readonly ConcurrentQueue<LLE.FromLLM> _commandQueue = new ConcurrentQueue<LLE.FromLLM>();
 
 		private static string _systemPrompt = "Reply max 50 characters. No explanations.";
 
@@ -69,40 +69,29 @@ namespace LLELoader
 			}
 		}
 
-		public static void SetChat(string author, string text)
+		public static bool GetChunkFromLLM(out LLE.FromLLM cmd)
 		{
-			var entry = $"{author}: {text}";
+			bool r = _commandQueue.TryDequeue(out cmd);
+			if(r) Logger.Write("[GetChunkFromLLM] " + cmd.Payload);
+			return r;
+		}
 
-			Logger.Write("[CHAT] " + entry);
+		public static void SendMessageToLLM(string text)
+		{
+			Logger.Write("[SendMessageToLLM] " + text);
 
-			_chatContext.Enqueue(entry);
-			if (_chatContext.Count > 50) _chatContext.Dequeue();
+			_chatContext.Enqueue(text);
+			//if (_chatContext.Count > 1000) _chatContext.Dequeue();
 
 			if (text.Length > 0 && text[0] == '>')
 			{
 				var t = text.Substring(1).Trim();
-				_commandQueue.Append(new LLE.MessageFromLLM { Payload = t });
+				_commandQueue.Append(new LLE.FromLLM { Payload = t });
 			}
 			else
 			{
 				var _ = RespondToChatAsync();
 			}
-		}
-
-		public static bool GetMessageFromLLM(out LLE.MessageFromLLM cmd)
-		{
-			return _commandQueue.TryDequeue(out cmd);
-		}
-
-
-		public static void SetResult(string result)
-		{
-			Logger.Write("[RESULT] " + result);
-
-			_chatContext.Enqueue("RESULT: " + result);
-			if (_chatContext.Count > 1000) _chatContext.Dequeue();
-
-			var _ = RespondToChatAsync(); // ! LOOP !
 		}
 
 		private static async Task RespondToChatAsync()
@@ -150,16 +139,16 @@ namespace LLELoader
 						if (delta.TryGetProperty("reasoning_content", out var reasoningProp))
 						{
 							var reasoning = reasoningProp.GetString();
-							Logger.Write($"reasoning_content {reasoning}");
 							if (!string.IsNullOrEmpty(reasoning))
-								_commandQueue.Enqueue(new LLE.MessageFromLLM { Type = LLE.MessageType.Reasoning, Payload = reasoning });
+								_commandQueue.Enqueue(new LLE.FromLLM {
+									Type = LLE.MessageType.Reasoning, Payload = reasoning });
 						}
 						if (delta.TryGetProperty("content", out var contentProp))
 						{
 							var content = contentProp.GetString();
-							Logger.Write($"content {content}");
 							if (!string.IsNullOrEmpty(content))
-								_commandQueue.Enqueue(new LLE.MessageFromLLM { Type = LLE.MessageType.Content, Payload = content });
+								_commandQueue.Enqueue(new LLE.FromLLM {
+									Type = LLE.MessageType.Content, Payload = content });
 						}
 					}
 				}
@@ -190,7 +179,7 @@ namespace LLELoader
 		[HarmonyPatchCategory("Late")]
 		static class Patch_ScriptManagerLoadData
 		{
-			private static readonly string[] BridgeMethods = { "IsPresent", "Update", "SetChat", "GetMessageFromLLM", "SetResult" };
+			private static readonly string[] BridgeMethods = ["IsPresent", "GetChunkFromLLM", "SendMessageToLLM"];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -223,10 +212,8 @@ namespace LLELoader
 								switch (methodName)
 								{
 									case "IsPresent": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsPresent)); break;
-									case "Update": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_Update)); break;
-									case "SetChat": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SetChat)); break;
-									case "GetMessageFromLLM": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_GetMessageFromLLM)); break;
-									case "SetResult": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SetResult)); break;
+									case "GetChunkFromLLM": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_GetChunkFromLLM)); break;
+									case "SendMessageToLLM": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SendMessageToLLM)); break;
 									default: continue;
 								}
 
@@ -256,26 +243,15 @@ namespace LLELoader
 				return false;
 			}
 
-			static bool Prefix_Update()
+			static bool Prefix_GetChunkFromLLM(out LLE.FromLLM m, ref bool __result)
 			{
-				//MessageBroker.Update();
+				__result = GetChunkFromLLM(out m);
 				return false;
 			}
 
-			static void Prefix_SetChat(string author, string text)
+			static void Prefix_SendMessageToLLM(string text)
 			{
-				SetChat(author, text);
-			}
-
-			static bool Prefix_GetMessageFromLLM(out LLE.MessageFromLLM cmd, ref bool __result)
-			{
-				__result = GetMessageFromLLM(out cmd);
-				return false;
-			}
-
-			static void Prefix_SetResult(string result)
-			{
-				SetResult(result);
+				SendMessageToLLM(text);
 			}
 
 		}  // Patch_ScriptManagerLoadData class ends here
@@ -305,4 +281,4 @@ namespace LLELoader
 			}
 		}
 	}
-} // namespace LLELoader ends here
+}
