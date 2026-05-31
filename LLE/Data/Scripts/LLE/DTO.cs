@@ -16,8 +16,11 @@ namespace LLE
 		public string Debug;
 	}
 
-	public class ServerCommand
+	public enum MessageType { Reasoning, Content, Command }
+
+	public class MessageFromLLM
 	{
+		public MessageType Type;
 		public string Payload;
 	}
 

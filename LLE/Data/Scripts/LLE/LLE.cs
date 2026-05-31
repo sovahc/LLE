@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage.Game;
@@ -76,17 +77,28 @@ namespace LLE
 				commands.commandResult = null;
 			}
 
-			ServerCommand cmd;
-			if (LLE_Loader.GetCommand(out cmd))
-			{	MyConsole.Add(cmd.Payload, Color.Cyan);
-				commands.Execute(cmd.Payload);
+			MessageFromLLM m;
+			if (LLE_Loader.GetMessageFromLLM(out m))
+			{	MyConsole.Add(m.Payload, Color.Cyan);
+				//commands.Execute(m.Payload);
 			}
 
-			if (commands.commandResult != null)
-			{	MyConsole.AddMultiline(commands.commandResult, Color.PaleVioletRed);
-				LLE_Loader.SetResult(commands.commandResult);
-				commands.commandResult = null;
-			}
+			// Poll streaming chunks
+			//if (!string.IsNullOrEmpty(LLE_Loader.StreamingReasoning)) MyConsole.Add(LLE_Loader.StreamingReasoning, Color.Gray);
+			//if (!string.IsNullOrEmpty(LLE_Loader.StreamingContent)) MyConsole.Add(LLE_Loader.StreamingContent, Color.Cyan);
+			/*
+				ServerCommand cmd;
+				if (LLE_Loader.GetCommand(out cmd))
+				{	MyConsole.Add(cmd.Payload, Color.Cyan);
+					commands.Execute(cmd.Payload);
+				}
+
+				if (commands.commandResult != null)
+				{	MyConsole.AddMultiline(commands.commandResult, Color.PaleVioletRed);
+					LLE_Loader.SetResult(commands.commandResult);
+					commands.commandResult = null;
+				}
+			}*/
 		}
 
 		public override void Draw()
@@ -176,9 +188,8 @@ namespace LLE
 	{
 		public static bool IsPresent() => false;
 		public static void Update() { }
-		public static void SetVision(Dictionary<long, LastKnownState> states) { }
 		public static void SetChat(string author, string text) { }
-		public static bool GetCommand(out ServerCommand cmd) { cmd = null; return false; }
+		public static bool GetMessageFromLLM(out MessageFromLLM cmd) { cmd = null; return false; }
 		public static void SetResult(string result) { }
 	}
 }
