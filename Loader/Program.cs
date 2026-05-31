@@ -80,7 +80,9 @@ namespace LLELoader
 		public static void SetChat(string author, string text)
 		{
 			var entry = $"{author}: {text}";
+
 			Logger.Write("[CHAT] " + entry);
+			
 			_chatContext.Enqueue(entry);
 			if (_chatContext.Count > 50) _chatContext.Dequeue();
 
@@ -104,6 +106,7 @@ namespace LLELoader
 		public static void SetResult(string result)
 		{
 			Logger.Write("[RESULT] " + result);
+			
 			_chatContext.Enqueue("RESULT: " + result);
 			if (_chatContext.Count > 50) _chatContext.Dequeue();
 		}
@@ -115,7 +118,9 @@ namespace LLELoader
 				string context = "\n" + string.Join("\n", _chatContext);
 				string llmReply = await AskLlm(context).ConfigureAwait(false);
 				if (string.IsNullOrEmpty(llmReply)) return;
+
 				Logger.Write("[LLM] " + llmReply);
+
 				_pendingCommand = new LLE.ServerCommand { Payload = llmReply };
 			}
 			catch (Exception ex) { Logger.Write("[LLM] error: " + ex.Message); }
@@ -130,13 +135,13 @@ namespace LLELoader
 
 			var safeSystem = System.Text.Json.JsonSerializer.Serialize(_systemPrompt);
 			var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 1000, \"stream\": false }}";
-			Logger.Write("[HTTP REQ] POST " + LlmUrl);
-			Logger.Write("[HTTP REQ] Body: " + body);
+			//Logger.Write("[HTTP REQ] POST " + LlmUrl);
+			//Logger.Write("[HTTP REQ] Body: " + body);
 
 			var response = await _http.PostAsync(LlmUrl, new StringContent(body, Encoding.UTF8, "application/json")).ConfigureAwait(false);
-			Logger.Write("[HTTP RES] Status: " + response.StatusCode);
+			//Logger.Write("[HTTP RES] Status: " + response.StatusCode);
 			var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-			Logger.Write("[HTTP RES] Raw: " + text);
+			//Logger.Write("[HTTP RES] Raw: " + text);
 
 			try
 			{
@@ -146,10 +151,9 @@ namespace LLELoader
 					if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
 						&& choices[0].TryGetProperty("message", out var message)
 						&& message.TryGetProperty("content", out var content))
-					{
-					var reply = content.GetString()?.Trim() ?? "";
-					Logger.Write("[HTTP RES] Parsed: " + reply);
-					return reply;
+					{	var reply = content.GetString()?.Trim() ?? "";
+						//Logger.Write("[HTTP RES] Parsed: " + reply);
+						return reply;
 					}
 				}
 			}
