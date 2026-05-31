@@ -66,16 +66,26 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			commands?.Update();
+			if(commands == null) commands = new Commands(ch);
+
+			commands.Update();
+
+			if (commands.commandResult != null)
+			{	MyConsole.AddMultiline(commands.commandResult, Color.OrangeRed);
+				LLE_Loader.SetResult(commands.commandResult);
+				commands.commandResult = null;
+			}
 
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
-			{
-				if(commands == null) commands = new Commands(ch);
-
+			{	MyConsole.Add(cmd.Payload, Color.Cyan);
 				commands.Execute(cmd.Payload);
-				if (commands.commandResult != null)
-					LLE_Loader.SetResult(commands.commandResult);
+			}
+
+			if (commands.commandResult != null)
+			{	MyConsole.AddMultiline(commands.commandResult, Color.PaleVioletRed);
+				LLE_Loader.SetResult(commands.commandResult);
+				commands.commandResult = null;
 			}
 		}
 

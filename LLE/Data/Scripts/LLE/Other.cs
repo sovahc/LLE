@@ -196,14 +196,14 @@ namespace LLE
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
 		}
 
-		public static void AddMultiline(string text)
+		public static void AddMultiline(string text, Color defaultColor)
 		{	if(text == null) return;
 
 			foreach(var line in text.Split('\n'))
-			{	if(line.StartsWith("##")) Add(line, Color.Blue);
+			{	if(line.StartsWith("##")) Add(line, Color.Violet);
 				else if(line.StartsWith("#")) Add(line, Color.BlueViolet);
 				else if(line.StartsWith("*")) Add(line, Color.Gray);
-				else Add(line);
+				else Add(line, defaultColor);
 			}
 		}
 

@@ -51,7 +51,7 @@ namespace LLE
 			RunAstar(fromI, toI);
 		}
 
-		internal bool Step()
+		internal string Step()
 		{
 			if (astar != null && !astar.Completed())
 			{	
@@ -72,30 +72,20 @@ namespace LLE
 	
 					micro.Fly(path);
 				}
-
-				return true; // "thinking"
+				return null; // "thinking"
 			}
 
-			if(micro.Arrived()) return false;
-
-			bool mouse = MyAPIGateway.Input.IsNewLeftMousePressed() ||
-				MyAPIGateway.Input.IsNewRightMousePressed();
-
-			if(mouse)
+			if(micro.Arrived()) return "Arrived";
+;
+			if(MyAPIGateway.Input.IsNewLeftMousePressed() ||
+				MyAPIGateway.Input.IsNewRightMousePressed())
 			{	micro.Stop();
-				MyConsole.Add("Navigation: Cancelled", Color.Red);
-				return false;
-			}
-			
-			if(micro.Arrived())
-			{	MyConsole.Add("Navigation: Arrived", Color.BlueViolet);
-				return false;
+				return "Cancelled by user";
 			}
 			
 			if(micro.Stuck)
 			{	micro.Stop();
-				MyConsole.Add("Navigation: Stuck", Color.DarkRed);
-				return false;
+				return "Stuck";
 			}
 
 			var ec = Utilities.GetEngineerCenter(character);
@@ -112,7 +102,7 @@ namespace LLE
 			
 			character.MoveAndRotate(move, rotation, roll);
 
-			return true;
+			return null; // In progress
 		}
 
 		private void RunAstar(Vector3I point_A, Vector3I point_B)

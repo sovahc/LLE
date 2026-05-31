@@ -728,20 +728,21 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			{	case Action.Idle:
 					return;
 				case Action.Flying:
-					if(!navigation.Step())
+					commandResult = navigation.Step();
+					if(commandResult != null)
 						currentAction = Action.Idle;
 					return;
 				case Action.Grinding:
-					if(!botTools.GrindBlock())
+					commandResult = botTools.GrindBlock();
+					if(commandResult != null)
 					{	botTools.Stop();
-						MyConsole.Add("Stop");
 						currentAction = Action.Idle;
 					}
 					return;
 				case Action.Welding:
-					if(!botTools.WeldBlock())
+					commandResult = botTools.WeldBlock();
+					if(commandResult != null)
 					{	botTools.Stop();
-						MyConsole.Add("Stop");
 						currentAction = Action.Idle;
 					}
 					return;
@@ -753,8 +754,6 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			var tp = new TokenParser(command);
 			tokenParser = tp;
 			commandResult = null;
-
-			MyConsole.Add($"command: '{command}'", Color.Cyan);
 
 			if(tp.Match("Help"))
 			{	Help();
@@ -798,7 +797,6 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			else
 			{	commandResult = $"Unknown command '{tp.NextString()}'. Use `help` to list all available commands.";
 			}
-			MyConsole.AddMultiline(commandResult);
 		}
 	}
 }

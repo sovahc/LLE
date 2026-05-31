@@ -7,6 +7,7 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using System.Collections.Generic;
 using VRageMath;
+using System;
 
 namespace LLE
 {
@@ -37,16 +38,16 @@ namespace LLE
 			}
 		}
 
-		internal bool GrindBlock()
+		internal string GrindBlock()
 		{
 			var block = targetBlock;
-			if(block == null) return false;
+			if(block == null) return "Error: Target block does not exist.";
 
 			var inventory = bot.GetInventory();
-			if (inventory == null) return false;
+			if (inventory == null) throw new Exception("bot.GetInventory()");
 
 			var equippedTool = bot.EquippedTool as IMyAngleGrinder;
-			if (equippedTool == null) return false;
+			if (equippedTool == null) return "Error: You should take an angle grinder.";
 
 			float speedMultiplier = 1.0f;
 
@@ -75,7 +76,7 @@ namespace LLE
 					break;
 				}
 			}
-			if (!canAccept) return false;
+			if (!canAccept) return "Your inventory is full.";
 
 			// Apply grinding
 			block.DecreaseMountLevel(grindAmount, inventory);
@@ -109,21 +110,23 @@ namespace LLE
 			{
 				block.SpawnConstructionStockpile();
 				block.CubeGrid.RazeBlock(block.Min);
+
+				return "Done!";
 			}
 
-			return true;
+			return null;
 		}
 
-		internal bool WeldBlock()
+		internal string WeldBlock()
 		{
 			var block = targetBlock;
-			if(block == null) return false;
+			if(block == null) return "Error: Target block does not exist.";
 
 			var inventory = bot.GetInventory();
-			if (inventory == null) return false;
+			if (inventory == null) throw new Exception("bot.GetInventory()");
 
 			var equippedTool = bot.EquippedTool as IMyWelder;
-			if (equippedTool == null) return false;
+			if (equippedTool == null) return "Error: You should take a welder.";
 
 			float speedMultiplier = 1.0f;
 
@@ -137,7 +140,7 @@ namespace LLE
 			float weldAmount = Constants.WeldAndGrindSpeed * speedMultiplier * MyAPIGateway.Session.WelderSpeedMultiplier;
 
 			// Check if block can accept components from inventory
-			if (!block.CanContinueBuild(inventory)) return false;
+			if (!block.CanContinueBuild(inventory)) return "You need components.";
 
 			// Apply welding
 			block.MoveItemsToConstructionStockpile(inventory);
@@ -167,7 +170,11 @@ namespace LLE
 				particleEffect.WorldMatrix = box.Matrix;
 			}
 
-			return true;
+			if(block.Integrity >= block.MaxIntegrity)
+			{	return "Done!";
+			}
+
+			return null;
 		}
 		internal static void GetStockpileComponents(IMySlimBlock block, Dictionary<string, int> components)
 		{
