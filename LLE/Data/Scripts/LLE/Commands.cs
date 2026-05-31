@@ -775,6 +775,11 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 			var item = items[fromIndex];
 
+			if(item.Amount < amount)
+			{	amount = item.Amount;
+				// Emit warning?
+			}
+
 			foreach (var to in toList)
 			{
 				if (to.CanItemsBeAdded(amount, item.Type))

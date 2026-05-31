@@ -397,14 +397,15 @@ namespace LLE
 			if (s[i] == '"' || s[i] == '\'')
 			{
 				char quote = s[i];
-				tStart = i + 1;
-				while (i < s.Length && s[i] != quote) i++;
+				++i;
+				tStart = i;
+				while (i < s.Length && s[i] != quote) ++i;
 				tLength = i - tStart;
-				if (i < s.Length) i++;
+				if (i < s.Length) ++i;
 			}
 			else
 			{
-				while (i < s.Length && s[i] != ' ') i++;
+				while (i < s.Length && s[i] != ' ') ++i;
 				tLength = i - tStart;
 			}
 
