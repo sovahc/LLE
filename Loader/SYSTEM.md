@@ -36,4 +36,4 @@ Every command returns a result string. You MUST classify the result and react ac
 
 ## EXECUTION RULES
 
-1. One command per turn. Wait for the result before issuing the next command.
+Now type 'help' to display a list of all available commands, and then try any of them.

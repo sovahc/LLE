@@ -106,9 +106,11 @@ namespace LLELoader
 		public static void SetResult(string result)
 		{
 			Logger.Write("[RESULT] " + result);
-			
+
 			_chatContext.Enqueue("RESULT: " + result);
-			if (_chatContext.Count > 50) _chatContext.Dequeue();
+			if (_chatContext.Count > 1000) _chatContext.Dequeue();
+
+			var _ = RespondToChatAsync(); // ! LOOP !
 		}
 
 		private static async Task RespondToChatAsync()
@@ -126,7 +128,7 @@ namespace LLELoader
 			catch (Exception ex) { Logger.Write("[LLM] error: " + ex.Message); }
 		}
 
-		private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+		private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(300) };
 		const string LlmUrl = "http://localhost:8080/v1/chat/completions";
 
 		private static async Task<string> AskLlm(string chatContext)
@@ -134,7 +136,7 @@ namespace LLELoader
 			var safeContext = System.Text.Json.JsonSerializer.Serialize(chatContext);
 
 			var safeSystem = System.Text.Json.JsonSerializer.Serialize(_systemPrompt);
-			var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 1000, \"stream\": false }}";
+			var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 10000, \"stream\": false }}";
 			//Logger.Write("[HTTP REQ] POST " + LlmUrl);
 			//Logger.Write("[HTTP REQ] Body: " + body);
 

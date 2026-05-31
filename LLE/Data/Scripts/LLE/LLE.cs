@@ -167,6 +167,7 @@ namespace LLE
 			var player = MyAPIGateway.Session.Player;
 			if (player == null) return;
 
+			MyConsole.AddMultiline(message, Color.Chocolate);
 			LLE_Loader.SetChat(player.DisplayName, message);
 		}
 	}
