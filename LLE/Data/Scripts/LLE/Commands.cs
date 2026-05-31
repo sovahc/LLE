@@ -720,7 +720,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			{
 				if (to.CanItemsBeAdded(amount, item.Type))
 				{
-					((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, 0, true, amount, false);
+					((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, amount, false);
 					result = $"Transferred {amount} {Formatter.Quote(itemName)} from {Formatter.Quote(fromName)} into {Formatter.Quote(toName)}";
 					return;
 				}
