@@ -66,7 +66,7 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			if(commands != null) commands.Update();
+			commands?.Update();
 
 			ServerCommand cmd;
 			if (LLE_Loader.GetCommand(out cmd))
@@ -75,8 +75,6 @@ namespace LLE
 
 				commands.Execute(cmd.Payload);
 			}
-
-			//var pm = ch.GetHeadMatrix(false);
 		}
 
 		public override void Draw()
