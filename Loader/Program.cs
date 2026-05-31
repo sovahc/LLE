@@ -19,7 +19,8 @@ namespace LLELoader
 		private static StreamWriter _writer;
 
 		private static void Init()
-		{	if (_writer == null)
+		{
+			if (_writer == null)
 				_writer = new StreamWriter(LogPath, false);
 		}
 
@@ -27,7 +28,8 @@ namespace LLELoader
 		{
 			Init();
 			try
-			{	_writer.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff ") + msg);
+			{
+				_writer.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff ") + msg);
 				_writer.Flush();
 			}
 			catch { }
@@ -72,7 +74,7 @@ namespace LLELoader
 		public static bool GetChunkFromLLM(out LLE.FromLLM cmd)
 		{
 			bool r = _commandQueue.TryDequeue(out cmd);
-			if(r) Logger.Write("[GetChunkFromLLM] " + cmd.Payload);
+			if (r) Logger.Write("[GetChunkFromLLM] " + cmd.Payload);
 			return r;
 		}
 
@@ -97,7 +99,8 @@ namespace LLELoader
 		private static async Task RespondToChatAsync()
 		{
 			try
-			{	string context = "\n" + string.Join("\n", _chatContext);
+			{
+				string context = "\n" + string.Join("\n", _chatContext);
 				StartStreaming(context);
 			}
 			catch (Exception ex) { Logger.Write("[LLM] error: " + ex.Message); }
@@ -119,11 +122,12 @@ namespace LLELoader
 				var safeSystem = System.Text.Json.JsonSerializer.Serialize(_systemPrompt);
 				var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 10000, \"stream\": true }}";
 
-				var response = await _http.PostAsync(LlmUrl, new StringContent(body, Encoding.UTF8, "application/json")).ConfigureAwait(false);
+				var request = new HttpRequestMessage(HttpMethod.Post, LlmUrl) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+				var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
 				var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
 
 				string line;
-				
+
 				using var reader = new StreamReader(stream);
 				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
 				{
@@ -140,15 +144,27 @@ namespace LLELoader
 						{
 							var reasoning = reasoningProp.GetString();
 							if (!string.IsNullOrEmpty(reasoning))
-								_commandQueue.Enqueue(new LLE.FromLLM {
-									Type = LLE.MessageType.Reasoning, Payload = reasoning });
+							{
+								Logger.Write("[LLM chunk IN] Reasoning: " + reasoning);
+								_commandQueue.Enqueue(new LLE.FromLLM
+								{
+									Type = LLE.MessageType.Reasoning,
+									Payload = reasoning
+								});
+							}
 						}
 						if (delta.TryGetProperty("content", out var contentProp))
 						{
 							var content = contentProp.GetString();
 							if (!string.IsNullOrEmpty(content))
-								_commandQueue.Enqueue(new LLE.FromLLM {
-									Type = LLE.MessageType.Content, Payload = content });
+							{
+								Logger.Write("[LLM chunk IN] Content: " + content);
+								_commandQueue.Enqueue(new LLE.FromLLM
+								{
+									Type = LLE.MessageType.Content,
+									Payload = content
+								});
+							}
 						}
 					}
 				}
