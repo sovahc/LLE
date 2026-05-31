@@ -26,8 +26,8 @@ namespace LLE
 		}
 
 		public static string Quote(string s)
-		{	if(s == null) return "(null)";
-			if(!s.Contains(' ')) return s;
+		{	if (s == null) return "(null)";
+			if (!s.Contains(' ')) return s;
 			return $"'{s}'";
 		}
 
@@ -114,7 +114,9 @@ namespace LLE
 		public string commandResult;
 
 		public Commands(IMyCharacter character_)
-		{	character = character_;			
+		{	character = character_;
+			botTools = new BotTools(character);
+			navigation = new Navigation(character);
 		}
 
 		internal void Help()
@@ -721,9 +723,6 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 		internal void Update()
 		{
-			if(botTools == null) botTools = new BotTools(character);
-			if(navigation == null) navigation = new Navigation(character);
-
 			switch(currentAction)
 			{	case Action.Idle:
 					return;
