@@ -56,11 +56,6 @@ namespace LLELoader
 			{
 				string loaderDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 				string sysPath = Path.Combine(loaderDir, "SYSTEM.md");
-				if (!File.Exists(sysPath))
-				{
-					sysPath = "/home/cat/Projects/LLE/Loader/SYSTEM.md";
-				}
-
 				if (File.Exists(sysPath))
 				{
 					_systemPrompt = File.ReadAllText(sysPath);
@@ -118,7 +113,7 @@ namespace LLELoader
 			try
 			{
 				string context = "\n" + string.Join("\n", _chatContext);
-				string llmReply = await AskLlm(context);
+				string llmReply = await AskLlm(context).ConfigureAwait(false);
 				if (string.IsNullOrEmpty(llmReply)) return;
 				Logger.Write("[LLM] " + llmReply);
 				_pendingCommand = new LLE.ServerCommand { Payload = llmReply };
@@ -126,7 +121,7 @@ namespace LLELoader
 			catch (Exception ex) { Logger.Write("[LLM] error: " + ex.Message); }
 		}
 
-		private static readonly HttpClient _http = new HttpClient();
+		private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 		const string LlmUrl = "http://localhost:8080/v1/chat/completions";
 
 		private static async Task<string> AskLlm(string chatContext)
@@ -134,10 +129,14 @@ namespace LLELoader
 			var safeContext = System.Text.Json.JsonSerializer.Serialize(chatContext);
 
 			var safeSystem = System.Text.Json.JsonSerializer.Serialize(_systemPrompt);
-			var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 64, \"stream\": false }}";
+			var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 1000, \"stream\": false }}";
+			Logger.Write("[HTTP REQ] POST " + LlmUrl);
+			Logger.Write("[HTTP REQ] Body: " + body);
 
-			var response = await _http.PostAsync(LlmUrl, new StringContent(body, Encoding.UTF8, "application/json"));
-			var text = await response.Content.ReadAsStringAsync();
+			var response = await _http.PostAsync(LlmUrl, new StringContent(body, Encoding.UTF8, "application/json")).ConfigureAwait(false);
+			Logger.Write("[HTTP RES] Status: " + response.StatusCode);
+			var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+			Logger.Write("[HTTP RES] Raw: " + text);
 
 			try
 			{
@@ -148,7 +147,9 @@ namespace LLELoader
 						&& choices[0].TryGetProperty("message", out var message)
 						&& message.TryGetProperty("content", out var content))
 					{
-						return content.GetString()?.Trim() ?? "";
+					var reply = content.GetString()?.Trim() ?? "";
+					Logger.Write("[HTTP RES] Parsed: " + reply);
+					return reply;
 					}
 				}
 			}
