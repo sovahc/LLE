@@ -23,13 +23,13 @@ namespace LLE
 	{
 		private static Font font;
 
-		IMyCubeGrid selectedGrid;
-		Vector3I selectedBlock;
-		Commands commands;
+		private IMyCubeGrid selectedGrid;
+		private Vector3I selectedBlock;
+		private Commands commands;
 
-		StringBuilder llmCommand = new StringBuilder();
+        readonly StringBuilder llmCommand = new StringBuilder();
 
-		public static void Log(string s) { Utilities.Log(s); }
+		public static void Log(string s) => Utilities.Log(s);
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
