@@ -4,14 +4,16 @@ using System.Linq;
 using System.Text;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
+using VRage;
+using VRageMath;
+using VRage.Game;
+using VRage.Game.Entity;
+using VRage.Game.ModAPI;
+using VRage.ObjectBuilders;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
-using VRage.Game;
-using VRage;
-using VRage.Game.Entity;
-using VRage.Game.ModAPI;
-using VRageMath;
 
 namespace LLE
 {
@@ -138,18 +140,14 @@ namespace LLE
 }
 
 /*
-
 vision                 - Get current visual input (what the bot sees right now)
-help                   - this message.
 cancel                 - Immediately cancel the current action and return to IDLE.
 stop                   - Stop movement.
 nearest ['substring']  - Show the nearest 5 blocks whose names contain 'substring'.
 search ['substring']   - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
 info 'name'        - Get detailed information about a specific object.
-fly 'name'         - Fly to a specific object. Executes flight with periodic reports.
 look at 'name'     - Rotate to face the object
 hack 'block_name'  - Grind a specific block just below the hacking point (weld it back to restore functionality).
-weld 'block_name'  - Weld a specific block.
 mine 'block_name'  - Mine a specific ore deposit.
 status             - Check bot status: Battery, Hydrogen, Oxygen.
 pickup 'name'      - Pick up a specified object.
@@ -168,11 +166,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 Path finding: safest (default) / shortest / scouting / prefer open space
 
 */
-		
-
-		private static bool Include(string searchTerm, string data)
+		private static bool Include(string searchTerm, string text)
 		{	if(searchTerm == "" || searchTerm == "*") return true;
-			return data.Contains(searchTerm);
+			return text.Contains(searchTerm);
 		}
 
 		private string MyError(Vector3D engineer, string query, List<MyEntity> matches)
@@ -195,7 +191,6 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			return message;
 		}
 
-/*
 		private static readonly Dictionary<string, string[]> TerminalBCategories = new Dictionary<string, string[]>
 		{
 			{ "Control", new[] { "Cockpit" } },
@@ -219,19 +214,25 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			//{ "Structure", new[] { ,  } },
 		};
 
-		internal static string GridInfo(IMyCubeGrid grid)
+		private static readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
+		private static readonly List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
+
+		internal void Info()
 		{
+			if(!GridIsSet()) return;
+
+			string category, name;
+			Formatter.Description(selectedGrid as MyEntity, out category, out name);
+
 			MyMarkdown.Clear();
-			MyMarkdown.Append($"# {GridType(grid)} '{grid.DisplayName}'");
+			MyMarkdown.Append($"# {category} '{name}'");
 			MyMarkdown.Append($"(Name → count)");
 
-			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
+			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 
 			count.Clear();
 			blocks.Clear();
 			ts.GetBlocks(blocks);
-
-			//ts.CanAccess()
 
 			int total = 0;
 			foreach (var block in blocks)
@@ -246,9 +247,9 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			foreach (var kv in count)
 			{
 				string type = kv.Key.ToString();
-				type = Remove_MyObjectBuilder_(type);
+				type = Formatter.Remove_MyObjectBuilder_(type);
 
-				string category = "Other";
+				category = "Other";
 				foreach (var cat in TerminalBCategories)
 				{
 					if (cat.Value.Any(keyword => type.Contains(keyword)))
@@ -261,118 +262,9 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				MyMarkdown.Add(category, $"* {type} → {kv.Value}");
 			}
 
-			return MyMarkdown.Result();
+			commandResult = MyMarkdown.Result();
 		}
-*/
-/*
-		internal static string Search(Vector3D center, int radius, string query)
-		{
-			query = query.Trim(MyTrim);
-			
-			MyMarkdown.Clear();
-			MyMarkdown.Append($"# SEARCH RESULT '{query}' (RADIUS {Distance(radius)})");
 
-			BoundingSphereD S = new BoundingSphereD(center, radius);
-			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
-			
-			foreach(var e in entities)
-			{	
-				if (e.Closed) continue;
-
-				double distance = (e.WorldMatrix.Translation - center).Length();
-
-				string category, name;
-
-				Description(e, out category, out name);
-
-				if(Include(query, name) || Include(query, category))
-					MyMarkdown.Add($"## {category}", $"* {Quotes(name)} → {Distance(distance)}");
-			}
-
-			return MyMarkdown.Result();
-		}
-*/
-/*
-		internal static bool Fly(Vector3D from, string to, out string message, out Vector3D point)
-		{
-			to = to.Trim(MyTrim);
-
-			BoundingSphereD S = new BoundingSphereD(from, 1000);
-			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
-			
-			List<MyEntity> matches = new List<MyEntity>();
-
-			foreach(var e in entities)
-			{	
-				if (e.Closed) continue;
-
-				double distance = (e.WorldMatrix.Translation - from).Length();
-
-				var grid = e as IMyCubeGrid;
-				if (grid != null)
-				{	
-					if(Include(to, grid.DisplayName)) matches.Add(e);
-					continue;
-				}
-
-				var voxel = e as MyVoxelBase;
-				if (voxel != null)
-				{	if (voxel is MyPlanet) continue;
-
-					if(Include(to, voxel.DebugName)) matches.Add(e);
-					continue;
-				}
-
-				var floater = e as IMyFloatingObject;
-				if (floater != null)
-				{	
-					if(Include(to, floater.DisplayName)) matches.Add(e);
-					continue;
-				}
-			}
-
-			if(matches.Count != 1)
-			{	message = MyError(from, to, matches);
-				point = Vector3D.Zero;
-				return false;
-			}
-
-			message = "Executing...";
-			point = matches[0].WorldMatrix.Translation;
-			return true;
-		}
-*/
-
-/*		internal static void Nearest_blocks(Vector3D engineer, string query, out string message)
-		{
-			if(selectedGrid != null && selectedGrid.Closed) selectedGrid = null;
-
-			if(selectedGrid == null)
-			{message = "You should select a grid first with the command: `select_grid name`.";
-				return;
-			}
-
-			int radius = 10;
-			query = query.Trim(MyTrim);
-
-			var bs = new BoundingSphereD(engineer, radius);
-			var blocks = selectedGrid.GetBlocksInsideSphere(ref bs);
-
-			MyMarkdown.Clear();
-			MyMarkdown.Append($"# NEAREST BLOCKS MATCHES '{query}' (RADIUS {Distance(radius)})");
-			foreach(var b in blocks)
-			{
-				if(b.FatBlock == null)
-				{	MyMarkdown.Add("SLIM BLOCKS", SlimBlockDescription(b));
-				}
-				else
-				{	MyMarkdown.Add("FAT BLOCKS", SlimBlockDescription(b));
-				}
-			}
-
-			message = MyMarkdown.Result();
-		}
-*/
 		internal void Select(ObjectType type)
 		{
 			var what = tokenParser.NextString();
@@ -833,6 +725,9 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			if(tp.Match("HELP"))
 			{	Help();
 			}
+			else if(tp.Match("INFO"))
+			{	Info();
+			}
 			else if(tp.Match("SELECT_ASTEROID"))
 			{	Select(ObjectType.Asteroid);
 			}
@@ -872,29 +767,30 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 }
 
 /*
-	  public static VRage.MyFixedPoint MaxItemsAddable(this IMyInventory destInventory, VRage.MyFixedPoint maxNeeded, MyItemType itemType)
-	  {
-		 if (destInventory.CanItemsBeAdded(maxNeeded, itemType))
-		 {
-			return maxNeeded;
-		 }
+		internal static string Search(Vector3D center, int radius, string query)
+		{
+			query = query.Trim(MyTrim);
+			
+			MyMarkdown.Clear();
+			MyMarkdown.Append($"# SEARCH RESULT '{query}' (RADIUS {Distance(radius)})");
 
-		 int maxPossible = 0;
-		 int currentStep = Math.Max((int)maxNeeded / 2, 1);
-		 int currentTry = 0;
-		 while (currentStep > 0)
-		 {
-			currentTry = maxPossible + currentStep;
-			if (destInventory.CanItemsBeAdded(currentTry, itemType))
-			{
-			   maxPossible = currentTry;
+			BoundingSphereD S = new BoundingSphereD(center, radius);
+			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
+			
+			foreach(var e in entities)
+			{	
+				if (e.Closed) continue;
+
+				double distance = (e.WorldMatrix.Translation - center).Length();
+
+				string category, name;
+
+				Description(e, out category, out name);
+
+				if(Include(query, name) || Include(query, category))
+					MyMarkdown.Add($"## {category}", $"* {Quotes(name)} → {Distance(distance)}");
 			}
-			else
-			{
-			   if (currentStep <= 1) break;
-			}
-			if (currentStep > 1) currentStep = currentStep / 2;
-		 }
-		 return maxPossible;
-	  }      
+
+			return MyMarkdown.Result();
+		}
 */
