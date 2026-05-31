@@ -105,6 +105,7 @@ namespace LLE
 
 		private static readonly char[] MyTrim = new char [] {' ', '\t', '"', '\''};
 
+		internal TokenParser tokenParser;
 		public string commandResult;
 
 		public Commands(IMyCharacter character_)
@@ -130,6 +131,7 @@ namespace LLE
 }
 
 /*
+* transfer count 'item' from I1 J1 K1 to I2 J2 K2 - Transfer an item from one inventory to another.
 vision                 - Get current visual input (what the bot sees right now)
 help                   - this message.
 cancel                 - Immediately cancel the current action and return to IDLE.
@@ -364,9 +366,13 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			message = MyMarkdown.Result();
 		}
 */
-		internal void Select(ObjectType type, Vector3D engineer, string query, int radius = 1000)
+		internal void Select(ObjectType type)
 		{
-			query = query.Trim(MyTrim);
+			var what = tokenParser.NextString();
+
+			const int radius = 1000;
+
+			var engineer = Utilities.GetEngineerCenter(character);
 			
 			BoundingSphereD S = new BoundingSphereD(engineer, radius);
 			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
@@ -381,11 +387,11 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 				Formatter.Description(e, out category, out name);
 
-				if(Include(query, name) || Include(query, category)) matches.Add(e);
+				if(Include(what, name) || Include(what, category)) matches.Add(e);
 			}
 
 			if(matches.Count != 1)
-			{	commandResult = MyError(engineer, query, matches);
+			{	commandResult = MyError(engineer, what, matches);
 				return;
 			}
 
@@ -407,86 +413,74 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			}
 		}
 
-		private bool TryParseIJK(string s, out Vector3I v)
-		{	string[] parts = s.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-			int x, y, z;
-			if (parts.Length == 3 && 
-				int.TryParse(parts[0], out x) && 
-				int.TryParse(parts[1], out y) && 
-				int.TryParse(parts[2], out z))
-			{
-				v = new Vector3I(x, y, z);
-				return true;
-			}
-			v = Vector3I.Zero;
-			commandResult = $"Error: invalid vector '{s}', use integer numbers, e.g. `command -1 5 2`";
-			return false;
-		}
-
 		private bool GridIsSet()
 		{	if(selectedGrid == null)
-			{commandResult = $"Error: you should select a grid first. Use `select_grid name`";
+			{	commandResult = $"Error: you should select a grid first. Use `select_grid name`";
 				return false;
 			}
 			return true;
 		}
 
-		internal void Fly(string arguments)
-		{	
-			Vector3I to;
-
+		internal void Fly()
+		{
 			if(!GridIsSet()) return;
-			if(!TryParseIJK(arguments, out to)) return;
 
-			navigation.FlyInsideGrid(selectedGrid, to);
+			Vector3I ijk;
+			if(!tokenParser.NextVector3I(out ijk)) return;
+
+			navigation.FlyInsideGrid(selectedGrid, ijk);
 			currentAction = Action.Flying;
 		}
 
-		internal void Grind(string arguments)
+		internal void Grind()
 		{
-			Vector3I what;
-
 			if(!GridIsSet()) return;
-			if(!TryParseIJK(arguments, out what)) return;
-			
-			var block = selectedGrid.GetCubeBlock(what);
+
+			Vector3I ijk;
+			if(!tokenParser.NextVector3I(out ijk))
+			{	commandResult = "Error: expected I J K";
+				return;
+			}
+
+			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null)
-			{	commandResult = $"Error: no block at {what}";
+			{	commandResult = $"Error: no block at {ijk}";
 				return;
 			}
 
 			botTools.SetTargetBlock(block);
-
 			currentAction = Action.Grinding;
 			commandResult = "Grinding...";
 		}
 
-		internal void Weld(string arguments)
+		internal void Weld()
 		{
-			Vector3I what;
-
 			if(!GridIsSet()) return;
-			if(!TryParseIJK(arguments, out what)) return;
-			
-			var block = selectedGrid.GetCubeBlock(what);
+
+			Vector3I ijk;
+			if(!tokenParser.NextVector3I(out ijk))
+			{	commandResult = "Error: expected I J K";
+				return;
+			}
+
+			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null)
-			{	commandResult = $"Error: no block at {what}";
+			{	commandResult = $"Error: no block at {ijk}";
 				return;
 			}
 
 			botTools.SetTargetBlock(block);
-
 			currentAction = Action.Welding;
 			commandResult = "Welding...";
 		}
 
-		internal void Near(string arguments)
+		internal void Near()
 		{	
 			if(!GridIsSet()) return;
 
 			MyMarkdown.Clear();
 
-			if(arguments != "") MyMarkdown.Append("Warning: `near` doesn't have arguments\n");
+			if(!tokenParser.End) MyMarkdown.Append("Warning: `near` doesn't have arguments\n");
 
 			var center = Utilities.GetEngineerCenter(character);
 			var cI = selectedGrid.WorldToGridInteger(center);
@@ -518,9 +512,9 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			commandResult = MyMarkdown.Result();
 		}
 
-		internal void Inventory(string arguments)
+		internal void Inventory()
 		{
-			if(arguments == "")
+			if(tokenParser.End)
 			{
 				var inv = character.GetInventory() as IMyInventory;
 				if (inv == null) { commandResult = "Internal error"; return; }
@@ -532,14 +526,15 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				commandResult = tmp.ToString();
 			}
 			else
-			{	Vector3I where;
-				
+			{
 				if(!GridIsSet()) return;
-				if(!TryParseIJK(arguments, out where)) return;
-			
-				var block = selectedGrid.GetCubeBlock(where);
+
+				Vector3I ijk;
+				if(!tokenParser.NextVector3I(out ijk)) return;
+
+				var block = selectedGrid.GetCubeBlock(ijk);
 				if(block == null)
-				{	commandResult = $"Error: no block at {where}";
+				{	commandResult = $"Error: no block at {ijk}";
 					return;
 				}
 
@@ -553,8 +548,8 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 				tmp.Clear();
 				var es = fat.InventoryCount == 1 ? "" : "es";
-				tmp.Append($"Current inventory{es} of {Formatter.Quote(name)} (at {Formatter.IJK(where)}):\n");
-				
+				tmp.Append($"Current inventory{es} of {Formatter.Quote(name)} (at {Formatter.IJK(ijk)}):\n");
+
 				for(int i = 0; i < fat.InventoryCount; ++i)
 				{	var inv = fat.GetInventory(i);
 					InventoryToText(inv, tmp);
@@ -585,19 +580,26 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			}
 		}
 
-		internal void Get(string arguments)
+		internal void Get()
 		{
 			if(!GridIsSet()) return;
 
-			var countS = Utilities.GetNextWord(ref arguments);
-			var item = Utilities.GetNextWord(ref arguments);
-			var from = Utilities.GetNextWord(ref arguments);
-			var ijkS = arguments;
-			
 			double count; Vector3I ijk;
 
-			if(from != "from" || !double.TryParse(countS, out count) || !TryParseIJK(ijkS, out ijk))
-			{	commandResult = $"Malformed request: item='{item}' count='{countS}' from='{from}' ijk={ijkS}";
+			if(!tokenParser.NextDouble(out count))
+			{	commandResult = "Error: expected count";
+				return;
+			}
+
+			var item = tokenParser.NextString();
+
+			if(!tokenParser.Match("from"))
+			{	commandResult = "Error: expected 'from'";
+				return;
+			}
+
+			if(!tokenParser.NextVector3I(out ijk))
+			{	commandResult = "Error: expected I J K";
 				return;
 			}
 
@@ -626,19 +628,26 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			InventoryTransfer(fromList, toList, fromName, "your inventory", item, (MyFixedPoint)count, out commandResult);
 		}
 
-		internal void Put(string arguments)
+		internal void Put()
 		{
 			if(!GridIsSet()) return;
 
-			var countS = Utilities.GetNextWord(ref arguments);
-			var item = Utilities.GetNextWord(ref arguments);
-			var into = Utilities.GetNextWord(ref arguments);
-			var ijkS = arguments;
-			
 			double count; Vector3I ijk;
 
-			if(into != "into" || !double.TryParse(countS, out count) || !TryParseIJK(ijkS, out ijk))
-			{	commandResult = $"Malformed request: item='{item}' count='{countS}' into='{into}' ijk={ijkS}";
+			if(!tokenParser.NextDouble(out count))
+			{	commandResult = "Error: expected count";
+				return;
+			}
+
+			var item = tokenParser.NextString();
+
+			if(!tokenParser.Match("into"))
+			{	commandResult = "Error: expected 'into'";
+				return;
+			}
+
+			if(!tokenParser.NextVector3I(out ijk))
+			{	commandResult = "Error: expected I J K";
 				return;
 			}
 
@@ -748,33 +757,80 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 					return;
 			}
 		}
+
+		internal void Execute(string command)
+		{
+			var tp = new TokenParser(command);
+			tokenParser = tp;
+			commandResult = null;
+
+			MyConsole.Add($"command: '{command}'", Color.Cyan);
+
+			if(tp.Match("HELP"))
+			{	Help();
+			}
+			else if(tp.Match("SELECT_ASTEROID"))
+			{	Select(ObjectType.Asteroid);
+			}
+			else if(tp.Match("SELECT_GRID") || tp.Match("SELECT"))
+			{	Select(ObjectType.LargeShip);
+			}
+			else if(tp.Match("FLY"))
+			{	Fly();
+			}
+			else if(tp.Match("GRIND"))
+			{	Grind();
+			}
+			else if(tp.Match("WELD"))
+			{	Weld();
+			}
+			else if(tp.Match("NEAR"))
+			{	Near();
+			}
+			else if(tp.Match("INVENTORY"))
+			{	Inventory();
+			}
+			else if(tp.Match("GET"))
+			{	Get();
+			}
+			else if(tp.Match("PUT"))
+			{	Put();
+			}
+			else if(tp.Match("TRANSFER"))
+			{	//commands.Transfer(arguments);
+			}
+			else
+			{	commandResult = $"Unknown command '{command}' use `help` to list all avialable commands.";
+			}
+			MyConsole.AddMultiline(commandResult);
+		}
 	}
 }
 
 /*
-      public static VRage.MyFixedPoint MaxItemsAddable(this IMyInventory destInventory, VRage.MyFixedPoint maxNeeded, MyItemType itemType)
-      {
-         if (destInventory.CanItemsBeAdded(maxNeeded, itemType))
-         {
-            return maxNeeded;
-         }
+	  public static VRage.MyFixedPoint MaxItemsAddable(this IMyInventory destInventory, VRage.MyFixedPoint maxNeeded, MyItemType itemType)
+	  {
+		 if (destInventory.CanItemsBeAdded(maxNeeded, itemType))
+		 {
+			return maxNeeded;
+		 }
 
-         int maxPossible = 0;
-         int currentStep = Math.Max((int)maxNeeded / 2, 1);
-         int currentTry = 0;
-         while (currentStep > 0)
-         {
-            currentTry = maxPossible + currentStep;
-            if (destInventory.CanItemsBeAdded(currentTry, itemType))
-            {
-               maxPossible = currentTry;
-            }
-            else
-            {
-               if (currentStep <= 1) break;
-            }
-            if (currentStep > 1) currentStep = currentStep / 2;
-         }
-         return maxPossible;
-      }      
+		 int maxPossible = 0;
+		 int currentStep = Math.Max((int)maxNeeded / 2, 1);
+		 int currentTry = 0;
+		 while (currentStep > 0)
+		 {
+			currentTry = maxPossible + currentStep;
+			if (destInventory.CanItemsBeAdded(currentTry, itemType))
+			{
+			   maxPossible = currentTry;
+			}
+			else
+			{
+			   if (currentStep <= 1) break;
+			}
+			if (currentStep > 1) currentStep = currentStep / 2;
+		 }
+		 return maxPossible;
+	  }      
 */

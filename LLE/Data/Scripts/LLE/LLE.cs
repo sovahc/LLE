@@ -73,51 +73,7 @@ namespace LLE
 			{
 				if(commands == null) commands = new Commands(ch);
 
-				var p = cmd.Payload.Trim();
-
-				var command = Utilities.GetNextWord(ref p);
-				command = command.ToUpperInvariant();
-				var arguments = p; p = null;
-
-				MyConsole.Add($"command: {command} arguments: '{arguments}'", Color.Cyan);
-
-				var engineer = Utilities.GetEngineerCenter(ch);
-				commands.commandResult = null;
-
-				if(command == "HELP")
-				{	commands.Help();
-				}
-				else if(command == "SELECT_ASTEROID")
-				{	commands.Select(ObjectType.Asteroid, engineer, arguments);
-				}
-				else if(command == "SELECT_GRID" || command == "SELECT")
-				{	commands.Select(ObjectType.LargeShip, engineer, arguments);
-				}
-				else if(command == "FLY")
-				{	commands.Fly(arguments);
-				}
-				else if(command == "GRIND")
-				{	commands.Grind(arguments);
-				}
-				else if(command == "WELD")
-				{	commands.Weld(arguments);
-				}
-				else if(command == "NEAR")
-				{	commands.Near(arguments);
-				}
-				else if(command == "INVENTORY")
-				{	commands.Inventory(arguments);
-				}
-				else if(command == "GET")
-				{	commands.Get(arguments);
-				}
-				else if(command == "PUT")
-				{	commands.Put(arguments);
-				}
-				else
-				{	commands.commandResult = $"Unknown command '{command}' use `help` to list all avialable commands.";
-				}
-				MyConsole.AddMultiline(commands.commandResult);
+				commands.Execute(cmd.Payload);
 			}
 
 			//var pm = ch.GetHeadMatrix(false);
