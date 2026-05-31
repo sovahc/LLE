@@ -74,6 +74,8 @@ namespace LLE
 				if(commands == null) commands = new Commands(ch);
 
 				commands.Execute(cmd.Payload);
+				if (commands.commandResult != null)
+					LLE_Loader.SetResult(commands.commandResult);
 			}
 		}
 
@@ -166,5 +168,6 @@ namespace LLE
 		public static void SetVision(Dictionary<long, LastKnownState> states) { }
 		public static void SetChat(string author, string text) { }
 		public static bool GetCommand(out ServerCommand cmd) { cmd = null; return false; }
+		public static void SetResult(string result) { }
 	}
 }

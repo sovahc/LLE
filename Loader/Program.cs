@@ -48,6 +48,35 @@ namespace LLELoader
 
 		private static LLE.ServerCommand _pendingCommand;
 
+		private static string _systemPrompt = "Reply max 50 characters. No explanations.";
+
+		static MessageBroker()
+		{
+			try
+			{
+				string loaderDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+				string sysPath = Path.Combine(loaderDir, "SYSTEM.md");
+				if (!File.Exists(sysPath))
+				{
+					sysPath = "/home/cat/Projects/LLE/Loader/SYSTEM.md";
+				}
+
+				if (File.Exists(sysPath))
+				{
+					_systemPrompt = File.ReadAllText(sysPath);
+					Logger.Write("[LLELoader] Loaded SYSTEM.md from " + sysPath);
+				}
+				else
+				{
+					Logger.Write("[LLELoader] SYSTEM.md not found, using default.");
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.Write("[LLELoader] Error loading SYSTEM.md: " + ex.Message);
+			}
+		}
+
 		public static void SetVision(Dictionary<long, LLE.LastKnownState> states)
 		{
 			_visionStates = states;
@@ -77,6 +106,13 @@ namespace LLELoader
 			return cmd != null;
 		}
 
+		public static void SetResult(string result)
+		{
+			Logger.Write("[RESULT] " + result);
+			_chatContext.Enqueue("RESULT: " + result);
+			if (_chatContext.Count > 50) _chatContext.Dequeue();
+		}
+
 		private static async Task RespondToChatAsync()
 		{
 			try
@@ -97,7 +133,8 @@ namespace LLELoader
 		{
 			var safeContext = System.Text.Json.JsonSerializer.Serialize(chatContext);
 
-			var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": \"Reply max 50 characters. No explanations.\" }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 64, \"stream\": false }}";
+			var safeSystem = System.Text.Json.JsonSerializer.Serialize(_systemPrompt);
+			var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 64, \"stream\": false }}";
 
 			var response = await _http.PostAsync(LlmUrl, new StringContent(body, Encoding.UTF8, "application/json"));
 			var text = await response.Content.ReadAsStringAsync();
@@ -144,7 +181,7 @@ namespace LLELoader
 	[HarmonyPatchCategory("Late")]
 	static class Patch_ScriptManagerLoadData
 	{
-		private static readonly string[] BridgeMethods = { "IsPresent", "Update", "SetVision", "SetChat", "GetCommand" };
+		private static readonly string[] BridgeMethods = { "IsPresent", "Update", "SetVision", "SetChat", "GetCommand", "SetResult" };
 		private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 		[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -181,6 +218,7 @@ namespace LLELoader
 								case "SetVision": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SetVision)); break;
 								case "SetChat": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SetChat)); break;
 								case "GetCommand": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_GetCommand)); break;
+								case "SetResult": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SetResult)); break;
 								default: continue;
 							}
 
@@ -229,6 +267,11 @@ namespace LLELoader
 		{
 			__result = MessageBroker.GetCommand(out cmd);
 			return false;
+		}
+
+		static void Prefix_SetResult(string result)
+		{
+			MessageBroker.SetResult(result);
 		}
 
 	}  // Patch_ScriptManagerLoadData class ends here
