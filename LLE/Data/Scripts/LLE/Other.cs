@@ -175,7 +175,8 @@ namespace LLE
 		}
 
 		private static readonly List<LineData> _lines = new List<LineData>();
-		const int MaxLines = 50;
+		private static bool _lastWasMultiline = false;
+		private const int MaxLines = 50;
 
 		private static readonly Color textBackground = new Color(0, 0, 0, 127);
 
@@ -194,31 +195,35 @@ namespace LLE
 			Utilities.Log(text);
 			_lines.Add(new LineData { Text = text, Color = color });
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
+			_lastWasMultiline = false;
 		}
 
 		public static void AddMultiline(string text, Color defaultColor)
-		{	if(text == null) return;
+		{
+			if (text == null) return;
 
-			for(;;)
-			{	if(text.Length == 0) return;
-				
+			for (;;)
+			{
 				var eol = text.IndexOf('\n');
 				string part = eol < 0 ? text : text.Substring(0, eol);
 
-				if (_lines.Count > 0)
+				if (_lastWasMultiline && _lines.Count > 0)
 				{
-					var last = _lines[_lines.Count-1];
+					var last = _lines[_lines.Count - 1];
 					last.Text += part;
 					last.Color = defaultColor;
-					_lines[_lines.Count-1] = last;
+					_lines[_lines.Count - 1] = last;
 				}
 				else
-				{	Add(part, defaultColor);
+				{
+					Add(part, defaultColor);
+					_lastWasMultiline = true;
 				}
 
-				if(eol < 0) return;
-				text = text.Substring(eol+1);
-				Add("", defaultColor);
+				if (eol < 0) return;
+				text = text.Substring(eol + 1);
+				_lines.Add(new LineData { Text = "", Color = defaultColor });
+				while (_lines.Count > MaxLines) _lines.RemoveAt(0);
 			}
 		}
 
