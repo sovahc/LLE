@@ -44,7 +44,7 @@ namespace LLE
 		}
 
 		public static string Volume(double d)
-		{	var dd = Math.Round(d, 1, MidpointRounding.AwayFromZero);
+		{	var dd = Math.Round(d, 2, MidpointRounding.AwayFromZero);
 			return $"{dd:F2}m³";
 		}
 
@@ -125,15 +125,15 @@ namespace LLE
 * select_asteroid 'name'		- Select an asteroid on which to mine.
 
 * overview						- List grid blocks by category.
-* search 'substring'			- Search blocks coordinates by name.
+* search 'substring'			- Search block coordinates by name.
 * fly I J K						- Fly to specific grid coordinates (integer values)
 * grind I J K					- Grind a block at specific coordinates.
 * weld I J K					- Weld a block at specific coordinates.
 * near							- Return 6 accessible blocks around you and the block you are standing on.
 * inventory						- Return the items in your inventory.
 * inventory I J K				- Return the inventory of the container at specific coordinates.
-* get count 'item' from I J K	- Transfer an item from a container to your inventory. Ex `get 10 'Gold Ingot' from -1 5 2`
-* put count 'item' into I J K	- Transfer an item from your inventory to a container. Ex `put 1 'Medkit' into 14 0 2`
+* get count 'item' from I J K	- Transfer an item from a container to your inventory. e.g. `get 10 'Gold Ingot' from -1 5 2`
+* put count 'item' into I J K	- Transfer an item from your inventory to a container. e.g. `put 1 'Medkit' into 14 0 2`
 * transfer count 'item' from I1 J1 K1 to I2 J2 K2
 								- Transfer an item from one inventory to another.
 ";
@@ -152,7 +152,7 @@ mine 'block_name'  - Mine a specific ore deposit.
 status             - Check bot status: Battery, Hydrogen, Oxygen.
 pickup 'name'      - Pick up a specified object.
 drop 'name' [quantity|all] - Drop a specified object.
-? move {forward|backward|left|right|up|down} {distance} - move in a direction
+? move {forward|backward|left|right|up|down} {distance} - Move in a direction
 ? recover from being stuck
 ? save to memory 'string'
 
@@ -163,7 +163,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 * Ambiguity: If a command target is ambiguous (e.g., multiple blocks with the same name),
 * the execution layer returns an error and a list of options instead of executing.
 
-Path finding: safest (default) / shortest / scouting / prefer open space
+Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 */
 		private static bool Include(string searchTerm, string text)
@@ -275,7 +275,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 			string query = tokenParser.NextString();
 			if(query == "")
-			{	commandResult = "Error: query should not be ''";
+			{	commandResult = "Error: query cannot be empty";
 				return;
 			}
 
@@ -294,6 +294,8 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				{	MyMarkdown.Add(name, Formatter.IJK(block.Position));
 				}
 			}
+
+			slimBlocks.Clear();
 
 			commandResult = MyMarkdown.Result();
 		}
@@ -412,7 +414,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 			MyMarkdown.Clear();
 
-			if(!tokenParser.End) MyMarkdown.Append("Warning: `near` doesn't have arguments\n");
+			if(!tokenParser.End) MyMarkdown.Append("Warning: `near` does not take arguments\n");
 
 			var center = Utilities.GetEngineerCenter(character);
 			var cI = selectedGrid.WorldToGridInteger(center);
@@ -496,7 +498,6 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			output.Append($"Used {Formatter.Volume((double)inv.CurrentVolume)}/{Formatter.Volume((double)inv.MaxVolume)} ({Formatter.Percent(inv.VolumeFillFactor)})\n");
 
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
-			items.Clear();
 			inv.GetItems(items);
 
 			for (int i = 0; i < items.Count; i++)
@@ -795,7 +796,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			{	Transfer();
 			}
 			else
-			{	commandResult = $"Unknown command '{tp.NextString()}' use `help` to list all available commands.";
+			{	commandResult = $"Unknown command '{tp.NextString()}'. Use `help` to list all available commands.";
 			}
 			MyConsole.AddMultiline(commandResult);
 		}
