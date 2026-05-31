@@ -74,13 +74,13 @@ namespace LLELoader
 		public static bool GetChunkFromLLM(out LLE.FromLLM cmd)
 		{
 			bool r = _commandQueue.TryDequeue(out cmd);
-			if (r) Logger.Write("[GetChunkFromLLM] " + cmd.Payload);
+			//if (r) Logger.Write("[GetChunkFromLLM] " + cmd.Payload);
 			return r;
 		}
 
 		public static void SendMessageToLLM(string text)
 		{
-			Logger.Write("[SendMessageToLLM] " + text);
+			//Logger.Write("[SendMessageToLLM] " + text);
 
 			_chatContext.Enqueue(text);
 			//if (_chatContext.Count > 1000) _chatContext.Dequeue();
@@ -145,7 +145,7 @@ namespace LLELoader
 							var reasoning = reasoningProp.GetString();
 							if (!string.IsNullOrEmpty(reasoning))
 							{
-								Logger.Write("[LLM chunk IN] Reasoning: " + reasoning);
+								//Logger.Write("[LLM chunk IN] Reasoning: " + reasoning);
 								_commandQueue.Enqueue(new LLE.FromLLM
 								{
 									Type = LLE.MessageType.Reasoning,
@@ -158,7 +158,7 @@ namespace LLELoader
 							var content = contentProp.GetString();
 							if (!string.IsNullOrEmpty(content))
 							{
-								Logger.Write("[LLM chunk IN] Content: " + content);
+								//Logger.Write("[LLM chunk IN] Content: " + content);
 								_commandQueue.Enqueue(new LLE.FromLLM
 								{
 									Type = LLE.MessageType.Content,
@@ -168,6 +168,8 @@ namespace LLELoader
 						}
 					}
 				}
+
+				_commandQueue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Stop, Payload = null });
 			}
 			catch (Exception ex) { Logger.Write("[LLM] streaming error: " + ex.Message); }
 		}

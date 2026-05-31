@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage.Game;
@@ -26,6 +27,8 @@ namespace LLE
 		IMyCubeGrid selectedGrid;
 		Vector3I selectedBlock;
 		Commands commands;
+
+		StringBuilder llmCommand = new StringBuilder();
 
 		public static void Log(string s) { Utilities.Log(s); }
 
@@ -76,28 +79,22 @@ namespace LLE
 			}
 
 			FromLLM m;
-			for(int i = 0; i < 100; ++i)
+			for(int i = 0; i < 10; ++i)
 			{	if (!LLE_Loader.GetChunkFromLLM(out m)) break;
-				MyConsole.AddMultiline(m.Payload, m.Type == MessageType.Reasoning ? Color.Gray : Color.Cyan);
-				//commands.Execute(m.Payload);
+
+				if(m.Type == MessageType.Reasoning)
+				{	MyConsole.AddMultiline(m.Payload, Color.Gray);
+				}
+				else if(m.Type == MessageType.Content)
+				{	MyConsole.AddMultiline(m.Payload, Color.Cyan);
+					llmCommand.Append(m.Payload);
+				}
+				else if(m.Type == MessageType.Stop)
+				{	commands.Execute(llmCommand.ToString());
+					llmCommand.Clear();
+					break; // max one command per tick
+				}
 			}
-
-			// Poll streaming chunks
-			//if (!string.IsNullOrEmpty(LLE_Loader.StreamingReasoning)) MyConsole.Add(LLE_Loader.StreamingReasoning, Color.Gray);
-			//if (!string.IsNullOrEmpty(LLE_Loader.StreamingContent)) MyConsole.Add(LLE_Loader.StreamingContent, Color.Cyan);
-			/*
-				ServerCommand cmd;
-				if (LLE_Loader.GetCommand(out cmd))
-				{	MyConsole.Add(cmd.Payload, Color.Cyan);
-					commands.Execute(cmd.Payload);
-				}
-
-				if (commands.commandResult != null)
-				{	MyConsole.AddMultiline(commands.commandResult, Color.PaleVioletRed);
-					LLE_Loader.SetResult(commands.commandResult);
-					commands.commandResult = null;
-				}
-			}*/
 		}
 
 		public override void Draw()
