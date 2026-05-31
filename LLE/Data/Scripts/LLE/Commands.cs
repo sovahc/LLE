@@ -41,9 +41,9 @@ namespace LLE
 			return $"{ff}%";
 		}
 
-		public static string Volume(MyFixedPoint f)
-		{	var ff = (int)Math.Round((double)f, 0, MidpointRounding.AwayFromZero);
-			return $"{ff}m³";
+		public static string Volume(double d)
+		{	var dd = Math.Round(d, 1, MidpointRounding.AwayFromZero);
+			return $"{dd:F2}m³";
 		}
 
 		public static string IJK(Vector3I v)
@@ -568,7 +568,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 		private static void InventoryToText(IMyInventory inv, StringBuilder output)
 		{
-			output.Append($"Used {Formatter.Volume(inv.CurrentVolume)}/{Formatter.Volume(inv.MaxVolume)} m^3 ({Formatter.Percent(inv.VolumeFillFactor)})\n");
+			output.Append($"Used {Formatter.Volume((double)inv.CurrentVolume)}/{Formatter.Volume((double)inv.MaxVolume)} ({Formatter.Percent(inv.VolumeFillFactor)})\n");
 
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 			items.Clear();
@@ -581,7 +581,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				var def = (MyDefinitionId)item.Type;
 				var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
 
-				var volume = item.Amount * itemDef.Volume;
+				var volume = (double)item.Amount * itemDef.Volume;
 
 				output.Append($"* {itemDef.DisplayNameText} → {item.Amount} ({Formatter.Volume(volume)})\n");
 			}
