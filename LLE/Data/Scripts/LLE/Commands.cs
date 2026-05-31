@@ -41,6 +41,11 @@ namespace LLE
 			return $"{ff}%";
 		}
 
+		public static string Volume(MyFixedPoint f)
+		{	var ff = (int)Math.Round((double)f, 0, MidpointRounding.AwayFromZero);
+			return $"{ff}m³";
+		}
+
 		public static string IJK(Vector3I v)
 		{	return $"{v.X} {v.Y} {v.Z}";
 		}
@@ -126,12 +131,14 @@ namespace LLE
 * inventory						- Return the items in your inventory.
 * inventory I J K				- Return the inventory of the container at specific coordinates.
 * get count 'item' from I J K	- Transfer an item from a container to your inventory. Ex `get 10 'Gold Ingot' from -1 5 2`
-* put count 'item' into I J K	- Transfer an item from your inventory to a container. Ex `put 1 'Medkit' to 14 0 2`
+* put count 'item' into I J K	- Transfer an item from your inventory to a container. Ex `put 1 'Medkit' into 14 0 2`
+* transfer count 'item' from I1 J1 K1 to I2 J2 K2
+								- Transfer an item from one inventory to another.
 ";
 }
 
 /*
-* transfer count 'item' from I1 J1 K1 to I2 J2 K2 - Transfer an item from one inventory to another.
+
 vision                 - Get current visual input (what the bot sees right now)
 help                   - this message.
 cancel                 - Immediately cancel the current action and return to IDLE.
@@ -561,7 +568,7 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 
 		private static void InventoryToText(IMyInventory inv, StringBuilder output)
 		{
-			output.Append($"Used {inv.CurrentVolume}/{inv.MaxVolume} m^3 ({Formatter.Percent(inv.VolumeFillFactor)})\n");
+			output.Append($"Used {Formatter.Volume(inv.CurrentVolume)}/{Formatter.Volume(inv.MaxVolume)} m^3 ({Formatter.Percent(inv.VolumeFillFactor)})\n");
 
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 			items.Clear();
@@ -574,9 +581,9 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				var def = (MyDefinitionId)item.Type;
 				var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
 
-				float volume = (float)item.Amount * itemDef.Volume;
+				var volume = item.Amount * itemDef.Volume;
 
-				output.Append($"* {itemDef.DisplayNameText} → {item.Amount} ({Formatter.Percent(volume)})\n");
+				output.Append($"* {itemDef.DisplayNameText} → {item.Amount} ({Formatter.Volume(volume)})\n");
 			}
 		}
 
@@ -677,6 +684,58 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 				toList.Add(fat.GetInventory(ii));
 
 			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out commandResult);
+		}
+
+		internal void Transfer()
+		{
+			if(!GridIsSet()) return;
+
+			double count; Vector3I ijkFrom, ijkTo;
+
+			if(!tokenParser.NextDouble(out count)) { commandResult = "Error: expected count"; return; }
+
+			var item = tokenParser.NextString();
+
+			if(!tokenParser.Match("from")) { commandResult = "Error: expected 'from'"; return; }
+
+			if(!tokenParser.NextVector3I(out ijkFrom)) { commandResult = "Error: expected I J K"; return; }
+
+			if(!tokenParser.Match("to")) { commandResult = "Error: expected 'to'"; return; }
+
+			if(!tokenParser.NextVector3I(out ijkTo)) { commandResult = "Error: expected I J K"; return; }
+
+			var blockFrom = selectedGrid.GetCubeBlock(ijkFrom);
+			if(blockFrom == null) { commandResult = $"Error: no block at {ijkFrom}"; return; }
+
+			var blockTo = selectedGrid.GetCubeBlock(ijkTo);
+			if(blockTo == null) { commandResult = $"Error: no block at {ijkTo}"; return; }
+
+			var fatFrom = blockFrom.FatBlock;
+			var fromName = Formatter.Description(blockFrom);
+
+			if(fatFrom == null || !fatFrom.HasInventory)
+			{	commandResult = $"Block {Formatter.Quote(fromName)} does not have an inventory.";
+				return;
+			}
+
+			var fatTo = blockTo.FatBlock;
+			var toName = Formatter.Description(blockTo);
+
+			if(fatTo == null || !fatTo.HasInventory)
+			{	commandResult = $"Block {Formatter.Quote(toName)} does not have an inventory.";
+				return;
+			}
+
+			List<IMyInventory> fromList = new List<IMyInventory>();
+			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
+
+			for (int ii = 0; ii < fatFrom.InventoryCount; ++ii)
+				fromList.Add(fatFrom.GetInventory(ii));
+
+			for (int ii = 0; ii < fatTo.InventoryCount; ++ii)
+				toList.Add(fatTo.GetInventory(ii));
+
+			InventoryTransfer(fromList, toList, fromName, toName, item, (MyFixedPoint)count, out commandResult);
 		}
 
 		internal static void InventoryTransfer(List<IMyInventory> fromList, List<WTF_IMyInventory> toList,
@@ -797,10 +856,10 @@ Path finding: safest (default) / shortest / scouting / prefer open space
 			{	Put();
 			}
 			else if(tp.Match("TRANSFER"))
-			{	//commands.Transfer(arguments);
+			{	Transfer();
 			}
 			else
-			{	commandResult = $"Unknown command '{command}' use `help` to list all avialable commands.";
+			{	commandResult = $"Unknown command '{command}' use `help` to list all available commands.";
 			}
 			MyConsole.AddMultiline(commandResult);
 		}
