@@ -263,6 +263,9 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 			foreach (var kv in positions)
 			{	
+				name = kv.Key;
+				category = NameToCategory(name);
+
 				tmp.Clear();
 				tmp.Append($"* {Formatter.Quote(kv.Key)} → {kv.Value.Count} (");
 

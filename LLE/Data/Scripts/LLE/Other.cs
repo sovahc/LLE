@@ -235,6 +235,8 @@ namespace LLE
 				float y = y0 + i * lineStep;
 				var w = font.String(line.Text, new Vector2D(x0, y), scale, line.Color);
 				if (w > rectangleW) rectangleW = w;
+
+				if(y < 0) break;
 			}
 
 			var bb = font.Rectangle(new Vector2(x0 - B, y0 - B),
