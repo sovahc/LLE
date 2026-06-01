@@ -213,7 +213,8 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
 		private static readonly List<IMySlimBlock> slimBlocks = new List<IMySlimBlock>();
 
-		private static readonly Dictionary<string, List<Vector3I>> positions = new Dictionary<string, List<Vector3I>>();
+		private static readonly Dictionary<string, List<Vector3I>> describer = new Dictionary<string, List<Vector3I>>();
+		private static readonly List<Vector3I> positions = new List<Vector3I>();
 
 		internal static string NameToCategory(string name)
 		{	foreach (var cat in TerminalBCategories)
@@ -228,43 +229,33 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 		public static string Name(IMySlimBlock block)
 		{
-			if(block == null) return "none";
+			if(block == null) return "Free space";
 			return block.BlockDefinition.DisplayNameText;
 		}
 
-		internal void Overview()
-		{
-			if(!GridIsSet()) return;
-
-			string category, name;
-			Formatter.Description(selectedGrid as MyEntity, out category, out name);
-
-			MyMarkdown.Clear();
-			MyMarkdown.Append($"# {category} '{name}'");
+		internal void ListDescrtiption(List<Vector3I> coordinates, string firstLine, bool byCategory)
+		{	MyMarkdown.Clear();
+			MyMarkdown.Append(firstLine);
 			MyMarkdown.Append($"Legend: Name → count (positions on the grid)");
 
-			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
+			describer.Clear();
 
-			positions.Clear();
-			terminalBlocks.Clear();
-			ts.GetBlocks(terminalBlocks);
-
-			foreach (var block in terminalBlocks)
+			foreach (var position in coordinates)
 			{	
-				name = Name(block.SlimBlock);
+				var name = Name(selectedGrid.GetCubeBlock(position));
 
 				List<Vector3I> pp;
-				if(!positions.TryGetValue(name, out pp))
+				if(!describer.TryGetValue(name, out pp))
 				{	pp = new List<Vector3I>();
-					positions[name] = pp;
+					describer[name] = pp;
 				}
-				pp.Add(block.Position);
+				pp.Add(position);
 			}
 
-			foreach (var kv in positions)
+			foreach (var kv in describer)
 			{	
-				name = kv.Key;
-				category = NameToCategory(name);
+				var name = kv.Key;
+				var category = byCategory ? NameToCategory(name) : null;
 
 				tmp.Clear();
 				tmp.Append($"* {Formatter.Quote(kv.Key)} → {kv.Value.Count} (");
@@ -277,11 +268,35 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 				}
 				tmp.Append(")");
 
-				MyMarkdown.Add($"## {category}", tmp.ToString());
+				if(byCategory)
+					MyMarkdown.Add($"## {category}", tmp.ToString());
+				else
+					MyMarkdown.Append(tmp.ToString());
 			}
 
-			positions.Clear();
+			describer.Clear();
+		}
+
+		internal void Overview()
+		{
+			if(!GridIsSet()) return;
+
+			string category, name;
+			Formatter.Description(selectedGrid as MyEntity, out category, out name);
+
+			string firstLine = $"# {category} '{name}'";
+
+			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 			terminalBlocks.Clear();
+			ts.GetBlocks(terminalBlocks);
+
+			positions.Clear();
+			foreach(var block in terminalBlocks) positions.Add(block.SlimBlock.Position);
+
+			ListDescrtiption(positions, firstLine, true);
+
+			terminalBlocks.Clear();
+			positions.Clear();
 
 			commandResult = MyMarkdown.Result();
 		}
@@ -441,34 +456,32 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			MyMarkdown.Clear();
 
 			Vector3I ijk;
+			string hint;
 
 			if(tokenParser.End)
 			{	var center = Utilities.GetEngineerCenter(character);
 				ijk = selectedGrid.WorldToGridInteger(center);
+				hint = "Your block";
 			}
 			else
 			{	if(!tokenParser.NextVector3I(out ijk)) return;
+				hint = "Central block";
 			}
 
 			var name = Name(selectedGrid.GetCubeBlock(ijk));
 			
-			MyMarkdown.Append($"# Position: {Formatter.IJK(ijk)} Block: {Formatter.Quote(name)}");
+			string firstLine = $"# {hint}: {Formatter.Quote(name)} Position: ({Formatter.IJK(ijk)})";
 
 			Debug.grid = selectedGrid;
 			Debug.highlightCells.Clear();
 
-			foreach (var direction in Constants.SixDirections)
-			{	var v = ijk + direction;
-				var block = selectedGrid.GetCubeBlock(v);
+			positions.Clear();
 
-				if(block == null)
-				{	MyMarkdown.Add("## Free space", $"{Formatter.IJK(v)}");
-				}
-				else
-				{	Debug.highlightCells.Add(v);
-					MyMarkdown.Add($"## {Formatter.Quote(Name(block))}", $"{Formatter.IJK(v)}");
-				}
+			foreach (var direction in Constants.SixDirections)
+			{	positions.Add(ijk + direction);
 			}
+
+			ListDescrtiption(positions, firstLine, false);
 
 			commandResult = MyMarkdown.Result();
 		}
