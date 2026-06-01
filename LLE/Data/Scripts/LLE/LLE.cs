@@ -27,7 +27,10 @@ namespace LLE
 		private Vector3I selectedBlock;
 		private Commands commands;
 
-        readonly StringBuilder llmCommand = new StringBuilder();
+		private readonly StringBuilder llmReasoning = new StringBuilder();
+        private readonly StringBuilder llmContent = new StringBuilder();
+
+		private MessageType lastMessageType = MessageType.Stop;
 
 		public static void Log(string s) => Utilities.Log(s);
 
@@ -72,7 +75,12 @@ namespace LLE
 			commands.Update();
 
 			if (commands.commandResult != null)
-			{	MyConsole.AddMultiline(commands.commandResult, Color.OrangeRed);
+			{	Log($"commandResult: {commands.commandResult}");
+				
+				MyConsole.AddMultiline("\n", Color.Gray);
+				MyConsole.AddMultiline(commands.commandResult, Color.OrangeRed);
+				MyConsole.AddMultiline("\n", Color.Gray);
+
 				LLE_Loader.SendMessageToLLM(commands.commandResult);
 				commands.commandResult = null;
 			}
@@ -81,17 +89,32 @@ namespace LLE
 			for(int i = 0; i < 10; ++i)
 			{	if (!LLE_Loader.GetChunkFromLLM(out m)) break;
 
+				if(m.Type != lastMessageType)
+				{	
+					MyConsole.AddMultiline("\n", Color.Gray);
+
+					if(lastMessageType == MessageType.Reasoning)
+					{	Log($"llmReasoning: {llmReasoning}");
+						llmReasoning.Clear();
+					}
+					else if(lastMessageType == MessageType.Content)
+					{	Log($"llmContent: {llmContent}");
+						
+						commands.Execute(llmContent.ToString());
+						
+						llmContent.Clear();
+					}
+					
+					lastMessageType = m.Type;					
+				}
+
 				if(m.Type == MessageType.Reasoning)
 				{	MyConsole.AddMultiline(m.Payload, Color.Gray);
+					llmReasoning.Append(m.Payload);
 				}
 				else if(m.Type == MessageType.Content)
 				{	MyConsole.AddMultiline(m.Payload, Color.Cyan);
-					llmCommand.Append(m.Payload);
-				}
-				else if(m.Type == MessageType.Stop)
-				{	commands.Execute(llmCommand.ToString());
-					llmCommand.Clear();
-					break; // max one command per tick
+					llmContent.Append(m.Payload);
 				}
 			}
 		}

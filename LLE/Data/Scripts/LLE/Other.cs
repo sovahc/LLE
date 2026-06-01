@@ -176,9 +176,9 @@ namespace LLE
 
 		private static readonly List<LineData> _lines = new List<LineData>();
 		private static bool _lastWasMultiline = false;
-		private const int MaxLines = 50;
+		private const int MaxLines = 100;
 
-		private static readonly Color textBackground = new Color(0, 0, 0, 127);
+		private static readonly Color textBackground = new Color(0, 0, 0, 200);
 
 		public static void Clear()
 		{
@@ -240,7 +240,7 @@ namespace LLE
 			if (_lines.Count == 0) return;
 
 			float B = 0.01f;
-			float scale = 0.000666f;
+			float scale = 0.0004f;
 			float lineStep = font.GetHeight(scale) * 1.2f;
 
 			float y0 = 0;
@@ -422,7 +422,7 @@ namespace LLE
 
 			int i = index;
 
-			if (s[i] == '"' || s[i] == '\'')
+			if (s[i] == '"' || s[i] == '\'' || s[i] == '`')
 			{
 				char quote = s[i];
 				++i;

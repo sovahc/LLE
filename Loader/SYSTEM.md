@@ -37,3 +37,5 @@ Every command returns a result string. You MUST classify the result and react ac
 ## EXECUTION RULES
 
 Now type 'help' to display a list of all available commands, and then try any of them.
+Then type 'select Platform'
+Then run any commands you like.

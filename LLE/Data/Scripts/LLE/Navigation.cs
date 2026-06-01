@@ -19,6 +19,11 @@ namespace LLE
 		public Navigation(IMyCharacter character)
 		{	this.character = character;
 		}
+
+		internal Vector3I CharacterCell()
+		{	Vector3D e = Utilities.GetEngineerCenter(character);
+			return grid.WorldToGridInteger(e);
+		}
 		
 		internal void FlyInsideGrid(IMyCubeGrid largeGrid, Vector3I toI)
 		{
@@ -75,17 +80,17 @@ namespace LLE
 				return null; // "thinking"
 			}
 
-			if(micro.Arrived()) return "Arrived";
+			if(micro.Arrived()) return $"Arrived. Position: {CharacterCell()}";
 ;
 			if(MyAPIGateway.Input.IsNewLeftMousePressed() ||
 				MyAPIGateway.Input.IsNewRightMousePressed())
 			{	micro.Stop();
-				return "Cancelled by user";
+				return $"Cancelled by user. Current position {CharacterCell()}";
 			}
 			
 			if(micro.Stuck)
 			{	micro.Stop();
-				return "Stuck";
+				return $"Stuck at {CharacterCell()}";
 			}
 
 			var ec = Utilities.GetEngineerCenter(character);
