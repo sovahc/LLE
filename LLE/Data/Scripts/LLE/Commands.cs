@@ -524,6 +524,11 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 		{
 			output.Append($"Used {Formatter.Volume((double)inv.CurrentVolume)}/{Formatter.Volume((double)inv.MaxVolume)} ({Formatter.Percent(inv.VolumeFillFactor)})\n");
 
+			if(inv.ItemCount == 0)
+			{	output.Append("-- No items --\n");
+				return;
+			}
+
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 			inv.GetItems(items);
 
@@ -820,7 +825,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			{	Transfer();
 			}
 			else
-			{	commandResult = $"Unknown command '{tp.NextString()}'. Use `help` to list all available commands.";
+			{	commandResult = $"Unknown command '{tp.NextString()}'.";
 			}
 		}
 	}
