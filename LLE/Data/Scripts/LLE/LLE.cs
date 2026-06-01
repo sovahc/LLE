@@ -51,17 +51,16 @@ namespace LLE
 			Collisions.Load(ModContext);
 
 			var entities = new HashSet<IMyEntity>();
-			MyAPIGateway.Entities.GetEntities(entities);
+			//MyAPIGateway.Entities.GetEntities(entities);
+			//foreach (var e in entities) OnEntityAdd(e);
 
-			foreach (var e in entities) OnEntityAdd(e);
-
-			MyEntities.OnEntityAdd += OnEntityAdd;
+			//MyEntities.OnEntityAdd += OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered += OnChatMessage;
 		}
 
 		protected override void UnloadData()
 		{
-			MyEntities.OnEntityAdd -= OnEntityAdd;
+			//MyEntities.OnEntityAdd -= OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
 
@@ -77,7 +76,7 @@ namespace LLE
 				LLE_Loader.SetHelp(commands.Help());
 			}
 
-			commands.Update();
+			commands.Update(); // updates commandResult
 
 			if (commands.commandResult != null)
 			{	
@@ -95,6 +94,8 @@ namespace LLE
 
 				commands.commandResult = null;
 			}
+
+			if(commands.InProgress()) return;
 
 			if (lastMessageType == MessageType.Stop)
 			{	// LLM is waiting for a response

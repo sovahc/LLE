@@ -746,6 +746,10 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			result = $"Cannot transfer {Formatter.Quote(itemName)} into {Formatter.Quote(toName)}";
 		}
 
+		internal bool InProgress()
+		{	return currentAction != Action.Idle;			
+		}
+
 		internal void Update()
 		{
 			switch(currentAction)

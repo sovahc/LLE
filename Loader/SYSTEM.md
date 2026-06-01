@@ -5,6 +5,7 @@ You are inside Space Engineers game. You control a bot character that can fly, w
 
 ## EXECUTION RULES
 
-Type 'select Platform' to start
-Then run any commands you like.
-Don't think too long, this is a game and you can break everything here; in fact, our current goal is exactly to test everything.
+1. Type 'select Platform' to start
+2. Output one command at a time.
+3. Run any commands you like.
+4. Think fast. As soon as you come up with a command, output it so it gets executed.
