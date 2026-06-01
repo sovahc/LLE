@@ -102,26 +102,20 @@ namespace LLE
 
 				if (llmContent.Length != 0)
 				{	// command buffer is not empty
-
-					string command;
-
-					int eol = llmContent.IndexOf('\n');
-					if(eol >= 0)
-					{	command = llmContent.ToString(0, eol);
-						llmContent.Remove(0, eol+1);
+					string content = llmContent.ToString();
+					int lastBacktick = content.LastIndexOf('`');
+					if (lastBacktick > 0)
+					{
+						int secondLastBacktick = content.LastIndexOf('`', lastBacktick - 1);
+						if (secondLastBacktick >= 0)
+						{
+							string command = content.Substring(secondLastBacktick + 1, lastBacktick - secondLastBacktick - 1);
+							llmContent.Clear();
+							toLLM.Append($"`{command}`"); // send back to establish pattern
+							commands.Execute(command);
+							return; // critical
+						}
 					}
-					else
-					{	command = llmContent.ToString();
-						llmContent.Clear();					
-					}
-
-					if(command.StartsWith("`") && command.IndexOf('`', 1) > 0) // LLM likes to add these quotes ...
-						command = command.Substring(1, command.IndexOf('`', 1));
-
-					toLLM.Append($"`{command}`"); // ... so we send it back to establish pattern.
-
-					commands.Execute(command);
-					return; // critical
 				}
 				else if(toLLM.Length != 0 && !pauseLLM)
 				{	// command buffer is empty, result is not empty.
