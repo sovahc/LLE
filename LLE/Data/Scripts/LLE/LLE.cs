@@ -29,6 +29,7 @@ namespace LLE
 
 		private readonly StringBuilder llmReasoning = new StringBuilder();
         private readonly StringBuilder llmContent = new StringBuilder();
+		private readonly StringBuilder toLLM = new StringBuilder();
 
 		private MessageType lastMessageType = MessageType.Stop;
 
@@ -75,14 +76,50 @@ namespace LLE
 			commands.Update();
 
 			if (commands.commandResult != null)
-			{	Log($"commandResult: {commands.commandResult}");
+			{	
+				// собираем результаты ответов команд в буфер для отправки ЛЛМ
+
+				Log($"commandResult: {commands.commandResult}");
 				
 				MyConsole.AddMultiline("\n", Color.Gray);
-				MyConsole.AddMultiline(commands.commandResult, Color.OrangeRed);
+				MyConsole.AddMultiline(commands.commandResult, Color.GreenYellow);
 				MyConsole.AddMultiline("\n", Color.Gray);
 
-				LLE_Loader.SendMessageToLLM(commands.commandResult);
+				toLLM.Append(commands.commandResult);
+				toLLM.Append('\n');
+
 				commands.commandResult = null;
+			}
+
+			if (lastMessageType == MessageType.Stop)
+			{	// LLM ждет ответа
+
+				if (llmContent.Length != 0)
+				{	// command buffer is not empty
+
+					string command;
+
+					int eol = llmContent.IndexOf('\n');
+					if(eol >= 0)
+					{	command = llmContent.ToString(0, eol);
+						llmContent.Remove(0, eol+1);
+					}
+					else
+					{	command = llmContent.ToString();
+						llmContent.Clear();					
+					}
+
+					if(command.StartsWith("`") && command.EndsWith("`")) // LLM нравится добавлять эти кавычки
+						command = command.Substring(1, command.Length-2);
+
+					commands.Execute(command);
+					return; // critical
+				}
+				else if(toLLM.Length != 0)
+				{	// command buffer is empty, result is not empty.
+					LLE_Loader.SendMessageToLLM(toLLM.ToString());
+					toLLM.Clear();
+				}
 			}
 
 			FromLLM m;
@@ -99,10 +136,7 @@ namespace LLE
 					}
 					else if(lastMessageType == MessageType.Content)
 					{	Log($"llmContent: {llmContent}");
-						
-						commands.Execute(llmContent.ToString());
-						
-						llmContent.Clear();
+						// потребитель контента - обработчик команд
 					}
 					
 					lastMessageType = m.Type;					

@@ -30,36 +30,17 @@ namespace LLE
 		};
 	}
 
-	class Utilities
+	static class Utilities
 	{
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
-		public static string GetNextWord(ref string s)
+		public static int IndexOf(this StringBuilder sb, char c, int startIndex = 0)
 		{
-			if (s.Length == 0) return "";
-
-			if (s[0] == '"' || s[0] == '\'')
+			for (int i = startIndex; i < sb.Length; ++i)
 			{
-				int quote2 = s.IndexOf(s[0], 1);
-				if (quote2 < 0) return s.Substring(1);
-
-				string quotedFragment = s.Substring(1, quote2 - 1);
-				
-				if(quote2 + 1 < s.Length)
-					s = s.Substring(quote2 + 1);
-				else
-					s = "";
-
-				if (s.Length > 0 && s[0] == ' ')
-					s = s.Substring(1);
-				
-				return quotedFragment;
+				if(sb[i] == c) return i;
 			}
-
-			int spaceIndex = s.IndexOf(' ');
-			string word = spaceIndex >= 0 ? s.Substring(0, spaceIndex) : s;
-			s = spaceIndex >= 0 ? s.Substring(spaceIndex + 1) : "";
-			return word;
+			return -1;
 		}
 
 		public static void MyRaycast(Vector3D origin, Vector3D direction,
@@ -422,7 +403,7 @@ namespace LLE
 
 			int i = index;
 
-			if (s[i] == '"' || s[i] == '\'' || s[i] == '`')
+			if (s[i] == '"' || s[i] == '\'')
 			{
 				char quote = s[i];
 				++i;
@@ -500,4 +481,6 @@ namespace LLE
 			get { SkipSpaces(); return index >= s.Length; }
 		}
 	}
+
+	
 }
