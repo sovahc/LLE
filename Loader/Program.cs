@@ -85,15 +85,7 @@ namespace LLELoader
 			_chatContext.Enqueue(text);
 			//if (_chatContext.Count > 1000) _chatContext.Dequeue();
 
-			if (text.Length > 0 && text[0] == '>')
-			{
-				var t = text.Substring(1).Trim();
-				_commandQueue.Append(new LLE.FromLLM { Payload = t });
-			}
-			else
-			{
-				var _ = RespondToChatAsync();
-			}
+			var _ = RespondToChatAsync();
 		}
 
 		public static void SetHelp(string text)

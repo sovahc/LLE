@@ -32,8 +32,9 @@ namespace LLE
 		private readonly StringBuilder toLLM = new StringBuilder();
 
 		private MessageType lastMessageType = MessageType.Stop;
+        private bool pauseLLM;
 
-		public static void Log(string s) => Utilities.Log(s);
+        public static void Log(string s) => Utilities.Log(s);
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
@@ -112,13 +113,13 @@ namespace LLE
 						llmContent.Clear();					
 					}
 
-				if(command.StartsWith("`") && command.EndsWith("`")) // LLM likes to add these quotes
+					if(command.StartsWith("`") && command.EndsWith("`")) // LLM likes to add these quotes
 						command = command.Substring(1, command.Length-2);
 
 					commands.Execute(command);
 					return; // critical
 				}
-				else if(toLLM.Length != 0)
+				else if(toLLM.Length != 0 && !pauseLLM)
 				{	// command buffer is empty, result is not empty.
 					LLE_Loader.SendMessageToLLM(toLLM.ToString());
 					toLLM.Clear();
@@ -134,11 +135,11 @@ namespace LLE
 					MyConsole.AddMultiline("\n", Color.LightGray);
 
 					if(lastMessageType == MessageType.Reasoning)
-					{	Log($"llmReasoning: {llmReasoning}");
+					{	Log($"llmReasoning:\n{llmReasoning}");
 						llmReasoning.Clear();
 					}
 					else if(lastMessageType == MessageType.Content)
-					{	Log($"llmContent: {llmContent}");
+					{	Log($"llmContent:\n{llmContent}");
 						// content consumer is the command handler
 					}
 					
@@ -235,7 +236,14 @@ namespace LLE
 			if (player == null) return;
 
 			MyConsole.Add(message, Color.Chocolate);
-			LLE_Loader.SendMessageToLLM($"[GAME CHAT] {player.DisplayName}: {message}");
+			if(message.StartsWith(">"))
+			{	message = message.Substring(1);
+				pauseLLM = true;
+				commands.Execute(message);
+			}
+			else
+			{	LLE_Loader.SendMessageToLLM($"[GAME CHAT] {player.DisplayName}: {message}");
+			}
 		}
 	}
 

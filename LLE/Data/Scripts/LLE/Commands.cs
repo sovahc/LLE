@@ -80,12 +80,6 @@ namespace LLE
 				return;
 			}
 		}
-
-		public static string Description(IMySlimBlock block)
-		{    
-			if(block == null) return "none";
-			return block.BlockDefinition.DisplayNameText;
-		}
 	}
 
 	public class Commands
@@ -219,6 +213,32 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
 		private static readonly List<IMySlimBlock> slimBlocks = new List<IMySlimBlock>();
 
+		public static void Description(IMySlimBlock block, out string category, out string name)
+		{
+			if(block == null) { category = ""; name = "null"; return; }
+
+			var type = block.BlockDefinition.ToString();
+			type = Formatter.Remove_MyObjectBuilder_(type);
+			
+			category = "Other";
+			foreach (var cat in TerminalBCategories)
+			{
+				if (cat.Value.Any(keyword => type.Contains(keyword)))
+				{
+					category = cat.Key;
+					break;
+				}
+			}
+
+			name = block.BlockDefinition.DisplayNameText;
+		}
+
+		public static string Name(IMySlimBlock block)
+		{
+			if(block == null) return "none";
+			return block.BlockDefinition.DisplayNameText;
+		}
+
 		internal void Overview()
 		{
 			if(!GridIsSet()) return;
@@ -236,7 +256,13 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			terminalBlocks.Clear();
 			ts.GetBlocks(terminalBlocks);
 
-			int total = 0;
+			foreach (var block in terminalBlocks)
+			{	Description(block.SlimBlock, out category, out name);
+
+				MyMarkdown.Add(category, name);
+			}
+
+/*			int total = 0;
 			foreach (var block in terminalBlocks)
 			{
 				var type = block.BlockDefinition.TypeId;
@@ -263,6 +289,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 				MyMarkdown.Add(category, $"* {type} → {kv.Value}");
 			}
+*/
 
 			count.Clear();
 			terminalBlocks.Clear();
@@ -289,9 +316,12 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			selectedGrid.GetBlocks(slimBlocks);
 
 			foreach(var block in slimBlocks)
-			{	name = Formatter.Description(block);
+			{	
+				Description(block, out category, out name);
 
-				if(Include(query, name))
+				MyMarkdown.Add(category, name);
+
+				if(Include(query, category) || Include(query, name))
 				{	MyMarkdown.Add(name, Formatter.IJK(block.Position));
 				}
 			}
@@ -420,7 +450,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			var center = Utilities.GetEngineerCenter(character);
 			var cI = selectedGrid.WorldToGridInteger(center);
 
-			var name = Formatter.Description(selectedGrid.GetCubeBlock(cI));
+			var name = Name(selectedGrid.GetCubeBlock(cI));
 			MyMarkdown.Append($"## Your current position: {cI} Block: {Formatter.Quote(name)}");
 
 			int added = 0;
@@ -435,9 +465,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 				Debug.highlightCells.Add(v);
 
-				name = Formatter.Description(block);
-
-				MyMarkdown.Add(Formatter.Quote(name), $"{Formatter.IJK(v)}");
+				MyMarkdown.Add(Formatter.Quote(Name(block)), $"{Formatter.IJK(v)}");
 				++added;
 			}
 			if(added == 0)
@@ -473,7 +501,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 					return;
 				}
 
-				var name = Formatter.Description(block);
+				var name = Name(block);
 				var fat = block.FatBlock;
 
 				if(fat == null || !fat.HasInventory)
@@ -544,7 +572,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			}
 
 			var fat = block.FatBlock;
-			var fromName = Formatter.Description(block);
+			var fromName = Name(block);
 
 			if(fat == null || !fat.HasInventory)
 			{	commandResult = $"Block {Formatter.Quote(fromName)} does not have an inventory.";
@@ -595,7 +623,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			if (inv == null) { commandResult = "Internal error"; return; }
 
 			var fat = block.FatBlock;
-			var toName = Formatter.Description(block);
+			var toName = Name(block);
 
 			if(fat == null || !fat.HasInventory)
 			{	commandResult = $"Block {Formatter.Quote(toName)} does not have an inventory.";
@@ -638,7 +666,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			if(blockTo == null) { commandResult = $"Error: no block at {ijkTo}"; return; }
 
 			var fatFrom = blockFrom.FatBlock;
-			var fromName = Formatter.Description(blockFrom);
+			var fromName = Name(blockFrom);
 
 			if(fatFrom == null || !fatFrom.HasInventory)
 			{	commandResult = $"Block {Formatter.Quote(fromName)} does not have an inventory.";
@@ -646,7 +674,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			}
 
 			var fatTo = blockTo.FatBlock;
-			var toName = Formatter.Description(blockTo);
+			var toName = Name(blockTo);
 
 			if(fatTo == null || !fatTo.HasInventory)
 			{	commandResult = $"Block {Formatter.Quote(toName)} does not have an inventory.";
