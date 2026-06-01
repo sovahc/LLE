@@ -136,11 +136,8 @@ namespace LLE
 
 /*
 * search 'substring'			- Search block coordinates by name.
-vision                 - Get current visual input (what the bot sees right now)
-cancel                 - Immediately cancel the current action and return to IDLE.
-stop                   - Stop movement.
-nearest ['substring']  - Show the nearest 5 blocks whose names contain 'substring'.
 search ['substring']   - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
+vision                 - Get current visual input (what the bot sees right now)
 info 'name'        - Get detailed information about a specific object.
 look at 'name'     - Rotate to face the object
 hack 'block_name'  - Grind a specific block just below the hacking point (weld it back to restore functionality).
@@ -151,15 +148,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 ? move {forward|backward|left|right|up|down} {distance} - Move in a direction
 ? recover from being stuck
 ? save to memory 'string'
-
-## Execution Rules
-
-* Reports: Long-running actions provide status updates every 5 seconds.
-* Interruption: Any action can be interrupted by the `cancel` command.
-* Ambiguity: If a command target is ambiguous (e.g., multiple blocks with the same name),
-* the execution layer returns an error and a list of options instead of executing.
-
-Pathfinding: safest (default) / shortest / scouting / prefer open space
+! Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 */
 		private static bool Include(string searchTerm, string text)
