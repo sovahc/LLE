@@ -209,28 +209,20 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			//{ "Structure", new[] { ,  } },
 		};
 
-		private static readonly Dictionary<MyObjectBuilderType, int> count = new Dictionary<MyObjectBuilderType, int>();
 		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
 		private static readonly List<IMySlimBlock> slimBlocks = new List<IMySlimBlock>();
 
-		public static void Description(IMySlimBlock block, out string category, out string name)
-		{
-			if(block == null) { category = ""; name = "null"; return; }
+		private static readonly Dictionary<string, List<Vector3I>> positions = new Dictionary<string, List<Vector3I>>();
 
-			var type = block.BlockDefinition.ToString();
-			type = Formatter.Remove_MyObjectBuilder_(type);
-			
-			category = "Other";
-			foreach (var cat in TerminalBCategories)
+		internal static string NameToCategory(string name)
+		{	foreach (var cat in TerminalBCategories)
 			{
-				if (cat.Value.Any(keyword => type.Contains(keyword)))
+				if (cat.Value.Any(keyword => name.Contains(keyword)))
 				{
-					category = cat.Key;
-					break;
+					return cat.Key;
 				}
 			}
-
-			name = block.BlockDefinition.DisplayNameText;
+			return "Other";
 		}
 
 		public static string Name(IMySlimBlock block)
@@ -248,50 +240,43 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 			MyMarkdown.Clear();
 			MyMarkdown.Append($"# {category} '{name}'");
-			MyMarkdown.Append($"(Name → count)");
+			MyMarkdown.Append($"Legend: Name → count (positions on the grid)");
 
 			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 
-			count.Clear();
+			positions.Clear();
 			terminalBlocks.Clear();
 			ts.GetBlocks(terminalBlocks);
 
 			foreach (var block in terminalBlocks)
-			{	Description(block.SlimBlock, out category, out name);
+			{	
+				name = Name(block.SlimBlock);
 
-				MyMarkdown.Add(category, name);
-			}
-
-/*			int total = 0;
-			foreach (var block in terminalBlocks)
-			{
-				var type = block.BlockDefinition.TypeId;
-				if (!count.ContainsKey(type))
-					count[type] = 0;
-				++count[type];
-				++total;
-			}
-
-			foreach (var kv in count)
-			{
-				string type = kv.Key.ToString();
-				type = Formatter.Remove_MyObjectBuilder_(type);
-
-				category = "Other";
-				foreach (var cat in TerminalBCategories)
-				{
-					if (cat.Value.Any(keyword => type.Contains(keyword)))
-					{
-						category = cat.Key;
-						break;
-					}
+				List<Vector3I> pp;
+				if(!positions.TryGetValue(name, out pp))
+				{	pp = new List<Vector3I>();
+					positions[name] = pp;
 				}
-
-				MyMarkdown.Add(category, $"* {type} → {kv.Value}");
+				pp.Add(block.Position);
 			}
-*/
 
-			count.Clear();
+			foreach (var kv in positions)
+			{	
+				tmp.Clear();
+				tmp.Append($"* {Formatter.Quote(kv.Key)} → {kv.Value.Count} (");
+
+				bool semi = false;
+				foreach(var p in kv.Value)
+				{	if(semi) tmp.Append("; ");
+					tmp.Append(Formatter.IJK(p));
+					semi = true;
+				}
+				tmp.Append(")");
+
+				MyMarkdown.Add($"## {category}", tmp.ToString());
+			}
+
+			positions.Clear();
 			terminalBlocks.Clear();
 
 			commandResult = MyMarkdown.Result();
@@ -299,7 +284,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 		internal void Search()
 		{
-			if(!GridIsSet()) return;
+/*			if(!GridIsSet()) return;
 
 			string query = tokenParser.NextString();
 			if(query == "")
@@ -328,7 +313,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 			slimBlocks.Clear();
 
-			commandResult = MyMarkdown.Result();
+			commandResult = MyMarkdown.Result();*/
 		}
 
 		internal void Select(ObjectType type)

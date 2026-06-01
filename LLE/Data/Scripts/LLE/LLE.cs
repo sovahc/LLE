@@ -83,7 +83,7 @@ namespace LLE
 			{	
 				// collect command results into buffer for sending to LLM
 
-				Log($"commandResult: {commands.commandResult}");
+				Log($"commandResult:\n{commands.commandResult}");
 				
 				MyConsole.AddMultiline("\n", Color.LightGray);
 				MyConsole.AddMultiline(commands.commandResult, Color.GreenYellow);
