@@ -60,7 +60,12 @@ namespace LLE
 		{
 			if (astar != null && !astar.Completed())
 			{	
-				astar.Iteration();
+				Profiler prof;
+				using (prof = new Profiler("Astar"))
+				{
+					astar.Iteration();
+				}
+				MyConsole.Add($"{prof}", Color.IndianRed);
 
 				if(astar.Completed())
 				{
@@ -74,23 +79,24 @@ namespace LLE
 
 						path.Add(grid.GridIntegerToWorld(v));				
 					}
-	
+
+					MyConsole.Add($"path.Count {path.Count}", Color.IndianRed);
 					micro.Fly(path);
 				}
 				return null; // "thinking"
 			}
 
 			if(micro.Arrived()) return $"Arrived. Position: {CharacterCell()}";
-;
+
 			if(MyAPIGateway.Input.IsNewLeftMousePressed() ||
 				MyAPIGateway.Input.IsNewRightMousePressed())
 			{	micro.Stop();
-				return $"Cancelled by user. Current position {CharacterCell()}";
+				return $"Cancelled by user. Current position: {CharacterCell()}";
 			}
 			
 			if(micro.Stuck)
 			{	micro.Stop();
-				return $"Stuck at {CharacterCell()}";
+				return $"Stuck at position: {CharacterCell()}";
 			}
 
 			var ec = Utilities.GetEngineerCenter(character);
@@ -176,6 +182,16 @@ namespace LLE
 			var a = point_A - grid.Min + AStarBorder;
 			var b = point_B - grid.Min + AStarBorder;
 			astar.RunCalculation(a, b);
+		}
+
+		internal bool CenterIsFree(IMySlimBlock slim)
+		{
+			if(slim == null) return true;
+
+			Traversability t;
+			if (!Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t)) return false;
+
+			return t.Center == false;
 		}
 
 		private void DrawTraversability(IMySlimBlock block, Vector3I v)

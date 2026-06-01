@@ -89,6 +89,7 @@ namespace LLE
 				MyConsole.AddMultiline(commands.commandResult, Color.GreenYellow);
 				MyConsole.AddMultiline("\n", Color.LightGray);
 
+				toLLM.Append("[RESULT]:\n");
 				toLLM.Append(commands.commandResult);
 				toLLM.Append('\n');
 
@@ -113,8 +114,10 @@ namespace LLE
 						llmContent.Clear();					
 					}
 
-					if(command.StartsWith("`") && command.EndsWith("`")) // LLM likes to add these quotes
+					if(command.StartsWith("`") && command.EndsWith("`")) // LLM likes to add these quotes ...
 						command = command.Substring(1, command.Length-2);
+
+					toLLM.Append($"`{command}`"); // ... so we send it back to establish pattern.
 
 					commands.Execute(command);
 					return; // critical
@@ -242,7 +245,9 @@ namespace LLE
 				commands.Execute(message);
 			}
 			else
-			{	LLE_Loader.SendMessageToLLM($"[GAME CHAT] {player.DisplayName}: {message}");
+			{	if(message == "go") pauseLLM = false;
+				
+				LLE_Loader.SendMessageToLLM($"[GAME CHAT] {player.DisplayName}: {message}");
 			}
 		}
 	}

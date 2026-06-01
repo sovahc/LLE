@@ -120,11 +120,11 @@ namespace LLE
 * select_asteroid 'name'		- Select an asteroid on which to mine.
 
 * overview						- List grid blocks by category.
-* search 'substring'			- Search block coordinates by name.
 * fly I J K						- Fly to specific grid coordinates (integer values)
 * grind I J K					- Grind a block at specific coordinates.
 * weld I J K					- Weld a block at specific coordinates.
 * near							- Return 6 accessible blocks around you and the block you are standing on.
+* near I J K					- Возвращает 6 блоков вокруг блока с заданными координатами.
 * inventory						- Return the items in your inventory.
 * inventory I J K				- Return the inventory of the container at specific coordinates.
 * get count 'item' from I J K	- Transfer an item from a container to your inventory. e.g. `get 10 'Gold Ingot' from -1 5 2`
@@ -135,6 +135,7 @@ namespace LLE
 }
 
 /*
+* search 'substring'			- Search block coordinates by name.
 vision                 - Get current visual input (what the bot sees right now)
 cancel                 - Immediately cancel the current action and return to IDLE.
 stop                   - Stop movement.
@@ -378,6 +379,12 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			Vector3I ijk;
 			if(!tokenParser.NextVector3I(out ijk)) return;
 
+			var block = selectedGrid.GetCubeBlock(ijk);
+			if(!navigation.CenterIsFree(block))
+			{	commandResult = $"Destination is blocked by {Name(block)}";
+				return;
+			}
+
 			navigation.FlyInsideGrid(selectedGrid, ijk);
 			currentAction = Action.Flying;
 		}
@@ -394,7 +401,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null)
-			{	commandResult = $"Error: no block at {ijk}";
+			{	commandResult = $"Error: no block at {Formatter.IJK(ijk)}";
 				return;
 			}
 
@@ -430,31 +437,34 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 			MyMarkdown.Clear();
 
-			if(!tokenParser.End) MyMarkdown.Append("Warning: `near` does not take arguments\n");
+			Vector3I ijk;
 
-			var center = Utilities.GetEngineerCenter(character);
-			var cI = selectedGrid.WorldToGridInteger(center);
+			if(tokenParser.End)
+			{	var center = Utilities.GetEngineerCenter(character);
+				ijk = selectedGrid.WorldToGridInteger(center);
+			}
+			else
+			{	if(!tokenParser.NextVector3I(out ijk)) return;
+			}
 
-			var name = Name(selectedGrid.GetCubeBlock(cI));
-			MyMarkdown.Append($"## Your current position: {cI} Block: {Formatter.Quote(name)}");
+			var name = Name(selectedGrid.GetCubeBlock(ijk));
+			
+			MyMarkdown.Append($"# Position: {Formatter.IJK(ijk)} Block: {Formatter.Quote(name)}");
 
-			int added = 0;
 			Debug.grid = selectedGrid;
 			Debug.highlightCells.Clear();
 
 			foreach (var direction in Constants.SixDirections)
-			{	var v = cI + direction;
+			{	var v = ijk + direction;
 				var block = selectedGrid.GetCubeBlock(v);
 
-				if(block == null) continue;
-
-				Debug.highlightCells.Add(v);
-
-				MyMarkdown.Add(Formatter.Quote(Name(block)), $"{Formatter.IJK(v)}");
-				++added;
-			}
-			if(added == 0)
-			{	MyMarkdown.Append("No blocks around you.");
+				if(block == null)
+				{	MyMarkdown.Add("## Free space", $"{Formatter.IJK(v)}");
+				}
+				else
+				{	Debug.highlightCells.Add(v);
+					MyMarkdown.Add($"## {Formatter.Quote(Name(block))}", $"{Formatter.IJK(v)}");
+				}
 			}
 
 			commandResult = MyMarkdown.Result();
