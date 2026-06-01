@@ -120,7 +120,7 @@ namespace LLELoader
 			{
 				var safeContext = System.Text.Json.JsonSerializer.Serialize(chatContext);
 				var safeSystem = System.Text.Json.JsonSerializer.Serialize(_systemPrompt);
-				var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 10000, \"stream\": true }}";
+				var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 10000, \"stream\": true, \"chat_template_kwargs\": {{ \"enable_thinking\": false }} }}";
 
 				var request = new HttpRequestMessage(HttpMethod.Post, LlmUrl) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 				var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
