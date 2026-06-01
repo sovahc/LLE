@@ -95,7 +95,7 @@ namespace LLE
 			}
 
 			if (lastMessageType == MessageType.Stop)
-			{ // LLM is waiting for a response
+			{	// LLM is waiting for a response
 
 				if (llmContent.Length != 0)
 				{	// command buffer is not empty
@@ -139,7 +139,7 @@ namespace LLE
 					}
 					else if(lastMessageType == MessageType.Content)
 					{	Log($"llmContent: {llmContent}");
-					// content consumer is the command handler
+						// content consumer is the command handler
 					}
 					
 					lastMessageType = m.Type;					
