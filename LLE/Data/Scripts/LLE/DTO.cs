@@ -37,7 +37,16 @@ namespace LLE
 	public class CollisionGeometry
 	{
 		[ProtoMember(1)] public List<CollisionShape> Shapes = new List<CollisionShape>();
-		public override string ToString() => $"CollisionGeometry: {Shapes.Count} root shapes";
+		[ProtoMember(2)] public List<DetectorInfo> Detectors = new List<DetectorInfo>();
+		public override string ToString() => $"CollisionGeometry: {Shapes.Count} root shapes, {Detectors.Count} detectors";
+	}
+
+	[ProtoContract]
+	public class DetectorInfo
+	{
+		[ProtoMember(1)] public string Name;
+		[ProtoMember(2)] public Matrix Transform;
+		public override string ToString() => $"Detector: {Name}";
 	}
 
 	[ProtoInclude(11, typeof(BoxShape))]

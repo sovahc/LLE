@@ -60,6 +60,7 @@ namespace MwmCollisionExtractor
         const string Base = "/home/cat/Projects/";
         const string Bin64 = Base + "SpaceEngineers/Bin64";
         const float PhysicsConvexRadius = 0; //0.05f; // MyPerGameSettings.PhysicsConvexRadius
+        static int _parseErrors;
 
         private class BlockInfo
         {
@@ -82,6 +83,19 @@ namespace MwmCollisionExtractor
                 var blocks = LoadBlocks(sbcDir);
                 var allGeometry = ExtractCollisions(blocks, gameRoot);
                 SaveCollisions(allGeometry, outputFile);
+
+                // Detector statistics
+                int totalDetectors = 0;
+                int blocksWithDetectors = 0;
+                foreach (var kv in allGeometry)
+                {
+                    if (kv.Value.Detectors.Count > 0)
+                    {
+                        blocksWithDetectors++;
+                        totalDetectors += kv.Value.Detectors.Count;
+                    }
+                }
+                Console.WriteLine($"\nStats: {totalDetectors} detectors in {blocksWithDetectors} blocks, {_parseErrors} parse errors");
             }
             finally
             {
@@ -150,7 +164,8 @@ namespace MwmCollisionExtractor
                     }
 
                     var shapes = new List<HkShape>();
-                    if (!LoadMwmShapes(fullPath, shapes, out string loadError))
+                    var detectors = new List<DetectorInfo>();
+                    if (!LoadMwmData(fullPath, shapes, detectors, out string loadError))
                     {
                         Console.WriteLine($"  FAIL {block.DefId.TypeId}:{block.DefId.SubtypeId}: {loadError}");
                         continue;
@@ -159,17 +174,20 @@ namespace MwmCollisionExtractor
                     geometry = new CollisionGeometry();
                     foreach (var s in shapes)
                         Flatten(s, Matrix.Identity, geometry.Shapes);
+                    geometry.Detectors = detectors;
                 }
 
                 // Phase 2: Fallback to skeleton if model produced no shapes
                 if (geometry == null || geometry.Shapes.Count == 0)
                 {
+                    var modelDetectors = geometry?.Detectors ?? new List<DetectorInfo>();
                     if (geometry != null)
                         Console.WriteLine($"  EMPTY {block.DefId.TypeId}:{block.DefId.SubtypeId}: model collision is empty");
 
                     if (BuildSkeletonConvex(block.Def, block.CubeSize, out var skeletonGeom))
                     {
                         geometry = skeletonGeom;
+                        geometry.Detectors = modelDetectors;
                         Console.WriteLine($"  SKELETON {block.DefId.TypeId}:{block.DefId.SubtypeId}: {skeletonGeom.Shapes.Count} shapes");
                     }
                     else
@@ -184,6 +202,7 @@ namespace MwmCollisionExtractor
                                 block.Size.Y * gridSize * 0.5f,
                                 block.Size.Z * gridSize * 0.5f)
                         });
+                        geometry.Detectors = modelDetectors;
                         Console.WriteLine($"  BOX {block.DefId.TypeId}:{block.DefId.SubtypeId}: {block.Size} * {gridSize}");
                     }
                 }
@@ -303,41 +322,97 @@ namespace MwmCollisionExtractor
             return match;
         }
 
-        // MWM binary format parser — extracts HavokCollisionGeometry tag and loads shapes from it
-        static bool LoadMwmShapes(string filePath, List<HkShape> outShapes, out string error)
+
+        // MWM binary format parser — extracts HavokCollisionGeometry tag and dummies from it
+        static bool LoadMwmData(string filePath, List<HkShape> outShapes, List<DetectorInfo> outDetectors, out string error)
         {
             using var fs = File.OpenRead(filePath);
             using var reader = new BinaryReader(fs, System.Text.Encoding.UTF8);
 
-            reader.ReadString(); // Skip first tag name
+            ReadMwmString(reader); // Skip first tag name
             int strCount = reader.ReadInt32();
             for (int i = 0; i < strCount; i++)
-                reader.ReadString(); // Skip header strings
+                ReadMwmString(reader); // Skip header strings
 
             int itemsCount = reader.ReadInt32();
             var indexDict = new Dictionary<string, int>();
             for (int i = 0; i < itemsCount; i++)
-                indexDict[reader.ReadString()] = reader.ReadInt32();
+                indexDict[ReadMwmString(reader)] = reader.ReadInt32();
 
-            reader.BaseStream.Seek(indexDict["HavokCollisionGeometry"], SeekOrigin.Begin);
-            reader.ReadString(); // Skip tag name
-            int dataLen = reader.ReadInt32();
-            if (dataLen == 0)
+            // Load collision shapes
+            if (indexDict.ContainsKey("HavokCollisionGeometry"))
             {
-                error = null;
-                return true;
+                reader.BaseStream.Seek(indexDict["HavokCollisionGeometry"], SeekOrigin.Begin);
+                ReadMwmString(reader); // Skip tag name
+                int dataLen = reader.ReadInt32();
+                if (dataLen > 0)
+                {
+                    byte[] collisionData = reader.ReadBytes(dataLen);
+                    if (!HkShapeLoader.LoadShapesListFromBuffer(collisionData, outShapes, out bool containsScene, out bool containsDestruction))
+                    {
+                        error = "HkShapeLoader failed";
+                        return false;
+                    }
+                }
             }
 
-            byte[] collisionData = reader.ReadBytes(dataLen);
-            if (!HkShapeLoader.LoadShapesListFromBuffer(collisionData, outShapes, out bool containsScene, out bool containsDestruction))
+            // Load dummies (detectors)
+            if (indexDict.ContainsKey("Dummies"))
             {
-                error = "HkShapeLoader failed";
-                return false;
+                reader.BaseStream.Seek(indexDict["Dummies"], SeekOrigin.Begin);
+                ReadMwmString(reader); // Skip tag name
+                int dummyCount = reader.ReadInt32();
+                try { ParseDetectorsInline(reader, dummyCount, outDetectors); }
+                catch { _parseErrors++; }
             }
 
             error = null;
             return true;
         }
+
+        static void ParseDetectorsInline(BinaryReader reader, int count, List<DetectorInfo> detectors)
+        {
+            if (count < 0 || count > 1000) throw new InvalidDataException("Invalid dummy count");
+
+            for (int i = 0; i < count; i++)
+            {
+                string name = ReadMwmString(reader);
+                if (!name.StartsWith("detector_"))
+                {
+                    // Skip non-detector dummy: matrix + custom data
+                    for (int k = 0; k < 16; k++) reader.ReadSingle();
+                    int customDataCount = reader.ReadInt32();
+                    for (int j = 0; j < customDataCount; j++) { ReadMwmString(reader); ReadMwmString(reader); }
+                    continue;
+                }
+
+                // Matrix: 16 floats in row-major order
+                var mat = new Matrix(
+                    reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(),
+                    reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(),
+                    reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(),
+                    reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+
+                // Skip custom data
+                int customCount = reader.ReadInt32();
+                for (int j = 0; j < customCount; j++)
+                {
+                    ReadMwmString(reader); // name
+                    ReadMwmString(reader); // value
+                }
+
+                detectors.Add(new DetectorInfo { Name = name.Substring(9), Transform = mat });
+            }
+        }
+
+        static string ReadMwmString(BinaryReader reader)
+        {
+            int len = reader.ReadByte(); // MWM uses single byte for string length
+            if (len == 0) return string.Empty;
+            byte[] bytes = reader.ReadBytes(len);
+            return System.Text.Encoding.UTF8.GetString(bytes);
+        }
+
 
         static Vector3 DenormalizeBoneOffset(byte x, byte y, byte z, float gridSize)
         {

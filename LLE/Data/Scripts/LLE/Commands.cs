@@ -124,7 +124,7 @@ namespace LLE
 * grind I J K					- Grind a block at specific coordinates.
 * weld I J K					- Weld a block at specific coordinates.
 * near							- Return 6 accessible blocks around you and the block you are standing on.
-* near I J K					- Возвращает 6 блоков вокруг блока с заданными координатами.
+* near I J K				- Return 6 accessible blocks around a block at specific coordinates.
 * inventory						- Return the items in your inventory.
 * inventory I J K				- Return the inventory of the container at specific coordinates.
 * get count 'item' from I J K	- Transfer an item from a container to your inventory. e.g. `get 10 'Gold Ingot' from -1 5 2`

@@ -200,6 +200,19 @@ namespace LLE
 					Drawing.ScreenSphere(worldB, capsule.Radius, new Vector4(1f, 0f, 1f, 1f));
 				}
 			}
+			foreach (var detector in geometry.Detectors)
+			{
+				var vertices = new List<Vector3>();
+				Geometry.BoxToConvex(new Vector3(0.5f, 0.5f, 0.5f), vertices);
+				for (int v = 0; v < vertices.Count; ++v)
+					vertices[v] = Vector3.Transform(vertices[v], detector.Transform);
+
+				var worldVerts = vertices.Select(v => Vector3D.Transform(new Vector3D(v), blockMatrix)).ToList();
+				var screenVerts = Drawing.WorldToScreen(worldVerts);
+				var hull = Geometry.ConvexHull(screenVerts);
+				if (hull.Count >= 2)
+					Drawing.Contour(hull.ToArray(), true, 5e-5f, new Vector4(0f, 0f, 1f, 1f));
+			}
 		}
 
 		private static void PreprocessCG(CollisionGeometry geometry)
