@@ -115,8 +115,8 @@ namespace LLE
 						llmContent.Clear();					
 					}
 
-					if(command.StartsWith("`") && command.EndsWith("`")) // LLM likes to add these quotes ...
-						command = command.Substring(1, command.Length-2);
+					if(command.StartsWith("`") && command.IndexOf('`', 1) > 0) // LLM likes to add these quotes ...
+						command = command.Substring(1, command.IndexOf('`', 1));
 
 					toLLM.Append($"`{command}`"); // ... so we send it back to establish pattern.
 
