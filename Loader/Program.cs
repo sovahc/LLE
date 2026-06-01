@@ -96,6 +96,14 @@ namespace LLELoader
 			}
 		}
 
+		public static void SetHelp(string text)
+		{
+			Logger.Write("[SetHelp] " + text);
+
+			_systemPrompt += "\n";
+			_systemPrompt += text;
+		}
+
 		private static async Task RespondToChatAsync()
 		{
 			try
@@ -197,7 +205,7 @@ namespace LLELoader
 		[HarmonyPatchCategory("Late")]
 		static class Patch_ScriptManagerLoadData
 		{
-			private static readonly string[] BridgeMethods = ["IsPresent", "GetChunkFromLLM", "SendMessageToLLM"];
+			private static readonly string[] BridgeMethods = ["IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetHelp"];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -232,6 +240,7 @@ namespace LLELoader
 									case "IsPresent": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsPresent)); break;
 									case "GetChunkFromLLM": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_GetChunkFromLLM)); break;
 									case "SendMessageToLLM": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SendMessageToLLM)); break;
+									case "SetHelp": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SetHelp)); break;
 									default: continue;
 								}
 
@@ -270,6 +279,11 @@ namespace LLELoader
 			static void Prefix_SendMessageToLLM(string text)
 			{
 				SendMessageToLLM(text);
+			}
+
+			static void Prefix_SetHelp(string text)
+			{
+				SetHelp(text);
 			}
 
 		}  // Patch_ScriptManagerLoadData class ends here

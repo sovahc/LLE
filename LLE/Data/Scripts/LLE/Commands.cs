@@ -118,9 +118,9 @@ namespace LLE
 			navigation = new Navigation(character);
 		}
 
-		internal void Help()
+		internal string Help()
 		{
-			commandResult = @"# Command Reference
+			return @"## AVAILABLE COMMANDS
 
 * select_grid 'name'    		- Select a ship or station on which to grind, weld, and perform other operations.
 * select_asteroid 'name'		- Select an asteroid on which to mine.
@@ -753,10 +753,7 @@ Pathfinding: safest (default) / shortest / scouting / prefer open space
 			tokenParser = tp;
 			commandResult = null;
 
-			if(tp.Match("Help"))
-			{	Help();
-			}
-			else if(tp.Match("Overview"))
+			if(tp.Match("Overview"))
 			{	Overview();
 			}
 			else if(tp.Match("Search"))

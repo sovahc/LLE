@@ -71,19 +71,22 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			if(commands == null) commands = new Commands(ch);
+			if(commands == null)
+			{	commands = new Commands(ch);
+				LLE_Loader.SetHelp(commands.Help());
+			}
 
 			commands.Update();
 
 			if (commands.commandResult != null)
 			{	
-				// собираем результаты ответов команд в буфер для отправки ЛЛМ
+				// collect command results into buffer for sending to LLM
 
 				Log($"commandResult: {commands.commandResult}");
 				
-				MyConsole.AddMultiline("\n", Color.Gray);
+				MyConsole.AddMultiline("\n", Color.LightGray);
 				MyConsole.AddMultiline(commands.commandResult, Color.GreenYellow);
-				MyConsole.AddMultiline("\n", Color.Gray);
+				MyConsole.AddMultiline("\n", Color.LightGray);
 
 				toLLM.Append(commands.commandResult);
 				toLLM.Append('\n');
@@ -92,7 +95,7 @@ namespace LLE
 			}
 
 			if (lastMessageType == MessageType.Stop)
-			{	// LLM ждет ответа
+			{ // LLM is waiting for a response
 
 				if (llmContent.Length != 0)
 				{	// command buffer is not empty
@@ -109,7 +112,7 @@ namespace LLE
 						llmContent.Clear();					
 					}
 
-					if(command.StartsWith("`") && command.EndsWith("`")) // LLM нравится добавлять эти кавычки
+				if(command.StartsWith("`") && command.EndsWith("`")) // LLM likes to add these quotes
 						command = command.Substring(1, command.Length-2);
 
 					commands.Execute(command);
@@ -128,7 +131,7 @@ namespace LLE
 
 				if(m.Type != lastMessageType)
 				{	
-					MyConsole.AddMultiline("\n", Color.Gray);
+					MyConsole.AddMultiline("\n", Color.LightGray);
 
 					if(lastMessageType == MessageType.Reasoning)
 					{	Log($"llmReasoning: {llmReasoning}");
@@ -136,14 +139,14 @@ namespace LLE
 					}
 					else if(lastMessageType == MessageType.Content)
 					{	Log($"llmContent: {llmContent}");
-						// потребитель контента - обработчик команд
+					// content consumer is the command handler
 					}
 					
 					lastMessageType = m.Type;					
 				}
 
 				if(m.Type == MessageType.Reasoning)
-				{	MyConsole.AddMultiline(m.Payload, Color.Gray);
+				{	MyConsole.AddMultiline(m.Payload, Color.LightGray);
 					llmReasoning.Append(m.Payload);
 				}
 				else if(m.Type == MessageType.Content)
@@ -241,5 +244,6 @@ namespace LLE
 		public static bool IsPresent() => false;
 		public static bool GetChunkFromLLM(out FromLLM m) { m = null; return false; }
 		public static void SendMessageToLLM(string text) { }
+		public static void SetHelp(string text) { }
 	}
 }
