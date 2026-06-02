@@ -156,8 +156,8 @@ namespace LLE
 		}
 
 		private static readonly List<LineData> _lines = new List<LineData>();
-		private static bool _lastWasMultiline = false;
 		private const int MaxLines = 100;
+		private const int MaxLineWidth = 80;
 
 		private static readonly Color textBackground = new Color(0, 0, 0, 200);
 
@@ -174,56 +174,51 @@ namespace LLE
 		public static void Add(string text, Color color)
 		{
 			Utilities.Log(text);
-			_lines.Add(new LineData { Text = text, Color = color });
+			AddMultiline(text, color);
+			AddMultiline("\n", color);
+		}
+
+		public static void AddNewLine(Color color)
+		{   _lines.Add(new LineData { Text = "", Color = color });
+		}
+
+		public static void AddMultiline(string chunk, Color color)
+		{
+			if (chunk == null) return;
+
+			if(_lines.Count == 0) AddNewLine(color);
+
+			do
+			{	var lastLineText = _lines[_lines.Count-1].Text;
+				var freeSpace = MaxLineWidth - lastLineText.Length;
+
+				if(freeSpace <= 0) { AddNewLine(color); continue; }
+
+				var newLine = chunk.IndexOf('\n');
+				var end = newLine >= 0 ? newLine : chunk.Length;
+
+				if (end > freeSpace) end = freeSpace;
+
+				lastLineText += chunk.Substring(0, end);
+
+				_lines[_lines.Count-1] = new LineData { Text = lastLineText, Color = color };
+
+				if(newLine >= 0)
+				{   ++end;
+					AddNewLine(color);
+				}
+				chunk = chunk.Substring(end);
+			} while(chunk.Length != 0);
+
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
-			_lastWasMultiline = false;
 		}
 
-		public static void AddMultiline(string text, Color defaultColor)
-		{
-			if (text == null) return;
-
-			for (;;)
-			{
-				var eol = text.IndexOf('\n');
-				string part = eol < 0 ? text : text.Substring(0, eol);
-
-				if (_lastWasMultiline && _lines.Count > 0)
-				{
-					var last = _lines[_lines.Count - 1];
-					last.Text += part;
-					last.Color = defaultColor;
-					_lines[_lines.Count - 1] = last;
-				}
-				else
-				{
-					Add(part, defaultColor);
-					_lastWasMultiline = true;
-				}
-
-				if (eol < 0) return;
-				text = text.Substring(eol + 1);
-				_lines.Add(new LineData { Text = "", Color = defaultColor });
-				while (_lines.Count > MaxLines) _lines.RemoveAt(0);
-			}
-		}
-
-/*					foreach(var line in text.Split('\n'))
-			{	if(line.StartsWith("##")) Add(line, Color.Violet);
-				else if(line.StartsWith("#")) Add(line, Color.BlueViolet);
-				else if(line.StartsWith("*")) Add(line, Color.Gray);
-				else Add(line, defaultColor);
-			}
-*/
-
-		public static void Render(Font font)
-		{
+		public static void Render(Font font) {
 			if (_lines.Count == 0) return;
 
 			float B = 0.01f;
 			float scale = 0.0007f;
 			float lineStep = font.GetHeight(scale) * 1.2f;
-
 			float y0 = 0;
 			float x0 = -0.99f;
 			float rectangleH = _lines.Count * lineStep;
