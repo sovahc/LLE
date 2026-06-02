@@ -422,7 +422,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		internal bool EquipTool(string toolSubtype)
 		{
-			// "Grinder" или "Welder"
 			var inventory = character.GetInventory();
 			if (inventory == null) return false;
 
