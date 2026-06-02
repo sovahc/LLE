@@ -114,6 +114,18 @@ namespace LLE
 			return null; // In progress
 		}
 
+		public void RotateTo(Vector3D target)
+		{
+			var ec = Utilities.GetEngineerCenter(character);
+
+			Vector2 rotation;
+			float roll;
+			springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
+				target, up, 0.2, out rotation, out roll);
+
+			character.MoveAndRotate(Vector3.Zero, rotation, roll);
+		}
+
 		private void RunAstar(Vector3I point_A, Vector3I point_B)
 		{
 			Vector3I gridSize = grid.Max - grid.Min + 1;

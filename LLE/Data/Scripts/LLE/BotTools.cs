@@ -23,6 +23,14 @@ namespace LLE
 		{	bot = bot_;
 		}
 
+		public Vector3D Target()
+		{	if(targetBlock == null)	return Vector3D.Zero;
+
+			Vector3D world;
+			targetBlock.ComputeWorldCenter(out world);
+			return world;
+		}
+
 		internal void Stop()
 		{	targetBlock = null;
 			

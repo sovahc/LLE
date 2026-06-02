@@ -869,12 +869,14 @@ drop 'name' [quantity|all] - Drop a specified object.
 					return;
 				case Action.Grinding:
 					commandResult = botTools.GrindBlock();
+					navigation.RotateTo(botTools.Target());
 					if(commandResult != null)
 					{	botTools.Stop();
 						currentAction = Action.Idle;
 					}
 					return;
 				case Action.Welding:
+					navigation.RotateTo(botTools.Target());
 					commandResult = botTools.WeldBlock();
 					if(commandResult != null)
 					{	botTools.Stop();
