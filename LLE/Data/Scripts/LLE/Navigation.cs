@@ -64,6 +64,9 @@ namespace LLE
 
 				if(astar.Completed())
 				{
+					if(astar.result.Count == 0)
+						return "There is no path to your destination.";
+
 					List<Vector3D> path = new List<Vector3D>();
 
 					path.Add(Utilities.GetEngineerCenter(character));
