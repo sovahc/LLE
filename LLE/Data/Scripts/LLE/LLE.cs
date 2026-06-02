@@ -182,7 +182,11 @@ namespace LLE
 			{	var block = selectedGrid.GetCubeBlock(selectedBlock);
 				
 				if (block != null)
-				{	Collisions.Draw(selectedGrid, block);
+				{	
+					if(MyAPIGateway.Input.IsNewLeftMousePressed())
+						MyConsole.Add($"{Commands.Name(block)} at {Formatter.IJK(selectedBlock)}");
+
+					Collisions.Draw(selectedGrid, block);
 					//DrawTraversability(block);
 				}
 			}

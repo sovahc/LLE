@@ -193,17 +193,27 @@ namespace MwmCollisionExtractor
                     else
                     {
                         // Phase 3: Fallback to AABB box by block Size
-                        float gridSize = block.CubeSize == "Small" ? 0.5f : 2.5f;
-                        geometry = new CollisionGeometry();
-                        geometry.Shapes.Add(new BoxShape
+                        bool hasPhysics = block.Def.Element("HasPhysics")?.Value != "false";
+                        if (!hasPhysics)
                         {
-                            HalfExtents = new Vector3(
-                                block.Size.X * gridSize * 0.5f,
-                                block.Size.Y * gridSize * 0.5f,
-                                block.Size.Z * gridSize * 0.5f)
-                        });
-                        geometry.Detectors = modelDetectors;
-                        Console.WriteLine($"  BOX {block.DefId.TypeId}:{block.DefId.SubtypeId}: {block.Size} * {gridSize}");
+                            geometry = new CollisionGeometry();
+                            geometry.Detectors = modelDetectors;
+                            Console.WriteLine($"  NO PHYSICS {block.DefId.TypeId}:{block.DefId.SubtypeId}: skipping box fallback");
+                        }
+                        else
+                        {
+                            float gridSize = block.CubeSize == "Small" ? 0.5f : 2.5f;
+                            geometry = new CollisionGeometry();
+                            geometry.Shapes.Add(new BoxShape
+                            {
+                                HalfExtents = new Vector3(
+                                    block.Size.X * gridSize * 0.5f,
+                                    block.Size.Y * gridSize * 0.5f,
+                                    block.Size.Z * gridSize * 0.5f)
+                            });
+                            geometry.Detectors = modelDetectors;
+                            Console.WriteLine($"  BOX {block.DefId.TypeId}:{block.DefId.SubtypeId}: {block.Size} * {gridSize}");
+                        }
                     }
                 }
                 else
