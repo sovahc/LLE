@@ -101,6 +101,4 @@ namespace LLE
 			Common.Call_Add_Billboards();
 		}
 	}
-
-	
 }

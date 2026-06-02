@@ -381,6 +381,4 @@ namespace LLE
 			get { SkipSpaces(); return index >= s.Length; }
 		}
 	}
-
-	
 }
