@@ -111,7 +111,7 @@ namespace LLE
 				block.SpawnConstructionStockpile();
 				block.CubeGrid.RazeBlock(block.Min);
 
-				return "Done!";
+				return $"Done! {Commands.Name(block)} is removed.";
 			}
 
 			return null;
@@ -171,7 +171,7 @@ namespace LLE
 			}
 
 			if(block.Integrity >= block.MaxIntegrity)
-			{	return "Done!";
+			{	return "Done! Block integrity is full now.";
 			}
 
 			return null;

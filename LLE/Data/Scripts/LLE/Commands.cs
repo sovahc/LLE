@@ -490,6 +490,11 @@ drop 'name' [quantity|all] - Drop a specified object.
 				return;
 			}
 
+			if(block.Integrity >= block.MaxIntegrity)
+			{	commandResult = "The block is fully intact, no repairs needed.";
+				return;				
+			}
+
 			if(!EquipTool("Welder"))
 			{	commandResult = "Cannot equip welder. Do you have a welder in your inventory?";
 				return;
