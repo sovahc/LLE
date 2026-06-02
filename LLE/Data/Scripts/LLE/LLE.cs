@@ -84,9 +84,9 @@ namespace LLE
 
 				Log($"commandResult:\n{commands.commandResult}");
 				
-				MyConsole.AddMultiline("\n", Color.LightGray);
+				MyConsole.AddNewLine(Color.LightGray);
 				MyConsole.AddMultiline(commands.commandResult, Color.GreenYellow);
-				MyConsole.AddMultiline("\n", Color.LightGray);
+				MyConsole.AddNewLine(Color.LightGray);
 
 				toLLM.Append("[RESULT]:\n");
 				toLLM.Append(commands.commandResult);
@@ -111,8 +111,13 @@ namespace LLE
 						{
 							string command = content.Substring(secondLastBacktick + 1, lastBacktick - secondLastBacktick - 1);
 							llmContent.Clear();
-							toLLM.Append($"`{command}`"); // send back to establish pattern
-							commands.Execute(command);
+
+							if(command == "pause")
+								pauseLLM = true;
+							else
+							{	toLLM.Append($"`{command}`"); // send back to establish pattern
+								commands.Execute(command);
+							}
 							return; // critical
 						}
 					}
@@ -130,7 +135,7 @@ namespace LLE
 
 				if(m.Type != lastMessageType)
 				{	
-					MyConsole.AddMultiline("\n", Color.LightGray);
+					MyConsole.AddNewLine(Color.LightGray);
 
 					if(lastMessageType == MessageType.Reasoning)
 					{	Log($"llmReasoning:\n{llmReasoning}");
