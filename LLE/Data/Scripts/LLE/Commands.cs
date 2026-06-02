@@ -378,6 +378,30 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return true;
 		}
 
+		internal void ListFreeSpace_ToTmp(Vector3I ijk)
+		{	
+			tmp.Append("(");
+
+			bool semi = false;
+			foreach (var direction in Constants.SixDirections)
+			{	var position = ijk + direction;
+					
+				var block = selectedGrid.GetCubeBlock(position);
+				if(Collisions.CenterIsFree(block))
+				{	if(semi) tmp.Append("; ");
+					tmp.Append(Formatter.IJK(position));
+					semi = true;
+					Debug.highlightCellsGreen.Add(position);
+				}
+				else
+					Debug.highlightCellsRed.Add(position);
+			}
+			if(!semi) // nothing added
+			{	tmp.Append(" -- none -- ");
+			}
+			tmp.Append(")\n");
+		}
+
 		internal void Fly()
 		{
 			if(!GridIsSet()) return;
@@ -391,26 +415,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 				Debug.Start(selectedGrid);
 
 				tmp.Clear();
-				tmp.Append($"Destination is blocked by {Formatter.Quote(Name(block))}, nearest free space is:\n(");
+				tmp.Append($"Destination is blocked by {Formatter.Quote(Name(block))}, nearest free space is:\n");
 
-				bool semi = false;
-				foreach (var direction in Constants.SixDirections)
-				{	var p = ijk + direction;
-					
-					var b = selectedGrid.GetCubeBlock(p);
-					if(Collisions.CenterIsFree(b))
-					{	if(semi) tmp.Append("; ");
-						tmp.Append(Formatter.IJK(p));
-						semi = true;
-						Debug.highlightCellsGreen.Add(p);
-					}
-					else
-						Debug.highlightCellsRed.Add(p);
-				}
-				if(!semi) // nothing added
-				{	tmp.Append(" -- none -- ");
-				}
-				tmp.Append(")\n");
+				ListFreeSpace_ToTmp(ijk);
 
 				commandResult = tmp.ToString();
 				return;
@@ -448,6 +455,25 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return true;
 		}
 
+		internal bool IsTooFar(Vector3I ijk)
+		{
+			var block = selectedGrid.GetCubeBlock(ijk);
+
+			Vector3D world;
+			block.ComputeWorldCenter(out world);
+			var distance = (world - Utilities.GetEngineerCenter(character)).Length();
+			if(distance > 5)
+			{	
+				tmp.Clear();
+				tmp.Append($"You are too far from {Name(block)} to interact ({Formatter.Distance(distance)})\n");
+				tmp.Append($"Possible interaction points is: ");
+				ListFreeSpace_ToTmp(ijk);
+				commandResult = tmp.ToString();
+				return true;
+			}
+			return false;
+		}
+
 		internal void Grind()
 		{
 			if(!GridIsSet()) return;
@@ -463,6 +489,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	commandResult = $"Error: no block at {Formatter.IJK(ijk)}";
 				return;
 			}
+
+			if(IsTooFar(ijk)) return;
 
 			if(!EquipTool("Grinder"))
 			{	commandResult = "Cannot equip grinder. Do you have a grinder in your inventory?";
@@ -494,6 +522,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	commandResult = "The block is fully intact, no repairs needed.";
 				return;				
 			}
+
+			if(IsTooFar(ijk)) return;
 
 			if(!EquipTool("Welder"))
 			{	commandResult = "Cannot equip welder. Do you have a welder in your inventory?";
@@ -648,6 +678,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 				return;
 			}
 
+			if(IsTooFar(ijk)) return;
+
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
 
@@ -699,6 +731,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 				return;
 			}
 
+			if(IsTooFar(ijk)) return;
+
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
 
@@ -749,6 +783,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	commandResult = $"Block {Formatter.Quote(toName)} does not have an inventory.";
 				return;
 			}
+
+			if(IsTooFar(ijkFrom) && IsTooFar(ijkTo)) return; /// XXX Incorrect!
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
