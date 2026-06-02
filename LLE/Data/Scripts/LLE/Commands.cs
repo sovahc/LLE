@@ -10,7 +10,6 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
-using VRage.ObjectBuilders;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
@@ -421,6 +420,35 @@ drop 'name' [quantity|all] - Drop a specified object.
 			currentAction = Action.Flying;
 		}
 
+		internal bool EquipTool(string toolSubtype)
+		{
+			// "Grinder" или "Welder"
+			var inventory = character.GetInventory();
+			if (inventory == null) return false;
+
+			List<MyInventoryItem> items = new List<MyInventoryItem>();
+			inventory.GetItems(items);
+
+			MyDefinitionId? targetDefId = null;
+			foreach (var item in items)
+			{
+				var handItemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(item.Type);
+				if (handItemDef != null && handItemDef.Id.SubtypeName.IndexOf(toolSubtype, StringComparison.OrdinalIgnoreCase) >= 0)
+				{
+					targetDefId = handItemDef.PhysicalItemId;
+					break;
+				}
+			}
+
+			if (targetDefId == null) return false;
+
+			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
+			if (!controller.CanSwitchToWeapon(targetDefId.Value)) return false;
+			
+			controller.SwitchToWeapon(targetDefId.Value);
+			return true;
+		}
+
 		internal void Grind()
 		{
 			if(!GridIsSet()) return;
@@ -434,6 +462,11 @@ drop 'name' [quantity|all] - Drop a specified object.
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null)
 			{	commandResult = $"Error: no block at {Formatter.IJK(ijk)}";
+				return;
+			}
+
+			if(!EquipTool("Grinder"))
+			{	commandResult = "Cannot equip grinder. Do you have a grinder in your inventory?";
 				return;
 			}
 
@@ -455,6 +488,11 @@ drop 'name' [quantity|all] - Drop a specified object.
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null)
 			{	commandResult = $"Error: no block at {ijk}";
+				return;
+			}
+
+			if(!EquipTool("Welder"))
+			{	commandResult = "Cannot equip welder. Do you have a welder in your inventory?";
 				return;
 			}
 
