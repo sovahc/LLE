@@ -71,10 +71,11 @@ namespace LLE
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
 		}
 
-		public static void Render(Font font) {
+		public static void Render(Font font)
+		{
 			if (_lines.Count == 0) return;
 
-			float B = 0.01f;
+			float border = 0.01f;
 			float scale = 0.0007f;
 			float lineStep = font.GetHeight(scale) * 1.2f;
 			float y0 = 0;
@@ -92,8 +93,8 @@ namespace LLE
 				if(y < 0) break;
 			}
 
-			var bb = font.Rectangle(new Vector2(x0 - B, y0 - B),
-				new Vector2(x0 + rectangleW + B + B, y0 + rectangleH + B + B),
+			var bb = font.Rectangle(new Vector2(x0 - border, y0 - border),
+				new Vector2(x0 + rectangleW + border + border, y0 + rectangleH + border + border),
 				MyStringId.GetOrCompute("Square"),
 				Vector2.Zero, Vector2.One, textBackground);
 
