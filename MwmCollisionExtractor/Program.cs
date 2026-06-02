@@ -129,10 +129,7 @@ namespace MwmCollisionExtractor
                         }
                     }
 
-                    // Blocks without model but with BlockTopology==Cube still need skeleton collision
-                    string blockTopology = def.Element("BlockTopology")?.Value;
-                    if (string.IsNullOrEmpty(modelPath) && blockTopology != "Cube")
-                        return null;
+                    // Blocks without model fall through to skeleton/box fallback in ExtractCollisions
                     string cubeSize = def.Element("CubeSize")?.Value ?? "Large";
                     var sizeEl = def.Element("Size");
                     var size = new Vector3I(
