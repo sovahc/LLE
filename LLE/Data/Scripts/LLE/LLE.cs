@@ -187,7 +187,7 @@ namespace LLE
 						MyConsole.Add($"{Commands.Name(block)} at {Formatter.IJK(selectedBlock)}");
 
 					Collisions.Draw(selectedGrid, block);
-					//DrawTraversability(block);
+					Collisions.DrawTraversability(selectedGrid, block);
 				}
 			}
 

@@ -287,5 +287,35 @@ namespace LLE
 			}
 			return false;
 		}
+
+		public static void DrawTraversability(IMyCubeGrid grid, IMySlimBlock slim)
+		{
+			Traversability t;
+			if (!_traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t)) return;
+
+			MatrixI m = new MatrixI(slim.Orientation);
+			Vector3I v, v2;
+			Traversability t2 = new Traversability();
+
+			for (v.Z = -1; v.Z <= 1; ++v.Z)
+				for (v.Y = -1; v.Y <= 1; ++v.Y)
+					for (v.X = -1; v.X <= 1; ++v.X)
+					{
+						Vector3I.TransformNormal(ref v, ref m, out v2);
+						t2[v2] = t[v];
+					}
+			t = t2;
+
+			var zero = grid.GridIntegerToWorld(slim.Position);
+			var dirs = Constants.SixDirections;
+
+			for (int d = 0; d < dirs.Length; ++d)
+			{
+				Vector3I dir = dirs[d];
+				var world = (grid.GridIntegerToWorld(slim.Position + dir) - zero) * 0.5 + zero;
+				Drawing.RoundMarker(world, t[dirs[d]] ? Color.Brown : Color.Lime);
+			}
+			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.Brown : Color.Green);
+		}
 	}
 }

@@ -98,7 +98,7 @@ namespace LLE
 
 		private readonly IMyCharacter character;
 		
-		private Navigation navigation;
+		internal Navigation navigation;
 		private BotTools botTools;
 
 		private readonly StringBuilder tmp = new StringBuilder();

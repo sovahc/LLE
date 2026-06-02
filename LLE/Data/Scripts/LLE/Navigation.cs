@@ -193,24 +193,5 @@ namespace LLE
 
 			return t.Center == false;
 		}
-
-		private void DrawTraversability(IMySlimBlock block, Vector3I v)
-		{
-			if(astar == null) return;
-
-			Traversability trav = astar.GetTraversability(block.Position - grid.Min + AStarBorder);
-
-			var zero = grid.GridIntegerToWorld(v);
-
-			var dirs = Constants.SixDirections;
-
-			for (int d = 0; d < dirs.Length; ++d)
-			{
-				Vector3I dir = dirs[d];
-				var world = (grid.GridIntegerToWorld(v + dir) - zero) * 0.5 + zero;
-				Drawing.RoundMarker(world, trav[dirs[d]] ? Color.Gray : Color.Lime);
-			}
-			Drawing.RoundMarker(zero, trav[0,0,0] ? Color.Black : Color.Green);
-		}
 	}
 }
