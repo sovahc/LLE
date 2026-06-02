@@ -60,12 +60,7 @@ namespace LLE
 		{
 			if (astar != null && !astar.Completed())
 			{	
-				Profiler prof;
-				using (prof = new Profiler("Astar"))
-				{
-					astar.Iteration();
-				}
-				MyConsole.Add($"{prof}", Color.IndianRed);
+				astar.Iteration();
 
 				if(astar.Completed())
 				{
