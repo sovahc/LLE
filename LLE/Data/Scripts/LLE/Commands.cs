@@ -387,8 +387,33 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(!tokenParser.NextVector3I(out ijk)) return;
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(!navigation.CenterIsFree(block))
-			{	commandResult = $"Destination is blocked by {Name(block)}";
+			if(!Collisions.CenterIsFree(block))
+			{	
+				Debug.Start(selectedGrid);
+
+				tmp.Clear();
+				tmp.Append($"Destination is blocked by {Formatter.Quote(Name(block))}, nearest free space is:\n(");
+
+				bool semi = false;
+				foreach (var direction in Constants.SixDirections)
+				{	var p = ijk + direction;
+					
+					var b = selectedGrid.GetCubeBlock(p);
+					if(Collisions.CenterIsFree(b))
+					{	if(semi) tmp.Append("; ");
+						tmp.Append(Formatter.IJK(p));
+						semi = true;
+						Debug.highlightCellsGreen.Add(p);
+					}
+					else
+						Debug.highlightCellsRed.Add(p);
+				}
+				if(!semi) // nothing added
+				{	tmp.Append(" -- none -- ");
+				}
+				tmp.Append(")\n");
+
+				commandResult = tmp.ToString();
 				return;
 			}
 
@@ -460,9 +485,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 			var name = Name(selectedGrid.GetCubeBlock(ijk));
 			
 			string firstLine = $"# {hint}: {Formatter.Quote(name)} Position: ({Formatter.IJK(ijk)})";
-
-			Debug.grid = selectedGrid;
-			Debug.highlightCells.Clear();
 
 			positions.Clear();
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Sandbox.Game.Entities;
@@ -15,7 +16,14 @@ namespace LLE
 	public static class Debug
 	{
 		public static IMyCubeGrid grid;
-		public static List<Vector3I> highlightCells = new List<Vector3I>();
+		public static List<Vector3I> highlightCellsRed = new List<Vector3I>();
+		public static List<Vector3I> highlightCellsGreen = new List<Vector3I>();
+
+		internal static void Start(IMyCubeGrid grid_)
+		{	grid = grid_;
+			highlightCellsRed.Clear();
+			highlightCellsGreen.Clear();
+		}
 	}
 
 	[MySessionComponentDescriptor(MyUpdateOrder.BeforeSimulation)]
@@ -28,13 +36,13 @@ namespace LLE
 		private Commands commands;
 
 		private readonly StringBuilder llmReasoning = new StringBuilder();
-        private readonly StringBuilder llmContent = new StringBuilder();
+		private readonly StringBuilder llmContent = new StringBuilder();
 		private readonly StringBuilder toLLM = new StringBuilder();
 
 		private MessageType lastMessageType = MessageType.Stop;
-        private bool pauseLLM;
+		private bool pauseLLM;
 
-        public static void Log(string s) => Utilities.Log(s);
+		public static void Log(string s) => Utilities.Log(s);
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{
@@ -197,8 +205,10 @@ namespace LLE
 			}
 
 			if(Debug.grid != null)
-			{	foreach(var cell in Debug.highlightCells)
-					Utilities.HighlightCell(Debug.grid, cell, Color.Brown);
+			{	foreach(var cell in Debug.highlightCellsRed)
+					Utilities.HighlightCell(Debug.grid, cell, Color.Red);
+				foreach(var cell in Debug.highlightCellsGreen)
+					Utilities.HighlightCell(Debug.grid, cell, Color.Green);
 			}
 
 			MyConsole.Render(font);

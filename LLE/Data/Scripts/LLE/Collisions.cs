@@ -317,5 +317,15 @@ namespace LLE
 			}
 			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.Brown : Color.Green);
 		}
+
+		public static bool CenterIsFree(IMySlimBlock slim)
+		{
+			if(slim == null) return true;
+
+			Traversability t;
+			if (!_traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t)) return false;
+
+			return t.Center == false;
+		}
 	}
 }

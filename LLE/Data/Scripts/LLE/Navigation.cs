@@ -183,15 +183,5 @@ namespace LLE
 			var b = point_B - grid.Min + AStarBorder;
 			astar.RunCalculation(a, b);
 		}
-
-		internal bool CenterIsFree(IMySlimBlock slim)
-		{
-			if(slim == null) return true;
-
-			Traversability t;
-			if (!Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t)) return false;
-
-			return t.Center == false;
-		}
 	}
 }
