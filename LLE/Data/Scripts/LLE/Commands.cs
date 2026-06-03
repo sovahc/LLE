@@ -97,8 +97,6 @@ namespace LLE
 
 		private readonly StringBuilder tmp = new StringBuilder();
 
-		public string commandResult;
-
 		private IEnumerator currentCommand;
 
 		private MyEntity3DSoundEmitter soundEmitter;
@@ -313,9 +311,10 @@ drop 'name' [quantity|all] - Drop a specified object.
 			describer.Clear();
 		}
 
-		internal void Overview()
+		internal string Overview()
 		{
-			if(!GridIsSet()) return;
+			string message;
+			if(!GridIsSet(out message)) return message;
 
 			string category, name;
 			Formatter.Description(selectedGrid as MyEntity, out category, out name);
@@ -334,44 +333,10 @@ drop 'name' [quantity|all] - Drop a specified object.
 			terminalBlocks.Clear();
 			positions.Clear();
 
-			commandResult = MyMarkdown.Result();
+			return MyMarkdown.Result();
 		}
 
-		internal void Search()
-		{
-/*			if(!GridIsSet()) return;
-
-			string query = tokenParser.NextString();
-			if(query == "")
-			{	commandResult = "Error: query cannot be empty";
-				return;
-			}
-
-			string category, name;
-			Formatter.Description(selectedGrid as MyEntity, out category, out name);
-
-			MyMarkdown.Clear();
-			MyMarkdown.Append($"# SEARCH ON {category} '{name}' QUERY: '{query}'");
-
-			selectedGrid.GetBlocks(slimBlocks);
-
-			foreach(var block in slimBlocks)
-			{	
-				Description(block, out category, out name);
-
-				MyMarkdown.Add(category, name);
-
-				if(Include(query, category) || Include(query, name))
-				{	MyMarkdown.Add(name, Formatter.IJK(block.Position));
-				}
-			}
-
-			slimBlocks.Clear();
-
-			commandResult = MyMarkdown.Result();*/
-		}
-
-		internal void Select(ObjectType type, TokenParser tp)
+		internal string Select(ObjectType type, TokenParser tp)
 		{
 			var what = tp.NextString();
 
@@ -395,31 +360,26 @@ drop 'name' [quantity|all] - Drop a specified object.
 				if(Include(what, name) || Include(what, category)) matches.Add(e);
 			}
 
-			if(matches.Count != 1)
-			{	commandResult = MyError(engineer, what, matches);
-				return;
-			}
+			if(matches.Count != 1) return MyError(engineer, what, matches);
 
-			Formatter.Description(matches[0], out category, out name);
-			commandResult = $"Selected {category} {Formatter.Quote(name)}";
+			var select = matches[0];
+
+			Formatter.Description(select, out category, out name);
 
 			switch(type)
 			{	case ObjectType.LargeShip:
-					selectedGrid = matches[0] as IMyCubeGrid;
-					if(selectedGrid == null) commandResult = $"Error: {Formatter.Quote(name)} is {category}";
-					return;
+					selectedGrid = select as IMyCubeGrid;
+					if(selectedGrid == null) return $"Error: {Formatter.Quote(name)} is {category}";
+					break;
 				case ObjectType.Asteroid:
-					selectedAsteroid = matches[0] as MyVoxelBase;
-					if(selectedAsteroid == null) commandResult = $"Error: {Formatter.Quote(name)} is {category}";
-					return;
+					selectedAsteroid = select as MyVoxelBase;
+					if(selectedAsteroid == null) return $"Error: {Formatter.Quote(name)} is {category}";
+					break;
 				default:
-					commandResult = "Internal error";
-					return;
+					return "Internal error";
 			}
-		}
 
-		internal bool GridIsSet()
-		{	return GridIsSet(out commandResult);
+			return $"Selected {category} {Formatter.Quote(name)}";
 		}
 
 		internal bool GridIsSet(out string message)
@@ -455,12 +415,14 @@ drop 'name' [quantity|all] - Drop a specified object.
 			tmp.Append(")\n");
 		}
 
-		internal void Fly()
+		internal IEnumerator Fly(TokenParser tp)
 		{
-			/*if(!GridIsSet()) return;
+			string message;
+
+			if(!GridIsSet(out message)) yield return message;
 
 			Vector3I ijk;
-			if(!tokenParser.NextVector3I(out ijk)) return;
+			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(!Collisions.CenterIsFree(block))
@@ -472,12 +434,14 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 				ListFreeSpace_ToTmp(ijk);
 
-				commandResult = tmp.ToString();
-				return;
+				yield return tmp.ToString();
 			}
 
 			navigation.FlyInsideGrid(selectedGrid, ijk);
-			currentAction = Action.Flying;*/
+
+			for(;;)
+			{	yield return navigation.Step();				
+			}
 		}
 
 		internal bool EquipTool(string toolSubtype)
@@ -1037,51 +1001,47 @@ drop 'name' [quantity|all] - Drop a specified object.
 		{	return currentCommand != null;
 		}
 
-		internal void Update()
+		internal string Update()
 		{
-			if (currentCommand != null)
-			{	
-				// yield return null; = wait
-				// yield retrurn string; = response to LLM
-				// yield break; = no respone, done
-				// Через yield return null не переносим ссылки на engine-объекты, которые можно заново найти.
+			if (currentCommand == null) return null;
 
-				//MyConsole.AddMultiline(".", Color.AliceBlue);
+			// yield return null; = wait
+			// yield retrurn string; = response to LLM
+			// yield break; = no respone, done
+			// ! Через yield return null не переносим ссылки на engine-объекты, которые можно заново найти.
+
+			//MyConsole.AddMultiline(".", Color.AliceBlue);
 				
-				if (currentCommand.MoveNext())
-				{	
-					//MyConsole.AddMultiline("M", Color.AliceBlue);
+			if (currentCommand.MoveNext())
+			{	
+				//MyConsole.AddMultiline("M", Color.AliceBlue);
 					
-					commandResult = currentCommand.Current as string;
+				var result = currentCommand.Current as string;
 
-					if(commandResult != null)
-					{	MyConsole.Add($"RESULT {commandResult}");
-
-						(currentCommand as IDisposable)?.Dispose();
-						currentCommand = null;
-					}
-				}
-				else
-				{	//MyConsole.AddMultiline("BREAK!", Color.AliceBlue);
+				if(result != null)
+				{	MyConsole.Add($"result {result}");
 
 					(currentCommand as IDisposable)?.Dispose();
 					currentCommand = null;
+					return result;
 				}
-				return;
 			}
+			else
+			{	MyConsole.Add("!yield break!", Color.DarkRed);
+				(currentCommand as IDisposable)?.Dispose();
+				currentCommand = null;
+			}
+			return null;
 		}
 
-		internal void Execute(string command)
+		internal string Execute(string command)
 		{
-			if (commandResult != null) throw new Exception("Logic error");
+			string result = null;
 
 			var tp = new TokenParser(command);
 
 			if(tp.Match("Overview"))
-			{	Overview();
-			}
-			else if(tp.Match("Search"))
-			{	Search();
+			{	result = Overview();
 			}
 			else if(tp.Match("Select_Asteroid"))
 			{	Select(ObjectType.Asteroid, tp);
@@ -1090,7 +1050,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	Select(ObjectType.LargeShip, tp);
 			}
 			else if(tp.Match("Fly"))
-			{	Fly();
+			{	currentCommand = Fly(tp);
 			}
 			else if(tp.Match("Grind"))
 			{	currentCommand = Grind(tp);
@@ -1099,10 +1059,10 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	currentCommand = Weld(tp);
 			}
 			else if(tp.Match("Near"))
-			{	commandResult = Near(tp);
+			{	result = Near(tp);
 			}
 			else if(tp.Match("Inventory"))
-			{	commandResult = Inventory(tp);
+			{	result = Inventory(tp);
 			}
 			else if(tp.Match("Get"))
 			{	currentCommand = Get(tp);
@@ -1114,8 +1074,10 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	currentCommand = Transfer(tp);
 			}
 			else
-			{	commandResult = $"Unknown command '{tp.NextString()}'.";
+			{	result = $"Unknown command '{tp.NextString()}'.";
 			}
+
+			return result;
 		}
 	}
 }

@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Text;
-using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage.Game;
 using VRage.Game.Components;
@@ -72,6 +70,19 @@ namespace LLE
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
 
+		private void AddResult(string result)
+		{
+			Log($"result:\n{result}");
+				
+			MyConsole.AddNewLine(Color.LightGray);
+			MyConsole.AddMultiline(result, Color.GreenYellow);
+			MyConsole.AddNewLine(Color.LightGray);
+
+			toLLM.Append("[RESULT]:\n");
+			toLLM.Append(result);
+			toLLM.Append('\n');
+		}
+
 		public override void UpdateBeforeSimulation()
 		{
 			var player = MyAPIGateway.Session.Player;
@@ -84,23 +95,12 @@ namespace LLE
 				LLE_Loader.SetHelp(commands.Help());
 			}
 
-			commands.Update(); // updates commandResult
+			string result = commands.Update();
 
-			if (commands.commandResult != null)
+			if (result != null)
 			{	
-				// collect command results into buffer for sending to LLM
-
-				Log($"commandResult:\n{commands.commandResult}");
-				
-				MyConsole.AddNewLine(Color.LightGray);
-				MyConsole.AddMultiline(commands.commandResult, Color.GreenYellow);
-				MyConsole.AddNewLine(Color.LightGray);
-
-				toLLM.Append("[RESULT]:\n");
-				toLLM.Append(commands.commandResult);
-				toLLM.Append('\n');
-
-				commands.commandResult = null;
+				AddResult(result);
+				return;
 			}
 
 			if(commands.InProgress()) return;
@@ -120,11 +120,13 @@ namespace LLE
 							string command = content.Substring(secondLastBacktick + 1, lastBacktick - secondLastBacktick - 1);
 							llmContent.Clear();
 
+							toLLM.Append($"`{command}`"); // send back to establish pattern
+
 							if(command == "pause")
 								pauseLLM = true;
 							else
-							{	toLLM.Append($"`{command}`"); // send back to establish pattern
-								commands.Execute(command);
+							{	result = commands.Execute(command);
+								if(result != null) AddResult(result);
 							}
 							return; // critical
 						}
