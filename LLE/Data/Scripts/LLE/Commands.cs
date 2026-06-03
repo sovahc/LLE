@@ -797,47 +797,45 @@ drop 'name' [quantity|all] - Drop a specified object.
 			yield return message;
 		}
 
-		internal void Transfer()
+		internal IEnumerator Transfer(TokenParser tp)
 		{
-			if(!GridIsSet()) return;
+			string message;
+
+			if(!GridIsSet(out message)) yield return message;
 
 			double count; Vector3I ijkFrom, ijkTo;
 
-			if(!tokenParser.NextDouble(out count)) { commandResult = "Error: expected count"; return; }
+			if(!tp.NextDouble(out count)) yield return "Error: expected count";
 
-			var item = tokenParser.NextString();
+			var item = tp.NextString();
 
-			if(!tokenParser.Match("from")) { commandResult = "Error: expected 'from'"; return; }
+			if(!tp.Match("from")) yield return "Error: expected 'from'";
 
-			if(!tokenParser.NextVector3I(out ijkFrom)) { commandResult = "Error: expected I J K"; return; }
+			if(!tp.NextVector3I(out ijkFrom)) yield return "Error: expected I J K";
 
-			if(!tokenParser.Match("to")) { commandResult = "Error: expected 'to'"; return; }
+			if(!tp.Match("to")) yield return "Error: expected 'to'";
 
-			if(!tokenParser.NextVector3I(out ijkTo)) { commandResult = "Error: expected I J K"; return; }
+			if(!tp.NextVector3I(out ijkTo)) yield return "Error: expected I J K";
 
 			var blockFrom = selectedGrid.GetCubeBlock(ijkFrom);
-			if(blockFrom == null) { commandResult = $"Error: no block at {ijkFrom}"; return; }
+			if(blockFrom == null) yield return $"Error: no block at {ijkFrom}";
 
 			var blockTo = selectedGrid.GetCubeBlock(ijkTo);
-			if(blockTo == null) { commandResult = $"Error: no block at {ijkTo}"; return; }
+			if(blockTo == null) yield return  $"Error: no block at {ijkTo}";
 
 			var fatFrom = blockFrom.FatBlock;
 			var fromName = Name(blockFrom);
 
 			if(fatFrom == null || !fatFrom.HasInventory)
-			{	commandResult = $"Block {Formatter.Quote(fromName)} does not have an inventory.";
-				return;
-			}
+				yield return $"Block {Formatter.Quote(fromName)} does not have an inventory.";
 
 			var fatTo = blockTo.FatBlock;
 			var toName = Name(blockTo);
 
 			if(fatTo == null || !fatTo.HasInventory)
-			{	commandResult = $"Block {Formatter.Quote(toName)} does not have an inventory.";
-				return;
-			}
+				yield return $"Block {Formatter.Quote(toName)} does not have an inventory.";
 
-			if(IsTooFar(ijkFrom) && IsTooFar(ijkTo)) return; /// XXX Incorrect!
+			if(IsTooFar(ijkFrom, out message) && IsTooFar(ijkTo, out message)) yield return message; /// XXX Incorrect!
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
@@ -848,7 +846,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 			for (int ii = 0; ii < fatTo.InventoryCount; ++ii)
 				toList.Add(fatTo.GetInventory(ii));
 
-			InventoryTransfer(fromList, toList, fromName, toName, item, (MyFixedPoint)count, out commandResult);
+			InventoryTransfer(fromList, toList, fromName, toName, item, (MyFixedPoint)count, out message);
+			yield return message;
 		}
 
 		internal static void InventoryTransfer(List<IMyInventory> fromList, List<WTF_IMyInventory> toList,
@@ -1005,7 +1004,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	currentCommand = Put(tp);
 			}
 			else if(tp.Match("Transfer"))
-			{	Transfer();
+			{	currentCommand = Transfer(tp);
 			}
 			else
 			{	commandResult = $"Unknown command '{tp.NextString()}'.";
