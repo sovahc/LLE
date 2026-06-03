@@ -881,7 +881,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 		}
 
 		internal bool InProgress()
-		{	return currentAction != Action.Idle;			
+		{	return currentAction != Action.Idle || test != null;
 		}
 
 		IEnumerator test;
@@ -889,9 +889,21 @@ drop 'name' [quantity|all] - Drop a specified object.
 		internal void Update()
 		{
 			if (test != null)
-			{	if (test.MoveNext())
+			{	
+				// yield return null; = wait
+				// yield retrurn string; = response to LLM
+				// yield break; = no respone, done
+				// Через yield return null не переносим ссылки на engine-объекты, которые можно заново найти.
+				
+				if (test.MoveNext())
 				{	commandResult = test.Current as string;
-					MyConsole.Add($"test {commandResult}");
+
+					if(commandResult != null)
+					{	MyConsole.Add($"test {commandResult}");
+
+						(test as IDisposable)?.Dispose();
+						test = null;
+					}
 				}
 				else
 				{
@@ -939,6 +951,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		public IEnumerator LongPut()
 		{	
+			SetPause(2.0);
+			while(IsPaused()) yield return null;
+
 			string message;
 			if(!GridIsSet(out message))
 				yield return message;
@@ -980,15 +995,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			for (int ii = 0; ii < fat.InventoryCount; ++ii)
 				toList.Add(fat.GetInventory(ii));
 
-			SetPause(1.0);
-			while(IsPaused()) yield return null;
-
 			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out message);
 			if(message != null)
 				yield return message;
-
-			SetPause(1.0);
-			while(IsPaused()) yield return null;
 
 			yield break;
 		}
