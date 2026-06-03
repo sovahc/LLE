@@ -82,6 +82,20 @@ namespace LLE
 				_mask = 0;
 		}
 
+		public static Traversability Rotate(Traversability src, MatrixI rotation)
+		{
+			Vector3I v, v2;
+			Traversability result = new Traversability();
+			for (v.Z = -1; v.Z <= 1; ++v.Z)
+				for (v.Y = -1; v.Y <= 1; ++v.Y)
+					for (v.X = -1; v.X <= 1; ++v.X)
+					{
+						Vector3I.TransformNormal(ref v, ref rotation, out v2);
+						result[v2] = src[v];
+					}
+			return result;
+		}
+
 		public override string ToString()
 		{
 			var sb = new StringBuilder();
@@ -293,17 +307,7 @@ namespace LLE
 			if (!_traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t)) return;
 
 			MatrixI m = new MatrixI(slim.Orientation);
-			Vector3I v, v2;
-			Traversability t2 = new Traversability();
-
-			for (v.Z = -1; v.Z <= 1; ++v.Z)
-				for (v.Y = -1; v.Y <= 1; ++v.Y)
-					for (v.X = -1; v.X <= 1; ++v.X)
-					{
-						Vector3I.TransformNormal(ref v, ref m, out v2);
-						t2[v2] = t[v];
-					}
-			t = t2;
+			t = Traversability.Rotate(t, m);
 
 			var zero = grid.GridIntegerToWorld(slim.Position);
 

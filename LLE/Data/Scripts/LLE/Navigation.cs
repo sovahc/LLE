@@ -159,18 +159,7 @@ namespace LLE
 						if (Min == Max)
 						{
 							MatrixI m = new MatrixI(slim.Orientation);
-
-							Vector3I v2;
-							Traversability t2 = new Traversability();
-
-							for (v.Z = -1; v.Z <= 1; ++v.Z)
-								for (v.Y = -1; v.Y <= 1; ++v.Y)
-									for (v.X = -1; v.X <= 1; ++v.X)
-									{
-										Vector3I.TransformNormal(ref v, ref m, out v2);
-										t2[v2] = t[v];
-									}
-							astar.SetTraversability(p, t2);
+							astar.SetTraversability(p, Traversability.Rotate(t, m));
 						}
 						else
 						{
