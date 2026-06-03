@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Sandbox.ModAPI;
@@ -35,9 +36,9 @@ namespace LLE
 
 		private readonly StringBuilder llmReasoning = new StringBuilder();
 		private readonly StringBuilder llmContent = new StringBuilder();
+		private readonly StringBuilder commandToProcess = new StringBuilder();
 		private readonly StringBuilder toLLM = new StringBuilder();
 
-		private MessageType lastMessageType = MessageType.Stop;
 		private bool pauseLLM;
 
 		public static void Log(string s) => Utilities.Log(s);
@@ -70,18 +71,18 @@ namespace LLE
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
 
-		private void AddResult(string result)
+		private void CommandResult(string result)
 		{
-			Log($"result:\n{result}");
+			Log($"CommandResult:\n{result}");
 				
-			MyConsole.AddNewLine(Color.LightGray);
-			MyConsole.AddMultiline(result, Color.GreenYellow);
-			MyConsole.AddNewLine(Color.LightGray);
-
 			toLLM.Append("[RESULT]:\n");
 			toLLM.Append(result);
 			toLLM.Append('\n');
+
+			MyConsole.AddMultiline(toLLM.ToString(), Color.GreenYellow);
 		}
+
+		MessageType lastType = MessageType.Stop;
 
 		public override void UpdateBeforeSimulation()
 		{
@@ -90,84 +91,105 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			if(commands == null)
-			{	commands = new Commands(ch);
+			// Lazy initialization
+			if (commands == null)
+			{
+				commands = new Commands(ch);
 				LLE_Loader.SetHelp(commands.Help());
 			}
 
+			// Process command result
 			string result = commands.Update();
-
 			if (result != null)
-			{	
-				AddResult(result);
+			{
+				CommandResult(result);
 				return;
 			}
 
-			if(commands.InProgress()) return;
+			// Wait for in-progress command to finish
+			if (commands.InProgress()) return;
 
-			if (lastMessageType == MessageType.Stop)
-			{	// LLM is waiting for a response
-
-				if (llmContent.Length != 0)
-				{	// command buffer is not empty
-					string content = llmContent.ToString();
-					int lastBacktick = content.LastIndexOf('`');
-					if (lastBacktick > 0)
-					{
-						int secondLastBacktick = content.LastIndexOf('`', lastBacktick - 1);
-						if (secondLastBacktick >= 0)
-						{
-							string command = content.Substring(secondLastBacktick + 1, lastBacktick - secondLastBacktick - 1);
-							llmContent.Clear();
-
-							toLLM.Append($"`{command}`"); // send back to establish pattern
-
-							if(command == "pause")
-								pauseLLM = true;
-							else
-							{	result = commands.Execute(command);
-								if(result != null) AddResult(result);
-							}
-							return; // critical
-						}
-					}
-				}
-				else if(toLLM.Length != 0 && !pauseLLM)
-				{	// command buffer is empty, result is not empty.
-					LLE_Loader.SendMessageToLLM(toLLM.ToString());
-					toLLM.Clear();
-				}
+			// Send accumulated results to LLM
+			if (toLLM.Length != 0 && !pauseLLM)
+			{
+				LLE_Loader.SendMessageToLLM(toLLM.ToString());
+				toLLM.Clear();
+				return;
 			}
 
-			FromLLM m;
-			for(int i = 0; i < 10; ++i)
-			{	if (!LLE_Loader.GetChunkFromLLM(out m)) break;
+			// Poll for new chunks from LLM
 
-				if(m.Type != lastMessageType)
-				{	
-					MyConsole.AddNewLine(Color.LightGray);
+			for (int i = 0; i < 10; ++i)
+			{
+				FromLLM m;
+				if (!LLE_Loader.GetChunkFromLLM(out m)) return;
+				
+				// Type changed — log and clear the old buffer
+				if (m.Type != lastType)
+				{
+					switch(lastType)
+					{	case MessageType.Reasoning:
+							Log($"llmReasoning:\n{llmReasoning}");
+							llmReasoning.Clear();
+							break;
+						case MessageType.Content:
+							commandToProcess.Append(llmContent);
+							commandToProcess.Append("\n");
 
-					if(lastMessageType == MessageType.Reasoning)
-					{	Log($"llmReasoning:\n{llmReasoning}");
-						llmReasoning.Clear();
+							Log($"llmContent:\n{llmContent}");
+							llmContent.Clear();
+							break;
 					}
-					else if(lastMessageType == MessageType.Content)
-					{	Log($"llmContent:\n{llmContent}");
-						// content consumer is the command handler
-					}
-					
-					lastMessageType = m.Type;					
+
 				}
+				lastType = m.Type;
 
-				if(m.Type == MessageType.Reasoning)
-				{	MyConsole.AddMultiline(m.Payload, Color.LightGray);
+				if (m.Type == MessageType.Reasoning)
+				{
+					MyConsole.AddMultiline(m.Payload, Color.LightGray);
 					llmReasoning.Append(m.Payload);
 				}
-				else if(m.Type == MessageType.Content)
-				{	MyConsole.AddMultiline(m.Payload, Color.Cyan);
+				else if (m.Type == MessageType.Content)
+				{
+					MyConsole.AddMultiline(m.Payload, Color.Cyan);
 					llmContent.Append(m.Payload);
 				}
+				else if (m.Type == MessageType.Stop)
+				{	// LLM stopped sending — try to process accumulated content
+					ProcessLlmContent(commandToProcess.ToString());
+					commandToProcess.Clear();
+					return;
+				}
 			}
+		}
+
+		private void ProcessLlmContent(string content)
+		{
+			const string error = "нет команды для выполнения, нужна команда в обратных кавычках";
+
+			int lastBacktick = content.LastIndexOf('`');
+			if (lastBacktick < 0)
+			{	CommandResult(error);
+				return;
+			}
+			int secondLastBacktick = content.LastIndexOf('`', lastBacktick - 1);
+			if (secondLastBacktick < 0)
+			{	CommandResult(error);
+				return;
+			}
+
+			string command = content.Substring(secondLastBacktick + 1, lastBacktick - secondLastBacktick - 1);
+
+			toLLM.Append($"`{command}`"); // send back to establish pattern
+
+			if(command == "pause")
+			{	pauseLLM = true;
+				return;
+			}
+
+			string result = commands.Execute(command);
+			if (result != null)
+				CommandResult(result);
 		}
 
 		public override void Draw()
