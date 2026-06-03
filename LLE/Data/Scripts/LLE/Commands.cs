@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -87,7 +88,7 @@ namespace LLE
 		{	Idle,
 			Flying,
 			Welding,
-			Grinding,			
+			Grinding,
 		}
 
 		private Action currentAction = Action.Idle;
@@ -119,11 +120,11 @@ namespace LLE
 * select_asteroid 'name'		- Select an asteroid on which to mine.
 
 * overview						- List grid blocks by category.
-* fly I J K						- Fly to specific grid coordinates (integer values)
+* fly I J K						- Fly to specific grid coordinates. e.g. `fly 10 -5 13`
 * grind I J K					- Grind a block at specific coordinates.
 * weld I J K					- Weld a block at specific coordinates.
 * near							- Return 6 accessible blocks around you and the block you are standing on.
-* near I J K				- Return 6 accessible blocks around a block at specific coordinates.
+* near I J K					- Return 6 accessible blocks around a block at specific coordinates.
 * inventory						- Return the items in your inventory.
 * inventory I J K				- Return the inventory of the container at specific coordinates.
 * get count 'item' from I J K	- Transfer an item from a container to your inventory. e.g. `get 10 'Gold Ingot' from -1 5 2`
@@ -134,6 +135,7 @@ namespace LLE
 }
 
 /*
+* put all components into I J K	- Transfer all blocks components from your inventory to a container (very useful shortcut).
 * search 'substring'			- Search block coordinates by name.
 search ['substring']   - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
 vision                 - Get current visual input (what the bot sees right now)
@@ -370,9 +372,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 		}
 
-		private bool GridIsSet()
+		internal bool GridIsSet()
 		{	if(selectedGrid == null)
-			{	commandResult = $"Error: you should select a grid first. Use `select_grid name`";
+			{	commandResult = "Error: you should select a grid first. Use `select_grid name`";
 				return false;
 			}
 			return true;
@@ -471,6 +473,26 @@ drop 'name' [quantity|all] - Drop a specified object.
 				commandResult = tmp.ToString();
 				return true;
 			}
+			return false;
+		}
+
+		internal bool IsTooFar2(Vector3I ijk, out string message)
+		{
+			var block = selectedGrid.GetCubeBlock(ijk);
+
+			Vector3D world;
+			block.ComputeWorldCenter(out world);
+			var distance = (world - Utilities.GetEngineerCenter(character)).Length();
+			if(distance > 5)
+			{	
+				tmp.Clear();
+				tmp.Append($"You are too far from {Name(block)} to interact ({Formatter.Distance(distance)})\n");
+				tmp.Append($"Possible interaction points is: ");
+				ListFreeSpace_ToTmp(ijk);
+				message = tmp.ToString();
+				return true;
+			}
+			message = null;
 			return false;
 		}
 
@@ -857,8 +879,23 @@ drop 'name' [quantity|all] - Drop a specified object.
 		{	return currentAction != Action.Idle;			
 		}
 
+		IEnumerator test;
+
 		internal void Update()
 		{
+			if (test != null)
+			{	if (test.MoveNext())
+				{	commandResult = test.Current as string;
+					MyConsole.Add($"test {commandResult}");
+				}
+				else
+				{
+					(test as IDisposable)?.Dispose();
+					test = null;
+				}
+				return;
+			}
+
 			switch(currentAction)
 			{	case Action.Idle:
 					return;
@@ -886,11 +923,64 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 		}
 
+		private const string GRID_NOT_SET = "Error: you should select a grid first. Use `select_grid name`";
+
+		public IEnumerator LongPut()
+		{	
+			if(!GridIsSet()) yield return GRID_NOT_SET;
+
+			double count; Vector3I ijk;
+
+			if(!tokenParser.NextDouble(out count)) yield return "Error: expected count";
+
+			var item = tokenParser.NextString();
+
+			if(!tokenParser.Match("into")) yield return "Error: expected 'into'";
+
+			if(!tokenParser.NextVector3I(out ijk)) yield return "Error: expected I J K";
+
+			var block = selectedGrid.GetCubeBlock(ijk);
+			if(block == null) yield return $"Error: no block at {ijk}";
+
+			var inv = character.GetInventory() as IMyInventory;
+			if (inv == null) yield return "Internal error";
+
+			var fat = block.FatBlock;
+			var toName = Name(block);
+
+			if(fat == null || !fat.HasInventory)
+				yield return $"Block {Formatter.Quote(toName)} does not have an inventory.";
+
+			string message;
+			if(IsTooFar2(ijk, out message)) yield return message;
+
+			List<IMyInventory> fromList = new List<IMyInventory>();
+			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
+
+			fromList.Add(character.GetInventory());
+
+			for (int ii = 0; ii < fat.InventoryCount; ++ii)
+				toList.Add(fat.GetInventory(ii));
+
+			double pause = Time.Now + 1.0;
+			while(Time.Now < pause) yield return null;
+
+			string result;
+			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out result);
+			if(result != null) yield return result;
+
+			pause = Time.Now + 1.0;
+			while(Time.Now < pause) yield return null;
+
+			yield break;
+		}
+
 		internal void Execute(string command)
 		{
-			var tp = new TokenParser(command);
-			tokenParser = tp;
-			commandResult = null;
+			if (commandResult != null) throw new Exception("Logic error");
+
+			tokenParser = new TokenParser(command);
+			var tp = tokenParser;
 
 			if(tp.Match("Overview"))
 			{	Overview();
@@ -924,6 +1014,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 			else if(tp.Match("Put"))
 			{	Put();
+			}
+			else if(tp.Match("LongPut"))
+			{	test = LongPut();				
 			}
 			else if(tp.Match("Transfer"))
 			{	Transfer();
