@@ -106,6 +106,17 @@ namespace LLE
 		internal TokenParser tokenParser;
 		public string commandResult;
 
+		private IEnumerator currentCommand;
+
+		private double resumeTime;
+
+		private void SetPause(double time)
+		{	resumeTime = Time.Now + time;
+		}
+		private bool IsPaused()
+		{	return Time.Now < resumeTime;			
+		}
+
 		public Commands(IMyCharacter character_)
 		{	character = character_;
 			botTools = new BotTools(character);
@@ -718,47 +729,43 @@ drop 'name' [quantity|all] - Drop a specified object.
 			InventoryTransfer(fromList, toList, fromName, "your inventory", item, (MyFixedPoint)count, out commandResult);
 		}
 
-		internal void Put()
-		{
-			if(!GridIsSet()) return;
+		internal IEnumerator Put(TokenParser tp)
+		{	
+			SetPause(2.0);
+			while(IsPaused()) yield return null;
+
+			string message;
+			if(!GridIsSet(out message))
+				yield return message;
 
 			double count; Vector3I ijk;
 
-			if(!tokenParser.NextDouble(out count))
-			{	commandResult = "Error: expected count";
-				return;
-			}
+			if(!tp.NextDouble(out count))
+				yield return "Error: expected count";
 
-			var item = tokenParser.NextString();
+			var item = tp.NextString();
 
-			if(!tokenParser.Match("into"))
-			{	commandResult = "Error: expected 'into'";
-				return;
-			}
+			if(!tp.Match("into"))
+				yield return "Error: expected 'into'";
 
-			if(!tokenParser.NextVector3I(out ijk))
-			{	commandResult = "Error: expected I J K";
-				return;
-			}
+			if(!tp.NextVector3I(out ijk))
+				yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null)
-			{	commandResult = $"Error: no block at {ijk}";
-				return;
-			}
+				yield return $"Error: no block at {ijk}";
 
 			var inv = character.GetInventory() as IMyInventory;
-			if (inv == null) { commandResult = "Internal error"; return; }
+			if (inv == null)
+				yield return "Internal error";
 
 			var fat = block.FatBlock;
 			var toName = Name(block);
 
 			if(fat == null || !fat.HasInventory)
-			{	commandResult = $"Block {Formatter.Quote(toName)} does not have an inventory.";
-				return;
-			}
+				yield return $"Block {Formatter.Quote(toName)} does not have an inventory.";
 
-			if(IsTooFar(ijk)) return;
+			if(IsTooFar2(ijk, out message)) yield return message;
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
@@ -768,7 +775,11 @@ drop 'name' [quantity|all] - Drop a specified object.
 			for (int ii = 0; ii < fat.InventoryCount; ++ii)
 				toList.Add(fat.GetInventory(ii));
 
-			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out commandResult);
+			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out message);
+			if(message != null)
+				yield return message;
+
+			yield break;
 		}
 
 		internal void Transfer()
@@ -881,34 +892,32 @@ drop 'name' [quantity|all] - Drop a specified object.
 		}
 
 		internal bool InProgress()
-		{	return currentAction != Action.Idle || test != null;
+		{	return currentAction != Action.Idle || currentCommand != null;
 		}
-
-		IEnumerator test;
 
 		internal void Update()
 		{
-			if (test != null)
+			if (currentCommand != null)
 			{	
 				// yield return null; = wait
 				// yield retrurn string; = response to LLM
 				// yield break; = no respone, done
 				// Через yield return null не переносим ссылки на engine-объекты, которые можно заново найти.
 				
-				if (test.MoveNext())
-				{	commandResult = test.Current as string;
+				if (currentCommand.MoveNext())
+				{	commandResult = currentCommand.Current as string;
 
 					if(commandResult != null)
 					{	MyConsole.Add($"test {commandResult}");
 
-						(test as IDisposable)?.Dispose();
-						test = null;
+						(currentCommand as IDisposable)?.Dispose();
+						currentCommand = null;
 					}
 				}
 				else
 				{
-					(test as IDisposable)?.Dispose();
-					test = null;
+					(currentCommand as IDisposable)?.Dispose();
+					currentCommand = null;
 				}
 				return;
 			}
@@ -938,68 +947,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 					}
 					return;
 			}
-		}
-
-		private double resume;
-
-		private void SetPause(double time)
-		{	resume = Time.Now + time;
-		}
-		private bool IsPaused()
-		{	return Time.Now < resume;			
-		}
-
-		public IEnumerator LongPut()
-		{	
-			SetPause(2.0);
-			while(IsPaused()) yield return null;
-
-			string message;
-			if(!GridIsSet(out message))
-				yield return message;
-
-			double count; Vector3I ijk;
-
-			if(!tokenParser.NextDouble(out count))
-				yield return "Error: expected count";
-
-			var item = tokenParser.NextString();
-
-			if(!tokenParser.Match("into"))
-				yield return "Error: expected 'into'";
-
-			if(!tokenParser.NextVector3I(out ijk))
-				yield return "Error: expected I J K";
-
-			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null)
-				yield return $"Error: no block at {ijk}";
-
-			var inv = character.GetInventory() as IMyInventory;
-			if (inv == null)
-				yield return "Internal error";
-
-			var fat = block.FatBlock;
-			var toName = Name(block);
-
-			if(fat == null || !fat.HasInventory)
-				yield return $"Block {Formatter.Quote(toName)} does not have an inventory.";
-
-			if(IsTooFar2(ijk, out message)) yield return message;
-
-			List<IMyInventory> fromList = new List<IMyInventory>();
-			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
-
-			fromList.Add(character.GetInventory());
-
-			for (int ii = 0; ii < fat.InventoryCount; ++ii)
-				toList.Add(fat.GetInventory(ii));
-
-			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out message);
-			if(message != null)
-				yield return message;
-
-			yield break;
 		}
 
 		internal void Execute(string command)
@@ -1040,10 +987,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	Get();
 			}
 			else if(tp.Match("Put"))
-			{	Put();
-			}
-			else if(tp.Match("LongPut"))
-			{	test = LongPut();				
+			{	currentCommand = Put(tp);
 			}
 			else if(tp.Match("Transfer"))
 			{	Transfer();
