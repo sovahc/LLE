@@ -928,26 +928,41 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 		}
 
+		private double resume;
+
+		private void SetPause(double time)
+		{	resume = Time.Now + time;
+		}
+		private bool IsPaused()
+		{	return Time.Now < resume;			
+		}
+
 		public IEnumerator LongPut()
 		{	
 			string message;
-			if(!GridIsSet(out message)) yield return message;
+			if(!GridIsSet(out message))
+				yield return message;
 
 			double count; Vector3I ijk;
 
-			if(!tokenParser.NextDouble(out count)) yield return "Error: expected count";
+			if(!tokenParser.NextDouble(out count))
+				yield return "Error: expected count";
 
 			var item = tokenParser.NextString();
 
-			if(!tokenParser.Match("into")) yield return "Error: expected 'into'";
+			if(!tokenParser.Match("into"))
+				yield return "Error: expected 'into'";
 
-			if(!tokenParser.NextVector3I(out ijk)) yield return "Error: expected I J K";
+			if(!tokenParser.NextVector3I(out ijk))
+				yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return $"Error: no block at {ijk}";
+			if(block == null)
+				yield return $"Error: no block at {ijk}";
 
 			var inv = character.GetInventory() as IMyInventory;
-			if (inv == null) yield return "Internal error";
+			if (inv == null)
+				yield return "Internal error";
 
 			var fat = block.FatBlock;
 			var toName = Name(block);
@@ -965,15 +980,15 @@ drop 'name' [quantity|all] - Drop a specified object.
 			for (int ii = 0; ii < fat.InventoryCount; ++ii)
 				toList.Add(fat.GetInventory(ii));
 
-			double pause = Time.Now + 1.0;
-			while(Time.Now < pause) yield return null;
+			SetPause(1.0);
+			while(IsPaused()) yield return null;
 
-			string result;
-			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out result);
-			if(result != null) yield return result;
+			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out message);
+			if(message != null)
+				yield return message;
 
-			pause = Time.Now + 1.0;
-			while(Time.Now < pause) yield return null;
+			SetPause(1.0);
+			while(IsPaused()) yield return null;
 
 			yield break;
 		}
