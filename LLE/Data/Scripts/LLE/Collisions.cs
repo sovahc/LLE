@@ -331,6 +331,37 @@ namespace LLE
 			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.Black : Color.Green);
 		}
 
+		public static bool CheckWorldSphere(IMyCubeGrid grid, IMySlimBlock block, Vector3D worldCenter, double radius)
+		{
+			CollisionGeometry geometry;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
+
+			Matrix bo;
+			block.Orientation.GetMatrix(out bo);
+			Quaternion q = Quaternion.CreateFromRotationMatrix(grid.WorldMatrix);
+			Matrix.Transform(ref bo, ref q, out bo);
+
+			var blockCenter = 0.5 * (grid.GridIntegerToWorld(block.Min) + grid.GridIntegerToWorld(block.Max));
+			MatrixD blockMatrix = new MatrixD(bo) { Translation = blockCenter };
+
+			MatrixD invBlock;
+			MatrixD.Invert(ref blockMatrix, out invBlock);
+			Vector3D localCenter = Vector3D.Transform(worldCenter, invBlock);
+
+			foreach (var shape in geometry.Shapes)
+			{
+				var convex = shape as ConvexHullShape;
+				if (convex != null && Intersections.SphereVsConvex(localCenter, radius, convex.Vertices))
+					return true;
+
+				var sphere = shape as SphereShape;
+				if (sphere != null && Intersections.SphereVsSphere(localCenter, radius,
+					new Vector3D(sphere.Transform.Translation), sphere.Radius))
+					return true;
+			}
+			return false;
+		}
+
 		public static bool CenterIsFree(IMySlimBlock slim)
 		{
 			if(slim == null) return true;

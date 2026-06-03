@@ -41,6 +41,9 @@ namespace LLE
 
 		private bool pauseLLM;
 
+		// Test sphere state
+		private static Vector3D testSphereCenter;
+
 		public static void Log(string s) => Utilities.Log(s);
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
@@ -226,6 +229,28 @@ namespace LLE
 					Collisions.Draw(selectedGrid, block);
 					Collisions.DrawTraversability(selectedGrid, block);
 				}
+			}
+
+			// Right click — test sphere collision with block
+			if (MyAPIGateway.Input.IsNewRightMousePressed())
+			{
+				var engineerCenter = Utilities.GetEngineerCenter(ch);
+				testSphereCenter = engineerCenter + 5.0 * ch.WorldMatrix.Forward;
+			}
+
+			// Draw test sphere
+			if (selectedGrid != null)
+			{
+				var block = selectedGrid.GetCubeBlock(selectedBlock);
+				
+				
+				bool intersection = false;
+				if(block != null)
+					intersection = Collisions.CheckWorldSphere(selectedGrid, block, testSphereCenter, 0.5);
+
+				var color = intersection ? new Vector4(1f, 0f, 0f, 1f) : new Vector4(0f, 1f, 0f, 1f);
+				Drawing.ScreenSphere(testSphereCenter, 0.5f, color);
+				Drawing.RoundMarker(testSphereCenter, intersection ? Color.Red : Color.Lime);
 			}
 
 			if(Debug.grid != null)
