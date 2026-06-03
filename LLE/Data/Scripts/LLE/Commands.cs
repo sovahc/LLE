@@ -6,11 +6,13 @@ using System.Text;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
+using Sandbox.ModAPI.Weapons;
 using VRage;
 using VRageMath;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
@@ -84,14 +86,7 @@ namespace LLE
 
 	public class Commands
 	{
-		enum Action
-		{	Idle,
-			Flying,
-			Welding,
-			Grinding,
-		}
-
-		private Action currentAction = Action.Idle;
+		private const string IE_NO_INVENTORY = "Internal error: character.GetInventory() is null";
 
 		private IMyCubeGrid selectedGrid;
 		private MyVoxelBase selectedAsteroid;
@@ -99,14 +94,55 @@ namespace LLE
 		private readonly IMyCharacter character;
 		
 		internal Navigation navigation;
-		private BotTools botTools;
 
 		private readonly StringBuilder tmp = new StringBuilder();
 
-		internal TokenParser tokenParser;
 		public string commandResult;
 
 		private IEnumerator currentCommand;
+
+		private MyEntity3DSoundEmitter soundEmitter;
+		private MyParticleEffect particleEffect;
+
+		private void EnableEffects(IMySlimBlock block, string particleName, string sound)
+		{
+			if (soundEmitter == null)
+			{
+				soundEmitter = new MyEntity3DSoundEmitter(character as MyEntity);
+			}
+			if (soundEmitter != null)
+			{
+				soundEmitter.VolumeMultiplier = Constants.SoundVolume;
+				soundEmitter.PlaySound(new MySoundPair(sound));
+			}
+			if (particleEffect == null)
+			{
+				MatrixD m = MatrixD.Identity;
+				Vector3D pos = Vector3D.Zero;
+				if (MyParticlesManager.TryCreateParticleEffect(particleName, ref m, ref pos, uint.MaxValue,
+					out particleEffect))
+					particleEffect.UserRadiusMultiplier = 4f;
+			}
+			if (particleEffect != null)
+			{
+				BoundingBoxD box;
+				block.GetWorldBoundingBox(out box, false);
+				particleEffect.WorldMatrix = box.Matrix;
+			}
+		}
+
+		internal void DisableEffects()
+		{	if(soundEmitter != null)
+			{
+				soundEmitter.StopSound(false);
+				soundEmitter = null;
+			}
+			if(particleEffect != null)
+			{
+				particleEffect.Stop();
+				particleEffect = null;
+			}
+		}
 
 		private double resumeTime;
 
@@ -119,7 +155,6 @@ namespace LLE
 
 		public Commands(IMyCharacter character_)
 		{	character = character_;
-			botTools = new BotTools(character);
 			navigation = new Navigation(character);
 		}
 
@@ -336,9 +371,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			commandResult = MyMarkdown.Result();*/
 		}
 
-		internal void Select(ObjectType type)
+		internal void Select(ObjectType type, TokenParser tp)
 		{
-			var what = tokenParser.NextString();
+			var what = tp.NextString();
 
 			const int radius = 1000;
 
@@ -422,7 +457,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		internal void Fly()
 		{
-			if(!GridIsSet()) return;
+			/*if(!GridIsSet()) return;
 
 			Vector3I ijk;
 			if(!tokenParser.NextVector3I(out ijk)) return;
@@ -442,7 +477,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 
 			navigation.FlyInsideGrid(selectedGrid, ijk);
-			currentAction = Action.Flying;
+			currentAction = Action.Flying;*/
 		}
 
 		internal bool EquipTool(string toolSubtype)
@@ -473,25 +508,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return true;
 		}
 
-		internal bool IsTooFar(Vector3I ijk)
-		{
-			var block = selectedGrid.GetCubeBlock(ijk);
-
-			Vector3D world;
-			block.ComputeWorldCenter(out world);
-			var distance = (world - Utilities.GetEngineerCenter(character)).Length();
-			if(distance > 5)
-			{	
-				tmp.Clear();
-				tmp.Append($"You are too far from {Name(block)} to interact ({Formatter.Distance(distance)})\n");
-				tmp.Append($"Possible interaction points is: ");
-				ListFreeSpace_ToTmp(ijk);
-				commandResult = tmp.ToString();
-				return true;
-			}
-			return false;
-		}
-
 		internal bool IsTooFar(Vector3I ijk, out string message)
 		{
 			var block = selectedGrid.GetCubeBlock(ijk);
@@ -512,83 +528,213 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return false;
 		}
 
-		internal void Grind()
+		internal IEnumerator Grind(TokenParser tp)
 		{
-			if(!GridIsSet()) return;
+			string message;
+
+			if(!GridIsSet(out message)) yield return message;
 
 			Vector3I ijk;
-			if(!tokenParser.NextVector3I(out ijk))
-			{	commandResult = "Error: expected I J K";
-				return;
-			}
+			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null)
-			{	commandResult = $"Error: no block at {Formatter.IJK(ijk)}";
-				return;
-			}
+			if(block == null) yield return  $"Error: no block at {Formatter.IJK(ijk)}";
 
-			if(IsTooFar(ijk)) return;
+			if(IsTooFar(ijk, out message)) yield return message;
 
 			if(!EquipTool("Grinder"))
-			{	commandResult = "Cannot equip grinder. Do you have a grinder in your inventory?";
-				return;
+				yield return  "Cannot equip grinder. Do you have a grinder in your inventory?";
+
+			var inventory = character.GetInventory();
+			if (inventory == null) yield return IE_NO_INVENTORY;
+
+			var equippedTool = character.EquippedTool as IMyAngleGrinder;
+			if (equippedTool == null) yield return "Error: You should take an angle grinder.";
+
+			float speedMultiplier = 1.0f;
+
+			var item = MyDefinitionManager.Static.GetPhysicalItemForHandItem(equippedTool.DefinitionId);
+			var itemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(item.Id);
+			var toolBaseDef = itemDef as MyEngineerToolBaseDefinition;
+
+			if (toolBaseDef != null)
+				speedMultiplier = toolBaseDef.SpeedMultiplier;
+
+			float grindAmount = Constants.WeldAndGrindSpeed * speedMultiplier * MyAPIGateway.Session.GrinderSpeedMultiplier;
+
+			Vector3D bp;
+			block.ComputeWorldCenter(out bp);
+
+			SetPause(1.0);
+			while (IsPaused())
+			{
+				navigation.JustRotateTo(bp);
+				yield return null;
 			}
 
-			botTools.SetTargetBlock(block);
-			currentAction = Action.Grinding;
-			commandResult = "Grinding...";
+			block = selectedGrid.GetCubeBlock(ijk);
+			if(block == null) yield return  $"Error: no block at {Formatter.IJK(ijk)}";
+
+			// Apply grinding
+			
+			EnableEffects(block, MyParticleEffectsNameEnum.ShipGrinder, "ToolPlayGrindMetal");
+
+			for(;;)
+			{	
+				// Check if inventory can accept at least one unit of any stockpile component
+				Dictionary<string, int> stock = new Dictionary<string, int>();
+				GetStockpileComponents(block, stock);
+
+				var def = block.BlockDefinition as MyCubeBlockDefinition;
+				bool canAccept = false;
+				foreach (var c in def.Components)
+				{	var k = c.Definition.Id.SubtypeName;
+				
+					if(stock[k] == 0) continue;
+
+					if(inventory.CanItemsBeAdded(1, c.Definition.Id))
+					{	canAccept = true;
+						break;
+					}
+				}
+				if (!canAccept)
+				{	DisableEffects();
+					yield return "Your inventory is full.";
+				}
+
+				block.DecreaseMountLevel(grindAmount, inventory);
+				block.MoveItemsFromConstructionStockpile(inventory);
+
+				// Handle block destruction
+				if (block.IsDestroyed && block.StockpileEmpty)
+				{
+					block.SpawnConstructionStockpile();
+					block.CubeGrid.RazeBlock(block.Min);
+
+					DisableEffects();
+					yield return $"Done! {Commands.Name(block)} is removed.";
+				}
+
+				yield return null;
+			}
 		}
 
-		internal void Weld()
+		internal static void GetStockpileComponents(IMySlimBlock block, Dictionary<string, int> components)
 		{
-			if(!GridIsSet()) return;
+			components.Clear();
+
+			var def = block.BlockDefinition as MyCubeBlockDefinition;
+			
+			foreach (var c in def.Components)
+			{	var k = c.Definition.Id.SubtypeName;
+				if(components.ContainsKey(k))
+					components[k] += c.Count;
+				else
+					components[k] = c.Count;
+			}
+			
+			Dictionary<string, int> missing = new Dictionary<string, int>();
+			block.GetMissingComponents(missing);
+
+			foreach (var kv in missing) components[kv.Key] -= kv.Value;
+		}
+
+		internal IEnumerator Weld(TokenParser tp)
+		{
+			string message;
+			if (!GridIsSet(out message)) yield return message;
 
 			Vector3I ijk;
-			if(!tokenParser.NextVector3I(out ijk))
-			{	commandResult = "Error: expected I J K";
-				return;
-			}
+			if (!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null)
-			{	commandResult = $"Error: no block at {ijk}";
-				return;
+			if (block == null) yield return $"Error: no block at {ijk}";
+
+			if (block.Integrity >= block.MaxIntegrity)
+				yield return "The block is fully intact, no repairs needed.";
+
+			if (IsTooFar(ijk, out message)) yield return message;
+
+			if (!EquipTool("Welder"))
+				yield return "Cannot equip welder. Do you have a welder in your inventory?";
+
+			var inventory = character.GetInventory();
+			if (inventory == null) yield return IE_NO_INVENTORY;
+
+			var equippedTool = character.EquippedTool as IMyWelder;
+			if (equippedTool == null) yield return "Error: You should take a welder.";
+
+			float speedMultiplier = 1.0f;
+
+			var item = MyDefinitionManager.Static.GetPhysicalItemForHandItem(equippedTool.DefinitionId);
+			var itemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(item.Id);
+			var toolBaseDef = itemDef as MyEngineerToolBaseDefinition;
+
+			if (toolBaseDef != null)
+				speedMultiplier = toolBaseDef.SpeedMultiplier;
+
+			float weldAmount = Constants.WeldAndGrindSpeed * speedMultiplier * MyAPIGateway.Session.WelderSpeedMultiplier;
+
+			// Check if block can accept components from inventory
+			if (!block.CanContinueBuild(inventory)) yield return "You need components."; // XXX What components
+
+			Vector3D bp;
+			block.ComputeWorldCenter(out bp);
+
+			SetPause(1.0);
+			while (IsPaused())
+			{
+				navigation.JustRotateTo(bp);
+				yield return null;
 			}
 
-			if(block.Integrity >= block.MaxIntegrity)
-			{	commandResult = "The block is fully intact, no repairs needed.";
-				return;				
+			block = selectedGrid.GetCubeBlock(ijk);
+			if(block == null) yield return  $"Error: no block at {Formatter.IJK(ijk)}";
+
+			// Apply welding
+
+			EnableEffects(block, MyParticleEffectsNameEnum.WelderContactPoint, "ToolPlayWeldMetal");
+
+			for (;;)
+			{
+				block.MoveItemsToConstructionStockpile(inventory);
+
+				var pbi = block.Integrity;
+
+				block.IncreaseMountLevel(weldAmount, character.ControllerInfo.ControllingIdentityId, inventory, 1.0f);
+
+				if (block.Integrity >= block.MaxIntegrity)
+				{
+					DisableEffects();
+					yield return "Done! Block integrity is full now.";
+				}
+				else if (block.Integrity == pbi)
+				{
+					DisableEffects();
+					yield return "You need components."; // XXX What components
+				}
+
+				yield return null;
 			}
-
-			if(IsTooFar(ijk)) return;
-
-			if(!EquipTool("Welder"))
-			{	commandResult = "Cannot equip welder. Do you have a welder in your inventory?";
-				return;
-			}
-
-			botTools.SetTargetBlock(block);
-			currentAction = Action.Welding;
-			commandResult = "Welding...";
 		}
 
-		internal void Near()
+		internal string Near(TokenParser tp)
 		{	
-			if(!GridIsSet()) return;
+			string message;
+			if(!GridIsSet(out message)) return message;
 
 			MyMarkdown.Clear();
 
 			Vector3I ijk;
 			string hint;
 
-			if(tokenParser.End)
+			if(tp.End)
 			{	var center = Utilities.GetEngineerCenter(character);
 				ijk = selectedGrid.WorldToGridInteger(center);
 				hint = "Your block";
 			}
 			else
-			{	if(!tokenParser.NextVector3I(out ijk)) return;
+			{	if(!tp.NextVector3I(out ijk)) return "Expected: I J K";
 				hint = "Central block";
 			}
 
@@ -604,42 +750,38 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			ListDescrtiption(positions, firstLine, false);
 
-			commandResult = MyMarkdown.Result();
+			return MyMarkdown.Result();
 		}
 
-		internal void Inventory()
+		internal string Inventory(TokenParser tp)
 		{
-			if(tokenParser.End)
+			if(tp.End)
 			{
 				var inv = character.GetInventory() as IMyInventory;
-				if (inv == null) { commandResult = "Internal error"; return; }
+				if (inv == null) return IE_NO_INVENTORY;
 
 				tmp.Clear();
 				tmp.Append($"Your inventory:\n");
 				InventoryToText(inv, tmp);
 
-				commandResult = tmp.ToString();
+				return tmp.ToString();
 			}
 			else
-			{
-				if(!GridIsSet()) return;
+			{	string message;
+
+				if(!GridIsSet(out message)) return message;
 
 				Vector3I ijk;
-				if(!tokenParser.NextVector3I(out ijk)) return;
+				if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";
 
 				var block = selectedGrid.GetCubeBlock(ijk);
-				if(block == null)
-				{	commandResult = $"Error: no block at {ijk}";
-					return;
-				}
+				if(block == null) return $"Error: no block at {ijk}";
 
 				var name = Name(block);
 				var fat = block.FatBlock;
 
 				if(fat == null || !fat.HasInventory)
-				{	commandResult = $"Block {Formatter.Quote(name)} does not have an inventory.";
-					return;
-				}
+					return $"Block {Formatter.Quote(name)} does not have an inventory.";
 
 				tmp.Clear();
 				var es = fat.InventoryCount == 1 ? "" : "es";
@@ -650,7 +792,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 					InventoryToText(inv, tmp);
 				}
 
-				commandResult = tmp.ToString();
+				return tmp.ToString();
 			}
 		}
 
@@ -748,7 +890,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(block == null) yield return $"Error: no block at {ijk}";
 
 			var inv = character.GetInventory() as IMyInventory;
-			if (inv == null) yield return "Internal error";
+			if (inv == null) yield return IE_NO_INVENTORY;
 
 			var fat = block.FatBlock;
 			var toName = Name(block);
@@ -892,7 +1034,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 		}
 
 		internal bool InProgress()
-		{	return currentAction != Action.Idle || currentCommand != null;
+		{	return currentCommand != null;
 		}
 
 		internal void Update()
@@ -903,49 +1045,29 @@ drop 'name' [quantity|all] - Drop a specified object.
 				// yield retrurn string; = response to LLM
 				// yield break; = no respone, done
 				// Через yield return null не переносим ссылки на engine-объекты, которые можно заново найти.
+
+				//MyConsole.AddMultiline(".", Color.AliceBlue);
 				
 				if (currentCommand.MoveNext())
-				{	commandResult = currentCommand.Current as string;
+				{	
+					//MyConsole.AddMultiline("M", Color.AliceBlue);
+					
+					commandResult = currentCommand.Current as string;
 
 					if(commandResult != null)
-					{	MyConsole.Add($"test {commandResult}");
+					{	MyConsole.Add($"RESULT {commandResult}");
 
 						(currentCommand as IDisposable)?.Dispose();
 						currentCommand = null;
 					}
 				}
 				else
-				{
+				{	//MyConsole.AddMultiline("BREAK!", Color.AliceBlue);
+
 					(currentCommand as IDisposable)?.Dispose();
 					currentCommand = null;
 				}
 				return;
-			}
-
-			switch(currentAction)
-			{	case Action.Idle:
-					return;
-				case Action.Flying:
-					commandResult = navigation.Step();
-					if(commandResult != null)
-						currentAction = Action.Idle;
-					return;
-				case Action.Grinding:
-					commandResult = botTools.GrindBlock();
-					navigation.JustRotateTo(botTools.Target());
-					if(commandResult != null)
-					{	botTools.Stop();
-						currentAction = Action.Idle;
-					}
-					return;
-				case Action.Welding:
-					navigation.JustRotateTo(botTools.Target());
-					commandResult = botTools.WeldBlock();
-					if(commandResult != null)
-					{	botTools.Stop();
-						currentAction = Action.Idle;
-					}
-					return;
 			}
 		}
 
@@ -953,8 +1075,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 		{
 			if (commandResult != null) throw new Exception("Logic error");
 
-			tokenParser = new TokenParser(command);
-			var tp = tokenParser;
+			var tp = new TokenParser(command);
 
 			if(tp.Match("Overview"))
 			{	Overview();
@@ -963,25 +1084,25 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	Search();
 			}
 			else if(tp.Match("Select_Asteroid"))
-			{	Select(ObjectType.Asteroid);
+			{	Select(ObjectType.Asteroid, tp);
 			}
 			else if(tp.Match("Select_grid") || tp.Match("Select"))
-			{	Select(ObjectType.LargeShip);
+			{	Select(ObjectType.LargeShip, tp);
 			}
 			else if(tp.Match("Fly"))
 			{	Fly();
 			}
 			else if(tp.Match("Grind"))
-			{	Grind();
+			{	currentCommand = Grind(tp);
 			}
 			else if(tp.Match("Weld"))
-			{	Weld();
+			{	currentCommand = Weld(tp);
 			}
 			else if(tp.Match("Near"))
-			{	Near();
+			{	commandResult = Near(tp);
 			}
 			else if(tp.Match("Inventory"))
-			{	Inventory();
+			{	commandResult = Inventory(tp);
 			}
 			else if(tp.Match("Get"))
 			{	currentCommand = Get(tp);

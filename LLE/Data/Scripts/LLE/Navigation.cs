@@ -116,12 +116,13 @@ namespace LLE
 
 		public void JustRotateTo(Vector3D target)
 		{
-			var ec = Utilities.GetEngineerCenter(character);
+			var cm = character.GetHeadMatrix(true);
+			var center = cm.Translation;
 
 			Vector2 rotation;
 			float roll;
-			springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
-				target, character.WorldMatrix.Up, 0.2, out rotation, out roll);
+			springController.Update(center, cm.Forward, cm.Up,
+				target, cm.Up, 0.2, out rotation, out roll);
 
 			character.MoveAndRotate(Vector3.Zero, rotation, roll);
 		}
