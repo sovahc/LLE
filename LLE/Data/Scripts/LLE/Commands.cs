@@ -612,7 +612,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if (!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if (block == null) yield return $"Error: no block at {ijk}";
+			if (block == null) yield return $"Error: no block at {Formatter.IJK(ijk)}";
 
 			if (block.Integrity >= block.MaxIntegrity)
 				yield return "The block is fully intact, no repairs needed.";
@@ -739,7 +739,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";
 
 				var block = selectedGrid.GetCubeBlock(ijk);
-				if(block == null) return $"Error: no block at {ijk}";
+				if(block == null) return $"Error: no block at {Formatter.IJK(ijk)}";
 
 				var name = Name(block);
 				var fat = block.FatBlock;
@@ -851,7 +851,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return $"Error: no block at {ijk}";
+			if(block == null) yield return $"Error: no block at {Formatter.IJK(ijk)}";
 
 			var inv = character.GetInventory() as IMyInventory;
 			if (inv == null) yield return IE_NO_INVENTORY;
@@ -875,7 +875,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			// recheck
 			block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return $"Error: no block at {ijk}";
+			if(block == null) yield return $"Error: no block at {Formatter.IJK(ijk)}";
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
@@ -910,10 +910,10 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(!tp.NextVector3I(out ijkTo)) yield return "Error: expected I J K";
 
 			var blockFrom = selectedGrid.GetCubeBlock(ijkFrom);
-			if(blockFrom == null) yield return $"Error: no block at {ijkFrom}";
+			if(blockFrom == null) yield return $"Error: no block at {Formatter.IJK(ijkFrom)}";
 
 			var blockTo = selectedGrid.GetCubeBlock(ijkTo);
-			if(blockTo == null) yield return  $"Error: no block at {ijkTo}";
+			if(blockTo == null) yield return  $"Error: no block at {Formatter.IJK(ijkTo)}";
 
 			var fatFrom = blockFrom.FatBlock;
 			var fromName = Name(blockFrom);
