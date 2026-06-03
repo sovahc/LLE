@@ -312,17 +312,19 @@ namespace LLE
 
 			float offset = blockSize/2;
 
-			Drawing.ScreenSphere(zero, probeRadius, new Vector4(0.5f, 0.5f, 1f, 0.8f));
+			var color = new Vector4(0.25f, 0.25f, 0.25f, 1.0f);
+
+			Drawing.ScreenSphere(zero, probeRadius, color);
 			var dirs = Constants.SixDirections;
 
 			for (int d = 0; d < dirs.Length; ++d)
 			{
 				Vector3I dir = dirs[d];
 				var world = zero + offset * Vector3D.TransformNormal(new Vector3D(dir.X, dir.Y, dir.Z), grid.WorldMatrix);
-				Drawing.ScreenSphere(world, probeRadius, new Vector4(0.5f, 0.5f, 1f, 0.8f));
-				Drawing.RoundMarker(world, t[dirs[d]] ? Color.DarkGray : Color.Lime);
+				Drawing.ScreenSphere(world, probeRadius, color);
+				Drawing.RoundMarker(world, t[dirs[d]] ? Color.Black : Color.Lime);
 			}
-			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.DarkGray : Color.Green);
+			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.Black : Color.Green);
 		}
 
 		public static bool CenterIsFree(IMySlimBlock slim)
