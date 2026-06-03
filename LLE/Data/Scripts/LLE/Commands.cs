@@ -373,10 +373,15 @@ drop 'name' [quantity|all] - Drop a specified object.
 		}
 
 		internal bool GridIsSet()
+		{	return GridIsSet(out commandResult);
+		}
+
+		internal bool GridIsSet(out string message)
 		{	if(selectedGrid == null)
-			{	commandResult = "Error: you should select a grid first. Use `select_grid name`";
+			{	message = "Error: you should select a grid first. Use `select_grid name`";
 				return false;
 			}
+			message = null;
 			return true;
 		}
 
@@ -923,11 +928,10 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 		}
 
-		private const string GRID_NOT_SET = "Error: you should select a grid first. Use `select_grid name`";
-
 		public IEnumerator LongPut()
 		{	
-			if(!GridIsSet()) yield return GRID_NOT_SET;
+			string message;
+			if(!GridIsSet(out message)) yield return message;
 
 			double count; Vector3I ijk;
 
@@ -951,7 +955,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(fat == null || !fat.HasInventory)
 				yield return $"Block {Formatter.Quote(toName)} does not have an inventory.";
 
-			string message;
 			if(IsTooFar2(ijk, out message)) yield return message;
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
