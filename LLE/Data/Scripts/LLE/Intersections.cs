@@ -148,5 +148,14 @@ namespace LLE
 			}
 			return best;
 		}
+
+		public static bool SphereVsSphere(
+			Vector3D centerA, double radiusA,
+			Vector3D centerB, double radiusB)
+		{
+			Vector3D diff = centerA - centerB;
+			double sumRadii = radiusA + radiusB;
+			return diff.LengthSquared() <= sumRadii * sumRadii;
+		}
 	}
 }

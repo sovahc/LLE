@@ -180,7 +180,7 @@ namespace LLE
 					var screenVerts = Drawing.WorldToScreen(worldVerts);
 					var hull = Geometry.ConvexHull(screenVerts);
 					if (hull.Count >= 2)
-						Drawing.Contour(hull.ToArray(), true, 5e-5f, new Vector4(1f, 0f, 0f, 1f));
+						Drawing.Contour(hull.ToArray(), true, 1e-4f, new Vector4(1f, 0f, 0f, 1f));
 				}
 
 				var sphere = shape as SphereShape;
@@ -246,43 +246,42 @@ namespace LLE
 			}
 		}
 
+		private const float probeRadius = 0.6f;
+
 		private static Traversability CalculateTraversability(CollisionGeometry geometry)
 		{
 			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
 
 			var trav = new Traversability();
-			var probe = new List<Vector3>();
 
-			var probeSize = 1.5f;
-			Geometry.BoxToConvex(new Vector3(probeSize/2, probeSize/2, probeSize/2), probe);
+			float offset = blockSize/2;
 
-			float offset = blockSize - probeSize + 0.1f;
+			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, 0, 0, 0)) trav[0, 0, 0] = true;
 
-			if (ProbeIntersectsCollision(probe, geometry, 0, 0, 0)) trav[0, 0, 0] = true;
-
-			if (ProbeIntersectsCollision(probe, geometry, +offset, 0, 0)) trav[+1, 0, 0] = true;
-			if (ProbeIntersectsCollision(probe, geometry, -offset, 0, 0)) trav[-1, 0, 0] = true;
-			if (ProbeIntersectsCollision(probe, geometry, 0, +offset, 0)) trav[0, +1, 0] = true;
-			if (ProbeIntersectsCollision(probe, geometry, 0, -offset, 0)) trav[0, -1, 0] = true;
-			if (ProbeIntersectsCollision(probe, geometry, 0, 0, +offset)) trav[0, 0, +1] = true;
-			if (ProbeIntersectsCollision(probe, geometry, 0, 0, -offset)) trav[0, 0, -1] = true;
+			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, +offset, 0, 0)) trav[+1, 0, 0] = true;
+			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, -offset, 0, 0)) trav[-1, 0, 0] = true;
+			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, 0, +offset, 0)) trav[0, +1, 0] = true;
+			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, 0, -offset, 0)) trav[0, -1, 0] = true;
+			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, 0, 0, +offset)) trav[0, 0, +1] = true;
+			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, 0, 0, -offset)) trav[0, 0, -1] = true;
 
 			return trav;
 		}
 
-		private static bool ProbeIntersectsCollision(List<Vector3> probeConvex, CollisionGeometry geometry, float ox, float oy, float oz)
+		private static bool ProbeIntersectsCollision(Vector3 center, double radius, CollisionGeometry geometry, float ox, float oy, float oz)
 		{
-			var shiftedProbe = probeConvex.Select(v => new Vector3(v.X + ox, v.Y + oy, v.Z + oz)).ToList();
+			var shiftedCenter = new Vector3D(center.X + ox, center.Y + oy, center.Z + oz);
 
 			foreach (var shape in geometry.Shapes)
 			{
 				var convex = shape as ConvexHullShape;
 				if (convex != null)
-					if (Intersections.ConvexVsConvex(shiftedProbe, convex.Vertices))
+					if (Intersections.SphereVsConvex(shiftedCenter, radius, convex.Vertices))
 						return true;
 				var sphere = shape as SphereShape;
 				if (sphere != null)
-					if (Intersections.SphereVsConvex(sphere.Transform.Translation, sphere.Radius, shiftedProbe))
+					if (Intersections.SphereVsSphere(shiftedCenter, radius,
+						new Vector3D(sphere.Transform.Translation), sphere.Radius))
 						return true;
 			}
 			return false;
@@ -307,15 +306,23 @@ namespace LLE
 			t = t2;
 
 			var zero = grid.GridIntegerToWorld(slim.Position);
+
+			// Draw probe spheres at the same positions used for traversability calculation
+			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
+
+			float offset = blockSize/2;
+
+			Drawing.ScreenSphere(zero, probeRadius, new Vector4(0.5f, 0.5f, 1f, 0.8f));
 			var dirs = Constants.SixDirections;
 
 			for (int d = 0; d < dirs.Length; ++d)
 			{
 				Vector3I dir = dirs[d];
-				var world = (grid.GridIntegerToWorld(slim.Position + dir) - zero) * 0.5 + zero;
-				Drawing.RoundMarker(world, t[dirs[d]] ? Color.Brown : Color.Lime);
+				var world = zero + offset * Vector3D.TransformNormal(new Vector3D(dir.X, dir.Y, dir.Z), grid.WorldMatrix);
+				Drawing.ScreenSphere(world, probeRadius, new Vector4(0.5f, 0.5f, 1f, 0.8f));
+				Drawing.RoundMarker(world, t[dirs[d]] ? Color.DarkGray : Color.Lime);
 			}
-			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.Brown : Color.Green);
+			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.DarkGray : Color.Green);
 		}
 
 		public static bool CenterIsFree(IMySlimBlock slim)
