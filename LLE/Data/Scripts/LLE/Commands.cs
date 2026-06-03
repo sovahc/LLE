@@ -492,7 +492,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return false;
 		}
 
-		internal bool IsTooFar2(Vector3I ijk, out string message)
+		internal bool IsTooFar(Vector3I ijk, out string message)
 		{
 			var block = selectedGrid.GetCubeBlock(ijk);
 
@@ -666,10 +666,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 			inv.GetItems(items);
 
-			for (int i = 0; i < items.Count; i++)
+			foreach (var item in items)
 			{
-				var item = items[i];
-
 				var def = (MyDefinitionId)item.Type;
 				var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
 
@@ -679,44 +677,35 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 		}
 
-		internal void Get()
+		internal IEnumerator Get(TokenParser tp)
 		{
-			if(!GridIsSet()) return;
+			SetPause(2.0);
+			while(IsPaused()) yield return null;
+
+			string message;
+
+			if(!GridIsSet(out message)) yield return message;
 
 			double count; Vector3I ijk;
 
-			if(!tokenParser.NextDouble(out count))
-			{	commandResult = "Error: expected count";
-				return;
-			}
+			if(!tp.NextDouble(out count)) yield return "Error: expected count";
 
-			var item = tokenParser.NextString();
+			var item = tp.NextString();
 
-			if(!tokenParser.Match("from"))
-			{	commandResult = "Error: expected 'from'";
-				return;
-			}
+			if(!tp.Match("from")) yield return "Error: expected 'from'";
 
-			if(!tokenParser.NextVector3I(out ijk))
-			{	commandResult = "Error: expected I J K";
-				return;
-			}
+			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null)
-			{	commandResult = $"Error: no block at {ijk}";
-				return;
-			}
+			if(block == null) yield return $"Error: no block at {Formatter.IJK(ijk)}";
 
 			var fat = block.FatBlock;
 			var fromName = Name(block);
 
 			if(fat == null || !fat.HasInventory)
-			{	commandResult = $"Block {Formatter.Quote(fromName)} does not have an inventory.";
-				return;
-			}
+				yield return  $"Block {Formatter.Quote(fromName)} does not have an inventory.";
 
-			if(IsTooFar(ijk)) return;
+			if(IsTooFar(ijk, out message)) yield return message;
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
@@ -726,7 +715,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			toList.Add(character.GetInventory());
 
-			InventoryTransfer(fromList, toList, fromName, "your inventory", item, (MyFixedPoint)count, out commandResult);
+			InventoryTransfer(fromList, toList, fromName, "your inventory", item, (MyFixedPoint)count, out message);
+			yield return message;
 		}
 
 		internal IEnumerator Put(TokenParser tp)
@@ -765,7 +755,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(fat == null || !fat.HasInventory)
 				yield return $"Block {Formatter.Quote(toName)} does not have an inventory.";
 
-			if(IsTooFar2(ijk, out message)) yield return message;
+			if(IsTooFar(ijk, out message)) yield return message;
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
@@ -776,10 +766,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				toList.Add(fat.GetInventory(ii));
 
 			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out message);
-			if(message != null)
-				yield return message;
-
-			yield break;
+			yield return message;
 		}
 
 		internal void Transfer()
@@ -984,7 +971,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	Inventory();
 			}
 			else if(tp.Match("Get"))
-			{	Get();
+			{	currentCommand = Get(tp);
 			}
 			else if(tp.Match("Put"))
 			{	currentCommand = Put(tp);
