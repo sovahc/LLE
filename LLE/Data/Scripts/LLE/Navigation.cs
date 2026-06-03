@@ -114,14 +114,14 @@ namespace LLE
 			return null; // In progress
 		}
 
-		public void RotateTo(Vector3D target)
+		public void JustRotateTo(Vector3D target)
 		{
 			var ec = Utilities.GetEngineerCenter(character);
 
 			Vector2 rotation;
 			float roll;
 			springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
-				target, up, 0.2, out rotation, out roll);
+				target, character.WorldMatrix.Up, 0.2, out rotation, out roll);
 
 			character.MoveAndRotate(Vector3.Zero, rotation, roll);
 		}

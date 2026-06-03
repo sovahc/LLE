@@ -679,25 +679,27 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		internal IEnumerator Get(TokenParser tp)
 		{
-			SetPause(2.0);
-			while(IsPaused()) yield return null;
-
 			string message;
 
-			if(!GridIsSet(out message)) yield return message;
+			if(!GridIsSet(out message))
+				yield return message;
 
 			double count; Vector3I ijk;
 
-			if(!tp.NextDouble(out count)) yield return "Error: expected count";
+			if(!tp.NextDouble(out count))
+				yield return "Error: expected count";
 
 			var item = tp.NextString();
 
-			if(!tp.Match("from")) yield return "Error: expected 'from'";
+			if(!tp.Match("from"))
+				yield return "Error: expected 'from'";
 
-			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
+			if(!tp.NextVector3I(out ijk))
+				yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return $"Error: no block at {Formatter.IJK(ijk)}";
+			if(block == null)
+				yield return $"Error: no block at {Formatter.IJK(ijk)}";
 
 			var fat = block.FatBlock;
 			var fromName = Name(block);
@@ -705,7 +707,22 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(fat == null || !fat.HasInventory)
 				yield return  $"Block {Formatter.Quote(fromName)} does not have an inventory.";
 
-			if(IsTooFar(ijk, out message)) yield return message;
+			if(IsTooFar(ijk, out message))
+				yield return message;
+
+			Vector3D bp;
+			block.ComputeWorldCenter(out bp);
+
+			SetPause(2.0);
+			while(IsPaused())
+			{	navigation.JustRotateTo(bp);
+				yield return null;
+			}
+
+			// recheck
+			block = selectedGrid.GetCubeBlock(ijk);
+			if(block == null)
+				yield return $"Error: no block at {Formatter.IJK(ijk)}";
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
@@ -721,9 +738,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		internal IEnumerator Put(TokenParser tp)
 		{	
-			SetPause(2.0);
-			while(IsPaused()) yield return null;
-
 			string message;
 			if(!GridIsSet(out message))
 				yield return message;
@@ -756,6 +770,20 @@ drop 'name' [quantity|all] - Drop a specified object.
 				yield return $"Block {Formatter.Quote(toName)} does not have an inventory.";
 
 			if(IsTooFar(ijk, out message)) yield return message;
+
+			Vector3D bp;
+			block.ComputeWorldCenter(out bp);
+
+			SetPause(2.0);
+			while(IsPaused())
+			{	navigation.JustRotateTo(bp);
+				yield return null;
+			}
+
+			// recheck
+			block = selectedGrid.GetCubeBlock(ijk);
+			if(block == null)
+				yield return $"Error: no block at {ijk}";
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
@@ -919,14 +947,14 @@ drop 'name' [quantity|all] - Drop a specified object.
 					return;
 				case Action.Grinding:
 					commandResult = botTools.GrindBlock();
-					navigation.RotateTo(botTools.Target());
+					navigation.JustRotateTo(botTools.Target());
 					if(commandResult != null)
 					{	botTools.Stop();
 						currentAction = Action.Idle;
 					}
 					return;
 				case Action.Welding:
-					navigation.RotateTo(botTools.Target());
+					navigation.JustRotateTo(botTools.Target());
 					commandResult = botTools.WeldBlock();
 					if(commandResult != null)
 					{	botTools.Stop();
