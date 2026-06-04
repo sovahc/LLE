@@ -60,7 +60,7 @@ namespace LLE
 			bool i1 = HasMaterialsInBox(wb, intersectingVoxels[0]); // 0.02 // Super fast
 			//bool i2 = voxel.IsAnyAabbCornerInside(ref MatrixD.Identity, wb); // 0.04 // A bit slower
 			//BoundingSphereD sphere = new BoundingSphereD(vc, 1.25); // 0.2 // Very slow
-   			//bool i3 = voxel.GetIntersectionWithSphere(ref sphere);
+			//bool i3 = voxel.GetIntersectionWithSphere(ref sphere);
 
 			return !i1;
 		}
