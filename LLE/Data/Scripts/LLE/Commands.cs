@@ -427,7 +427,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	tmp.Append(" -- none -- ");
 			}
 			tmp.Append(")\n");
-			tmp.Append($"(Nearest to you is {Formatter.IJK(nearestFreeSpace)})");
+			if(semi) tmp.Append($"(Nearest to you is {Formatter.IJK(nearestFreeSpace)})");
 		}
 
 		internal IEnumerator Fly(TokenParser tp)
