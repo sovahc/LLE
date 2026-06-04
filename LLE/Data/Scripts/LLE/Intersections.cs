@@ -157,5 +157,23 @@ namespace LLE
 			double sumRadii = radiusA + radiusB;
 			return diff.LengthSquared() <= sumRadii * sumRadii;
 		}
+
+		public static bool SphereVsAABB(
+			Vector3D sphereCenter, double sphereRadius,
+			Vector3D cellMin, Vector3D cellMax)
+		{
+			// Find the closest point on the AABB to the sphere center
+			double closestX = Math.Max(cellMin.X, Math.Min(sphereCenter.X, cellMax.X));
+			double closestY = Math.Max(cellMin.Y, Math.Min(sphereCenter.Y, cellMax.Y));
+			double closestZ = Math.Max(cellMin.Z, Math.Min(sphereCenter.Z, cellMax.Z));
+
+			// Calculate the vector from the closest point to the sphere center
+			double distanceX = sphereCenter.X - closestX;
+			double distanceY = sphereCenter.Y - closestY;
+			double distanceZ = sphereCenter.Z - closestZ;
+
+			// Check if the squared distance is less than or equal to the squared radius
+			return (distanceX * distanceX + distanceY * distanceY + distanceZ * distanceZ) <= (sphereRadius * sphereRadius);
+		}
 	}
 }
