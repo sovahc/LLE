@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Sandbox.ModAPI;
 using VRage.Game.ModAPI;
@@ -12,7 +13,7 @@ namespace LLE
 		private Vector3D up;
 		private IMyCharacter character;
 
-		IMyCubeGrid grid;
+		private IMyCubeGrid grid;
 		private AStar astar;
 		private const int AStarBorder = 1;
 
@@ -64,16 +65,18 @@ namespace LLE
 
 				if(astar.Completed())
 				{
-					if(astar.result.Count == 0)
+					var ar = astar.resultSimplifyed;
+
+					if(ar.Count == 0)
 						return "There is no path to your destination.";
 
 					List<Vector3D> path = new List<Vector3D>();
 
 					path.Add(Utilities.GetEngineerCenter(character));
 
-					for(int i = 0; i < astar.result.Count; ++i)
+					for(int i = 0; i < ar.Count; ++i)
 					{	
-						var v = astar.result[i] + grid.Min - AStarBorder;
+						var v = ar[i] + grid.Min - AStarBorder;
 
 						path.Add(grid.GridIntegerToWorld(v));				
 					}
@@ -127,7 +130,7 @@ namespace LLE
 			character.MoveAndRotate(Vector3.Zero, rotation, roll);
 		}
 
-		private void RunAstar(Vector3I point_A, Vector3I point_B)
+		public void RunAstar(Vector3I point_A, Vector3I point_B)
 		{
 			Vector3I gridSize = grid.Max - grid.Min + 1;
 
@@ -135,42 +138,7 @@ namespace LLE
 
 			var astarSize = gridSize + AStarBorder + AStarBorder;
 
-			TraversabilitySource source = new TraversabilitySource((index) =>
-			{
-				Vector3I pos;
-				int strideXY = astarSize.X * astarSize.Y;
-				pos.Z = index / strideXY;
-				index -= pos.Z * strideXY;
-				pos.Y = index / astarSize.X;
-				pos.X = index - pos.Y * astarSize.X;
-
-				var gridPos = pos - AStarBorder;
-
-				if (gridPos.X < grid.Min.X || gridPos.Y < grid.Min.Y || gridPos.Z < grid.Min.Z ||
-			    	gridPos.X > grid.Max.X || gridPos.Y > grid.Max.Y || gridPos.Z > grid.Max.Z)
-					return Traversability.Free;
-
-				var slim = grid.GetCubeBlock(gridPos) as IMySlimBlock;
-				if (slim == null)
-					return Traversability.Free;
-
-				Traversability t;
-				if (!Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
-					return Traversability.Blocked;
-
-				var min = slim.Min;
-				var max = slim.Max;
-				if (min == max)
-				{
-					Vector3I localPos = gridPos - min;
-					if (localPos.X < -1 || localPos.X > 1 || localPos.Y < -1 || localPos.Y > 1 || localPos.Z < -1 || localPos.Z > 1)
-						return Traversability.Free;
-
-					MatrixI m = new MatrixI(slim.Orientation);
-					return Traversability.Rotate(t, m);
-				}
-				return Traversability.Blocked;
-			});
+			var source = new TraversabilitySource(grid, AStarBorder, astarSize, Collisions._traversabilityCache);
 
 			if (astar == null || astar.Size != astarSize)
 				astar = new AStar(astarSize, source);
@@ -180,6 +148,24 @@ namespace LLE
 			var a = point_A - grid.Min + AStarBorder;
 			var b = point_B - grid.Min + AStarBorder;
 			astar.RunCalculation(a, b);
+		}
+
+		internal void TestAstar(IMyCubeGrid selectedGrid, Vector3I a, Vector3I b)
+		{
+			grid = selectedGrid;
+			RunAstar(a, b);
+		}
+
+		internal void TestAstarStep()
+		{	if(astar != null) astar.Iteration();
+		}
+
+		internal void DrawPath()
+		{	if(astar == null) return;
+			foreach(var p in astar.result)
+			{	var iv = p + grid.Min - AStarBorder;
+				Drawing.RoundMarker(grid.GridIntegerToWorld(iv), Color.DarkMagenta);
+			}
 		}
 	}
 }

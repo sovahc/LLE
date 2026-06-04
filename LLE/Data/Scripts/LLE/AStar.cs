@@ -6,16 +6,6 @@ using Priority_Queue;
 
 namespace LLE
 {
-	class TraversabilitySource
-	{
-		private readonly Func<int, Traversability> _func;
-
-		public TraversabilitySource(Func<int, Traversability> func)
-		{   _func = func;
-		}
-
-		public Traversability Get(int index) => _func(index);
-	}
 
 	public class MyNode : FastPriorityQueueNode
 	{
@@ -40,6 +30,7 @@ namespace LLE
 		private IEnumerator iterator;
 
 		public readonly List<Vector3I> result = new List<Vector3I>();
+		public readonly List<Vector3I> resultSimplifyed =  new List<Vector3I>();
 
 		public Vector3I Size => _indexer.Size;
 		public void IndexToPosition(int index, out Vector3I pos) => _indexer.IndexToPosition(index, out pos);
@@ -90,6 +81,7 @@ namespace LLE
 
 		public void RunCalculation(Vector3I start, Vector3I goal)
 		{	result.Clear();
+			resultSimplifyed.Clear();
 			iterator = FindPath(start, goal);
 		}
 
@@ -150,6 +142,7 @@ namespace LLE
 				if (currentI == goalIndex)
 				{	MyConsole.Add($"cellsAnalyzed {cellsAnalyzed}", Color.Red);
 					result.AddList(ReconstructPath(goalIndex, goal));
+					resultSimplifyed.AddList(SimplifyPath(result));
 					yield break;
 				}
 
@@ -212,7 +205,7 @@ namespace LLE
 			}
 
 			path.Reverse();
-			return SimplifyPath(path);
+			return path;
 		}
 
 		private List<Vector3I> SimplifyPath(List<Vector3I> path)

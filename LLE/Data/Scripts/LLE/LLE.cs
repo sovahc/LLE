@@ -30,8 +30,6 @@ namespace LLE
 	{
 		private static Font font;
 
-		private IMyCubeGrid selectedGrid;
-		private Vector3I selectedBlock;
 		private Commands commands;
 
 		private readonly StringBuilder llmReasoning = new StringBuilder();
@@ -41,6 +39,9 @@ namespace LLE
 
 		private bool pauseLLM;
 
+		private IMyCubeGrid selectedGrid;
+		private Vector3I selectedBlock;
+		private Vector3I freeSpaceA, freeSpaceB;
 		private static Vector3D testSphereCenter;
 
 		public static void Log(string s) => Utilities.Log(s);
@@ -212,13 +213,24 @@ namespace LLE
 			}
 
 			if(MyAPIGateway.Input.IsNewLeftMousePressed())
-			{	Vector3I unused;
-				Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
-					out selectedGrid, out selectedBlock, out unused);
+			{	Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
+					out selectedGrid, out selectedBlock, out freeSpaceA);
 			}
+			if(MyAPIGateway.Input.IsNewRightMousePressed())
+			{	Vector3I unused;				
+				Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
+					out selectedGrid, out unused, out freeSpaceB);
+
+				if(selectedGrid != null)
+				{	commands.navigation.TestAstar(selectedGrid, freeSpaceA, freeSpaceB);
+				}
+			}
+			commands?.navigation?.TestAstarStep();
+			commands?.navigation?.DrawPath();
 
 			if (selectedGrid != null)
-			{	var block = selectedGrid.GetCubeBlock(selectedBlock);
+			{	
+				var block = selectedGrid.GetCubeBlock(selectedBlock);
 				
 				if (block != null)
 				{	
@@ -228,21 +240,23 @@ namespace LLE
 					Collisions.Draw(selectedGrid, block);
 					Collisions.DrawTraversability(selectedGrid, block);
 				}
+
+				Utilities.HighlightCell(selectedGrid, freeSpaceA, Color.Green);
+				Utilities.HighlightCell(selectedGrid, freeSpaceB, Color.DarkMagenta);
 			}
 
 			// Right click — test sphere collision with block
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
 			{
-				var engineerCenter = Utilities.GetEngineerCenter(ch);
-				testSphereCenter = engineerCenter + 5.0 * ch.WorldMatrix.Forward;
+				//var engineerCenter = Utilities.GetEngineerCenter(ch);
+				//testSphereCenter = engineerCenter + 5.0 * ch.WorldMatrix.Forward;
 			}
 
 			// Draw test sphere
-			if (selectedGrid != null)
+			/*if (selectedGrid != null)
 			{
 				var block = selectedGrid.GetCubeBlock(selectedBlock);
-				
-				
+
 				bool intersection = false;
 				if(block != null)
 					intersection = Collisions.CheckWorldSphere(selectedGrid, block, testSphereCenter, 0.5);
@@ -250,7 +264,7 @@ namespace LLE
 				var color = intersection ? new Vector4(1f, 0f, 0f, 1f) : new Vector4(0f, 1f, 0f, 1f);
 				Drawing.ScreenSphere(testSphereCenter, 0.5f, color);
 				Drawing.RoundMarker(testSphereCenter, intersection ? Color.Red : Color.Lime);
-			}
+			}*/
 
 			if(Debug.grid != null)
 			{	foreach(var cell in Debug.highlightCellsRed)
