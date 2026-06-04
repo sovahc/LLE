@@ -6,6 +6,17 @@ using Priority_Queue;
 
 namespace LLE
 {
+	class TraversabilitySource
+	{
+		private readonly Func<int, Traversability> _func;
+
+		public TraversabilitySource(Func<int, Traversability> func)
+		{   _func = func;
+		}
+
+		public Traversability Get(int index) => _func(index);
+	}
+
 	public class MyNode : FastPriorityQueueNode
 	{
 		public int Index;

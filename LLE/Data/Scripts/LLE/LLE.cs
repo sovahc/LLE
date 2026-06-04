@@ -41,7 +41,6 @@ namespace LLE
 
 		private bool pauseLLM;
 
-		// Test sphere state
 		private static Vector3D testSphereCenter;
 
 		public static void Log(string s) => Utilities.Log(s);

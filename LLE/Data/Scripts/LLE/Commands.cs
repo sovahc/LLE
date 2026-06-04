@@ -1009,19 +1009,13 @@ drop 'name' [quantity|all] - Drop a specified object.
 			// yield retrurn string; = response to LLM
 			// yield break; = no respone, done
 			// ! Don't carry references to engine objects across `yield return null` that can be re-found.
-
-			//MyConsole.AddMultiline(".", Color.AliceBlue);
 				
 			if (currentCommand.MoveNext())
 			{	
-				//MyConsole.AddMultiline("M", Color.AliceBlue);
-					
 				var result = currentCommand.Current as string;
 
 				if(result != null)
-				{	MyConsole.Add($"result {result}");
-
-					(currentCommand as IDisposable)?.Dispose();
+				{	(currentCommand as IDisposable)?.Dispose();
 					currentCommand = null;
 					return result;
 				}
