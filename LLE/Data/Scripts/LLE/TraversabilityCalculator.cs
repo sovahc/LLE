@@ -5,12 +5,12 @@ using VRageMath;
 
 namespace LLE
 {
-	class TraversabilitySource
+	class TraversabilityCalculator
 	{
 		private readonly IMyCubeGrid _grid;
 		private readonly int _border;
 
-		public TraversabilitySource(IMyCubeGrid grid, int border, Vector3I astarSize)
+		public TraversabilityCalculator(IMyCubeGrid grid, int border, Vector3I astarSize)
 		{
 			_grid = grid;
 			_border = border;

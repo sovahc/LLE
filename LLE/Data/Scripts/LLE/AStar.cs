@@ -15,7 +15,7 @@ namespace LLE
 	class AStar
 	{
 		private readonly Indexer _indexer;
-		private readonly TraversabilitySource _source;
+		private readonly TraversabilityCalculator _source;
 
 		private readonly BitField _closed;
 		private readonly BitField _inOpen;
@@ -35,7 +35,7 @@ namespace LLE
 		public Vector3I Size => _indexer.Size;
 		public void IndexToPosition(int index, out Vector3I pos) => _indexer.IndexToPosition(index, out pos);
 
-		public AStar(Vector3I size, TraversabilitySource source)
+		public AStar(Vector3I size, TraversabilityCalculator source)
 		{
 			_indexer = new Indexer(size);
 			_source = source;
