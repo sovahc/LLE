@@ -16,6 +16,7 @@ using VRage.Game.ModAPI;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
+using VRageRender.Messages;
 
 namespace LLE
 {
@@ -393,6 +394,11 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		internal void ListFreeSpace_ToTmp(Vector3I ijk)
 		{	
+			Vector3D ec = Utilities.GetEngineerCenter(character);
+
+			var minimalDistanceSq = double.MaxValue;
+			var nearestFreeSpace = Vector3I.Zero;
+
 			tmp.Append("(");
 
 			bool semi = false;
@@ -408,11 +414,20 @@ drop 'name' [quantity|all] - Drop a specified object.
 				}
 				else
 					Debug.highlightCellsRed.Add(position);
+
+				var bp = selectedGrid.GridIntegerToWorld(position);
+				var dsq = (ec - bp).LengthSquared();
+
+				if(dsq < minimalDistanceSq)
+				{	minimalDistanceSq = dsq;
+					nearestFreeSpace = position;
+				}
 			}
 			if(!semi) // nothing added
 			{	tmp.Append(" -- none -- ");
 			}
 			tmp.Append(")\n");
+			tmp.Append($"(Nearest to you is {Formatter.IJK(nearestFreeSpace)})");
 		}
 
 		internal IEnumerator Fly(TokenParser tp)
