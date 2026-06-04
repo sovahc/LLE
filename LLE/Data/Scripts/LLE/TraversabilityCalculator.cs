@@ -8,29 +8,28 @@ namespace LLE
 {
 	class TraversabilityCalculator
 	{
-		private readonly IMyCubeGrid _grid;
-		private readonly int _border;
+		private readonly IMyCubeGrid grid;
+		private readonly int border;
+		private readonly List<MyVoxelBase> intersectingVoxels = new List<MyVoxelBase>();
 
-		private List<MyVoxelBase> intersectingVoxels = new List<MyVoxelBase>();
-
-		public TraversabilityCalculator(IMyCubeGrid grid, int border)
+		public TraversabilityCalculator(IMyCubeGrid grid_, int border_)
 		{
-			_grid = grid;
-			_border = border;
+			grid = grid_;
+			border = border_;
 
-			var worldAabb = _grid.PositionComp.WorldAABB;
+			var worldAabb = grid.PositionComp.WorldAABB;
 			intersectingVoxels.Clear();
 			MyGamePruningStructure.GetAllVoxelMapsInBox(ref worldAabb, intersectingVoxels);
 		}
 
 		public Traversability Get(Vector3I astarPosition)
 		{
-			var position = astarPosition + _grid.Min - _border;
+			var position = astarPosition + grid.Min - border;
 
 			foreach(var voxel in intersectingVoxels)
 				if(!IsVoxelTraversable(voxel, position)) return Traversability.Blocked;
 
-			var slim = _grid.GetCubeBlock(position);
+			var slim = grid.GetCubeBlock(position);
 			if (slim == null)
 				return Traversability.Free;
 
@@ -48,8 +47,8 @@ namespace LLE
 
 		private bool IsVoxelTraversable(MyVoxelBase voxel, Vector3I gridPosition)
 		{
-			var v1 = _grid.GridIntegerToWorld(gridPosition);
-			var v2 = _grid.GridIntegerToWorld(gridPosition+1);
+			var v1 = grid.GridIntegerToWorld(gridPosition);
+			var v2 = grid.GridIntegerToWorld(gridPosition+1);
 
 			var v = v2 - v1;
 			v1 -= v * 0.5;
