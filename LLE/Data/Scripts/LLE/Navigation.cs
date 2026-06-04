@@ -138,7 +138,7 @@ namespace LLE
 
 			var astarSize = gridSize + AStarBorder + AStarBorder;
 
-			var source = new TraversabilityCalculator(grid, AStarBorder, astarSize);
+			var source = new TraversabilityCalculator(grid, AStarBorder);
 
 			if (astar == null || astar.Size != astarSize)
 				astar = new AStar(astarSize, source);

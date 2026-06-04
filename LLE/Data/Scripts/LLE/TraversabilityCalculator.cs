@@ -10,7 +10,7 @@ namespace LLE
 		private readonly IMyCubeGrid _grid;
 		private readonly int _border;
 
-		public TraversabilityCalculator(IMyCubeGrid grid, int border, Vector3I astarSize)
+		public TraversabilityCalculator(IMyCubeGrid grid, int border)
 		{
 			_grid = grid;
 			_border = border;
