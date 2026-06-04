@@ -73,7 +73,10 @@ namespace LLE
 			if (_known.Get(index) != 0)
 				return _traversability[index];
 
-			var t = _source.Get(index);
+			Vector3I v;
+			_indexer.IndexToPosition(index, out v);
+
+			var t = _source.Get(v);
 			_traversability[index] = t;
 			_known.Set(index, 1);
 			return t;
@@ -146,26 +149,26 @@ namespace LLE
 					yield break;
 				}
 
-			float curG = _gScore[currentI];
-			var currentT = GetTraversability(currentI);
+				float curG = _gScore[currentI];
+				var currentT = GetTraversability(currentI);
 
-			for (int d = 0; d < Constants.SixDirections.Length; ++d)
-			{
-				var direction = Constants.SixDirections[d];
+				for (int d = 0; d < Constants.SixDirections.Length; ++d)
+				{
+					var direction = Constants.SixDirections[d];
 
-				Vector3I next = cv + direction;
+					Vector3I next = cv + direction;
 
-				if (!_indexer.In(next)) continue;
+					if (!_indexer.In(next)) continue;
 
-				++cellsAnalyzed;
+					++cellsAnalyzed;
 
-				int nextI = _indexer.Index(next);
+					int nextI = _indexer.Index(next);
 
-				var nextT = GetTraversability(nextI);
-				if (nextT.Center) continue;
-				if (currentT[direction]) continue;
-				if (nextT[-direction]) continue;
 					if (_closed.Get(nextI) != 0) continue;
+
+					var nextT = GetTraversability(nextI);
+					if (nextT.Center) continue;
+					if (currentT[direction] || nextT[-direction]) continue;
 
 					float tentativeG = curG + 1;
 
