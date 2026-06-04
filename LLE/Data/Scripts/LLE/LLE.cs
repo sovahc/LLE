@@ -168,7 +168,7 @@ namespace LLE
 
 		private void ProcessLlmContent(string content)
 		{
-			const string error = "нет команды для выполнения, нужна команда в обратных кавычках";
+			const string error = "No command to execute, a command in backticks is required";
 
 			int lastBacktick = content.LastIndexOf('`');
 			if (lastBacktick < 0)

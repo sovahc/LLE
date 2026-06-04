@@ -1008,7 +1008,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			// yield return null; = wait
 			// yield retrurn string; = response to LLM
 			// yield break; = no respone, done
-			// ! Через yield return null не переносим ссылки на engine-объекты, которые можно заново найти.
+			// ! Don't carry references to engine objects across `yield return null` that can be re-found.
 
 			//MyConsole.AddMultiline(".", Color.AliceBlue);
 				
