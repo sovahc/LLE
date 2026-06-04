@@ -1024,7 +1024,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 			// yield break; = no respone, done
 			// ! Don't carry references to engine objects across `yield return null` that can be re-found.
 
-				
 			if (currentCommand.MoveNext())
 			{	
 				var result = currentCommand.Current as string;
