@@ -218,45 +218,6 @@ namespace LLE
 					out selectedGrid, out selectedBlock, out freeSpaceA);
 			}
 
-			/*if(MyAPIGateway.Input.IsNewRightMousePressed())
-			{	var point = Utilities.GetEngineerCenter(ch) + 5.0 * ch.WorldMatrix.Forward;
-				if(selectedGrid != null)
-				{	freeSpaceB = selectedGrid.WorldToGridInteger(point);
-				}
-			}
-
-			if(selectedGrid != null)
-			{	var v1 = selectedGrid.GridIntegerToWorld(freeSpaceB);
-				var vc = v1;
-				var v2 = selectedGrid.GridIntegerToWorld(freeSpaceB+1);
-
-				var v = v2 - v1;
-				v1 -= v * 0.5;
-				v2 -= v * 0.5;
-
-				List<MyVoxelBase> intersectingVoxels = new List<MyVoxelBase>();
-
-				var worldAabb = selectedGrid.PositionComp.WorldAABB;
-				MyGamePruningStructure.GetAllVoxelMapsInBox(ref worldAabb, intersectingVoxels);
-
-				if(MyAPIGateway.Input.IsNewRightMousePressed())
-					MyConsole.Add($"intersectingVoxels {intersectingVoxels.Count}");
-
-				if(intersectingVoxels.Count == 1)
-				{	
-					BoundingBoxD wb = new BoundingBoxD(v1, v2);
-
-					var voxel = intersectingVoxels[0];
-						
-					bool i1 = TraversabilityCalculator.HasMaterialsInBox(wb, intersectingVoxels[0]);
-					bool i2 = voxel.IsAnyAabbCornerInside(ref MatrixD.Identity, wb);
-					BoundingSphereD sphere = new BoundingSphereD(vc, 1.25);
-   					bool i3 = voxel.GetIntersectionWithSphere(ref sphere);
-					
-					Utilities.HighlightCell(selectedGrid, freeSpaceB, i1 ? Color.Red : Color.Green);
-				}
-			}*/
-
 			if(MyAPIGateway.Input.IsNewRightMousePressed())
 			{	Vector3I unused;				
 				Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
@@ -289,12 +250,12 @@ namespace LLE
 			// Right click — test sphere collision with block
 			if (MyAPIGateway.Input.IsNewRightMousePressed())
 			{
-				//var engineerCenter = Utilities.GetEngineerCenter(ch);
-				//testSphereCenter = engineerCenter + 5.0 * ch.WorldMatrix.Forward;
+				var engineerCenter = Utilities.GetEngineerCenter(ch);
+				testSphereCenter = engineerCenter + 5.0 * ch.WorldMatrix.Forward;
 			}
 
 			// Draw test sphere
-			/*if (selectedGrid != null)
+			if (selectedGrid != null)
 			{
 				var block = selectedGrid.GetCubeBlock(selectedBlock);
 
@@ -305,7 +266,7 @@ namespace LLE
 				var color = intersection ? new Vector4(1f, 0f, 0f, 1f) : new Vector4(0f, 1f, 0f, 1f);
 				Drawing.ScreenSphere(testSphereCenter, 0.5f, color);
 				Drawing.RoundMarker(testSphereCenter, intersection ? Color.Red : Color.Lime);
-			}*/
+			}
 
 			if(Debug.grid != null)
 			{	foreach(var cell in Debug.highlightCellsRed)
