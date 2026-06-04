@@ -213,6 +213,8 @@ namespace LLE
 				return;
 			}
 
+/*			// XX ломает первый вызов fly
+
 			if(MyAPIGateway.Input.IsNewLeftMousePressed())
 			{	Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
 					out selectedGrid, out selectedBlock, out freeSpaceA);
@@ -228,7 +230,7 @@ namespace LLE
 				}
 			}
 			commands?.navigation?.TestAstarStep();
-			commands?.navigation?.DrawPath();
+			commands?.navigation?.DrawPath();*/
 
 			if (selectedGrid != null)
 			{	
