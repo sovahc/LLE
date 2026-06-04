@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage.Game;
 using VRage.Game.Components;
@@ -216,7 +217,43 @@ namespace LLE
 			{	Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
 					out selectedGrid, out selectedBlock, out freeSpaceA);
 			}
+
 			if(MyAPIGateway.Input.IsNewRightMousePressed())
+			{	var point = Utilities.GetEngineerCenter(ch) + 5.0 * ch.WorldMatrix.Forward;
+				if(selectedGrid != null)
+				{	freeSpaceB = selectedGrid.WorldToGridInteger(point);
+				}
+			}
+
+			if(selectedGrid != null)
+			{	var v1 = selectedGrid.GridIntegerToWorld(freeSpaceB);
+				var v2 = selectedGrid.GridIntegerToWorld(freeSpaceB+1);
+
+				var v = v2 - v1;
+				v1 -= v * 0.5;
+				v2 -= v * 0.5;
+
+				List<MyVoxelBase> intersectingVoxels = new List<MyVoxelBase>();
+
+				var worldAabb = selectedGrid.PositionComp.WorldAABB;
+				MyGamePruningStructure.GetAllVoxelMapsInBox(ref worldAabb, intersectingVoxels);
+
+				if(MyAPIGateway.Input.IsNewRightMousePressed())
+					MyConsole.Add($"intersectingVoxels {intersectingVoxels.Count}");
+
+				if(intersectingVoxels.Count == 1)
+				{	
+					BoundingBoxD wb = new BoundingBoxD(v1, v2);
+						
+					Debug.Start(selectedGrid);
+					bool i = TraversabilityCalculator.HasMaterialsInBox(wb, intersectingVoxels[0]);
+					
+					Utilities.HighlightCell(selectedGrid, freeSpaceB, i ? Color.Red : Color.Green);
+				}
+			}
+
+
+/*			if(MyAPIGateway.Input.IsNewRightMousePressed())
 			{	Vector3I unused;				
 				Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
 					out selectedGrid, out unused, out freeSpaceB);
@@ -251,7 +288,7 @@ namespace LLE
 				//var engineerCenter = Utilities.GetEngineerCenter(ch);
 				//testSphereCenter = engineerCenter + 5.0 * ch.WorldMatrix.Forward;
 			}
-
+*/
 			// Draw test sphere
 			/*if (selectedGrid != null)
 			{

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
-using VRage.Game;
+using Sandbox.Game.Entities;
 using VRage.Game.ModAPI;
+using VRage.Voxels;
 using VRageMath;
 
 namespace LLE
@@ -10,17 +11,25 @@ namespace LLE
 		private readonly IMyCubeGrid _grid;
 		private readonly int _border;
 
+		private List<MyVoxelBase> intersectingVoxels = new List<MyVoxelBase>();
+
 		public TraversabilityCalculator(IMyCubeGrid grid, int border)
 		{
 			_grid = grid;
 			_border = border;
+
+			var worldAabb = _grid.PositionComp.WorldAABB;
+			intersectingVoxels.Clear();
+			MyGamePruningStructure.GetAllVoxelMapsInBox(ref worldAabb, intersectingVoxels);
 		}
 
-		public Traversability Get(Vector3I position)
+		public Traversability Get(Vector3I astarPosition)
 		{
-			var gridPos = position + _grid.Min - _border;
+			var position = astarPosition + _grid.Min - _border;
 
-			var slim = _grid.GetCubeBlock(gridPos);
+			/// 
+
+			var slim = _grid.GetCubeBlock(position);
 			if (slim == null)
 				return Traversability.Free;
 
@@ -34,6 +43,67 @@ namespace LLE
 				return Traversability.Rotate(t, m);
 			}
 			return Traversability.Blocked;
+		}
+
+		private static readonly MyStorageData storage = new MyStorageData();
+
+		public static bool HasMaterialsInBox(BoundingBoxD worldBoundaries, MyVoxelBase voxel, int lod = 0)
+		{
+			if (voxel == null || voxel.MarkedForClose) return false;
+
+			Vector3I max = voxel.Storage.Size - 1;
+			Vector3D bottomLeftCorner = voxel.PositionLeftBottomCorner;
+			Vector3I voxelCoordMin, voxelCoordMax;
+
+			MyVoxelCoordSystems.WorldPositionToVoxelCoord(bottomLeftCorner, ref worldBoundaries.Min, out voxelCoordMin);
+			MyVoxelCoordSystems.WorldPositionToVoxelCoord(bottomLeftCorner, ref worldBoundaries.Max, out voxelCoordMax);
+			Vector3I voxelCoord3 = voxelCoordMin - 1;
+			Vector3I voxelCoord4 = voxelCoordMax + 1;
+
+			Vector3I.Clamp(ref voxelCoord3, ref Vector3I.Zero, ref max, out voxelCoord3);
+			Vector3I.Clamp(ref voxelCoord4, ref Vector3I.Zero, ref max, out voxelCoord4);
+
+			voxelCoord3 >>= lod;
+			voxelCoord3 -= 1;
+			voxelCoord4 >>= lod;
+			voxelCoord4 += 1;
+
+			storage.Resize(voxelCoord3, voxelCoord4);
+
+			if (voxel == null || voxel.MarkedForClose) return false;
+
+			using (voxel.Pin())
+			{
+				voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, voxelCoord3, voxelCoord4);
+			}
+
+			Vector3I vector3I = default(Vector3I);
+			vector3I.X = voxelCoord3.X;
+			while (vector3I.X <= voxelCoord4.X)
+			{
+				vector3I.Y = voxelCoord3.Y;
+				while (vector3I.Y <= voxelCoord4.Y)
+				{
+					vector3I.Z = voxelCoord3.Z;
+					while (vector3I.Z <= voxelCoord4.Z)
+					{
+						Vector3I p = vector3I - voxelCoord3;
+						int linearIdx = storage.ComputeLinear(ref p);
+						byte b = storage.Material(linearIdx);
+
+						if (b != byte.MaxValue)
+						{
+							return true;
+						}
+
+						vector3I.Z++;
+					}
+					vector3I.Y++;
+				}
+				vector3I.X++;
+			}
+
+			return false;
 		}
 	}
 }
