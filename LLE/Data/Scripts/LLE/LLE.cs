@@ -227,6 +227,7 @@ namespace LLE
 
 			if(selectedGrid != null)
 			{	var v1 = selectedGrid.GridIntegerToWorld(freeSpaceB);
+				var vc = v1;
 				var v2 = selectedGrid.GridIntegerToWorld(freeSpaceB+1);
 
 				var v = v2 - v1;
@@ -244,11 +245,15 @@ namespace LLE
 				if(intersectingVoxels.Count == 1)
 				{	
 					BoundingBoxD wb = new BoundingBoxD(v1, v2);
+
+					var voxel = intersectingVoxels[0];
 						
-					Debug.Start(selectedGrid);
-					bool i = TraversabilityCalculator.HasMaterialsInBox(wb, intersectingVoxels[0]);
+					bool i1 = TraversabilityCalculator.HasMaterialsInBox(wb, intersectingVoxels[0]);
+					bool i2 = voxel.IsAnyAabbCornerInside(ref MatrixD.Identity, wb);
+					BoundingSphereD sphere = new BoundingSphereD(vc, 1.25);
+   					bool i3 = voxel.GetIntersectionWithSphere(ref sphere);
 					
-					Utilities.HighlightCell(selectedGrid, freeSpaceB, i ? Color.Red : Color.Green);
+					Utilities.HighlightCell(selectedGrid, freeSpaceB, i1 ? Color.Red : Color.Green);
 				}
 			}
 

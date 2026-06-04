@@ -80,7 +80,7 @@ namespace LLE
 			MatrixD matrix = grid.WorldMatrix;
 			matrix.Translation = world;
 
-			var v = new Vector3D(blockSize * 0.55);
+			var v = new Vector3D(blockSize * 0.5);
 
 			var bb = new BoundingBoxD(-v, v);
 
