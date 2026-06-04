@@ -135,49 +135,47 @@ namespace LLE
 
 			var astarSize = gridSize + AStarBorder + AStarBorder;
 
-			if (astar == null || astar.Size != astarSize) astar = new AStar(astarSize);
-
-			List<IMySlimBlock> blocks = new List<IMySlimBlock>();
-			grid.GetBlocks(blocks);
-
-			using (var prof = new Profiler("fill"))
+			TraversabilitySource source = new TraversabilitySource((index) =>
 			{
-				astar.Reset(true);
+				Vector3I pos;
+				int strideXY = astarSize.X * astarSize.Y;
+				pos.Z = index / strideXY;
+				index -= pos.Z * strideXY;
+				pos.Y = index / astarSize.X;
+				pos.X = index - pos.Y * astarSize.X;
 
-				int unknownBlocks = 0;
-				foreach (var slim in blocks)
+				var gridPos = pos - AStarBorder;
+
+				if (gridPos.X < grid.Min.X || gridPos.Y < grid.Min.Y || gridPos.Z < grid.Min.Z ||
+			    	gridPos.X > grid.Max.X || gridPos.Y > grid.Max.Y || gridPos.Z > grid.Max.Z)
+					return Traversability.Free;
+
+				var slim = grid.GetCubeBlock(gridPos) as IMySlimBlock;
+				if (slim == null)
+					return Traversability.Free;
+
+				Traversability t;
+				if (!Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
+					return Traversability.Blocked;
+
+				var min = slim.Min;
+				var max = slim.Max;
+				if (min == max)
 				{
-					var p = slim.Position - grid.Min + AStarBorder;
+					Vector3I localPos = gridPos - min;
+					if (localPos.X < -1 || localPos.X > 1 || localPos.Y < -1 || localPos.Y > 1 || localPos.Z < -1 || localPos.Z > 1)
+						return Traversability.Free;
 
-					Traversability t;
-					if (Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
-					{
-						var Min = slim.Min;
-						var Max = slim.Max;
-						Vector3I v;
-
-						if (Min == Max)
-						{
-							MatrixI m = new MatrixI(slim.Orientation);
-							astar.SetTraversability(p, Traversability.Rotate(t, m));
-						}
-						else
-						{
-							for (v.Z = Min.Z; v.Z <= Max.Z; ++v.Z)
-								for (v.Y = Min.Y; v.Y <= Max.Y; ++v.Y)
-									for (v.X = Min.X; v.X <= Max.X; ++v.X)
-										astar.SetTraversability(v - grid.Min + AStarBorder, Traversability.Blocked);
-						}
-					}
-					else
-					{
-						astar.SetTraversability(p, Traversability.Blocked);
-						++unknownBlocks;
-					}
+					MatrixI m = new MatrixI(slim.Orientation);
+					return Traversability.Rotate(t, m);
 				}
-				MyConsole.Add($"unknownBlocks {unknownBlocks}", Color.Yellow);
-				MyConsole.Add($"{prof}", Color.IndianRed);
-			}
+				return Traversability.Blocked;
+			});
+
+			if (astar == null || astar.Size != astarSize)
+				astar = new AStar(astarSize, source);
+
+			astar.Reset();
 
 			var a = point_A - grid.Min + AStarBorder;
 			var b = point_B - grid.Min + AStarBorder;

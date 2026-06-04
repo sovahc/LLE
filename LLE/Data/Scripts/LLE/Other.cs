@@ -238,6 +238,17 @@ namespace LLE
 		}
 	}
 
+	class TraversabilitySource
+	{
+		private readonly Func<int, Traversability> _func;
+
+		public TraversabilitySource(Func<int, Traversability> func)
+		{   _func = func;
+		}
+
+		public Traversability Get(int index) => _func(index);
+	}
+
 	class Indexer
 	{	
 		public readonly Vector3I Size;

@@ -14,9 +14,11 @@ namespace LLE
 	class AStar
 	{
 		private readonly Indexer _indexer;
+		private readonly TraversabilitySource _source;
 
 		private readonly BitField _closed;
 		private readonly BitField _inOpen;
+		private readonly BitField _known;
 		private readonly FastPriorityQueue<MyNode> _open;
 		
 		private readonly Traversability[] _traversability;
@@ -29,14 +31,17 @@ namespace LLE
 		public readonly List<Vector3I> result = new List<Vector3I>();
 
 		public Vector3I Size => _indexer.Size;
+		public void IndexToPosition(int index, out Vector3I pos) => _indexer.IndexToPosition(index, out pos);
 
-		public AStar(Vector3I size)
+		public AStar(Vector3I size, TraversabilitySource source)
 		{
 			_indexer = new Indexer(size);
+			_source = source;
 			int c = _indexer.Count;
 
 			_closed = new BitField(c, 1);
 			_inOpen = new BitField(c, 1);
+			_known = new BitField(c, 1);
 			_open = new FastPriorityQueue<MyNode>(c);
 
 			_traversability = new Traversability[c];
@@ -49,14 +54,11 @@ namespace LLE
 			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
 		}
 
-		public void Reset(bool clearTraversability)
+		public void Reset()
 		{
-			if(clearTraversability)
-				foreach (var t in _traversability)
-					t.SetAll(false);
-
 			_closed.SetAll_0();
 			_inOpen.SetAll_0();
+			_known.SetAll_0();
 			_open.Clear();
 
 			Array.Clear(_gScore, 0, _gScore.Length);
@@ -64,14 +66,15 @@ namespace LLE
 			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
 		}
 
-		public void SetTraversability(Vector3I at, Traversability t)
-		{	if(!_indexer.In(at)) throw new Exception($"SetTraversability: index out of range: {at}");
-			_traversability[_indexer.Index(at)] = t;
-		}
+		private Traversability GetTraversability(int index)
+		{
+			if (_known.Get(index) != 0)
+				return _traversability[index];
 
-		public Traversability GetTraversability(Vector3I at)
-		{	if(!_indexer.In(at)) return Traversability.Free;
-			return _traversability[_indexer.Index(at)];
+			var t = _source.Get(index);
+			_traversability[index] = t;
+			_known.Set(index, 1);
+			return t;
 		}
 
 		public void RunCalculation(Vector3I start, Vector3I goal)
@@ -95,8 +98,13 @@ namespace LLE
 			int startIndex = _indexer.Index(start.X, start.Y, start.Z);
 			int goalIndex = _indexer.Index(goal.X, goal.Y, goal.Z);
 
-			if(_traversability[startIndex].Center || _traversability[goalIndex].Center)
-			{	MyConsole.Add($"FindPath Error - start or goal obstructed", Color.Red);
+			if(GetTraversability(startIndex).Center)
+			{   MyConsole.Add($"FindPath Error - start is obstructed", Color.Red);
+				yield break;
+			}
+			
+			if(GetTraversability(goalIndex).Center)
+			{   MyConsole.Add($"FindPath Error - goal obstructed", Color.Red);
 				yield break;
 			}
 
@@ -134,24 +142,25 @@ namespace LLE
 					yield break;
 				}
 
-				float curG = _gScore[currentI];
+			float curG = _gScore[currentI];
+			var currentT = GetTraversability(currentI);
 
-				for (int d = 0; d < Constants.SixDirections.Length; ++d)
-				{
-					var direction = Constants.SixDirections[d];
+			for (int d = 0; d < Constants.SixDirections.Length; ++d)
+			{
+				var direction = Constants.SixDirections[d];
 
-					Vector3I next = cv + direction;
+				Vector3I next = cv + direction;
 
-					if (!_indexer.In(next)) continue;
+				if (!_indexer.In(next)) continue;
 
-					++cellsAnalyzed;
+				++cellsAnalyzed;
 
-					int nextI = _indexer.Index(next);
+				int nextI = _indexer.Index(next);
 
-					if (_traversability[nextI].Center) continue;
-					if (_traversability[currentI][direction]) continue;
-					if (_traversability[nextI][-direction]) continue;
-
+				var nextT = GetTraversability(nextI);
+				if (nextT.Center) continue;
+				if (currentT[direction]) continue;
+				if (nextT[-direction]) continue;
 					if (_closed.Get(nextI) != 0) continue;
 
 					float tentativeG = curG + 1;
