@@ -27,7 +27,8 @@ namespace LLE
 		{
 			var position = astarPosition + _grid.Min - _border;
 
-			/// 
+			foreach(var voxel in intersectingVoxels)
+				if(!IsVoxelTraversable(voxel, position)) return Traversability.Blocked;
 
 			var slim = _grid.GetCubeBlock(position);
 			if (slim == null)
@@ -43,6 +44,25 @@ namespace LLE
 				return Traversability.Rotate(t, m);
 			}
 			return Traversability.Blocked;
+		}
+
+		private bool IsVoxelTraversable(MyVoxelBase voxel, Vector3I gridPosition)
+		{
+			var v1 = _grid.GridIntegerToWorld(gridPosition);
+			var v2 = _grid.GridIntegerToWorld(gridPosition+1);
+
+			var v = v2 - v1;
+			v1 -= v * 0.5;
+			v2 -= v * 0.5;
+
+			BoundingBoxD wb = new BoundingBoxD(v1, v2);
+
+			bool i1 = HasMaterialsInBox(wb, intersectingVoxels[0]); // 0.02 // Super fast
+			//bool i2 = voxel.IsAnyAabbCornerInside(ref MatrixD.Identity, wb); // 0.04 // A bit slower
+			//BoundingSphereD sphere = new BoundingSphereD(vc, 1.25); // 0.2 // Very slow
+   			//bool i3 = voxel.GetIntersectionWithSphere(ref sphere);
+
+			return !i1;
 		}
 
 		private static readonly MyStorageData storage = new MyStorageData();

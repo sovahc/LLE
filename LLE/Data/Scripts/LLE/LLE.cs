@@ -218,7 +218,7 @@ namespace LLE
 					out selectedGrid, out selectedBlock, out freeSpaceA);
 			}
 
-			if(MyAPIGateway.Input.IsNewRightMousePressed())
+			/*if(MyAPIGateway.Input.IsNewRightMousePressed())
 			{	var point = Utilities.GetEngineerCenter(ch) + 5.0 * ch.WorldMatrix.Forward;
 				if(selectedGrid != null)
 				{	freeSpaceB = selectedGrid.WorldToGridInteger(point);
@@ -255,10 +255,9 @@ namespace LLE
 					
 					Utilities.HighlightCell(selectedGrid, freeSpaceB, i1 ? Color.Red : Color.Green);
 				}
-			}
+			}*/
 
-
-/*			if(MyAPIGateway.Input.IsNewRightMousePressed())
+			if(MyAPIGateway.Input.IsNewRightMousePressed())
 			{	Vector3I unused;				
 				Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
 					out selectedGrid, out unused, out freeSpaceB);
@@ -293,7 +292,7 @@ namespace LLE
 				//var engineerCenter = Utilities.GetEngineerCenter(ch);
 				//testSphereCenter = engineerCenter + 5.0 * ch.WorldMatrix.Forward;
 			}
-*/
+
 			// Draw test sphere
 			/*if (selectedGrid != null)
 			{
