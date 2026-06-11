@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -171,20 +172,21 @@ namespace LLE
 
 		private void ProcessLlmContent(string content)
 		{
-			const string error = "No command to execute, a command in backticks is required";
-
-			int lastBacktick = content.LastIndexOf('`');
-			if (lastBacktick < 0)
-			{	CommandResult(error);
-				return;
-			}
-			int secondLastBacktick = content.LastIndexOf('`', lastBacktick - 1);
-			if (secondLastBacktick < 0)
-			{	CommandResult(error);
-				return;
+			int backticks = content.Count(c => c == '`');
+			if(backticks == 0)
+			{	CommandResult("Command in backticks required");
+				return;		
 			}
 
-			string command = content.Substring(secondLastBacktick + 1, lastBacktick - secondLastBacktick - 1);
+			if(backticks != 2)
+			{	CommandResult("Only one command at a time allowed");
+				return;		
+			}
+
+			int backtick = content.IndexOf('`');
+			int secondBacktick = content.IndexOf('`', backtick + 1);
+
+			string command = content.Substring(backtick + 1, secondBacktick - backtick - 1);
 
 			toLLM.Append($"`{command}`"); // send back to establish pattern
 
@@ -209,7 +211,7 @@ namespace LLE
 			Common.StartFrame();
 
 			if(!LLE_Loader.IsPresent())
-			{	font.String("No LLE_Loader is present.", new Vector2D(0.0, -0.1), 0.00075f, Color.Red);
+			{	font.String("LLE_Loader is not present.", new Vector2D(0.0, -0.1), 0.00075f, Color.Red);
 				Common.Call_Add_Billboards();
 				return;
 			}
@@ -320,10 +322,9 @@ namespace LLE
 			if (player == null) return;
 
 			MyConsole.Add(message, Color.Chocolate);
-			if(message.StartsWith(">"))
-			{	message = message.Substring(1);
-				pauseLLM = true;
-				CommandResult(commands.Execute(message));
+			if(message.StartsWith("`") && message.EndsWith("`"))
+			{	pauseLLM = true;
+				ProcessLlmContent(message);
 			}
 			else
 			{	if(message == "go") pauseLLM = false;
