@@ -413,23 +413,27 @@ drop 'name' [quantity|all] - Drop a specified object.
 					tmp.Append(Formatter.IJK(position));
 					semi = true;
 					Debug.highlightCellsGreen.Add(position);
+
+					var bp = selectedGrid.GridIntegerToWorld(position);
+					var dsq = (ec - bp).LengthSquared();
+
+					if(dsq < minimalDistanceSq)
+					{	minimalDistanceSq = dsq;
+						nearestFreeSpace = position;
+					}
 				}
 				else
 					Debug.highlightCellsRed.Add(position);
-
-				var bp = selectedGrid.GridIntegerToWorld(position);
-				var dsq = (ec - bp).LengthSquared();
-
-				if(dsq < minimalDistanceSq)
-				{	minimalDistanceSq = dsq;
-					nearestFreeSpace = position;
-				}
 			}
 			if(!semi) // nothing added
 			{	tmp.Append(" -- none -- ");
 			}
+
 			tmp.Append(")\n");
-			if(semi) tmp.Append($"(Nearest to you is {Formatter.IJK(nearestFreeSpace)})");
+
+			if(semi)
+			{	tmp.Append($"(Nearest to you is {Formatter.IJK(nearestFreeSpace)})");
+			}
 		}
 
 		internal IEnumerator Fly(TokenParser tp)
