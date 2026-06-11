@@ -1099,6 +1099,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		internal string Execute(string command)
 		{
+			//Utilities.Log($"Execute `{command}`");
+
 			string result = null;
 
 			var tp = new TokenParser(command);
@@ -1107,10 +1109,10 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	result = Overview();
 			}
 			else if(tp.Match("Select_Asteroid"))
-			{	Select(ObjectType.Asteroid, tp);
+			{	result = Select(ObjectType.Asteroid, tp);
 			}
 			else if(tp.Match("Select_grid") || tp.Match("Select"))
-			{	Select(ObjectType.LargeShip, tp);
+			{	result = Select(ObjectType.LargeShip, tp);
 			}
 			else if(tp.Match("Fly"))
 			{	currentCommand = Fly(tp);

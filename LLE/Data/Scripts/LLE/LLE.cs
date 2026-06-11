@@ -82,7 +82,7 @@ namespace LLE
 
 			Log($"CommandResult:\n{result}");
 				
-			toLLM.Append("[RESULT]:\n");
+			toLLM.Append("\n[RESULT]:\n");
 			toLLM.Append(result);
 			toLLM.Append('\n');
 
@@ -172,23 +172,28 @@ namespace LLE
 
 		private void ProcessLlmContent(string content)
 		{
-			int backticks = content.Count(c => c == '`');
-			if(backticks == 0)
-			{	CommandResult("Command in backticks required");
-				return;		
+			string trimmed = content.Trim();
+			int lastNewline = trimmed.LastIndexOf('\n');
+			string lastLine = lastNewline >= 0 ? trimmed.Substring(lastNewline + 1) : trimmed;
+
+			const string prefix = "Execute `";
+			if (!lastLine.StartsWith(prefix))
+			{
+				CommandResult("ERROR: Last line must start with 'Execute `command`', e.g.: Execute `fly 10 0 0`");
+				return;
 			}
 
-			if(backticks != 2)
-			{	CommandResult("Only one command at a time allowed");
-				return;		
+			int closingBacktick = lastLine.IndexOf('`', prefix.Length);
+			if (closingBacktick < 0)
+			{
+				CommandResult("ERROR: Missing closing backtick in command.");
+				return;
 			}
 
-			int backtick = content.IndexOf('`');
-			int secondBacktick = content.IndexOf('`', backtick + 1);
+			string command = lastLine.Substring(prefix.Length, closingBacktick - prefix.Length);
 
-			string command = content.Substring(backtick + 1, secondBacktick - backtick - 1);
-
-			toLLM.Append($"`{command}`"); // send back to establish pattern
+			//toLLM.Append($"Execute `{command}`");
+			toLLM.Append(content);
 
 			if(command == "pause")
 			{	pauseLLM = true;
