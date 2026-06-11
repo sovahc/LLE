@@ -77,6 +77,8 @@ namespace LLE
 
 		private void CommandResult(string result)
 		{
+			if(result == null) return;
+
 			Log($"CommandResult:\n{result}");
 				
 			toLLM.Append("[RESULT]:\n");
@@ -192,8 +194,7 @@ namespace LLE
 			}
 
 			string result = commands.Execute(command);
-			if (result != null)
-				CommandResult(result);
+			CommandResult(result);
 		}
 
 		public override void Draw()
@@ -322,7 +323,7 @@ namespace LLE
 			if(message.StartsWith(">"))
 			{	message = message.Substring(1);
 				pauseLLM = true;
-				commands.Execute(message);
+				CommandResult(commands.Execute(message));
 			}
 			else
 			{	if(message == "go") pauseLLM = false;

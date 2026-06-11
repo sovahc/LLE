@@ -173,13 +173,14 @@ namespace LLE
 * inventory I J K				- Return the inventory of the container at specific coordinates.
 * get count 'item' from I J K	- Transfer an item from a container to your inventory. e.g. `get 10 'Gold Ingot' from -1 5 2`
 * put count 'item' into I J K	- Transfer an item from your inventory to a container. e.g. `put 1 'Medkit' into 14 0 2`
+* put all components into I J K	- Transfer all blocks components from your inventory to a container (very useful shortcut).
 * transfer count 'item' from I1 J1 K1 to I2 J2 K2
 								- Transfer an item from one inventory to another.
 ";
 }
 
 /*
-* put all components into I J K	- Transfer all blocks components from your inventory to a container (very useful shortcut).
+
 * search 'substring'			- Search block coordinates by name.
 search ['substring']   - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
 vision                 - Get current visual input (what the bot sees right now)
@@ -243,7 +244,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			//{ "Other", new[] { "ButtonPanel", "Jukebox", "CameraBlock", "SoundBlock", "InteriorLight" } },
 			//{ "Structure", new[] { ,  } },
 		};
-
+		private static readonly List<string> ALL_COMPONENTS = new List<string>
+		{	"SteelPlate", "SmallTube", "LargeTube", "Motor", "Construction", "MetalGrid", "PowerCell"
+		};
 		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
 		private static readonly List<IMySlimBlock> slimBlocks = new List<IMySlimBlock>();
 
@@ -845,8 +848,14 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			toList.Add(character.GetInventory());
 
-			InventoryTransfer(fromList, toList, fromName, "your inventory", item, (MyFixedPoint)count, out message);
-			yield return message;
+			List<string> items = new List<string>() { item };
+
+			tmp.Clear();
+			tmp.Append($"Transfering from {fromName} into your inventory\n");
+
+			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, tmp);
+			
+			yield return tmp.ToString();
 		}
 
 		internal IEnumerator Put(TokenParser tp)
@@ -854,13 +863,21 @@ drop 'name' [quantity|all] - Drop a specified object.
 			string message;
 			if(!GridIsSet(out message)) yield return message;
 
-			double count; Vector3I ijk;
+			string item = null;
+			double count = 0;
+			bool allComponents = false;
 
-			if(!tp.NextDouble(out count)) yield return "Error: expected count";
-
-			var item = tp.NextString();
+			if(tp.Match("all") && tp.Match("components"))
+			{	allComponents = true;
+			}
+			else
+			{	if(!tp.NextDouble(out count)) yield return "Error: expected count";
+				item = tp.NextString();
+			}
 
 			if(!tp.Match("into")) yield return "Error: expected 'into'";
+
+			Vector3I ijk;
 
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
@@ -899,8 +916,23 @@ drop 'name' [quantity|all] - Drop a specified object.
 			for (int ii = 0; ii < fat.InventoryCount; ++ii)
 				toList.Add(fat.GetInventory(ii));
 
-			InventoryTransfer(fromList, toList, "your inventory", toName, item, (MyFixedPoint)count, out message);
-			yield return message;
+			if(allComponents)
+			{
+				tmp.Clear();
+				tmp.Append($"Transfering from your inventory into {toName}\n");
+
+				InventoryTransfer(fromList, toList, ALL_COMPONENTS, MyFixedPoint.MaxValue, tmp);
+
+				yield return tmp.ToString();
+			}
+			else
+			{	tmp.Clear();
+				tmp.Append($"Transfering from your inventory into {toName}\n");
+				
+				List<string> items = new List<string>() { item };
+				InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, tmp);
+				yield return tmp.ToString();
+			}
 		}
 
 		internal IEnumerator Transfer(TokenParser tp)
@@ -952,63 +984,82 @@ drop 'name' [quantity|all] - Drop a specified object.
 			for (int ii = 0; ii < fatTo.InventoryCount; ++ii)
 				toList.Add(fatTo.GetInventory(ii));
 
-			InventoryTransfer(fromList, toList, fromName, toName, item, (MyFixedPoint)count, out message);
-			yield return message;
+			List<string> items = new List<string>() { item };
+
+			tmp.Clear();
+			tmp.Append($"Transfering from {fromName} into {toName}\n");
+
+			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, tmp);
+
+			yield return tmp.ToString();
+		}
+
+		private static bool Include(MyPhysicalItemDefinition def, List<string> itemNames)
+		{
+			if(def == null) return false; // ?
+
+			foreach(var name in itemNames)
+			{	if(def.DisplayNameText == name) return true;
+				if(def.Id.SubtypeName == name) return true;
+			}
+			return false;
 		}
 
 		internal static void InventoryTransfer(List<IMyInventory> fromList, List<WTF_IMyInventory> toList,
-			string fromName, string toName, string itemName, MyFixedPoint amount, out string result)
+			List<string> itemNames, MyFixedPoint amount, StringBuilder result)
 		{	
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 
-			IMyInventory from = null;
-			int fromIndex = -1;
+			bool somethingTransfered = false;;
 
-			for(int f = 0; f < fromList.Count; ++f)
-			{
-				from = fromList[f];
-
+			foreach(IMyInventory from in fromList)
+			{	
 				items.Clear();
 				from.GetItems(items);
 
-				for (int i = 0; i < items.Count; i++)
-				{
-					var def = (MyDefinitionId)items[i].Type;
+				for(int i = items.Count - 1; i >= 0; --i)
+				{	var item = items[i];
+					var def = (MyDefinitionId)item.Type;
 					var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
 
-					if (itemDef != null && itemDef.DisplayNameText == itemName)
+					if(!Include(itemDef, itemNames)) continue;
+
+					var transfer = amount;
+					if(transfer > item.Amount) transfer = item.Amount;
+					
+					if(InventoryTransfer(from, i, toList, transfer))
 					{
-						fromIndex = i;
-						break;
+						result.Append($"Transferred {transfer} {Formatter.Quote(itemDef.DisplayNameText)}\n");
+						somethingTransfered = true;
 					}
 				}
-
-				if(fromIndex >= 0) break;
 			}
 
-			if (fromIndex < 0)
-			{	result = $"Item {Formatter.Quote(itemName)} not found in inventory";
-				return;
+			if(!somethingTransfered)
+			{	result.Append($"No items transfered!\n");
 			}
+
+			//{	result = $"Item {Formatter.Quote(itemName)} not found in inventory";
+			//result.Append($" from {Formatter.Quote(fromName)} into {Formatter.Quote(toName)}");
+			//result = $"Cannot transfer {Formatter.Quote(itemName)} into {Formatter.Quote(toName)}";
+		}
+
+		internal static bool InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount)
+		{
+			List<MyInventoryItem> items = new List<MyInventoryItem>();
+			from.GetItems(items);
 
 			var item = items[fromIndex];
-
-			if(item.Amount < amount)
-			{	amount = item.Amount;
-				// Emit warning?
-			}
-
 			foreach (var to in toList)
 			{
 				if (to.CanItemsBeAdded(amount, item.Type))
 				{
 					((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, amount, false);
-					result = $"Transferred {amount} {Formatter.Quote(itemName)} from {Formatter.Quote(fromName)} into {Formatter.Quote(toName)}";
-					return;
+
+					return true;
 				}
 			}
-
-			result = $"Cannot transfer {Formatter.Quote(itemName)} into {Formatter.Quote(toName)}";
+			return false;
 		}
 
 		internal bool InProgress()
