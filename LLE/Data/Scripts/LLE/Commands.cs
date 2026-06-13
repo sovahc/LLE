@@ -35,7 +35,7 @@ namespace LLE
 		private MyEntity3DSoundEmitter soundEmitter;
 		private MyParticleEffect particleEffect;
 
-		private void EnableEffects(IMySlimBlock block, string particleName, string sound)
+		private void EnableSound(string sound)
 		{
 			if (soundEmitter == null)
 			{
@@ -46,23 +46,26 @@ namespace LLE
 				soundEmitter.VolumeMultiplier = Constants.SoundVolume;
 				soundEmitter.PlaySound(new MySoundPair(sound));
 			}
+		}
+
+		private void EnableEffect(IMySlimBlock block, string particleName)
+		{
 			if (particleEffect == null)
 			{
 				MatrixD m = MatrixD.Identity;
 				Vector3D pos = Vector3D.Zero;
-				if (MyParticlesManager.TryCreateParticleEffect(particleName, ref m, ref pos, uint.MaxValue,
-					out particleEffect))
-					particleEffect.UserRadiusMultiplier = 4f;
+				MyParticlesManager.TryCreateParticleEffect(particleName, ref m, ref pos, uint.MaxValue, out particleEffect);
 			}
 			if (particleEffect != null)
 			{
 				BoundingBoxD box;
 				block.GetWorldBoundingBox(out box, false);
 				particleEffect.WorldMatrix = box.Matrix;
+				particleEffect.UserRadiusMultiplier = 4f;
 			}
 		}
 
-		internal void DisableEffects()
+		internal void DisableEffectAndSound()
 		{	if(soundEmitter != null)
 			{
 				soundEmitter.StopSound(false);
@@ -74,6 +77,21 @@ namespace LLE
 				particleEffect = null;
 			}
 		}
+
+		/*internal void PlaySound(string name)
+		{
+			if (_hudEmitter == null)
+			{
+				_hudEmitter = new MyEntity3DSoundEmitter(null);
+				_hudEmitter.EmitterMethods[(int)MyEntity3DSoundEmitter.MethodsEnum.CanHear].ClearImmediate();
+				_hudEmitter.EmitterMethods[(int)MyEntity3DSoundEmitter.MethodsEnum.ShouldPlay2D].ClearImmediate();
+				_hudEmitter.EmitterMethods[(int)MyEntity3DSoundEmitter.MethodsEnum.CueType].ClearImmediate();
+				_hudEmitter.EmitterMethods[(int)MyEntity3DSoundEmitter.MethodsEnum.ImplicitEffect].ClearImmediate();
+			}
+
+			_hudEmitter.SetPosition(MyAPIGateway.Session.Camera.WorldMatrix.Translation);
+			_hudEmitter.PlaySound(new MySoundPair(name), stopPrevious: false, alwaysHearOnRealistic: true, force2D: true);
+		}*/
 
 		private double resumeTime;
 
@@ -609,7 +627,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			var integrity0 = block.Integrity;
 			
-			EnableEffects(block, MyParticleEffectsNameEnum.ShipGrinder, "ToolPlayGrindMetal");
+			EnableEffect(block, MyParticleEffectsNameEnum.ShipGrinder);
+			EnableSound("ToolPlayGrindMetal");
 
 			for(;;)
 			{	
@@ -630,7 +649,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 					}
 				}
 				if (!canAccept)
-				{	DisableEffects();
+				{	DisableEffectAndSound();
 
 					var p0 = integrity0 / block.MaxIntegrity;
 					var p1 = block.Integrity / block.MaxIntegrity;
@@ -646,7 +665,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 					block.SpawnConstructionStockpile();
 					block.CubeGrid.RazeBlock(block.Min);
 
-					DisableEffects();
+					DisableEffectAndSound();
 					yield return $"Done! {Commands.Name(block)} is removed.";
 				}
 
@@ -744,7 +763,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			var integrity0 = block.Integrity;
 
-			EnableEffects(block, MyParticleEffectsNameEnum.WelderContactPoint, "ToolPlayWeldMetal");
+			EnableEffect(block, MyParticleEffectsNameEnum.WelderContactPoint);
+			EnableSound("ToolPlayWeldMetal");
 
 			for (;;)
 			{
@@ -756,12 +776,12 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 				if (block.Integrity >= block.MaxIntegrity)
 				{
-					DisableEffects();
+					DisableEffectAndSound();
 					yield return "Done! Block integrity is full now.";
 				}
 				else if (block.Integrity == pbi)
 				{
-					DisableEffects();
+					DisableEffectAndSound();
 
 					var p0 = integrity0 / block.MaxIntegrity;
 					var p1 = block.Integrity / block.MaxIntegrity;
@@ -1076,7 +1096,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return false;
 		}
 
-		internal static void InventoryTransfer(List<IMyInventory> fromList, List<WTF_IMyInventory> toList,
+		internal void InventoryTransfer(List<IMyInventory> fromList, List<WTF_IMyInventory> toList,
 			List<string> itemNames, MyFixedPoint amount, StringBuilder result)
 		{	
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
@@ -1106,7 +1126,12 @@ drop 'name' [quantity|all] - Drop a specified object.
 				}
 			}
 
-			if(!somethingTransfered)
+			if(somethingTransfered)
+			{
+				//EnableSound("PlayDropItem"); // Everything else works fine, but the sound is just fucking broken.
+				EnableSound("PlayFallMetal");
+			}
+			else
 			{	result.Append($"No items transfered!\n");
 			}
 		}
