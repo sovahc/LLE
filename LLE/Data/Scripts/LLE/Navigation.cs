@@ -40,7 +40,7 @@ namespace LLE
 
 			// try direct path to point
 
-			double dist;
+			/*double dist;
 			IMySlimBlock slimBlock;
 			LineD line = new LineD(from, to);
 			grid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
@@ -51,7 +51,7 @@ namespace LLE
 				path.Add(to);
 				micro.Fly(path);
 				return;
-			}
+			}*/
 
 			// run A*
 
