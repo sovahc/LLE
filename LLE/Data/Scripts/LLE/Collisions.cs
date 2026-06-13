@@ -380,23 +380,5 @@ namespace LLE
 
 			return t.Center == false;
 		}
-
-		internal static void Dump(IMySlimBlock slim)
-		{
-			CollisionGeometry geometry;
-			var id = slim.BlockDefinition.Id;
-
-			if (!_collisionGeometry.TryGetValue(id, out geometry)) return;
-
-			var color = Color.Aqua;
-
-			MyConsole.AddNewLine(color);
-
-			foreach(var detector in geometry.Detectors)
-			{	MyConsole.AddMultiline(" ", color);
-				MyConsole.AddMultiline(detector.Name, color);
-			}
-			MyConsole.AddMultiline("\n", color);
-		}
 	}
 }
