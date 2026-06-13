@@ -376,7 +376,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				StringBuilder sb = new StringBuilder();
 				foreach (var block in kv.Value)
 				{
-					sb.Append($"* {Quote(Name(block))} at ({IJK(block.Position)}) → {Percent(block.Integrity)}\n");
+					sb.Append($"* {Quote(Name(block))} at ({IJK(block.Position)}) → {Percent(block.Integrity / block.MaxIntegrity)}\n");
 				}
 				MyMarkdown.Add($"## {kv.Key}", sb.ToString());
 			}
