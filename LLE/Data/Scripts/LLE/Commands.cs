@@ -97,6 +97,7 @@ namespace LLE
 * select_asteroid 'name'		- Select an asteroid on which to mine.
 
 * overview						- List grid blocks by category.
+* integrity						- Show damaged blocks on the selected grid.
 * fly I J K						- Fly to specific grid coordinates. e.g. `fly 10 -5 13`
 * grind I J K					- Grind a block at specific coordinates.
 * weld I J K					- Weld a block at specific coordinates.
@@ -329,6 +330,56 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			terminalBlocks.Clear();
 			positions.Clear();
+
+			return MyMarkdown.Result();
+		}
+
+		internal string Integrity()
+		{
+			string message;
+			if (!GridIsSet(out message)) return message;
+
+			string category, name;
+			Description(selectedGrid as MyEntity, out category, out name);
+
+			MyMarkdown.Clear();
+			MyMarkdown.Append($"# Integrity Check {Quote(name)}");
+
+			var damaged = new List<IMySlimBlock>();
+			foreach (IMySlimBlock block in (selectedGrid as MyCubeGrid).CubeBlocks)
+			{
+				if (block.Integrity < block.MaxIntegrity)
+					damaged.Add(block);
+			}
+
+			if (damaged.Count == 0)
+			{
+				MyMarkdown.Append("All blocks are intact.");
+				return MyMarkdown.Result();
+			}
+
+			var byCategory = new Dictionary<string, List<IMySlimBlock>>();
+			foreach (var block in damaged)
+			{
+				var cat = NameToCategory(Name(block));
+				List<IMySlimBlock> list;
+				if (!byCategory.TryGetValue(cat, out list))
+				{
+					list = new List<IMySlimBlock>();
+					byCategory[cat] = list;
+				}
+				list.Add(block);
+			}
+
+			foreach (var kv in byCategory)
+			{
+				StringBuilder sb = new StringBuilder();
+				foreach (var block in kv.Value)
+				{
+					sb.Append($"* {Quote(Name(block))} at ({IJK(block.Position)}) → {Percent(block.Integrity)}\n");
+				}
+				MyMarkdown.Add($"## {kv.Key}", sb.ToString());
+			}
 
 			return MyMarkdown.Result();
 		}
@@ -1111,10 +1162,13 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			var tp = new TokenParser(command);
 
-			if(tp.Match("Overview"))
-			{	result = Overview();
-			}
-			else if(tp.Match("Select_Asteroid"))
+		if(tp.Match("Overview"))
+		{	result = Overview();
+		}
+		else if(tp.Match("Integrity"))
+		{	result = Integrity();
+		}
+		else if(tp.Match("Select_Asteroid"))
 			{	result = Select(ObjectType.Asteroid, tp);
 			}
 			else if(tp.Match("Select_grid") || tp.Match("Select"))
