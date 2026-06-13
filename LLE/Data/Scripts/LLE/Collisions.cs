@@ -193,8 +193,7 @@ namespace LLE
 					}).ToList();
 					var screenVerts = Drawing.WorldToScreen(worldVerts);
 					var hull = Geometry.ConvexHull(screenVerts);
-					if (hull.Count >= 2)
-						Drawing.Contour(hull.ToArray(), true, 1e-4f, new Vector4(1f, 0f, 0f, 1f));
+					Drawing.Contour(hull.ToArray(), true, 1e-4f, new Vector4(1f, 0f, 0f, 1f));
 				}
 
 				var sphere = shape as SphereShape;
@@ -224,8 +223,7 @@ namespace LLE
 				var worldVerts = vertices.Select(v => Vector3D.Transform(new Vector3D(v), blockMatrix)).ToList();
 				var screenVerts = Drawing.WorldToScreen(worldVerts);
 				var hull = Geometry.ConvexHull(screenVerts);
-				if (hull.Count >= 2)
-					Drawing.Contour(hull.ToArray(), true, 5e-5f, new Vector4(0f, 0f, 1f, 1f));
+				Drawing.Contour(hull.ToArray(), true, 5e-5f, new Vector4(0f, 0f, 1f, 1f));
 			}
 		}
 
@@ -370,6 +368,21 @@ namespace LLE
 			if (!_traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t)) return false;
 
 			return t.Center == false;
+		}
+
+		internal static void Dump(IMySlimBlock slim)
+		{
+			CollisionGeometry geometry;
+			var id = slim.BlockDefinition.Id;
+
+			if (!_collisionGeometry.TryGetValue(id, out geometry)) return;
+
+			MyConsole.AddNewLine(Color.Indigo);
+
+			foreach(var detector in geometry.Detectors)
+			{	MyConsole.AddMultiline(" ", Color.Indigo);
+				MyConsole.AddMultiline(detector.Name, Color.Indigo);
+			}
 		}
 	}
 }

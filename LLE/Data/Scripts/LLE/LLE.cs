@@ -245,7 +245,10 @@ namespace LLE
 				if (block != null)
 				{	
 					if(MyAPIGateway.Input.IsNewLeftMousePressed())
-						MyConsole.Add($"{Commands.Name(block)} at {Commands.IJK(selectedBlock)}");
+					{	MyConsole.Add($"{Commands.Name(block)} at {Commands.IJK(selectedBlock)}");
+						
+						Collisions.Dump(block);
+					}
 
 					Collisions.Draw(selectedGrid, block);
 					Collisions.DrawTraversability(selectedGrid, block);
