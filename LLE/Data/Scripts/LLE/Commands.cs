@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Sandbox.Common.ObjectBuilders;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
@@ -103,8 +104,15 @@ namespace LLE
 		}
 
 		public Commands(IMyCharacter character_)
-		{	character = character_;
+		{
+			character = character_;
 			navigation = new Navigation(character);
+
+			foreach (var def in MyDefinitionManager.Static.GetDefinitionsOfType<MyPhysicalItemDefinition>())
+			{
+				if (def.Id.TypeId == typeof(MyObjectBuilder_Component))
+					ALL_COMPONENTS.Add(def.Id.SubtypeName);
+			}
 		}
 
 		internal string Help()
@@ -234,15 +242,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return sb.ToString();
 		}
 
-		private static readonly List<string> ALL_COMPONENTS = new List<string>
-		{
-"Construction", "MetalGrid", "InteriorPlate", "SteelPlate", "Girder", "SmallTube", "LargeTube", "Motor", "Display",
-"BulletproofGlass", "Superconductor", "Computer", "Reactor", "Thrust", "GravityGenerator", "Medical", "RadioCommunication", 
-"Detector", "Explosives", "SolarCell", "PowerCell", "Canvas",
-"ZoneChip", "EngineerPlushie", "EngineerPlushieSE2", "SabiroidPlushie",
-"PrototechFrame", "PrototechPanel", "PrototechCapacitor", "PrototechPropulsionUnit",
-"PrototechMachinery", "PrototechCircuitry", "PrototechCoolingUnit", 
-		};
+		private readonly List<string> ALL_COMPONENTS = new List<string>();
 		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
 
 		private static readonly Dictionary<string, List<Vector3I>> describer = new Dictionary<string, List<Vector3I>>();
