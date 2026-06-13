@@ -800,7 +800,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 				var volume = (double)item.Amount * itemDef.Volume;
 
-				output.Append($"* {itemDef.DisplayNameText} → {item.Amount} ({Formatter.Volume(volume)})\n");
+				output.Append($"* {Formatter.Quote(itemDef.DisplayNameText)} → {item.Amount} ({Formatter.Volume(volume)})\n");
 			}
 		}
 
