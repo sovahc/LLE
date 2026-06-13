@@ -324,7 +324,7 @@ namespace LLE
 			var player = MyAPIGateway.Session.Player;
 			if (player == null) return;
 
-			MyConsole.Add(message, Color.Chocolate);
+			MyConsole.Add(message, Color.Magenta);
 			if(message.StartsWith(">"))
 			{	pauseLLM = true;
 				var command = message.Substring(1).Trim();

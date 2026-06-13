@@ -397,15 +397,15 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			sb.Append("(");
 
-			bool semi = false;
+			int added = 0;
 			foreach (var direction in Constants.SixDirections)
 			{	var position = ijk + direction;
 					
 				var block = selectedGrid.GetCubeBlock(position);
 				if(Collisions.CenterIsFree(block))
-				{	if(semi) sb.Append("; ");
+				{	if(added != 0) sb.Append("; ");
 					sb.Append(IJK(position));
-					semi = true;
+					++added;
 					Debug.highlightCellsGreen.Add(position);
 
 					var bp = selectedGrid.GridIntegerToWorld(position);
@@ -419,13 +419,13 @@ drop 'name' [quantity|all] - Drop a specified object.
 				else
 					Debug.highlightCellsRed.Add(position);
 			}
-			if(!semi) // nothing added
+			if(added == 0)
 			{	sb.Append(" -- none -- ");
 			}
 
 			sb.Append(")\n");
 
-			if(semi)
+			if(added > 1)
 			{	sb.Append($"(Nearest to you is {IJK(nearestFreeSpace)})");
 			}
 		}
