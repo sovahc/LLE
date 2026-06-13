@@ -327,9 +327,10 @@ namespace LLE
 			if (player == null) return;
 
 			MyConsole.Add(message, Color.Chocolate);
-			if(message.StartsWith("`") && message.EndsWith("`"))
+			if(message.StartsWith(">"))
 			{	pauseLLM = true;
-				ProcessLlmContent(message);
+				var command = message.Substring(1).Trim();
+				ProcessLlmContent($"Execute `{command}`");
 			}
 			else
 			{	if(message == "go") pauseLLM = false;
