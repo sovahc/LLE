@@ -22,9 +22,9 @@ namespace LLE
 		{	this.character = character;
 		}
 
-		internal Vector3I CharacterCell()
+		internal string CharacterCellText()
 		{	Vector3D e = Utilities.GetEngineerCenter(character);
-			return grid.WorldToGridInteger(e);
+			return Commands.IJK(grid.WorldToGridInteger(e));
 		}
 		
 		internal void FlyInsideGrid(IMyCubeGrid largeGrid, Vector3I toI)
@@ -90,17 +90,17 @@ namespace LLE
 				return null; // "thinking"
 			}
 
-			if(micro.Arrived()) return $"Arrived. Position: {CharacterCell()}";
+			if(micro.Arrived()) return $"Arrived. Position: {CharacterCellText()}";
 
 			if(MyAPIGateway.Input.IsNewLeftMousePressed() ||
 				MyAPIGateway.Input.IsNewRightMousePressed())
 			{	micro.Stop();
-				return $"Cancelled by user. Current position: {CharacterCell()}";
+				return $"Cancelled by user. Current position: {CharacterCellText()}";
 			}
 			
 			if(micro.Stuck)
 			{	micro.Stop();
-				return $"Stuck at position: {CharacterCell()}";
+				return $"Stuck at position: {CharacterCellText()}";
 			}
 
 			var ec = Utilities.GetEngineerCenter(character);

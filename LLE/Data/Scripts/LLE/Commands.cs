@@ -494,7 +494,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			Vector3D world;
 			block.ComputeWorldCenter(out world);
 			var distance = (world - Utilities.GetEngineerCenter(character)).Length();
-			if(distance > 5)
+			if(distance > 6) // XX 5->6 for Large container
 			{	
 				StringBuilder sb = new StringBuilder();
 				sb.Append($"You are too far from {Name(block)} to interact ({Distance(distance)})\n");
