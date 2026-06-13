@@ -8,14 +8,15 @@ namespace LLE
 {
 	public class Navigation
 	{
-		private MicroNavigation micro = new MicroNavigation();
-		private DampedSpringController springController = new DampedSpringController();
+		private readonly MicroNavigation micro = new MicroNavigation();
+		private readonly DampedSpringController springController = new DampedSpringController();
 		private Vector3D up;
-		private IMyCharacter character;
+		private readonly IMyCharacter character;
 
 		private IMyCubeGrid grid;
 		private AStar astar;
 		private const int AStarBorder = 1;
+		private bool isTest;
 
 		public Navigation(IMyCharacter character)
 		{	this.character = character;
@@ -28,6 +29,8 @@ namespace LLE
 		
 		internal void FlyInsideGrid(IMyCubeGrid largeGrid, Vector3I toI)
 		{
+			isTest = false;
+
 			grid = largeGrid;
 
 			up = grid.WorldMatrix.Up;
@@ -152,12 +155,13 @@ namespace LLE
 
 		internal void TestAstar(IMyCubeGrid selectedGrid, Vector3I a, Vector3I b)
 		{
+			isTest = true;
 			grid = selectedGrid;
 			RunAstar(a, b);
 		}
 
 		internal void TestAstarStep()
-		{	if(astar != null) astar.Iteration();
+		{	if(isTest && astar != null) astar.Iteration();
 		}
 
 		internal void DrawPath()
