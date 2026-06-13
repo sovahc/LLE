@@ -19,71 +19,6 @@ using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
 
 namespace LLE
 {
-	public static class Formatter
-	{
-		public static string Remove_MyObjectBuilder_(string type)
-		{
-			if (type.StartsWith("MyObjectBuilder_")) type = type.Substring("MyObjectBuilder_".Length);
-			return type;
-		}
-
-		public static string Quote(string s)
-		{	if (s == null) return "(null)";
-			if (!s.Contains(' ')) return s;
-			return $"'{s}'";
-		}
-
-		public static string Distance(double d)
-		{	if (d < 1000)
-				return $"{(int)Math.Round(d, 0, MidpointRounding.AwayFromZero)}m";
-			return $"{d / 1000.0:F1}km";
-		}
-
-		public static string Percent(float f)
-		{	var ff = (int)Math.Round(f * 100, 0, MidpointRounding.AwayFromZero);
-			return $"{ff}%";
-		}
-
-		public static string Volume(double d)
-		{	var dd = Math.Round(d, 2, MidpointRounding.AwayFromZero);
-			return $"{dd:F2}m³";
-		}
-
-		public static string IJK(Vector3I v)
-		{	return $"{v.X} {v.Y} {v.Z}";
-		}
-
-		public static void Description(MyEntity e, out string category, out string name)
-		{
-			category = "Unknown";
-			name = e.DisplayName;
-			if(name == null) name = e.ToString();
-
-			var grid = e as IMyCubeGrid;
-			if (grid != null)
-			{	if(grid.IsStatic) category = "STATION";
-				else if(grid.GridSizeEnum == MyCubeSize.Large) category = "LARGE GRID";
-				else if(grid.GridSizeEnum == MyCubeSize.Small) category = "SMALL GRID";
-				return;
-			}
-			var voxel = e as MyVoxelBase;
-			if (voxel != null)
-			{	if (voxel is MyPlanet)
-				{	category = "PLANET";
-					return;
-				}
-				category = "ASTEROID";
-				return;
-			}
-
-			var floater = e as IMyFloatingObject;
-			if (floater != null)
-			{	category = "FLOATING OBJECT";
-				return;
-			}
-		}
-	}
-
 	public class Commands
 	{
 		private const string IE_NO_INVENTORY = "Internal error: character.GetInventory() is null";
@@ -197,6 +132,69 @@ drop 'name' [quantity|all] - Drop a specified object.
 ! Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 */
+
+		public static string Remove_MyObjectBuilder_(string type)
+		{
+			if (type.StartsWith("MyObjectBuilder_")) type = type.Substring("MyObjectBuilder_".Length);
+			return type;
+		}
+
+		public static string Quote(string s)
+		{	if (s == null) return "(null)";
+			if (!s.Contains(' ')) return s;
+			return $"'{s}'";
+		}
+
+		public static string Distance(double d)
+		{	if (d < 1000)
+				return $"{(int)Math.Round(d, 0, MidpointRounding.AwayFromZero)}m";
+			return $"{d / 1000.0:F1}km";
+		}
+
+		public static string Percent(float f)
+		{	var ff = (int)Math.Round(f * 100, 0, MidpointRounding.AwayFromZero);
+			return $"{ff}%";
+		}
+
+		public static string Volume(double d)
+		{	var dd = Math.Round(d, 2, MidpointRounding.AwayFromZero);
+			return $"{dd:F2}m³";
+		}
+
+		public static string IJK(Vector3I v)
+		{	return $"{v.X} {v.Y} {v.Z}";
+		}
+
+		public static void Description(MyEntity e, out string category, out string name)
+		{
+			category = "Unknown";
+			name = e.DisplayName;
+			if(name == null) name = e.ToString();
+
+			var grid = e as IMyCubeGrid;
+			if (grid != null)
+			{	if(grid.IsStatic) category = "STATION";
+				else if(grid.GridSizeEnum == MyCubeSize.Large) category = "LARGE GRID";
+				else if(grid.GridSizeEnum == MyCubeSize.Small) category = "SMALL GRID";
+				return;
+			}
+			var voxel = e as MyVoxelBase;
+			if (voxel != null)
+			{	if (voxel is MyPlanet)
+				{	category = "PLANET";
+					return;
+				}
+				category = "ASTEROID";
+				return;
+			}
+
+			var floater = e as IMyFloatingObject;
+			if (floater != null)
+			{	category = "FLOATING OBJECT";
+				return;
+			}
+		}
+
 		private static bool Include(string searchTerm, string text)
 		{	if(searchTerm == "" || searchTerm == "*") return true;
 			return text.Contains(searchTerm);
@@ -213,9 +211,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			foreach (var e in matches)
 			{
 				string category, name;
-				Formatter.Description(e, out category, out name);
+				Description(e, out category, out name);
 				double distance = (e.WorldMatrix.Translation - engineer).Length();
-				tmp.Append($"* {category} {Formatter.Quote(name)} → {Formatter.Distance(distance)}\n");
+				tmp.Append($"* {category} {Quote(name)} → {Distance(distance)}\n");
 			}
 			tmp.Append("\n\n");
 			message = tmp.ToString();
@@ -295,12 +293,12 @@ drop 'name' [quantity|all] - Drop a specified object.
 				var category = byCategory ? NameToCategory(name) : null;
 
 				tmp.Clear();
-				tmp.Append($"* {Formatter.Quote(kv.Key)} → {kv.Value.Count} (");
+				tmp.Append($"* {Quote(kv.Key)} → {kv.Value.Count} (");
 
 				bool semi = false;
 				foreach(var p in kv.Value)
 				{	if(semi) tmp.Append("; ");
-					tmp.Append(Formatter.IJK(p));
+					tmp.Append(IJK(p));
 					semi = true;
 				}
 				tmp.Append(")");
@@ -320,7 +318,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(!GridIsSet(out message)) return message;
 
 			string category, name;
-			Formatter.Description(selectedGrid as MyEntity, out category, out name);
+			Description(selectedGrid as MyEntity, out category, out name);
 
 			string firstLine = $"# {category} '{name}'";
 
@@ -358,7 +356,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	
 				if (e.Closed) continue;
 
-				Formatter.Description(e, out category, out name);
+				Description(e, out category, out name);
 
 				if(Include(what, name) || Include(what, category)) matches.Add(e);
 			}
@@ -367,22 +365,22 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			var select = matches[0];
 
-			Formatter.Description(select, out category, out name);
+			Description(select, out category, out name);
 
 			switch(type)
 			{	case ObjectType.LargeShip:
 					selectedGrid = select as IMyCubeGrid;
-					if(selectedGrid == null) return $"Error: {Formatter.Quote(name)} is {category}";
+					if(selectedGrid == null) return $"Error: {Quote(name)} is {category}";
 					break;
 				case ObjectType.Asteroid:
 					selectedAsteroid = select as MyVoxelBase;
-					if(selectedAsteroid == null) return $"Error: {Formatter.Quote(name)} is {category}";
+					if(selectedAsteroid == null) return $"Error: {Quote(name)} is {category}";
 					break;
 				default:
 					return "Internal error";
 			}
 
-			return $"Selected {category} {Formatter.Quote(name)}";
+			return $"Selected {category} {Quote(name)}";
 		}
 
 		internal bool GridIsSet(out string message)
@@ -410,7 +408,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				var block = selectedGrid.GetCubeBlock(position);
 				if(Collisions.CenterIsFree(block))
 				{	if(semi) tmp.Append("; ");
-					tmp.Append(Formatter.IJK(position));
+					tmp.Append(IJK(position));
 					semi = true;
 					Debug.highlightCellsGreen.Add(position);
 
@@ -432,7 +430,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			tmp.Append(")\n");
 
 			if(semi)
-			{	tmp.Append($"(Nearest to you is {Formatter.IJK(nearestFreeSpace)})");
+			{	tmp.Append($"(Nearest to you is {IJK(nearestFreeSpace)})");
 			}
 		}
 
@@ -451,7 +449,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				Debug.Start(selectedGrid);
 
 				tmp.Clear();
-				tmp.Append($"Destination is blocked by {Formatter.Quote(Name(block))}, nearest free space is:\n");
+				tmp.Append($"Destination is blocked by {Quote(Name(block))}, nearest free space is:\n");
 
 				ListFreeSpace_ToTmp(ijk);
 
@@ -503,7 +501,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(distance > 5)
 			{	
 				tmp.Clear();
-				tmp.Append($"You are too far from {Name(block)} to interact ({Formatter.Distance(distance)})\n");
+				tmp.Append($"You are too far from {Name(block)} to interact ({Distance(distance)})\n");
 				tmp.Append($"Possible interaction points is: ");
 				ListFreeSpace_ToTmp(ijk);
 				message = tmp.ToString();
@@ -523,7 +521,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return  $"Error: no block at {Formatter.IJK(ijk)}";
+			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
 			if(IsTooFar(ijk, out message)) yield return message;
 
@@ -558,7 +556,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 
 			block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return  $"Error: no block at {Formatter.IJK(ijk)}";
+			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
 			// Apply grinding
 
@@ -586,7 +584,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				}
 				if (!canAccept)
 				{	DisableEffects();
-					yield return $"Block integrity changed from {Formatter.Percent(integrity0)} to {Formatter.Percent(block.Integrity)}\nYour inventory is full.";
+					yield return $"Block integrity changed from {Percent(integrity0)} to {Percent(block.Integrity)}\nYour inventory is full.";
 				}
 
 				block.DecreaseMountLevel(grindAmount, inventory);
@@ -634,7 +632,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			bool first = true;
 			foreach (var kv in missing)
 			{	if (!first) sb.Append(", ");
-				sb.Append($"{kv.Value} {Formatter.Quote(kv.Key)}");
+				sb.Append($"{kv.Value} {Quote(kv.Key)}");
 				first = false;
 			}
 			return $"Missing: {sb.ToString()}";
@@ -649,7 +647,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if (!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if (block == null) yield return $"Error: no block at {Formatter.IJK(ijk)}";
+			if (block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			if (block.Integrity >= block.MaxIntegrity)
 				yield return "The block is fully intact, no repairs needed.";
@@ -690,7 +688,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 
 			block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return  $"Error: no block at {Formatter.IJK(ijk)}";
+			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
 			// Apply welding
 
@@ -715,7 +713,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				{
 					DisableEffects();
 					
-					yield return $"Block integrity changed from {Formatter.Percent(integrity0)} to {Formatter.Percent(block.Integrity)}\n{MissingComponentsText(block)}";
+					yield return $"Block integrity changed from {Percent(integrity0)} to {Percent(block.Integrity)}\n{MissingComponentsText(block)}";
 				}
 
 				yield return null;
@@ -744,7 +742,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			var name = Name(selectedGrid.GetCubeBlock(ijk));
 			
-			string firstLine = $"# {hint}: {Formatter.Quote(name)} Position: ({Formatter.IJK(ijk)})";
+			string firstLine = $"# {hint}: {Quote(name)} Position: ({IJK(ijk)})";
 
 			positions.Clear();
 
@@ -779,17 +777,17 @@ drop 'name' [quantity|all] - Drop a specified object.
 				if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";
 
 				var block = selectedGrid.GetCubeBlock(ijk);
-				if(block == null) return $"Error: no block at {Formatter.IJK(ijk)}";
+				if(block == null) return $"Error: no block at {IJK(ijk)}";
 
 				var name = Name(block);
 				var fat = block.FatBlock;
 
 				if(fat == null || !fat.HasInventory)
-					return $"Block {Formatter.Quote(name)} does not have an inventory.";
+					return $"Block {Quote(name)} does not have an inventory.";
 
 				tmp.Clear();
 				var es = fat.InventoryCount == 1 ? "" : "es";
-				tmp.Append($"Current inventory{es} of {Formatter.Quote(name)} (at {Formatter.IJK(ijk)}):\n");
+				tmp.Append($"Current inventory{es} of {Quote(name)} (at {IJK(ijk)}):\n");
 
 				for(int i = 0; i < fat.InventoryCount; ++i)
 				{	var inv = fat.GetInventory(i);
@@ -802,7 +800,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		private static void InventoryToText(IMyInventory inv, StringBuilder output)
 		{
-			output.Append($"Used {Formatter.Volume((double)inv.CurrentVolume)}/{Formatter.Volume((double)inv.MaxVolume)} ({Formatter.Percent(inv.VolumeFillFactor)})\n");
+			output.Append($"Used {Volume((double)inv.CurrentVolume)}/{Volume((double)inv.MaxVolume)} ({Percent(inv.VolumeFillFactor)})\n");
 
 			if(inv.ItemCount == 0)
 			{	output.Append("-- No items --\n");
@@ -819,7 +817,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 				var volume = (double)item.Amount * itemDef.Volume;
 
-				output.Append($"* {Formatter.Quote(itemDef.DisplayNameText)} → {item.Amount} ({Formatter.Volume(volume)})\n");
+				output.Append($"* {Quote(itemDef.DisplayNameText)} → {item.Amount} ({Volume(volume)})\n");
 			}
 		}
 
@@ -840,13 +838,13 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return $"Error: no block at {Formatter.IJK(ijk)}";
+			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			var fat = block.FatBlock;
 			var fromName = Name(block);
 
 			if(fat == null || !fat.HasInventory)
-				yield return  $"Block {Formatter.Quote(fromName)} does not have an inventory.";
+				yield return  $"Block {Quote(fromName)} does not have an inventory.";
 
 			if(IsTooFar(ijk, out message)) yield return message;
 
@@ -861,7 +859,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			// recheck
 			block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return $"Error: no block at {Formatter.IJK(ijk)}";
+			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
@@ -905,7 +903,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return $"Error: no block at {Formatter.IJK(ijk)}";
+			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			var inv = character.GetInventory() as IMyInventory;
 			if (inv == null) yield return IE_NO_INVENTORY;
@@ -914,7 +912,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			var toName = Name(block);
 
 			if(fat == null || !fat.HasInventory)
-				yield return $"Block {Formatter.Quote(toName)} does not have an inventory.";
+				yield return $"Block {Quote(toName)} does not have an inventory.";
 
 			if(IsTooFar(ijk, out message)) yield return message;
 
@@ -929,7 +927,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			// recheck
 			block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return $"Error: no block at {Formatter.IJK(ijk)}";
+			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
@@ -979,22 +977,22 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(!tp.NextVector3I(out ijkTo)) yield return "Error: expected I J K";
 
 			var blockFrom = selectedGrid.GetCubeBlock(ijkFrom);
-			if(blockFrom == null) yield return $"Error: no block at {Formatter.IJK(ijkFrom)}";
+			if(blockFrom == null) yield return $"Error: no block at {IJK(ijkFrom)}";
 
 			var blockTo = selectedGrid.GetCubeBlock(ijkTo);
-			if(blockTo == null) yield return  $"Error: no block at {Formatter.IJK(ijkTo)}";
+			if(blockTo == null) yield return  $"Error: no block at {IJK(ijkTo)}";
 
 			var fatFrom = blockFrom.FatBlock;
 			var fromName = Name(blockFrom);
 
 			if(fatFrom == null || !fatFrom.HasInventory)
-				yield return $"Block {Formatter.Quote(fromName)} does not have an inventory.";
+				yield return $"Block {Quote(fromName)} does not have an inventory.";
 
 			var fatTo = blockTo.FatBlock;
 			var toName = Name(blockTo);
 
 			if(fatTo == null || !fatTo.HasInventory)
-				yield return $"Block {Formatter.Quote(toName)} does not have an inventory.";
+				yield return $"Block {Quote(toName)} does not have an inventory.";
 
 			if(IsTooFar(ijkFrom, out message) && IsTooFar(ijkTo, out message)) yield return message; /// XXX Incorrect!
 
@@ -1052,7 +1050,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 					
 					if(InventoryTransfer(from, i, toList, transfer))
 					{
-						result.Append($"Transferred {transfer} {Formatter.Quote(itemDef.DisplayNameText)}\n");
+						result.Append($"Transferred {transfer} {Quote(itemDef.DisplayNameText)}\n");
 						somethingTransfered = true;
 					}
 				}
