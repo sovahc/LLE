@@ -497,7 +497,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				Debug.Start(selectedGrid);
 
 				StringBuilder sb = new StringBuilder();
-				sb.Append($"ERROR: Destination is blocked by {Quote(Name(block))}, nearest free space is:\n");
+				sb.Append($"Error: Destination is blocked by {Quote(Name(block))}, nearest free space is:\n");
 
 				ListFreeSpace_ToSb(ijk, sb);
 
