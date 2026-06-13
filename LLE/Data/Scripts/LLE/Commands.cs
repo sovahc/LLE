@@ -377,7 +377,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				foreach (var block in kv.Value)
 				{
 					var p = block.Integrity / block.MaxIntegrity;
-					sb.Append($"* {Quote(Name(block))} at ({IJK(block.Position)}) → {Percent(p)}\n");
+					sb.Append($"* {Quote(Name(block))} at ({IJK(block.Position)}) [{Percent(p)}]\n");
 				}
 				MyMarkdown.Add($"## {kv.Key}", sb.ToString());
 			}
@@ -1169,13 +1169,13 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			var tp = new TokenParser(command);
 
-		if(tp.Match("Overview"))
-		{	result = Overview();
-		}
-		else if(tp.Match("Integrity"))
-		{	result = Integrity();
-		}
-		else if(tp.Match("Select_Asteroid"))
+			if(tp.Match("Overview"))
+			{	result = Overview();
+			}
+			else if(tp.Match("Integrity"))
+			{	result = Integrity();
+			}
+			else if(tp.Match("Select_Asteroid"))
 			{	result = Select(ObjectType.Asteroid, tp);
 			}
 			else if(tp.Match("Select_grid") || tp.Match("Select"))
