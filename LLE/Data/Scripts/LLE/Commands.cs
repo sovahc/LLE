@@ -561,6 +561,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(block == null) yield return  $"Error: no block at {Formatter.IJK(ijk)}";
 
 			// Apply grinding
+
+			var integrity0 = block.Integrity;
 			
 			EnableEffects(block, MyParticleEffectsNameEnum.ShipGrinder, "ToolPlayGrindMetal");
 
@@ -584,7 +586,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				}
 				if (!canAccept)
 				{	DisableEffects();
-					yield return "Your inventory is full.";
+					yield return $"Block integrity changed from {Formatter.Percent(integrity0)} to {Formatter.Percent(block.Integrity)}\nYour inventory is full.";
 				}
 
 				block.DecreaseMountLevel(grindAmount, inventory);
@@ -622,6 +624,20 @@ drop 'name' [quantity|all] - Drop a specified object.
 			block.GetMissingComponents(missing);
 
 			foreach (var kv in missing) components[kv.Key] -= kv.Value;
+		}
+	
+		internal static string MissingComponentsText(IMySlimBlock block)
+		{	Dictionary<string, int> missing = new Dictionary<string, int>();
+			block.GetMissingComponents(missing);
+
+			StringBuilder sb = new StringBuilder();
+			bool first = true;
+			foreach (var kv in missing)
+			{	if (!first) sb.Append(", ");
+				sb.Append($"{kv.Value} {Formatter.Quote(kv.Key)}");
+				first = false;
+			}
+			return $"Missing: {sb.ToString()}";
 		}
 
 		internal IEnumerator Weld(TokenParser tp)
@@ -661,7 +677,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			float weldAmount = Constants.WeldAndGrindSpeed * speedMultiplier * MyAPIGateway.Session.WelderSpeedMultiplier;
 
 			// Check if block can accept components from inventory
-			if (!block.CanContinueBuild(inventory)) yield return "You need components."; // XXX What components
+			if (!block.CanContinueBuild(inventory)) yield return MissingComponentsText(block);
 
 			Vector3D bp;
 			block.ComputeWorldCenter(out bp);
@@ -677,6 +693,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(block == null) yield return  $"Error: no block at {Formatter.IJK(ijk)}";
 
 			// Apply welding
+
+			var integrity0 = block.Integrity;
 
 			EnableEffects(block, MyParticleEffectsNameEnum.WelderContactPoint, "ToolPlayWeldMetal");
 
@@ -696,7 +714,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 				else if (block.Integrity == pbi)
 				{
 					DisableEffects();
-					yield return "You need components."; // XXX What components
+					
+					yield return $"Block integrity changed from {Formatter.Percent(integrity0)} to {Formatter.Percent(block.Integrity)}\n{MissingComponentsText(block)}";
 				}
 
 				yield return null;
