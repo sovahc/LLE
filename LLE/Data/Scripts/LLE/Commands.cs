@@ -235,7 +235,13 @@ drop 'name' [quantity|all] - Drop a specified object.
 		}
 
 		private static readonly List<string> ALL_COMPONENTS = new List<string>
-		{	"SteelPlate", "SmallTube", "LargeTube", "Motor", "Construction", "MetalGrid", "PowerCell"
+		{
+"Construction", "MetalGrid", "InteriorPlate", "SteelPlate", "Girder", "SmallTube", "LargeTube", "Motor", "Display",
+"BulletproofGlass", "Superconductor", "Computer", "Reactor", "Thrust", "GravityGenerator", "Medical", "RadioCommunication", 
+"Detector", "Explosives", "SolarCell", "PowerCell", "Canvas",
+"ZoneChip", "EngineerPlushie", "EngineerPlushieSE2", "SabiroidPlushie",
+"PrototechFrame", "PrototechPanel", "PrototechCapacitor", "PrototechPropulsionUnit",
+"PrototechMachinery", "PrototechCircuitry", "PrototechCoolingUnit", 
 		};
 		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
 
