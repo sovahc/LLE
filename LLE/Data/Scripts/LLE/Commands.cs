@@ -934,19 +934,16 @@ drop 'name' [quantity|all] - Drop a specified object.
 				toList.Add(fat.GetInventory(ii));
 
 			StringBuilder sb = new StringBuilder();
+			sb.Append($"Transfering from your inventory into {toName}\n");
 
 			if(allComponents)
 			{
-				sb.Append($"Transfering from your inventory into {toName}\n");
-
 				InventoryTransfer(fromList, toList, ALL_COMPONENTS, MyFixedPoint.MaxValue, sb);
 
 				yield return sb.ToString();
 			}
 			else
-			{	sb.Append($"Transfering from your inventory into {toName}\n");
-				
-				List<string> items = new List<string>() { item };
+			{	List<string> items = new List<string>() { item };
 				InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
 				yield return sb.ToString();
 			}
