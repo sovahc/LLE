@@ -222,6 +222,14 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return message;
 		}
 
+		private static readonly List<string> ALL_COMPONENTS = new List<string>
+		{	"SteelPlate", "SmallTube", "LargeTube", "Motor", "Construction", "MetalGrid", "PowerCell"
+		};
+		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
+
+		private static readonly Dictionary<string, List<Vector3I>> describer = new Dictionary<string, List<Vector3I>>();
+		private static readonly List<Vector3I> positions = new List<Vector3I>();
+
 		private static readonly Dictionary<string, string[]> TerminalBCategories = new Dictionary<string, string[]>
 		{
 			{ "Control", new[] { "Cockpit" } },
@@ -244,14 +252,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 			//{ "Other", new[] { "ButtonPanel", "Jukebox", "CameraBlock", "SoundBlock", "InteriorLight" } },
 			//{ "Structure", new[] { ,  } },
 		};
-		private static readonly List<string> ALL_COMPONENTS = new List<string>
-		{	"SteelPlate", "SmallTube", "LargeTube", "Motor", "Construction", "MetalGrid", "PowerCell"
-		};
-		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
-		private static readonly List<IMySlimBlock> slimBlocks = new List<IMySlimBlock>();
-
-		private static readonly Dictionary<string, List<Vector3I>> describer = new Dictionary<string, List<Vector3I>>();
-		private static readonly List<Vector3I> positions = new List<Vector3I>();
 
 		internal static string NameToCategory(string name)
 		{	foreach (var cat in TerminalBCategories)
