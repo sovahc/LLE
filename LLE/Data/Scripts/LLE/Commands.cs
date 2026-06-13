@@ -108,8 +108,7 @@ namespace LLE
 * get count 'item' from I J K	- Transfer an item from a container to your inventory. e.g. `get 10 'Gold Ingot' from -1 5 2`
 * put count 'item' into I J K	- Transfer an item from your inventory to a container. e.g. `put 1 'Medkit' into 14 0 2`
 * put all components into I J K	- Transfer all blocks components from your inventory to a container (very useful shortcut).
-* transfer count 'item' from I1 J1 K1 to I2 J2 K2
-								- Transfer an item from one inventory to another.
+* transfer count 'item' from I1 J1 K1 to I2 J2 K2 - Transfer an item from one inventory to another.
 ";
 }
 
