@@ -1061,10 +1061,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(!somethingTransfered)
 			{	result.Append($"No items transfered!\n");
 			}
-
-			//{	result = $"Item {Formatter.Quote(itemName)} not found in inventory";
-			//result.Append($" from {Formatter.Quote(fromName)} into {Formatter.Quote(toName)}");
-			//result = $"Cannot transfer {Formatter.Quote(itemName)} into {Formatter.Quote(toName)}";
 		}
 
 		internal static bool InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount)
