@@ -376,7 +376,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 				StringBuilder sb = new StringBuilder();
 				foreach (var block in kv.Value)
 				{
-					sb.Append($"* {Quote(Name(block))} at ({IJK(block.Position)}) → {Percent(block.Integrity / block.MaxIntegrity)}\n");
+					var p = block.Integrity / block.MaxIntegrity;
+					sb.Append($"* {Quote(Name(block))} at ({IJK(block.Position)}) → {Percent(p)}\n");
 				}
 				MyMarkdown.Add($"## {kv.Key}", sb.ToString());
 			}
@@ -631,7 +632,10 @@ drop 'name' [quantity|all] - Drop a specified object.
 				}
 				if (!canAccept)
 				{	DisableEffects();
-					yield return $"Block integrity changed from {Percent(integrity0)} to {Percent(block.Integrity)}\nYour inventory is full.";
+
+					var p0 = integrity0 / block.MaxIntegrity;
+					var p1 = block.Integrity / block.MaxIntegrity;
+					yield return $"Block integrity changed from {Percent(p0)} to {Percent(p1)}\nYour inventory is full.";
 				}
 
 				block.DecreaseMountLevel(grindAmount, inventory);
@@ -759,8 +763,11 @@ drop 'name' [quantity|all] - Drop a specified object.
 				else if (block.Integrity == pbi)
 				{
 					DisableEffects();
+
+					var p0 = integrity0 / block.MaxIntegrity;
+					var p1 = block.Integrity / block.MaxIntegrity;
 					
-					yield return $"Block integrity changed from {Percent(integrity0)} to {Percent(block.Integrity)}\n{MissingComponentsText(block)}";
+					yield return $"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n{MissingComponentsText(block)}";
 				}
 
 				yield return null;
