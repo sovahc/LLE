@@ -215,6 +215,17 @@ namespace LLE
 			}
 			foreach (var detector in geometry.Detectors)
 			{
+				var color = Color.Gray;
+				if(detector.Name.StartsWith("terminal_")) color = Color.Cyan;
+				else if(detector.Name.StartsWith("door_")) color = Color.OrangeRed;
+				else if(detector.Name.StartsWith("advanceddoor_")) color = Color.Orange;
+				else if(detector.Name.StartsWith("inventory_")) color = Color.Magenta;
+				else if(detector.Name.StartsWith("conveyor_")) color = Color.Yellow;
+				// panel
+				else if(detector.Name.StartsWith("cockpit_")) color = Color.BlueViolet;
+				else if(detector.Name.StartsWith("block_")) color = Color.White;
+				// wardrobe, textpanel, cryopod
+
 				var vertices = new List<Vector3>();
 				Geometry.BoxToConvex(new Vector3(0.5f, 0.5f, 0.5f), vertices);
 				for (int v = 0; v < vertices.Count; ++v)
@@ -223,7 +234,7 @@ namespace LLE
 				var worldVerts = vertices.Select(v => Vector3D.Transform(new Vector3D(v), blockMatrix)).ToList();
 				var screenVerts = Drawing.WorldToScreen(worldVerts);
 				var hull = Geometry.ConvexHull(screenVerts);
-				Drawing.Contour(hull.ToArray(), true, 5e-5f, new Vector4(0f, 0f, 1f, 1f));
+				Drawing.Contour(hull.ToArray(), true, 5e-5f, color.ToVector4());
 			}
 		}
 
@@ -377,12 +388,15 @@ namespace LLE
 
 			if (!_collisionGeometry.TryGetValue(id, out geometry)) return;
 
-			MyConsole.AddNewLine(Color.Indigo);
+			var color = Color.Aqua;
+
+			MyConsole.AddNewLine(color);
 
 			foreach(var detector in geometry.Detectors)
-			{	MyConsole.AddMultiline(" ", Color.Indigo);
-				MyConsole.AddMultiline(detector.Name, Color.Indigo);
+			{	MyConsole.AddMultiline(" ", color);
+				MyConsole.AddMultiline(detector.Name, color);
 			}
+			MyConsole.AddMultiline("\n", color);
 		}
 	}
 }
