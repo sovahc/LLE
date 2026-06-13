@@ -30,8 +30,6 @@ namespace LLE
 		
 		internal Navigation navigation;
 
-		private readonly StringBuilder tmp = new StringBuilder();
-
 		private IEnumerator currentCommand;
 
 		private MyEntity3DSoundEmitter soundEmitter;
@@ -205,19 +203,17 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(matches.Count == 0)
 				return $"Error: object '{query}' not found. Use the exact object name.";
 
-			string message;
-			tmp.Clear();
-			tmp.Append($"Error: multiple objects match '{query}':\n");
+			StringBuilder sb = new StringBuilder();
+			sb.Append($"Error: multiple objects match '{query}':\n");
 			foreach (var e in matches)
 			{
 				string category, name;
 				Description(e, out category, out name);
 				double distance = (e.WorldMatrix.Translation - engineer).Length();
-				tmp.Append($"* {category} {Quote(name)} → {Distance(distance)}\n");
+				sb.Append($"* {category} {Quote(name)} → {Distance(distance)}\n");
 			}
-			tmp.Append("\n\n");
-			message = tmp.ToString();
-			return message;
+			sb.Append("\n\n");
+			return sb.ToString();
 		}
 
 		private static readonly List<string> ALL_COMPONENTS = new List<string>
@@ -292,21 +288,21 @@ drop 'name' [quantity|all] - Drop a specified object.
 				var name = kv.Key;
 				var category = byCategory ? NameToCategory(name) : null;
 
-				tmp.Clear();
-				tmp.Append($"* {Quote(kv.Key)} → {kv.Value.Count} (");
+				StringBuilder sb = new StringBuilder();
+				sb.Append($"* {Quote(kv.Key)} → {kv.Value.Count} (");
 
 				bool semi = false;
 				foreach(var p in kv.Value)
-				{	if(semi) tmp.Append("; ");
-					tmp.Append(IJK(p));
+				{	if(semi) sb.Append("; ");
+					sb.Append(IJK(p));
 					semi = true;
 				}
-				tmp.Append(")");
+				sb.Append(")");
 
 				if(byCategory)
-					MyMarkdown.Add($"## {category}", tmp.ToString());
+					MyMarkdown.Add($"## {category}", sb.ToString());
 				else
-					MyMarkdown.Append(tmp.ToString());
+					MyMarkdown.Append(sb.ToString());
 			}
 
 			describer.Clear();
@@ -392,14 +388,14 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return true;
 		}
 
-		internal void ListFreeSpace_ToTmp(Vector3I ijk)
+		internal void ListFreeSpace_ToSb(Vector3I ijk, StringBuilder sb)
 		{	
 			Vector3D ec = Utilities.GetEngineerCenter(character);
 
 			var minimalDistanceSq = double.MaxValue;
 			var nearestFreeSpace = Vector3I.Zero;
 
-			tmp.Append("(");
+			sb.Append("(");
 
 			bool semi = false;
 			foreach (var direction in Constants.SixDirections)
@@ -407,8 +403,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 					
 				var block = selectedGrid.GetCubeBlock(position);
 				if(Collisions.CenterIsFree(block))
-				{	if(semi) tmp.Append("; ");
-					tmp.Append(IJK(position));
+				{	if(semi) sb.Append("; ");
+					sb.Append(IJK(position));
 					semi = true;
 					Debug.highlightCellsGreen.Add(position);
 
@@ -424,13 +420,13 @@ drop 'name' [quantity|all] - Drop a specified object.
 					Debug.highlightCellsRed.Add(position);
 			}
 			if(!semi) // nothing added
-			{	tmp.Append(" -- none -- ");
+			{	sb.Append(" -- none -- ");
 			}
 
-			tmp.Append(")\n");
+			sb.Append(")\n");
 
 			if(semi)
-			{	tmp.Append($"(Nearest to you is {IJK(nearestFreeSpace)})");
+			{	sb.Append($"(Nearest to you is {IJK(nearestFreeSpace)})");
 			}
 		}
 
@@ -448,12 +444,12 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	
 				Debug.Start(selectedGrid);
 
-				tmp.Clear();
-				tmp.Append($"Destination is blocked by {Quote(Name(block))}, nearest free space is:\n");
+				StringBuilder sb = new StringBuilder();
+				sb.Append($"Destination is blocked by {Quote(Name(block))}, nearest free space is:\n");
 
-				ListFreeSpace_ToTmp(ijk);
+				ListFreeSpace_ToSb(ijk, sb);
 
-				yield return tmp.ToString();
+				yield return sb.ToString();
 			}
 
 			navigation.FlyInsideGrid(selectedGrid, ijk);
@@ -500,11 +496,11 @@ drop 'name' [quantity|all] - Drop a specified object.
 			var distance = (world - Utilities.GetEngineerCenter(character)).Length();
 			if(distance > 5)
 			{	
-				tmp.Clear();
-				tmp.Append($"You are too far from {Name(block)} to interact ({Distance(distance)})\n");
-				tmp.Append($"Possible interaction points is: ");
-				ListFreeSpace_ToTmp(ijk);
-				message = tmp.ToString();
+				StringBuilder sb = new StringBuilder();
+				sb.Append($"You are too far from {Name(block)} to interact ({Distance(distance)})\n");
+				sb.Append($"Possible interaction points is: ");
+				ListFreeSpace_ToSb(ijk, sb);
+				message = sb.ToString();
 				return true;
 			}
 			message = null;
@@ -762,11 +758,11 @@ drop 'name' [quantity|all] - Drop a specified object.
 				var inv = character.GetInventory() as IMyInventory;
 				if (inv == null) return IE_NO_INVENTORY;
 
-				tmp.Clear();
-				tmp.Append($"Your inventory:\n");
-				InventoryToText(inv, tmp);
+				StringBuilder sb = new StringBuilder();
+				sb.Append($"Your inventory:\n");
+				InventoryToText(inv, sb);
 
-				return tmp.ToString();
+				return sb.ToString();
 			}
 			else
 			{	string message;
@@ -785,16 +781,16 @@ drop 'name' [quantity|all] - Drop a specified object.
 				if(fat == null || !fat.HasInventory)
 					return $"Block {Quote(name)} does not have an inventory.";
 
-				tmp.Clear();
+				StringBuilder sb = new StringBuilder();
 				var es = fat.InventoryCount == 1 ? "" : "es";
-				tmp.Append($"Current inventory{es} of {Quote(name)} (at {IJK(ijk)}):\n");
+				sb.Append($"Current inventory{es} of {Quote(name)} (at {IJK(ijk)}):\n");
 
 				for(int i = 0; i < fat.InventoryCount; ++i)
 				{	var inv = fat.GetInventory(i);
-					InventoryToText(inv, tmp);
+					InventoryToText(inv, sb);
 				}
 
-				return tmp.ToString();
+				return sb.ToString();
 			}
 		}
 
@@ -871,12 +867,12 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			List<string> items = new List<string>() { item };
 
-			tmp.Clear();
-			tmp.Append($"Transfering from {fromName} into your inventory\n");
+			StringBuilder sb = new StringBuilder();
+			sb.Append($"Transfering from {fromName} into your inventory\n");
 
-			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, tmp);
+			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
 			
-			yield return tmp.ToString();
+			yield return sb.ToString();
 		}
 
 		internal IEnumerator Put(TokenParser tp)
@@ -937,22 +933,22 @@ drop 'name' [quantity|all] - Drop a specified object.
 			for (int ii = 0; ii < fat.InventoryCount; ++ii)
 				toList.Add(fat.GetInventory(ii));
 
+			StringBuilder sb = new StringBuilder();
+
 			if(allComponents)
 			{
-				tmp.Clear();
-				tmp.Append($"Transfering from your inventory into {toName}\n");
+				sb.Append($"Transfering from your inventory into {toName}\n");
 
-				InventoryTransfer(fromList, toList, ALL_COMPONENTS, MyFixedPoint.MaxValue, tmp);
+				InventoryTransfer(fromList, toList, ALL_COMPONENTS, MyFixedPoint.MaxValue, sb);
 
-				yield return tmp.ToString();
+				yield return sb.ToString();
 			}
 			else
-			{	tmp.Clear();
-				tmp.Append($"Transfering from your inventory into {toName}\n");
+			{	sb.Append($"Transfering from your inventory into {toName}\n");
 				
 				List<string> items = new List<string>() { item };
-				InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, tmp);
-				yield return tmp.ToString();
+				InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
+				yield return sb.ToString();
 			}
 		}
 
@@ -1007,12 +1003,12 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			List<string> items = new List<string>() { item };
 
-			tmp.Clear();
-			tmp.Append($"Transfering from {fromName} into {toName}\n");
+			StringBuilder sb = new StringBuilder();
+			sb.Append($"Transfering from {fromName} into {toName}\n");
 
-			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, tmp);
+			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
 
-			yield return tmp.ToString();
+			yield return sb.ToString();
 		}
 
 		private static bool Include(MyPhysicalItemDefinition def, List<string> itemNames)
