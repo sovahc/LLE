@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using Sandbox.Common.ObjectBuilders.Definitions;
 using Sandbox.Definitions;
 using Sandbox.ModAPI;
 using VRage;
@@ -97,17 +98,27 @@ namespace LLE
 				return;
 			}
 
-			List<MyInventoryItem> items = new List<MyInventoryItem>();
-			inv.GetItems(items);
-
-			foreach (var item in items)
+			var richInv = inv as WTF_IMyInventory;
+			foreach (var item in richInv.GetItems())
 			{
-				var def = (MyDefinitionId)item.Type;
-				var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
+				var contentId = item.Content.GetId();
+				var itemDef = MyDefinitionManager.Static.GetPhysicalItemDefinition(contentId);
 
 				var volume = (double)item.Amount * itemDef.Volume;
 
 				output.Append($"* {Quote(itemDef.DisplayNameText)} → {item.Amount} ({Volume(volume)})\n");
+				var gasContainer = item.Content as MyObjectBuilder_GasContainerObject;
+				if (gasContainer != null)
+				{
+					var oxygenDef = itemDef as MyOxygenContainerDefinition;
+					if (oxygenDef != null)
+					{
+						double totalGas = gasContainer.GasLevel * oxygenDef.Capacity * (double)item.Amount;
+						double maxGas = oxygenDef.Capacity * (double)item.Amount;
+						string gasName = oxygenDef.StoredGasId.SubtypeName;
+						output.Append($"  ({Percent(gasContainer.GasLevel)} {gasName}, {Volume(totalGas)}/{Volume(maxGas)})\n");
+					}
+				}
 			}
 		}
 
