@@ -58,13 +58,13 @@ namespace LLE
 			if(IsTooFar(ijk, out message)) yield return message;
 
 			if(!EquipTool("Grinder"))
-				yield return  "Cannot equip grinder. Do you have a grinder in your inventory?";
+				yield return  "Cannot equip grinder. Do you have a handheld angle grinder in your inventory?";
 
 			var inventory = character.GetInventory();
 			if (inventory == null) yield return IE_NO_INVENTORY;
 
 			var equippedTool = character.EquippedTool as IMyAngleGrinder;
-			if (equippedTool == null) yield return "Error: You should take an angle grinder.";
+			if (equippedTool == null) yield return "Internal error: equippedTool is not IMyAngleGrinder";
 
 			float speedMultiplier = 1.0f;
 
@@ -133,7 +133,7 @@ namespace LLE
 					block.CubeGrid.RazeBlock(block.Min);
 
 					DisableEffectAndSound();
-					yield return $"Done! {Commands.Name(block)} is removed.";
+					yield return $"Done! {Commands.Name(block)} has been removed.";
 				}
 
 				yield return null;
@@ -186,18 +186,18 @@ namespace LLE
 			if (block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			if (block.Integrity >= block.MaxIntegrity)
-				yield return "The block is fully intact, no repairs needed.";
+				yield return "The block is fully intact; No repairs needed.";
 
 			if (IsTooFar(ijk, out message)) yield return message;
 
 			if (!EquipTool("Welder"))
-				yield return "Cannot equip welder. Do you have a welder in your inventory?";
+				yield return "Cannot equip handheld welder. Do you have a welder in your inventory?";
 
 			var inventory = character.GetInventory();
 			if (inventory == null) yield return IE_NO_INVENTORY;
 
 			var equippedTool = character.EquippedTool as IMyWelder;
-			if (equippedTool == null) yield return "Error: You should take a welder.";
+			if (equippedTool == null) yield return "Internal error: equippedTool is not IMyWelder";
 
 			float speedMultiplier = 1.0f;
 
@@ -244,7 +244,7 @@ namespace LLE
 				if (block.Integrity >= block.MaxIntegrity)
 				{
 					DisableEffectAndSound();
-					yield return "Done! Block integrity is full now.";
+					yield return "Done! Block integrity is full.";
 				}
 				else if (block.Integrity == pbi)
 				{
