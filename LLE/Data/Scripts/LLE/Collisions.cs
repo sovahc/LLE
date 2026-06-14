@@ -74,22 +74,23 @@ namespace LLE
 				Draw(geometry, GetBlockWorldMatrix(grid, block));
 		}
 
+		private static void DrawConvexOutline(List<Vector3> localVerts, Matrix localTransform,
+		                                      MatrixD blockMatrix, float epsilon, Vector4 color)
+		{
+			var worldVerts = localVerts.Select(v => 
+				Vector3D.Transform(new Vector3D(Vector3.Transform(v, localTransform)), blockMatrix)).ToList();
+			var screenVerts = Drawing.WorldToScreen(worldVerts);
+			var hull = Geometry.ConvexHull(screenVerts);
+			Drawing.Contour(hull.ToArray(), true, epsilon, color);
+		}
+
 		private static void Draw(CollisionGeometry geometry, MatrixD blockMatrix)
 		{
 			foreach (var shape in geometry.Shapes)
 			{
 				var convex = shape as ConvexHullShape;
 				if (convex != null)
-				{
-					var worldVerts = convex.Vertices.Select(v =>
-					{
-						var localVert = Vector3.Transform(v, shape.Transform);
-						return Vector3D.Transform(new Vector3D(localVert), blockMatrix);
-					}).ToList();
-					var screenVerts = Drawing.WorldToScreen(worldVerts);
-					var hull = Geometry.ConvexHull(screenVerts);
-					Drawing.Contour(hull.ToArray(), true, 1e-4f, new Vector4(1f, 0f, 0f, 1f));
-				}
+					DrawConvexOutline(convex.Vertices, shape.Transform, blockMatrix, 1e-4f, new Vector4(1f, 0f, 0f, 1f));
 
 				var sphere = shape as SphereShape;
 				if (sphere != null)
@@ -123,13 +124,7 @@ namespace LLE
 
 				var vertices = new List<Vector3>();
 				Geometry.BoxToConvex(new Vector3(0.5f, 0.5f, 0.5f), vertices);
-				for (int v = 0; v < vertices.Count; ++v)
-					vertices[v] = Vector3.Transform(vertices[v], detector.Transform);
-
-				var worldVerts = vertices.Select(v => Vector3D.Transform(new Vector3D(v), blockMatrix)).ToList();
-				var screenVerts = Drawing.WorldToScreen(worldVerts);
-				var hull = Geometry.ConvexHull(screenVerts);
-				Drawing.Contour(hull.ToArray(), true, 5e-5f, color.ToVector4());
+				DrawConvexOutline(vertices, detector.Transform, blockMatrix, 5e-5f, color.ToVector4());
 			}
 		}
 
