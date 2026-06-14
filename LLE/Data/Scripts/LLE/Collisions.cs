@@ -169,19 +169,23 @@ namespace LLE
 		private static Traversability CalculateTraversability(CollisionGeometry geometry)
 		{
 			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
+			float offset = blockSize / 2;
 
 			var trav = new Traversability();
 
-			float offset = blockSize/2;
+			// Center probe
+			if (ProbeIntersects(geometry, Vector3.Zero, probeRadius))
+				trav[0, 0, 0] = true;
 
-			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, 0, 0, 0)) trav[0, 0, 0] = true;
-
-			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, +offset, 0, 0)) trav[+1, 0, 0] = true;
-			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, -offset, 0, 0)) trav[-1, 0, 0] = true;
-			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, 0, +offset, 0)) trav[0, +1, 0] = true;
-			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, 0, -offset, 0)) trav[0, -1, 0] = true;
-			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, 0, 0, +offset)) trav[0, 0, +1] = true;
-			if (ProbeIntersectsCollision(Vector3.Zero, probeRadius, geometry, 0, 0, -offset)) trav[0, 0, -1] = true;
+			// 6 directional probes around the center
+			var dirs = Constants.SixDirections;
+			for (int d = 0; d < dirs.Length; ++d)
+			{
+				Vector3I dir = dirs[d];
+				Vector3 probeCenter = new Vector3(dir.X, dir.Y, dir.Z) * offset;
+				if (ProbeIntersects(geometry, probeCenter, probeRadius))
+					trav[dir] = true;
+			}
 
 			return trav;
 		}
@@ -201,10 +205,9 @@ namespace LLE
 			return false;
 		}
 
-		private static bool ProbeIntersectsCollision(Vector3 center, double radius, CollisionGeometry geometry, float ox, float oy, float oz)
+		private static bool ProbeIntersects(CollisionGeometry geometry, Vector3 center, double radius)
 		{
-			var shiftedCenter = new Vector3D(center.X + ox, center.Y + oy, center.Z + oz);
-			return ProbeIntersects(geometry, shiftedCenter, radius);
+			return ProbeIntersects(geometry, new Vector3D(center), radius);
 		}
 
 		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
@@ -291,7 +294,7 @@ namespace LLE
 			var trav = new Traversability();
 
 			// Center probe
-			if (ProbeIntersectsLocal(localCellCenter, probeRadius, geometry))
+			if (ProbeIntersects(geometry, localCellCenter, probeRadius))
 				trav[0, 0, 0] = true;
 
 			// 6 directional probes around the cell
@@ -300,16 +303,11 @@ namespace LLE
 			{
 				Vector3I dir = dirs[d];
 				Vector3 localProbe = localCellCenter + Vector3.Transform(new Vector3(dir.X, dir.Y, dir.Z), invOrient) * offset;
-				if (ProbeIntersectsLocal(localProbe, probeRadius, geometry))
+				if (ProbeIntersects(geometry, localProbe, probeRadius))
 					trav[dir] = true;
 			}
 
 			return trav;
-		}
-
-		private static bool ProbeIntersectsLocal(Vector3 center, double radius, CollisionGeometry geometry)
-		{
-			return ProbeIntersects(geometry, new Vector3D(center), radius);
 		}
 	}
 }
