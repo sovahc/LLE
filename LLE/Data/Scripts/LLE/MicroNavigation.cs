@@ -50,8 +50,8 @@ namespace LLE
 				return ComputeDesiredVelocity(currentPosition, currentVelocity);
 			}
 
-			double maximalSpeed = 10;
-			double desiredSpeed = Math.Min(maximalSpeed, distance * 5.0); // Arrive behavior
+			double maximalSpeed = 20;
+			double desiredSpeed = Math.Min(maximalSpeed, distance * 3.0); // Arrive behavior
 
 			Vector3D desiredVelocity = toTarget.Normalized() * desiredSpeed;
 
