@@ -265,14 +265,26 @@ namespace LLE
 			return false;
 		}
 
-		public static bool CenterIsFree(IMySlimBlock slim)
+		public static bool CenterIsFree(IMySlimBlock slim, Vector3I position)
 		{
 			if(slim == null) return true;
 
 			Traversability t;
-			if (!_traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t)) return false;
+			if (!_traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
+				return false;
 
-			return t.Center == false;
+			Traversability result;
+			if (slim.Min == slim.Max)
+			{
+				MatrixI m = new MatrixI(slim.Orientation);
+				result = Traversability.Rotate(t, m);
+			}
+			else
+			{
+				result = CalculateMultiBlockTraversability(slim, position);
+			}
+
+			return result.Center == false;
 		}
 
 		public static Traversability CalculateMultiBlockTraversability(IMySlimBlock slim, Vector3I position)

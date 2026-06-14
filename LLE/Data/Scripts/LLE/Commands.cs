@@ -180,7 +180,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	var position = ijk + direction;
 					
 				var block = selectedGrid.GetCubeBlock(position);
-				if(Collisions.CenterIsFree(block))
+				if(Collisions.CenterIsFree(block, position))
 				{	if(added != 0) sb.Append("; ");
 					sb.Append(IJK(position));
 					++added;
@@ -218,7 +218,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(!Collisions.CenterIsFree(block))
+			if(!Collisions.CenterIsFree(block, ijk))
 			{	
 				Debug.Start(selectedGrid);
 
