@@ -164,6 +164,7 @@ namespace LLE
 
 		private static readonly MyStorageData storage = new MyStorageData();
 
+		// Credit: Adapted from AI Enabled mod
 		public static bool HasMaterialsInBox(BoundingBoxD worldBoundaries, MyVoxelBase voxel, int lod = 0)
 		{
 			if (voxel == null || voxel.MarkedForClose) return false;
