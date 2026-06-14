@@ -189,23 +189,25 @@ namespace LLE
 			return trav;
 		}
 
-		private static bool ProbeIntersectsCollision(Vector3 center, double radius, CollisionGeometry geometry, float ox, float oy, float oz)
+		private static bool ProbeIntersects(CollisionGeometry geometry, Vector3D center, double radius)
 		{
-			var shiftedCenter = new Vector3D(center.X + ox, center.Y + oy, center.Z + oz);
-
 			foreach (var shape in geometry.Shapes)
 			{
 				var convex = shape as ConvexHullShape;
-				if (convex != null)
-					if (Intersections.SphereVsConvex(shiftedCenter, radius, convex.Vertices))
-						return true;
+				if (convex != null && Intersections.SphereVsConvex(center, radius, convex.Vertices))
+					return true;
 				var sphere = shape as SphereShape;
-				if (sphere != null)
-					if (Intersections.SphereVsSphere(shiftedCenter, radius,
-						new Vector3D(sphere.Transform.Translation), sphere.Radius))
-						return true;
+				if (sphere != null && Intersections.SphereVsSphere(
+					center, radius, new Vector3D(sphere.Transform.Translation), sphere.Radius))
+					return true;
 			}
 			return false;
+		}
+
+		private static bool ProbeIntersectsCollision(Vector3 center, double radius, CollisionGeometry geometry, float ox, float oy, float oz)
+		{
+			var shiftedCenter = new Vector3D(center.X + ox, center.Y + oy, center.Z + oz);
+			return ProbeIntersects(geometry, shiftedCenter, radius);
 		}
 
 		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
@@ -251,18 +253,7 @@ namespace LLE
 			MatrixD.Invert(ref blockMatrix, out invBlock);
 			Vector3D localCenter = Vector3D.Transform(worldCenter, invBlock);
 
-			foreach (var shape in geometry.Shapes)
-			{
-				var convex = shape as ConvexHullShape;
-				if (convex != null && Intersections.SphereVsConvex(localCenter, radius, convex.Vertices))
-					return true;
-
-				var sphere = shape as SphereShape;
-				if (sphere != null && Intersections.SphereVsSphere(localCenter, radius,
-					new Vector3D(sphere.Transform.Translation), sphere.Radius))
-					return true;
-			}
-			return false;
+			return ProbeIntersects(geometry, localCenter, radius);
 		}
 
 		public static bool CenterIsFree(IMySlimBlock slim, Vector3I position)
@@ -327,19 +318,7 @@ namespace LLE
 
 		private static bool ProbeIntersectsLocal(Vector3 center, double radius, CollisionGeometry geometry)
 		{
-			var c = new Vector3D(center);
-			foreach (var shape in geometry.Shapes)
-			{
-				var convex = shape as ConvexHullShape;
-				if (convex != null && Intersections.SphereVsConvex(c, radius, convex.Vertices))
-					return true;
-
-				var sphere = shape as SphereShape;
-				if (sphere != null && Intersections.SphereVsSphere(
-					c, radius, new Vector3D(sphere.Transform.Translation), sphere.Radius))
-					return true;
-			}
-			return false;
+			return ProbeIntersects(geometry, new Vector3D(center), radius);
 		}
 	}
 }
