@@ -6,6 +6,7 @@
     <Nullable>disable</Nullable>
     <!-- Don't try to build, just provide intellisense -->
     <BuildDependsOn />
+    <NoWarn>$(NoWarn);CS0618</NoWarn>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
