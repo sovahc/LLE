@@ -377,30 +377,29 @@ namespace LLE
 			return t.Center == false;
 		}
 
-		public static Traversability CalculateMultiBlockTraversability(IMyCubeGrid grid, IMySlimBlock slim, Vector3I position)
+		public static Traversability CalculateMultiBlockTraversability(IMySlimBlock slim, Vector3I position)
 		{
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(slim.BlockDefinition.Id, out geometry))
 				return Traversability.Blocked;
 
-			Matrix bo;
-			slim.Orientation.GetMatrix(out bo);
-			Quaternion q = Quaternion.CreateFromRotationMatrix(grid.WorldMatrix);
-			Matrix.Transform(ref bo, ref q, out bo);
-
-			var blockCenter = 0.5 * (grid.GridIntegerToWorld(slim.Min) + grid.GridIntegerToWorld(slim.Max));
-			MatrixD blockMatrix = new MatrixD(bo) { Translation = blockCenter };
-
-			MatrixD invBlock;
-			MatrixD.Invert(ref blockMatrix, out invBlock);
-
-			var trav = new Traversability();
 			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
 			float offset = blockSize / 2;
 
-			// Center probe at the queried cell center
-			var cellCenter = grid.GridIntegerToWorld(position);
-			if (ProbeIntersectsLocal(cellCenter, probeRadius, geometry, invBlock))
+			// Block center in grid-integer space (each unit = one cell)
+			Vector3 blockCenterGrid = (slim.Min + slim.Max + Vector3I.One) * 0.5f;
+			// Sub-cell center in grid-integer space
+			Vector3 cellCenterGrid = position + Vector3.One * 0.5f;
+			// Transform probe positions from grid-aligned to model space (canonical orientation)
+			Matrix orient;
+			slim.Orientation.GetMatrix(out orient);
+			Matrix invOrient = Matrix.Transpose(orient); // inverse of pure rotation
+			Vector3 localCellCenter = Vector3.TransformNormal((cellCenterGrid - blockCenterGrid) * blockSize, invOrient);
+
+			var trav = new Traversability();
+
+			// Center probe
+			if (ProbeIntersectsLocal(localCellCenter, probeRadius, geometry))
 				trav[0, 0, 0] = true;
 
 			// 6 directional probes around the cell
@@ -408,29 +407,26 @@ namespace LLE
 			for (int d = 0; d < dirs.Length; ++d)
 			{
 				Vector3I dir = dirs[d];
-				var probePos = cellCenter + offset * Vector3D.TransformNormal(
-					new Vector3D(dir.X, dir.Y, dir.Z), grid.WorldMatrix);
-				if (ProbeIntersectsLocal(probePos, probeRadius, geometry, invBlock))
+				Vector3 localProbe = localCellCenter + Vector3.TransformNormal(new Vector3(dir.X, dir.Y, dir.Z), invOrient) * offset;
+				if (ProbeIntersectsLocal(localProbe, probeRadius, geometry))
 					trav[dir] = true;
 			}
 
 			return Traversability.Rotate(trav, new MatrixI(slim.Orientation));
 		}
 
-		private static bool ProbeIntersectsLocal(Vector3D worldCenter, double radius,
-			CollisionGeometry geometry, MatrixD invBlock)
+		private static bool ProbeIntersectsLocal(Vector3 center, double radius, CollisionGeometry geometry)
 		{
-			Vector3D localCenter = Vector3D.Transform(worldCenter, invBlock);
-
+			var c = new Vector3D(center);
 			foreach (var shape in geometry.Shapes)
 			{
 				var convex = shape as ConvexHullShape;
-				if (convex != null && Intersections.SphereVsConvex(localCenter, radius, convex.Vertices))
+				if (convex != null && Intersections.SphereVsConvex(c, radius, convex.Vertices))
 					return true;
 
 				var sphere = shape as SphereShape;
 				if (sphere != null && Intersections.SphereVsSphere(
-					localCenter, radius, new Vector3D(sphere.Transform.Translation), sphere.Radius))
+					c, radius, new Vector3D(sphere.Transform.Translation), sphere.Radius))
 					return true;
 			}
 			return false;

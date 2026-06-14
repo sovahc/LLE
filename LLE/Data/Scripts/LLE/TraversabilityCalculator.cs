@@ -42,7 +42,7 @@ namespace LLE
 				MatrixI m = new MatrixI(slim.Orientation);
 				return Traversability.Rotate(t, m);
 			}
-			return Collisions.CalculateMultiBlockTraversability(grid, slim, position);
+			return Collisions.CalculateMultiBlockTraversability(slim, position);
 		}
 
 		public Traversability GetAtGridPosition(Vector3I position)
@@ -63,7 +63,7 @@ namespace LLE
 				MatrixI m = new MatrixI(slim.Orientation);
 				return Traversability.Rotate(t, m);
 			}
-			return Collisions.CalculateMultiBlockTraversability(grid, slim, position);
+			return Collisions.CalculateMultiBlockTraversability(slim, position);
 		}
 
 		private bool IsVoxelTraversable(MyVoxelBase voxel, Vector3I gridPosition)
