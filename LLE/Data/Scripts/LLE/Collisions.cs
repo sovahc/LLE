@@ -393,8 +393,8 @@ namespace LLE
 			// Transform probe positions from grid-aligned to model space (canonical orientation)
 			Matrix orient;
 			slim.Orientation.GetMatrix(out orient);
-			Matrix invOrient = Matrix.Transpose(orient); // inverse of pure rotation
-			Vector3 localCellCenter = Vector3.TransformNormal((cellCenterGrid - blockCenterGrid) * blockSize, invOrient);
+			Matrix invOrient = Matrix.Transpose(orient);
+			Vector3 localCellCenter = Vector3.Transform((cellCenterGrid - blockCenterGrid) * blockSize, invOrient);
 
 			var trav = new Traversability();
 
@@ -407,12 +407,12 @@ namespace LLE
 			for (int d = 0; d < dirs.Length; ++d)
 			{
 				Vector3I dir = dirs[d];
-				Vector3 localProbe = localCellCenter + Vector3.TransformNormal(new Vector3(dir.X, dir.Y, dir.Z), invOrient) * offset;
+				Vector3 localProbe = localCellCenter + Vector3.Transform(new Vector3(dir.X, dir.Y, dir.Z), invOrient) * offset;
 				if (ProbeIntersectsLocal(localProbe, probeRadius, geometry))
 					trav[dir] = true;
 			}
 
-			return Traversability.Rotate(trav, new MatrixI(slim.Orientation));
+			return trav;
 		}
 
 		private static bool ProbeIntersectsLocal(Vector3 center, double radius, CollisionGeometry geometry)
