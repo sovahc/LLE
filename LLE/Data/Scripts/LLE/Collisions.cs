@@ -53,28 +53,25 @@ namespace LLE
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
 		}
 
-		public static void Draw(IMyCubeGrid grid_A, IMySlimBlock block)
+		private static MatrixD GetBlockWorldMatrix(IMyCubeGrid grid, IMySlimBlock block)
+		{
+			Matrix bo;
+			block.Orientation.GetMatrix(out bo);
+			Quaternion q = Quaternion.CreateFromRotationMatrix(grid.WorldMatrix);
+			Matrix.Transform(ref bo, ref q, out bo);
+
+			var blockCenter = 0.5 * (grid.GridIntegerToWorld(block.Min) + grid.GridIntegerToWorld(block.Max));
+			return new MatrixD(bo) { Translation = blockCenter };
+		}
+
+
+		public static void Draw(IMyCubeGrid grid, IMySlimBlock block)
 		{
 			CollisionGeometry geometry;
-
 			var id = block.BlockDefinition.Id;
 
 			if (_collisionGeometry.TryGetValue(id, out geometry))
-			{
-				Matrix bo;
-				block.Orientation.GetMatrix(out bo);
-				Quaternion q = Quaternion.CreateFromRotationMatrix(grid_A.WorldMatrix);
-
-				Matrix.Transform(ref bo, ref q, out bo);
-
-				var blockCenter = 0.5 * (grid_A.GridIntegerToWorld(block.Min) + grid_A.GridIntegerToWorld(block.Max));
-				MatrixD blockMatrix = new MatrixD(bo)
-				{
-					Translation = blockCenter
-				};
-
-				Draw(geometry, blockMatrix);
-			}
+				Draw(geometry, GetBlockWorldMatrix(grid, block));
 		}
 
 		private static void Draw(CollisionGeometry geometry, MatrixD blockMatrix)
@@ -241,13 +238,7 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			Matrix bo;
-			block.Orientation.GetMatrix(out bo);
-			Quaternion q = Quaternion.CreateFromRotationMatrix(grid.WorldMatrix);
-			Matrix.Transform(ref bo, ref q, out bo);
-
-			var blockCenter = 0.5 * (grid.GridIntegerToWorld(block.Min) + grid.GridIntegerToWorld(block.Max));
-			MatrixD blockMatrix = new MatrixD(bo) { Translation = blockCenter };
+			var blockMatrix = GetBlockWorldMatrix(grid, block);
 
 			MatrixD invBlock;
 			MatrixD.Invert(ref blockMatrix, out invBlock);
