@@ -1,6 +1,7 @@
-using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
+
+using Sandbox.Definitions;
 using Sandbox.ModAPI;
 using VRage.Game;
 using VRage.Game.ModAPI;
@@ -8,111 +9,8 @@ using VRage.Utils;
 using VRage.ObjectBuilders;
 using VRageMath;
 
-using System.Linq;
-using Sandbox.Definitions;
-
 namespace LLE
 {
-	/// <summary>
-	/// Stores block traversability data as a 3x3x3 bit cube.
-	/// Indexed from -1 to 1 along each axis.
-	/// </summary>
-	public struct Traversability
-	{
-		private static readonly uint All_1 = (1u << 27) - 1;
-
-		public static readonly Traversability Blocked = new Traversability(All_1);
-		public static readonly Traversability Free = new Traversability(0);
-
-		private uint _mask;
-
-		public Traversability(uint mask)
-		{	_mask = mask;
-		}
-
-		private void Check(int dx, int dy, int dz)
-		{	if (dx < -1 || dx > 1 || dy < -1 || dy > 1 || dz < -1 || dz > 1)
-				throw new Exception($"Traversability index out of range: {dx}, {dy}, {dz}");
-		}
-
-		private int Index(int x, int y, int z)
-		{	Check(x, y, z);	
-			return (x + 1) * 9 + (y + 1) * 3 + (z + 1);
-		}
-
-		private int Index(Vector3I v)
-		{	return Index(v.X, v.Y, v.Z);
-		}
-
-		public bool this[int x, int y, int z]
-		{
-			get
-			{	return (_mask & (1u << Index(x, y, z))) != 0;
-			}
-			set
-			{	if (value)
-					_mask |= (1u << Index(x, y, z));
-				else
-					_mask &= ~(1u << Index(x, y, z));
-			}
-		}
-
-		public bool this[Vector3I v]
-		{
-			get
-			{	return this[v.X, v.Y, v.Z];
-			}
-			set
-			{	this[v.X, v.Y, v.Z] = value;
-			}
-		}
-
-		/// <summary>
-		/// Whether the engineer can turn around in the center of the block.
-		/// </summary>
-		public bool Center => this[new Vector3I(0,0,0)];
-
-		public void Clear() => _mask = 0;
-
-		public void SetAll(bool value)
-		{
-			if (value)
-				_mask = All_1;
-			else
-				_mask = 0;
-		}
-
-		public static Traversability Rotate(Traversability src, MatrixI rotation)
-		{
-			Vector3I v, v2;
-			Traversability result = new Traversability();
-			for (v.Z = -1; v.Z <= 1; ++v.Z)
-				for (v.Y = -1; v.Y <= 1; ++v.Y)
-					for (v.X = -1; v.X <= 1; ++v.X)
-					{
-						Vector3I.TransformNormal(ref v, ref rotation, out v2);
-						result[v2] = src[v];
-					}
-			return result;
-		}
-
-		public override string ToString()
-		{
-			var sb = new StringBuilder();
-			for (int z = 1; z >= -1; --z)
-			{
-				for (int y = 1; y >= -1; --y)
-				{
-					for (int x = -1; x <= 1; ++x)
-						sb.Append(this[x, y, z] ? "#" : ".");
-					sb.Append(' ');
-				}
-				sb.Append('|');
-			}
-			return sb.ToString();
-		}
-	}
-
 	public class Collisions
 	{
 		internal static Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
