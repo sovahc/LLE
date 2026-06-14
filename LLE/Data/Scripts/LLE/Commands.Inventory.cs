@@ -56,6 +56,8 @@ namespace LLE
 					InventoryToText(inv, sb);
 				}
 
+				AppendGasTankInfo(block, sb);
+
 				return sb.ToString();
 			}
 		}
@@ -81,6 +83,7 @@ namespace LLE
 				sb.Append($"## {Quote(Name(block.SlimBlock))} at {IJK(block.Position)}\n");
 				for (int i = 0; i < block.InventoryCount; ++i)
 					InventoryToText(block.GetInventory(i), sb);
+				AppendGasTankInfo(block.SlimBlock, sb);
 			}
 
 			terminalBlocks.Clear();
@@ -120,6 +123,21 @@ namespace LLE
 					}
 				}
 			}
+		}
+
+		private static void AppendGasTankInfo(IMySlimBlock slim, StringBuilder output)
+		{
+			var tank = slim.FatBlock as IMyGasTank;
+			if (tank == null) return;
+
+			var tankDef = slim.BlockDefinition as MyGasTankDefinition;
+			if (tankDef == null) return;
+
+			string gasName = tankDef.StoredGasId.SubtypeName;
+			double current = tank.FilledRatio * tank.Capacity;
+			double max = tank.Capacity;
+
+			output.Append($"  ({Percent((float)tank.FilledRatio)} {gasName}, {Volume(current)}/{Volume(max)})\n");
 		}
 
 		internal IEnumerator Get(TokenParser tp)
