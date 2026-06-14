@@ -109,7 +109,7 @@ namespace LLE
 
 				var volume = (double)item.Amount * itemDef.Volume;
 
-				output.Append($"* {Quote(itemDef.DisplayNameText)} → {item.Amount} ({Volume(volume)})\n");
+				output.Append($"* {Quote(itemDef.DisplayNameText)} → {(double)item.Amount:F2} ({Volume(volume)})\n");
 				var gasContainer = item.Content as MyObjectBuilder_GasContainerObject;
 				if (gasContainer != null)
 				{
