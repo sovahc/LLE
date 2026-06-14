@@ -66,7 +66,7 @@ namespace LLE
 			if (slimBlock == null) return;
 
 			grid = g;
-			position = slimBlock.Position;
+			position = grid.WorldToGridInteger(origin + direction * dist);
 
 			freeSpace = grid.WorldToGridInteger(origin + direction * (dist - grid.GridSize));
 		}

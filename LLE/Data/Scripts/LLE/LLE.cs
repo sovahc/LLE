@@ -249,7 +249,7 @@ namespace LLE
 					}
 
 					Collisions.Draw(selectedGrid, block);
-					Collisions.DrawTraversability(selectedGrid, block);
+					Collisions.DrawTraversability(selectedGrid, selectedBlock);
 				}
 
 				Utilities.HighlightCell(selectedGrid, freeSpaceA, Color.Green);

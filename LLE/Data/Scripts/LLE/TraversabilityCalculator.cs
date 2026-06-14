@@ -42,7 +42,28 @@ namespace LLE
 				MatrixI m = new MatrixI(slim.Orientation);
 				return Traversability.Rotate(t, m);
 			}
-			return Traversability.Blocked;
+			return Collisions.CalculateMultiBlockTraversability(grid, slim, position);
+		}
+
+		public Traversability GetAtGridPosition(Vector3I position)
+		{
+			foreach(var voxel in intersectingVoxels)
+				if(!IsVoxelTraversable(voxel, position)) return Traversability.Blocked;
+
+			var slim = grid.GetCubeBlock(position);
+			if (slim == null)
+				return Traversability.Free;
+
+			Traversability t;
+			if (!Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
+				return Traversability.Blocked;
+
+			if (slim.Min == slim.Max)
+			{
+				MatrixI m = new MatrixI(slim.Orientation);
+				return Traversability.Rotate(t, m);
+			}
+			return Collisions.CalculateMultiBlockTraversability(grid, slim, position);
 		}
 
 		private bool IsVoxelTraversable(MyVoxelBase voxel, Vector3I gridPosition)
