@@ -61,6 +61,7 @@ namespace LLE
 * near I J K					- Return 6 accessible blocks around a block at specific coordinates.
 * inventory						- Return the items in your inventory.
 * inventory I J K				- Return the inventory of the container at specific coordinates.
+* inventories					- Return all inventories on the selected grid.
 * get count 'item' from I J K	- Transfer an item from a container to your inventory. e.g. `get 10 'Gold Ingot' from -1 5 2`
 * put count 'item' into I J K	- Transfer an item from your inventory to a container. e.g. `put 1 'Medkit' into 14 0 2`
 * put all components into I J K	- Transfer all blocks components from your inventory to a container (very useful shortcut).
@@ -321,6 +322,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 			else if(tp.Match("Inventory"))
 			{	result = Inventory(tp);
+			}
+			else if(tp.Match("Inventories"))
+			{	result = Inventories();
 			}
 			else if(tp.Match("Get"))
 			{	currentCommand = Get(tp);

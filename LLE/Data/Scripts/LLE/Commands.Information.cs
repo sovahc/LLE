@@ -36,8 +36,6 @@ namespace LLE
 			{ "Movement", new[] { "Thrust" } },
 			{ "Storage", new[] { "CargoContainer" } },
 			{ "Decoration", new[] { "HeatVent", "LCDPanel", "Terminal" } }
-			//{ "Other", new[] { "ButtonPanel", "Jukebox", "CameraBlock", "SoundBlock", "InteriorLight" } },
-			//{ "Structure", new[] { ,  } },
 		};
 
 		internal static string NameToCategory(string name)

@@ -2,10 +2,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using Sandbox.Definitions;
+using Sandbox.ModAPI;
 using VRage;
 using VRageMath;
 using VRage.Game;
 
+using VRage.Game.ModAPI;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
@@ -55,6 +57,35 @@ namespace LLE
 
 				return sb.ToString();
 			}
+		}
+
+		internal string Inventories()
+		{
+			string message;
+			if (!GridIsSet(out message)) return message;
+
+			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
+			terminalBlocks.Clear();
+			ts.GetBlocks(terminalBlocks);
+
+			StringBuilder sb = new StringBuilder();
+			sb.Append($"# Inventories on {Quote(selectedGrid.CustomName)}\n");
+
+			int count = 0;
+			foreach (var block in terminalBlocks)
+			{
+				if (!block.HasInventory) continue;
+				++count;
+
+				sb.Append($"## {Quote(Name(block.SlimBlock))} at {IJK(block.Position)}\n");
+				for (int i = 0; i < block.InventoryCount; ++i)
+					InventoryToText(block.GetInventory(i), sb);
+			}
+
+			terminalBlocks.Clear();
+
+			if (count == 0) return "No blocks with inventories on this grid.";
+			return sb.ToString();
 		}
 
 		private static void InventoryToText(IMyInventory inv, StringBuilder output)
