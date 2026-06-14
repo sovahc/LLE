@@ -140,16 +140,7 @@ namespace LLE
 			if (slim == null)
 				return Traversability.Free;
 
-			Traversability t;
-			if (!Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
-				return Traversability.Blocked;
-
-			if (slim.Min == slim.Max)
-			{
-				MatrixI m = new MatrixI(slim.Orientation);
-				return Traversability.Rotate(t, m);
-			}
-			return Collisions.CalculateMultiBlockTraversability(slim, position);
+			return Collisions.GetBlockTraversability(slim, position);
 		}
 
 		private bool IsVoxelTraversable(MyVoxelBase voxel, Vector3I gridPosition)

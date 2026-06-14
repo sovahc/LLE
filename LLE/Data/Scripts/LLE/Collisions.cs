@@ -245,26 +245,22 @@ namespace LLE
 			return ProbeIntersects(geometry, localCenter, radius);
 		}
 
-		public static bool CenterIsFree(IMySlimBlock slim, Vector3I position)
+		public static Traversability GetBlockTraversability(IMySlimBlock slim, Vector3I position)
 		{
-			if(slim == null) return true;
-
 			Traversability t;
 			if (!_traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
-				return false;
+				return Traversability.Blocked;
 
-			Traversability result;
 			if (slim.Min == slim.Max)
-			{
-				MatrixI m = new MatrixI(slim.Orientation);
-				result = Traversability.Rotate(t, m);
-			}
-			else
-			{
-				result = CalculateMultiBlockTraversability(slim, position);
-			}
+				return Traversability.Rotate(t, new MatrixI(slim.Orientation));
 
-			return result.Center == false;
+			return CalculateMultiBlockTraversability(slim, position);
+		}
+
+		public static bool CenterIsFree(IMySlimBlock slim, Vector3I position)
+		{
+			if (slim == null) return true;
+			return !GetBlockTraversability(slim, position).Center;
 		}
 
 		public static Traversability CalculateMultiBlockTraversability(IMySlimBlock slim, Vector3I position)
