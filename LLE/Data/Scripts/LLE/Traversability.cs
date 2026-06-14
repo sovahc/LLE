@@ -125,30 +125,13 @@ namespace LLE
 			MyGamePruningStructure.GetAllVoxelMapsInBox(ref worldAabb, intersectingVoxels);
 		}
 
-		public Traversability Get(Vector3I astarPosition)
+		public Traversability GetForAstar(Vector3I astarPosition)
 		{
 			var position = astarPosition + grid.Min - border;
-
-			foreach(var voxel in intersectingVoxels)
-				if(!IsVoxelTraversable(voxel, position)) return Traversability.Blocked;
-
-			var slim = grid.GetCubeBlock(position);
-			if (slim == null)
-				return Traversability.Free;
-
-			Traversability t;
-			if (!Collisions._traversabilityCache.TryGetValue(slim.BlockDefinition.Id, out t))
-				return Traversability.Blocked;
-
-			if (slim.Min == slim.Max)
-			{
-				MatrixI m = new MatrixI(slim.Orientation);
-				return Traversability.Rotate(t, m);
-			}
-			return Collisions.CalculateMultiBlockTraversability(slim, position);
+			return GetTraversability(position);
 		}
 
-		public Traversability GetAtGridPosition(Vector3I position)
+		public Traversability GetTraversability(Vector3I position)
 		{
 			foreach(var voxel in intersectingVoxels)
 				if(!IsVoxelTraversable(voxel, position)) return Traversability.Blocked;

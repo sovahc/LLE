@@ -210,7 +210,7 @@ namespace LLE
 		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
 		{
 			var calc = new TraversabilityCalculator(grid, 0);
-			Traversability t = calc.GetAtGridPosition(position);
+			Traversability t = calc.GetTraversability(position);
 			var zero = grid.GridIntegerToWorld(position);
 
 			// Draw probe spheres at the same positions used for traversability calculation

@@ -76,7 +76,7 @@ namespace LLE
 			Vector3I v;
 			_indexer.IndexToPosition(index, out v);
 
-			var t = _source.Get(v);
+			var t = _source.GetForAstar(v);
 			_traversability[index] = t;
 			_known.Set(index, 1);
 			return t;
