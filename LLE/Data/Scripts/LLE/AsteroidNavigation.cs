@@ -40,11 +40,23 @@ namespace LLE
 		private readonly MyVoxelBase _voxel;
 		private OctNode _root;
 
-		public int FreeNodes { get; private set; }
-		public int BlockedNodes { get; private set; }
-		public int MixedNodes { get; private set; }
+		private int FreeNodes = 0, BlockedNodes = 0, MixedNodes = 0;
+		public string statistic { get; private set; }
 
-		public OctNode Root => _root;
+		private void CountNodes(OctNode node)
+		{
+			switch (node.Type)
+			{
+				case NodeType.Free: ++FreeNodes; break;
+				case NodeType.Blocked: ++BlockedNodes; break;
+				case NodeType.Mixed: ++MixedNodes; break;
+			}
+
+			if(node.Children != null)
+			{	foreach (var child in node.Children)
+					CountNodes(child);
+			}
+		}
 
 		public AsteroidNavigation(MyVoxelBase voxel)
 		{
@@ -53,8 +65,6 @@ namespace LLE
 
 		public void Build(Vector3I min, Vector3I max, int coarseLod = 3) // 3 = 8m
 		{
-			FreeNodes = BlockedNodes = MixedNodes = 0;
-
 			Vector3I size = max - min;
 			var maxDimension = Math.Max(size.X, Math.Max(size.Y, size.Z));
 
@@ -67,7 +77,9 @@ namespace LLE
 				Subdivide(_root, coarseLod);
 
 			BuildNeighborGraph();
-			CountLeafNodes(_root);
+			CountNodes(_root);
+
+			statistic = $"Free={FreeNodes} Blocked={BlockedNodes} Mixed={MixedNodes}";
 		}
 
 		private int CalculateLodLevel(int size)
@@ -333,24 +345,6 @@ namespace LLE
 			return res;
 		}
 
-		private void CountLeafNodes(OctNode node)
-		{
-			if (node.Children == null)
-			{
-				switch (node.Type)
-				{
-					case NodeType.Free: ++FreeNodes; break;
-					case NodeType.Blocked: ++BlockedNodes; break;
-					case NodeType.Mixed: ++MixedNodes; break;
-				}
-			}
-			else
-			{
-				foreach (var child in node.Children)
-					CountLeafNodes(child);
-			}
-		}
-
 		private static readonly MyStorageData storage = new MyStorageData();
 
 		public static NodeType VoxelCellType(MyVoxelBase voxel, Vector3I min, Vector3I max, int lod = 0)
@@ -402,8 +396,6 @@ namespace LLE
 			var max = min + node.Size;
 			return new BoundingBoxD(min, max);
 		}
-
-		public MyVoxelBase Voxel => _voxel;
 
 		public OctNode FindNodeAtWorld(Vector3D worldPos)
 		{

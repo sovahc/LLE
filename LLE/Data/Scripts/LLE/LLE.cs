@@ -270,8 +270,7 @@ namespace LLE
 
 				// Debug: show conversion on screen
 				var nav = Debug.asteroidNav;
-				font.String(string.Format("Free={0} Blocked={1} Mixed={2}",
-					nav.FreeNodes, nav.BlockedNodes, nav.MixedNodes), new Vector2D(0, 0.85f), 0.00075f, Color.White);
+				font.String(nav.statistic, new Vector2D(0, 0.85f), 0.00075f, Color.White);
 				Debug.currentNode = nav.FindNodeAtWorld(ahead);
 				Debug.neighborNodes.Clear();
 

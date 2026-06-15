@@ -120,6 +120,8 @@ namespace LLE
 		{
 			if(!Common.Enabled) return 0;
 
+			if(text == null) text = "(null)";
+
 			float cursorX = 0f;
 
 			float oX = (float)origin.X;
