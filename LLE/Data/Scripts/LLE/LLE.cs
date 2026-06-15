@@ -22,8 +22,8 @@ namespace LLE
 		public static List<Vector3I> highlightCellsGreen = new List<Vector3I>();
 		public static AsteroidNavigation asteroidNav;
 		public static MyVoxelBase currentAsteroid;
-		public static OctNode currentNode;
-		public static List<OctNode> neighborNodes = new List<OctNode>();
+		public static OctreeNode currentNode;
+		public static List<OctreeNode> neighborNodes = new List<OctreeNode>();
 		public static readonly List<MyVoxelBase> voxelSearchList = new List<MyVoxelBase>();
 
 		internal static void Start(IMyCubeGrid grid_)
@@ -293,7 +293,7 @@ namespace LLE
 			Common.Call_Add_Billboards(); // just for sure
 		}
 
-		public static void DrawOctNode(AsteroidNavigation nav, OctNode node, bool marker)
+		public static void DrawOctNode(AsteroidNavigation nav, OctreeNode node, bool marker)
 		{
 			Color color;
 			switch(node.Type)

@@ -18,32 +18,32 @@ namespace LLE
 	/// <summary>
 	/// Octree node. Can be a large free zone (super-cell) or a small block.
 	/// </summary>
-	public class OctNode
+	public class OctreeNode
 	{
 		public Vector3I Min;
 		public int Size;
 		public NodeType Type;
 		
-		public HashSet<OctNode> Neighbors = new HashSet<OctNode>();
-		public OctNode[] Children;
+		public HashSet<OctreeNode> Neighbors = new HashSet<OctreeNode>();
+		public OctreeNode[] Children;
 
 		public Vector3D Center => new Vector3D(Min.X + Size / 2.0, Min.Y + Size / 2.0, Min.Z + Size / 2.0);
 	}
 
 	class OctNodeItem : FastPriorityQueueNode
 	{
-		public OctNode Node;
+		public OctreeNode Node;
 	}
 
 	public class AsteroidNavigation
 	{
 		private readonly MyVoxelBase _voxel;
-		private OctNode _root;
+		private OctreeNode _root;
 
 		private int FreeNodes = 0, BlockedNodes = 0, MixedNodes = 0;
 		public string statistic { get; private set; }
 
-		private void CountNodes(OctNode node)
+		private void CountNodes(OctreeNode node)
 		{
 			switch (node.Type)
 			{
@@ -69,7 +69,7 @@ namespace LLE
 			var maxDimension = Math.Max(size.X, Math.Max(size.Y, size.Z));
 
 			var size1d = NextPowerOfTwo(maxDimension);
-			_root = new OctNode { Min = min, Size = size1d };
+			_root = new OctreeNode { Min = min, Size = size1d };
 
 			if (_voxel == null || _voxel.MarkedForClose) return;
 
@@ -88,7 +88,7 @@ namespace LLE
 			return lod;
 		}
 
-		private void Subdivide(OctNode node, int coarseLod)
+		private void Subdivide(OctreeNode node, int coarseLod)
 		{
 			int lod = CalculateLodLevel(node.Size);
 			lod = Math.Min(lod, coarseLod);
@@ -108,7 +108,7 @@ namespace LLE
 			}
 
 			var half = node.Size / 2;
-			node.Children = new OctNode[8];
+			node.Children = new OctreeNode[8];
 			
 			for (int i = 0; i < 8; ++i)
 			{
@@ -117,7 +117,7 @@ namespace LLE
 					node.Min.Y + ((i & 2) == 0 ? 0 : half),
 					node.Min.Z + ((i & 4) == 0 ? 0 : half));
 				
-				var child = new OctNode { Min = childMin, Size = half };
+				var child = new OctreeNode { Min = childMin, Size = half };
 				node.Children[i] = child;
 				Subdivide(child, coarseLod);
 			}
@@ -129,7 +129,7 @@ namespace LLE
 		/// </summary>
 		private void BuildNeighborGraph()
 		{
-			var freeNodes = new List<OctNode>();
+			var freeNodes = new List<OctreeNode>();
 			CollectFreeNodes(_root, freeNodes);
 
 			// Search neighbors only in 3 positive directions (X+, Y+, Z+) to avoid duplicate checks. Links are added bidirectionally.
@@ -137,7 +137,7 @@ namespace LLE
 			{
 				for (int axis = 0; axis < 3; axis++)
 				{
-					var neighbors = new List<OctNode>();
+					var neighbors = new List<OctreeNode>();
 					FindFaceNeighbors(_root, node, axis, neighbors);
 			
 					foreach (var neighbor in neighbors)
@@ -153,7 +153,7 @@ namespace LLE
 		/// <summary>
 		/// Recursively finds all free nodes touching the face of target along the given axis (in +1 direction).
 		/// </summary>
-		private void FindFaceNeighbors(OctNode current, OctNode target, int axis, List<OctNode> results)
+		private void FindFaceNeighbors(OctreeNode current, OctreeNode target, int axis, List<OctreeNode> results)
 		{
 			// Prune branches that cannot physically contain neighbors
 			if (!CanContainFaceNeighbor(current, target, axis))
@@ -185,7 +185,7 @@ namespace LLE
 		/// <summary>
 		/// Check: can the subtree rooted at curr contain a node touching the face of target?
 		/// </summary>
-		private bool CanContainFaceNeighbor(OctNode curr, OctNode target, int axis)
+		private bool CanContainFaceNeighbor(OctreeNode curr, OctreeNode target, int axis)
 		{
 			int axis1 = (axis + 1) % 3;
 			int axis2 = (axis + 2) % 3;
@@ -208,7 +208,7 @@ namespace LLE
 		/// <summary>
 		/// Strict check: does the leaf node neighbor actually touch the face of target?
 		/// </summary>
-		private bool IsExactFaceNeighbor(OctNode neighbor, OctNode target, int axis)
+		private bool IsExactFaceNeighbor(OctreeNode neighbor, OctreeNode target, int axis)
 		{
 			int axis1 = (axis + 1) % 3;
 			int axis2 = (axis + 2) % 3;
@@ -223,7 +223,7 @@ namespace LLE
 			return neighbor.Min[axis] == target.Min[axis] + target.Size;
 		}
 
-		private void CollectFreeNodes(OctNode node, List<OctNode> result)
+		private void CollectFreeNodes(OctreeNode node, List<OctreeNode> result)
 		{
 			if (node.Type == NodeType.Free)
 			{
@@ -239,7 +239,7 @@ namespace LLE
 		/// <summary>
 		/// Finds the node containing a point. Traverses from root down.
 		/// </summary>
-		public OctNode FindNodeAt(Vector3I pos)
+		public OctreeNode FindNodeAt(Vector3I pos)
 		{
 			var current = _root;
 			while (current.Type == NodeType.Mixed && current.Children != null)
@@ -258,17 +258,17 @@ namespace LLE
 		/// <summary>
 		/// A* pathfinding on the octree graph.
 		/// </summary>
-		public List<OctNode> FindPath(OctNode start, OctNode goal)
+		public List<OctreeNode> FindPath(OctreeNode start, OctreeNode goal)
 		{
-			var result = new List<OctNode>();
+			var result = new List<OctreeNode>();
 			if (start == null || goal == null || start.Type != NodeType.Free || goal.Type != NodeType.Free)
 				return result;
 
-			var gScore = new Dictionary<OctNode, float>();
-			var parent = new Dictionary<OctNode, OctNode>();
-			var closed = new HashSet<OctNode>();
-			var inOpen = new HashSet<OctNode>();
-			var items = new Dictionary<OctNode, OctNodeItem>();
+			var gScore = new Dictionary<OctreeNode, float>();
+			var parent = new Dictionary<OctreeNode, OctreeNode>();
+			var closed = new HashSet<OctreeNode>();
+			var inOpen = new HashSet<OctreeNode>();
+			var items = new Dictionary<OctreeNode, OctNodeItem>();
 			var open = new FastPriorityQueue<OctNodeItem>(10*1024);
 
 			gScore[start] = 0f;
@@ -322,12 +322,12 @@ namespace LLE
 			return result;
 		}
 
-		private float Heuristic(OctNode node, OctNode goal)
+		private float Heuristic(OctreeNode node, OctreeNode goal)
 		{
 			return (float)Vector3D.Distance(node.Center, goal.Center);
 		}
 
-		private void ReconstructPath(Dictionary<OctNode, OctNode> parent, OctNode goal, List<OctNode> result)
+		private void ReconstructPath(Dictionary<OctreeNode, OctreeNode> parent, OctreeNode goal, List<OctreeNode> result)
 		{
 			var current = goal;
 			while (current != null)
@@ -390,14 +390,14 @@ namespace LLE
 		/// <summary>
 		/// Converts an octree node (storage indices) to a world-space bounding box.
 		/// </summary>
-		public BoundingBoxD NodeToWorldBB(OctNode node)
+		public BoundingBoxD NodeToWorldBB(OctreeNode node)
 		{
 			var min = new Vector3D(node.Min) + _voxel.PositionLeftBottomCorner;
 			var max = min + node.Size;
 			return new BoundingBoxD(min, max);
 		}
 
-		public OctNode FindNodeAtWorld(Vector3D worldPos)
+		public OctreeNode FindNodeAtWorld(Vector3D worldPos)
 		{
 			var voxelPos = new Vector3I(
 				(int)Math.Floor(worldPos.X - _voxel.PositionLeftBottomCorner.X),
