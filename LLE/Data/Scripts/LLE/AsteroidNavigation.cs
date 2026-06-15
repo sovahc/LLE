@@ -54,7 +54,7 @@ namespace LLE
 
 			Vector3I size = voxel.Storage.Size;
 			var maxDimension = Math.Max(size.X, Math.Max(size.Y, size.Z));
-				// в игре воксели степени двойки - Debug.Assert(source.Size3D.IsPowerOfTwo)
+			// in-game voxels are power-of-two sized - Debug.Assert(source.Size3D.IsPowerOfTwo)
 
 			_root = new OctreeNode { Min = Vector3I.Zero, Size = maxDimension, Type = NodeType.Unknown };
 			++Statistic.Unknown;
@@ -100,7 +100,7 @@ namespace LLE
 					if (lod <= 1) return current; // leaf node
 
 					if (current.Type == NodeType.Free ||
-						current.Type == NodeType.Blocked) return current; // supercell
+						current.Type == NodeType.Blocked) return current; // super-cell
 
 					var half = current.Size / 2;
 					current.Children = new OctreeNode[8];
