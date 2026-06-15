@@ -1,11 +1,14 @@
 using System.Collections.Generic;
 using System.Text;
 using Sandbox.ModAPI;
+using Sandbox.Game.Entities;
+
+using VRageMath;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
-using VRageMath;
+using VRage.Utils;
 
 namespace LLE
 {
@@ -16,6 +19,11 @@ namespace LLE
 		public static IMyCubeGrid grid;
 		public static List<Vector3I> highlightCellsRed = new List<Vector3I>();
 		public static List<Vector3I> highlightCellsGreen = new List<Vector3I>();
+		public static AsteroidNavigation asteroidNav;
+		public static MyVoxelBase currentAsteroid;
+		public static OctNode currentNode;
+		public static List<OctNode> neighborNodes = new List<OctNode>();
+		public static readonly List<MyVoxelBase> voxelSearchList = new List<MyVoxelBase>();
 
 		internal static void Start(IMyCubeGrid grid_)
 		{	grid = grid_;
@@ -220,9 +228,96 @@ namespace LLE
 					Utilities.HighlightCell(Debug.grid, cell, Color.Green);
 			}
 
+			// Auto-detect nearest asteroid within 500m
+			Debug.voxelSearchList.Clear();
+			var searchSphere = new BoundingSphereD(pm.Translation, 500);
+			MyGamePruningStructure.GetAllVoxelMapsInSphere(ref searchSphere, Debug.voxelSearchList);
+
+			MyVoxelBase nearestAsteroid = null;
+			double nearestDistSq = double.MaxValue;
+			for (int i = 0; i < Debug.voxelSearchList.Count; i++)
+			{
+				var vb = Debug.voxelSearchList[i];
+				if (vb == vb.RootVoxel)
+				{
+					var distSq = Vector3D.DistanceSquared(vb.PositionComp.GetPosition(), pm.Translation);
+					if (distSq < nearestDistSq)
+					{
+						nearestAsteroid = vb;
+						nearestDistSq = distSq;
+					}
+				}
+			}
+
+			if (nearestAsteroid != Debug.currentAsteroid)
+			{
+				Debug.currentAsteroid = nearestAsteroid;
+				if (nearestAsteroid != null && nearestAsteroid.Storage != null)
+				{
+					Debug.asteroidNav = new AsteroidNavigation(nearestAsteroid);
+					Debug.asteroidNav.Build(Vector3I.Zero, nearestAsteroid.Storage.Size - 1);
+				}
+				else
+				{
+					Debug.asteroidNav = null;
+				}
+			}
+
+			if (Debug.asteroidNav != null)
+			{
+				var ahead = pm.Translation + pm.Forward * 25;
+
+				// Debug: show conversion on screen
+				var nav = Debug.asteroidNav;
+				font.String(string.Format("Free={0} Blocked={1} Mixed={2}",
+					nav.FreeNodes, nav.BlockedNodes, nav.MixedNodes), new Vector2D(0, 0.85f), 0.00075f, Color.White);
+				Debug.currentNode = nav.FindNodeAtWorld(ahead);
+				Debug.neighborNodes.Clear();
+
+				if (Debug.currentNode != null)
+				{
+					foreach (var n in Debug.currentNode.Neighbors)
+					{
+						if (!Debug.neighborNodes.Contains(n))
+							Debug.neighborNodes.Add(n);
+					}
+
+					DrawOctNode(Debug.asteroidNav, Debug.currentNode, true);
+					foreach (var n in Debug.neighborNodes)
+						DrawOctNode(Debug.asteroidNav, n, false);
+				}
+			}
+
 			MyConsole.Render(font);
 
 			Common.Call_Add_Billboards(); // just for sure
+		}
+
+		public static void DrawOctNode(AsteroidNavigation nav, OctNode node, bool marker)
+		{
+			Color color;
+			switch(node.Type)
+			{	case NodeType.Free: color = Color.Green; break;
+				case NodeType.Blocked: color = Color.Green; break;
+				default: color = Color.Gray; break;
+			}
+
+			var bb = nav.NodeToWorldBB(node);
+
+			MatrixD matrix = MatrixD.Identity;
+			matrix.Translation = new Vector3D(
+				(bb.Min.X + bb.Max.X) * 0.5,
+				(bb.Min.Y + bb.Max.Y) * 0.5,
+				(bb.Min.Z + bb.Max.Z) * 0.5);
+
+			if(marker) Drawing.RoundMarker(matrix.Translation, color);
+
+			var half = (bb.Max - bb.Min) * 0.475;
+			var localBb = new BoundingBoxD(-half, half);
+
+			var material = MyStringId.GetOrCompute("Square");
+			MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref localBb, ref color,
+				MySimpleObjectRasterizer.Wireframe, 1, 0.002f, material, material);
 		}
 
 		void OnEntityAdd(IMyEntity entity)

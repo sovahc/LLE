@@ -38,7 +38,11 @@ namespace LLE
 	{
 		private readonly MyVoxelBase _voxel;
 		private OctNode _root;
-		
+
+		public int FreeNodes { get; private set; }
+		public int BlockedNodes { get; private set; }
+		public int MixedNodes { get; private set; }
+
 		public OctNode Root => _root;
 
 		public AsteroidNavigation(MyVoxelBase voxel)
@@ -48,6 +52,8 @@ namespace LLE
 
 		public void Build(Vector3I min, Vector3I max, int coarseLod = 4) // 4 = 16m
 		{
+			FreeNodes = BlockedNodes = MixedNodes = 0;
+
 			Vector3I size = max - min;
 			var maxDimension = Math.Max(size.X, Math.Max(size.Y, size.Z));
 
@@ -60,6 +66,7 @@ namespace LLE
 				Subdivide(_root, coarseLod);
 
 			BuildNeighborGraph();
+			CountLeafNodes(_root);
 		}
 
 		private int CalculateLodLevel(int size)
@@ -74,25 +81,19 @@ namespace LLE
 			lod = Math.Min(lod, coarseLod);
 
 			// Get voxel AABB for this node at the current LOD
-			var voxelMin = node.Min >> lod;
-			var voxelMax = node.Min + node.Size - (1 << lod);
+			var voxelMin = node.Min;
+			var voxelMax = node.Min + node.Size - 1;
 
-			// 1. A leaf
-			if (node.Size == 0)
-			{
-				node.Type = HasMaterialsInVoxelBox(_voxel, voxelMin, voxelMax, lod) ? NodeType.Blocked : NodeType.Free;
-				return;
+			node.Type = VoxelCellType(_voxel, voxelMin, voxelMax, lod);
+
+			Utilities.Log($"VoxelCellType {node.Min} / {voxelMin}-{voxelMax} / {lod} / {node.Type}");
+
+			if (node.Size <= 1) return; // leaf node
+
+			if (node.Type != NodeType.Mixed)
+			{	if(lod <= coarseLod) return; // supercell
 			}
 
-			// 2. If node is completely free - it's a super-cell
-			if (!HasMaterialsInVoxelBox(_voxel, voxelMin, voxelMax, lod))
-			{
-				node.Type = NodeType.Free;
-				return;
-			}
-
-			// 3. Otherwise, divide into 8
-			node.Type = NodeType.Mixed;
 			var half = node.Size / 2;
 			node.Children = new OctNode[8];
 			
@@ -106,13 +107,6 @@ namespace LLE
 				var child = new OctNode { Min = childMin, Size = half };
 				node.Children[i] = child;
 				Subdivide(child, coarseLod);
-			}
-
-			// 4. Adaptive compression: if all children are the same type, collapse them
-			if (node.Children.All(c => c.Type == node.Children[0].Type))
-			{
-				node.Type = node.Children[0].Type;
-				node.Children = null; // Free memory
 			}
 		}
 
@@ -338,47 +332,83 @@ namespace LLE
 			return res;
 		}
 
+		private void CountLeafNodes(OctNode node)
+		{
+			if (node.Children == null)
+			{
+				switch (node.Type)
+				{
+					case NodeType.Free: ++FreeNodes; break;
+					case NodeType.Blocked: ++BlockedNodes; break;
+					case NodeType.Mixed: ++MixedNodes; break;
+				}
+			}
+			else
+			{
+				foreach (var child in node.Children)
+					CountLeafNodes(child);
+			}
+		}
+
 		private static readonly MyStorageData storage = new MyStorageData();
 
-		public static bool HasMaterialsInVoxelBox(MyVoxelBase voxel, Vector3I min, Vector3I max, int lod = 0)
+		public static NodeType VoxelCellType(MyVoxelBase voxel, Vector3I min, Vector3I max, int lod = 0)
 		{
 			Vector3I storageMax = voxel.Storage.Size - 1;
 			Vector3I coordMin = min >> lod;
 			Vector3I coordMax = max >> lod;
 
-			coordMin -= 1;
-			coordMax += 1;
-
-			Vector3I.Clamp(ref coordMin, ref Vector3I.Zero, ref storageMax, out coordMin);
-			Vector3I.Clamp(ref coordMax, ref Vector3I.Zero, ref storageMax, out coordMax);
+			//Vector3I.Clamp(ref coordMin, ref Vector3I.Zero, ref storageMax, out coordMin);
+			//Vector3I.Clamp(ref coordMax, ref Vector3I.Zero, ref storageMax, out coordMax);
 
 			storage.Resize(coordMin, coordMax);
-
 			voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, coordMin, coordMax);
-			
-			Vector3I p = default(Vector3I);
-			p.X = coordMin.X;
-			while (p.X <= coordMax.X)
-			{
-				p.Y = coordMin.Y;
-				while (p.Y <= coordMax.Y)
-				{
-					p.Z = coordMin.Z;
-					while (p.Z <= coordMax.Z)
-					{
-						Vector3I offset = p - coordMin;
-						int idx = storage.ComputeLinear(ref offset);
-						if (storage.Material(idx) != byte.MaxValue)
-							return true;
+		
+			Vector3I offset = Vector3I.Zero;
 
-						p.Z++;
+			var index = storage.ComputeLinear(ref offset);
+			byte v0 = storage.Material(index);
+
+			Vector3I p;
+			for (p.X = coordMin.X; p.X <= coordMax.X; p.X++)
+			{
+				for (p.Y = coordMin.Y; p.Y <= coordMax.Y; p.Y++)
+				{
+					for (p.Z = coordMin.Z; p.Z <= coordMax.Z; p.Z++)
+					{
+						offset = p - coordMin;
+						index = storage.ComputeLinear(ref offset);
+
+						var v = storage.Material(index);
+						if(v != v0)
+							return NodeType.Mixed;
 					}
-					p.Y++;
 				}
-				p.X++;
 			}
 
-			return false;
+			if (v0 == byte.MaxValue) return NodeType.Free;
+			return NodeType.Blocked;
+		}
+
+		/// <summary>
+		/// Converts an octree node (storage indices) to a world-space bounding box.
+		/// </summary>
+		public BoundingBoxD NodeToWorldBB(OctNode node)
+		{
+			var min = new Vector3D(node.Min) + _voxel.PositionLeftBottomCorner;
+			var max = min + node.Size;
+			return new BoundingBoxD(min, max);
+		}
+
+		public MyVoxelBase Voxel => _voxel;
+
+		public OctNode FindNodeAtWorld(Vector3D worldPos)
+		{
+			var voxelPos = new Vector3I(
+				(int)Math.Floor(worldPos.X - _voxel.PositionLeftBottomCorner.X),
+				(int)Math.Floor(worldPos.Y - _voxel.PositionLeftBottomCorner.Y),
+				(int)Math.Floor(worldPos.Z - _voxel.PositionLeftBottomCorner.Z));
+			return FindNodeAt(voxelPos);
 		}
 	}
 }
