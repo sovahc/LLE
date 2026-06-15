@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using VRageMath;
+using VRage.Voxels;
 using Sandbox.Game.Entities;
 
 using Priority_Queue;
+
+// MyVoxelConstants.VOXEL_SIZE_IN_METRES
 
 namespace LLE
 {
@@ -23,13 +27,6 @@ namespace LLE
 		public OctNode[] Children;
 
 		public Vector3D Center => new Vector3D(Min.X + Size / 2.0, Min.Y + Size / 2.0, Min.Z + Size / 2.0);
-
-		public BoundingBoxD WorldAABB(Vector3D voxelCorner)
-		{
-			var min = voxelCorner + Min * 2.0;
-			var max = voxelCorner + (Min + Size) * 2.0;
-			return new BoundingBoxD(min, max);
-		}
 	}
 
 	class OctNodeItem : FastPriorityQueueNode
@@ -39,8 +36,6 @@ namespace LLE
 
 	public class AsteroidNavigation
 	{
-		private const int MinNodeSize = 1; // Minimum node size (1 "unit" = 2 meters)
-		
 		private readonly MyVoxelBase _voxel;
 		private OctNode _root;
 		
@@ -51,31 +46,46 @@ namespace LLE
 			_voxel = voxel;
 		}
 
-		/// <summary>
-		/// Builds an octree for the given bounding box (in 2-meter units relative to the voxel corner).
-		/// </summary>
-		public void Build(Vector3I min, Vector3I max)
+		public void Build(Vector3I min, Vector3I max, int coarseLod = 4) // 4 = 16m
 		{
-			var size = GetPowerOfTwo(Math.Max(max.X - min.X, Math.Max(max.Y - min.Y, max.Z - min.Z)));
-			_root = new OctNode { Min = min, Size = size };
+			Vector3I size = max - min;
+			var maxDimension = Math.Max(size.X, Math.Max(size.Y, size.Z));
 
-			Subdivide(_root);
+			var size1d = NextPowerOfTwo(maxDimension);
+			_root = new OctNode { Min = min, Size = size1d };
+
+			if (_voxel == null || _voxel.MarkedForClose) return;
+
+			using (_voxel.Pin()) // Do I need this?
+				Subdivide(_root, coarseLod);
+
 			BuildNeighborGraph();
 		}
 
-		private void Subdivide(OctNode node)
-		{
-			var aabb = node.WorldAABB(_voxel.PositionLeftBottomCorner);
+		private int CalculateLodLevel(int size)
+		{	int lod = 0;
+			while (size > 1) { size >>= 1; ++lod; }
+			return lod;
+		}
 
-			// 1. If node is smaller than minimum size - it's a leaf
-			if (node.Size <= MinNodeSize)
+		private void Subdivide(OctNode node, int coarseLod)
+		{
+			int lod = CalculateLodLevel(node.Size);
+			lod = Math.Min(lod, coarseLod);
+
+			// Get voxel AABB for this node at the current LOD
+			var voxelMin = node.Min >> lod;
+			var voxelMax = node.Min + node.Size - (1 << lod);
+
+			// 1. A leaf
+			if (node.Size == 0)
 			{
-				node.Type = TraversabilityCalculator.HasMaterialsInBox(aabb, _voxel) ? NodeType.Blocked : NodeType.Free;
+				node.Type = HasMaterialsInVoxelBox(_voxel, voxelMin, voxelMax, lod) ? NodeType.Blocked : NodeType.Free;
 				return;
 			}
 
-			// 2. If node is completely free - it's a super-cell!
-			if (!TraversabilityCalculator.HasMaterialsInBox(aabb, _voxel))
+			// 2. If node is completely free - it's a super-cell
+			if (!HasMaterialsInVoxelBox(_voxel, voxelMin, voxelMax, lod))
 			{
 				node.Type = NodeType.Free;
 				return;
@@ -95,7 +105,14 @@ namespace LLE
 				
 				var child = new OctNode { Min = childMin, Size = half };
 				node.Children[i] = child;
-				Subdivide(child);
+				Subdivide(child, coarseLod);
+			}
+
+			// 4. Adaptive compression: if all children are the same type, collapse them
+			if (node.Children.All(c => c.Type == node.Children[0].Type))
+			{
+				node.Type = node.Children[0].Type;
+				node.Children = null; // Free memory
 			}
 		}
 
@@ -314,11 +331,54 @@ namespace LLE
 			result.Reverse();
 		}
 
-		private int GetPowerOfTwo(int value)
+		private int NextPowerOfTwo(int value)
 		{
 			int res = 1;
 			while (res < value) res *= 2;
 			return res;
+		}
+
+		private static readonly MyStorageData storage = new MyStorageData();
+
+		public static bool HasMaterialsInVoxelBox(MyVoxelBase voxel, Vector3I min, Vector3I max, int lod = 0)
+		{
+			Vector3I storageMax = voxel.Storage.Size - 1;
+			Vector3I coordMin = min >> lod;
+			Vector3I coordMax = max >> lod;
+
+			coordMin -= 1;
+			coordMax += 1;
+
+			Vector3I.Clamp(ref coordMin, ref Vector3I.Zero, ref storageMax, out coordMin);
+			Vector3I.Clamp(ref coordMax, ref Vector3I.Zero, ref storageMax, out coordMax);
+
+			storage.Resize(coordMin, coordMax);
+
+			voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, coordMin, coordMax);
+			
+			Vector3I p = default(Vector3I);
+			p.X = coordMin.X;
+			while (p.X <= coordMax.X)
+			{
+				p.Y = coordMin.Y;
+				while (p.Y <= coordMax.Y)
+				{
+					p.Z = coordMin.Z;
+					while (p.Z <= coordMax.Z)
+					{
+						Vector3I offset = p - coordMin;
+						int idx = storage.ComputeLinear(ref offset);
+						if (storage.Material(idx) != byte.MaxValue)
+							return true;
+
+						p.Z++;
+					}
+					p.Y++;
+				}
+				p.X++;
+			}
+
+			return false;
 		}
 	}
 }
