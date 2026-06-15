@@ -116,16 +116,6 @@ namespace LLE
 		}
 	}
 
-	/// <inheritdoc cref="Profiler" />
-	/// <summary>
-	/// This code was provided by Digi as a simple profiler
-	/// Usage:
-	///		Wrap code you want to profile in:
-	///			using(new Profiler("somename"))
-	///			{
-	///				// code to profile
-	///			}
-	/// </summary>
 	public struct Profiler : IDisposable
 	{
 		private readonly string _name;
@@ -144,7 +134,9 @@ namespace LLE
 			return $"{_name} {timespan.TotalMilliseconds:0.###}ms";
 		}
 
-		public void Dispose() { }
+		public void Dispose()
+		{	MyConsole.Add(ToString());
+		}
 	}
 
 	public class MyMarkdown

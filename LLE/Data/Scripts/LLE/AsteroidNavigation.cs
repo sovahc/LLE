@@ -75,9 +75,9 @@ namespace LLE
 			if (_voxel == null || _voxel.MarkedForClose) return;
 
 			using (_voxel.Pin()) // Do I need this?
-				Subdivide(_root);
-
-			BuildNeighborGraph();
+				Subdivide(_root); // 6s
+			
+			BuildNeighborGraph(); // 0.2s
 			CountNodes(_root);
 
 			statistic = $"Free={FreeNodes} Blocked={BlockedNodes} Mixed={MixedNodes}, TopLevel={TopLevelNodes}";
