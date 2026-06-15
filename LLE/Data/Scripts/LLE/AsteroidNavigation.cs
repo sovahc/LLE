@@ -26,8 +26,8 @@ namespace LLE
 
         public BoundingBoxD WorldAABB(Vector3D voxelCorner)
         {
-            var min = voxelCorner + (Vector3)(Min * 2.0);
-            var max = voxelCorner + (Vector3)((Min + Size) * 2.0);
+            var min = voxelCorner + Min * 2.0;
+            var max = voxelCorner + (Min + Size) * 2.0;
             return new BoundingBoxD(min, max);
         }
     }
@@ -204,7 +204,7 @@ namespace LLE
                 {
                     if (closed.Contains(neighbor)) continue;
 
-                    float tentativeG = gScore[current] + Vector3.Distance((Vector3)current.Center, (Vector3)neighbor.Center);
+                    var tentativeG = gScore[current] + (float)Vector3D.Distance(current.Center, neighbor.Center);
 
                     if (!gScore.ContainsKey(neighbor) || tentativeG < gScore[neighbor])
                     {
@@ -232,7 +232,7 @@ namespace LLE
 
         private float Heuristic(OctNode node, OctNode goal)
         {
-            return Vector3.Distance((Vector3)node.Center, (Vector3)goal.Center);
+            return (float)Vector3D.Distance(node.Center, goal.Center);
         }
 
         private void ReconstructPath(Dictionary<OctNode, OctNode> parent, OctNode goal, List<OctNode> result)
