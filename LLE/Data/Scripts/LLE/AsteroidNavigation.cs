@@ -19,7 +19,7 @@ namespace LLE
 		public int Size;
 		public NodeType Type;
 		
-		public List<OctNode> Neighbors = new List<OctNode>();
+		public HashSet<OctNode> Neighbors = new HashSet<OctNode>();
 		public OctNode[] Children;
 
 		public Vector3D Center => new Vector3D(Min.X + Size / 2.0, Min.Y + Size / 2.0, Min.Z + Size / 2.0);
@@ -100,35 +100,104 @@ namespace LLE
 		}
 
 		/// <summary>
-		/// Connects free nodes into a graph.
-		/// For each free node, we look for neighbors in 6 directions.
+		/// Connects free nodes into a graph using Face Adjacency.
+		/// Correctly connects large super-cells with multiple small nodes.
 		/// </summary>
 		private void BuildNeighborGraph()
 		{
 			var freeNodes = new List<OctNode>();
 			CollectFreeNodes(_root, freeNodes);
 
-			// Only check positive directions to avoid duplicates and O(N) Contains checks
-			var dirs = new[] { 
-				new Vector3I(1,0,0), 
-				new Vector3I(0,1,0), 
-				new Vector3I(0,0,1) 
-			};
-
+			// Ищем соседей только в 3 положительных направлениях (X+, Y+, Z+), 
+			// чтобы избежать дублирования проверок. Связи добавляются в обе стороны.
 			foreach (var node in freeNodes)
 			{
-				foreach (var dir in dirs)
+				for (int axis = 0; axis < 3; axis++)
 				{
-					var targetPos = node.Min + dir * node.Size;
-					var neighbor = FindNodeAt(targetPos);
-					
-					if (neighbor != null && neighbor.Type == NodeType.Free)
+					var neighbors = new List<OctNode>();
+					FindFaceNeighbors(_root, node, axis, neighbors);
+			
+					foreach (var neighbor in neighbors)
 					{
+						// Двусторонняя связь для неориентированного графа
 						node.Neighbors.Add(neighbor);
-						neighbor.Neighbors.Add(node);
+						neighbor.Neighbors.Add(node); 
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// Рекурсивно находит все свободные ноды, касающиеся грани target по заданной оси (в направлении +1).
+		/// </summary>
+		private void FindFaceNeighbors(OctNode current, OctNode target, int axis, List<OctNode> results)
+		{
+			// Отсекаем ветви дерева, которые физически не могут содержать соседей
+			if (!CanContainFaceNeighbor(current, target, axis))
+				return;
+
+			if (current.Type == NodeType.Free)
+			{
+				// Нашли листовую ноду. Проверяем точное касание.
+				if (IsExactFaceNeighbor(current, target, axis))
+				{
+					results.Add(current);
+				}
+				return;
+			}
+
+			if (current.Type == NodeType.Blocked)
+				return; // В заблокированных зонах нет свободных путей
+
+			// Mixed - спускаемся к детям
+			if (current.Children != null)
+			{
+				foreach (var child in current.Children)
+				{
+					FindFaceNeighbors(child, target, axis, results);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Проверка: может ли поддерево curr содержать ноду, которая касается грани target?
+		/// </summary>
+		private bool CanContainFaceNeighbor(OctNode curr, OctNode target, int axis)
+		{
+			int axis1 = (axis + 1) % 3;
+			int axis2 = (axis + 2) % 3;
+
+			// 1. Должно быть пересечение по двум поперечным осям
+			if (curr.Min[axis1] >= target.Min[axis1] + target.Size) return false;
+			if (curr.Min[axis1] + curr.Size <= target.Min[axis1]) return false;
+
+			if (curr.Min[axis2] >= target.Min[axis2] + target.Size) return false;
+			if (curr.Min[axis2] + curr.Size <= target.Min[axis2]) return false;
+
+			// 2. Нода curr должна "накрывать" плоскость касания
+			int boundary = target.Min[axis] + target.Size;
+			if (curr.Min[axis] > boundary) return false;
+			if (curr.Min[axis] + curr.Size <= boundary) return false;
+
+			return true;
+		}
+
+		/// <summary>
+		/// Строгая проверка: действительно ли листовая нода neighbor касается грани target?
+		/// </summary>
+		private bool IsExactFaceNeighbor(OctNode neighbor, OctNode target, int axis)
+		{
+			int axis1 = (axis + 1) % 3;
+			int axis2 = (axis + 2) % 3;
+
+			// Пересечение по поперечным осям (должны иметь общую площадь)
+			if (neighbor.Min[axis1] >= target.Min[axis1] + target.Size) return false;
+			if (neighbor.Min[axis1] + neighbor.Size <= target.Min[axis1]) return false;
+			if (neighbor.Min[axis2] >= target.Min[axis2] + target.Size) return false;
+			if (neighbor.Min[axis2] + neighbor.Size <= target.Min[axis2]) return false;
+
+			// Точное касание по основной оси
+			return neighbor.Min[axis] == target.Min[axis] + target.Size;
 		}
 
 		private void CollectFreeNodes(OctNode node, List<OctNode> result)
