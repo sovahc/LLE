@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 using VRageMath;
 using VRage.Voxels;
 using Sandbox.Game.Entities;
 
 using Priority_Queue;
-using VRage.Utils;
 
 // MyVoxelConstants.VOXEL_SIZE_IN_METRES
 
@@ -256,6 +254,25 @@ namespace LLE
 		}
 
 		/// <summary>
+		/// Converts an octree node (storage indices) to a world-space bounding box.
+		/// </summary>
+		public BoundingBoxD NodeToWorldBB(OctreeNode node)
+		{
+			var min = new Vector3D(node.Min) + _voxel.PositionLeftBottomCorner;
+			var max = min + node.Size;
+			return new BoundingBoxD(min, max);
+		}
+
+		public OctreeNode FindNodeAtWorld(Vector3D worldPos)
+		{
+			var voxelPos = new Vector3I(
+				(int)Math.Floor(worldPos.X - _voxel.PositionLeftBottomCorner.X),
+				(int)Math.Floor(worldPos.Y - _voxel.PositionLeftBottomCorner.Y),
+				(int)Math.Floor(worldPos.Z - _voxel.PositionLeftBottomCorner.Z));
+			return FindNodeAt(voxelPos);
+		}
+
+		/// <summary>
 		/// A* pathfinding on the octree graph.
 		/// </summary>
 		public List<OctreeNode> FindPath(OctreeNode start, OctreeNode goal)
@@ -385,25 +402,6 @@ namespace LLE
 
 			if (v0 == byte.MaxValue) return NodeType.Free;
 			return NodeType.Blocked;
-		}
-
-		/// <summary>
-		/// Converts an octree node (storage indices) to a world-space bounding box.
-		/// </summary>
-		public BoundingBoxD NodeToWorldBB(OctreeNode node)
-		{
-			var min = new Vector3D(node.Min) + _voxel.PositionLeftBottomCorner;
-			var max = min + node.Size;
-			return new BoundingBoxD(min, max);
-		}
-
-		public OctreeNode FindNodeAtWorld(Vector3D worldPos)
-		{
-			var voxelPos = new Vector3I(
-				(int)Math.Floor(worldPos.X - _voxel.PositionLeftBottomCorner.X),
-				(int)Math.Floor(worldPos.Y - _voxel.PositionLeftBottomCorner.Y),
-				(int)Math.Floor(worldPos.Z - _voxel.PositionLeftBottomCorner.Z));
-			return FindNodeAt(voxelPos);
 		}
 	}
 }
