@@ -22,8 +22,6 @@ namespace LLE
 		public static List<Vector3I> highlightCellsGreen = new List<Vector3I>();
 		public static AsteroidNavigation asteroidNav;
 		public static MyVoxelBase currentAsteroid;
-		public static OctreeNode currentNode;
-		public static List<OctreeNode> neighborNodes = new List<OctreeNode>();
 		public static readonly List<MyVoxelBase> voxelSearchList = new List<MyVoxelBase>();
 
 		internal static void Start(IMyCubeGrid grid_)
@@ -249,6 +247,7 @@ namespace LLE
 					}
 				}
 			}
+			Debug.voxelSearchList.Clear();
 
 			if (nearestAsteroid != Debug.currentAsteroid)
 			{
@@ -256,7 +255,6 @@ namespace LLE
 				if (nearestAsteroid != null && nearestAsteroid.Storage != null)
 				{
 					Debug.asteroidNav = new AsteroidNavigation(nearestAsteroid);
-					Debug.asteroidNav.Build(Vector3I.Zero, nearestAsteroid.Storage.Size - 1);
 				}
 				else
 				{
@@ -268,23 +266,13 @@ namespace LLE
 			{
 				var ahead = pm.Translation + pm.Forward * 10;
 
-				// Debug: show conversion on screen
 				var nav = Debug.asteroidNav;
-				font.String(nav.statistic, new Vector2D(0, 0.85f), 0.00075f, Color.White);
-				Debug.currentNode = nav.FindNodeAtWorld(ahead);
-				Debug.neighborNodes.Clear();
+				font.String(nav.Statistic.ToString(), new Vector2D(0, 0.85f), 0.00075f, Color.White);
+				var currentNode = nav.GetNodeAtWorld(ahead);
 
-				if (Debug.currentNode != null)
+				if (currentNode != null)
 				{
-					foreach (var n in Debug.currentNode.Neighbors)
-					{
-						if (!Debug.neighborNodes.Contains(n))
-							Debug.neighborNodes.Add(n);
-					}
-
-					DrawOctNode(Debug.asteroidNav, Debug.currentNode, true);
-					foreach (var n in Debug.neighborNodes)
-						DrawOctNode(Debug.asteroidNav, n, false);
+					DrawOctNode(Debug.asteroidNav, currentNode, true);
 				}
 			}
 

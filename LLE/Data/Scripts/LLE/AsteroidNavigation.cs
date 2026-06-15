@@ -11,7 +11,7 @@ using Priority_Queue;
 
 namespace LLE
 {
-	public enum NodeType { Free, Blocked, Mixed, TopLevel }
+	public enum NodeType { Unknown, Free, Mixed, Blocked, Top }
 
 	/// <summary>
 	/// Octree node. Can be a large free zone (super-cell) or a small block.
@@ -35,52 +35,29 @@ namespace LLE
 
 	public class AsteroidNavigation
 	{
-		private int _coarseLod;
 		private readonly MyVoxelBase _voxel;
-		private OctreeNode _root;
-		
-		private int FreeNodes = 0, BlockedNodes = 0, MixedNodes = 0, TopLevelNodes = 0;
-		public string statistic { get; private set; }
+		private readonly int _coarseLod;
+		private readonly OctreeNode _root;
 
-		private void CountNodes(OctreeNode node)
-		{
-			switch (node.Type)
-			{
-				case NodeType.Free: ++FreeNodes; break;
-				case NodeType.Blocked: ++BlockedNodes; break;
-				case NodeType.Mixed: ++MixedNodes; break;
-				case NodeType.TopLevel: ++TopLevelNodes; break;
-			}
+		public struct Statistic_
+		{	public int Unknown, Top, Free, Mixed, Blocked;
 
-			if(node.Children != null)
-			{	foreach (var child in node.Children)
-					CountNodes(child);
-			}
+			public override string ToString() => $"Unknown={Unknown} Top={Top} Free={Free} Mixed={Mixed} Blocked={Blocked}";
 		}
 
+		public Statistic_ Statistic;
+		
 		public AsteroidNavigation(MyVoxelBase voxel)
 		{
 			_voxel = voxel;
-		}
-
-		public void Build(Vector3I min, Vector3I max)
-		{
 			_coarseLod = 4; // 3 = 8m
-			Vector3I size = max - min;
+
+			Vector3I size = voxel.Storage.Size;
 			var maxDimension = Math.Max(size.X, Math.Max(size.Y, size.Z));
+				// в игре воксели степени двойки - Debug.Assert(source.Size3D.IsPowerOfTwo)
 
-			var size1d = NextPowerOfTwo(maxDimension);
-			_root = new OctreeNode { Min = min, Size = size1d };
-
-			if (_voxel == null || _voxel.MarkedForClose) return;
-
-			using (_voxel.Pin()) // Do I need this?
-				Subdivide(_root); // 6s
-			
-			BuildNeighborGraph(); // 0.2s
-			CountNodes(_root);
-
-			statistic = $"Free={FreeNodes} Blocked={BlockedNodes} Mixed={MixedNodes}, TopLevel={TopLevelNodes}";
+			_root = new OctreeNode { Min = Vector3I.Zero, Size = maxDimension, Type = NodeType.Unknown };
+			++Statistic.Unknown;
 		}
 
 		private int CalculateLodLevel(int size)
@@ -89,162 +66,70 @@ namespace LLE
 			return lod;
 		}
 
-		private void Subdivide(OctreeNode node)
+		public OctreeNode GetNodeAt(Vector3I pos)
 		{
-			int lod = CalculateLodLevel(node.Size);
+			if (_voxel == null || _voxel.MarkedForClose) return null;
 
-			// Get voxel AABB for this node at the current LOD
-			var voxelMin = node.Min;
-			var voxelMax = node.Min + node.Size - 1;
+			var current = _root;
 
-			int m = -100;
-
-			if (lod >= _coarseLod)
-				node.Type = NodeType.TopLevel;
-			else
-			{	/*
-				Vector3I coordMin = voxelMin >> lod;
-				Vector3I coordMax = voxelMax >> lod;
-
-				storage.Resize(coordMin, coordMax);
-				_voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, coordMin, coordMax);
-				
-				m = storage.Material(0);
-				if(m == byte.MaxValue) node.Type = NodeType.Free;
-				else if(m <= 5) node.Type = NodeType.Blocked;
-				else node.Type = NodeType.Mixed;*/
-				node.Type = VoxelCellType(_voxel, voxelMin, voxelMax, lod-1);
-			}
-
-			Utilities.Log($"VoxelCellType {node.Min} / {voxelMin}-{voxelMax} / {lod} / {m} / {node.Type}");
-
-			if (lod <= 1) return; // leaf node
-
-			if (node.Type == NodeType.Free ||
-				node.Type == NodeType.Blocked) return; // supercell
-
-			var half = node.Size / 2;
-			node.Children = new OctreeNode[8];
-			
-			for (int i = 0; i < 8; ++i)
-			{
-				var childMin = new Vector3I(
-					node.Min.X + ((i & 1) == 0 ? 0 : half),
-					node.Min.Y + ((i & 2) == 0 ? 0 : half),
-					node.Min.Z + ((i & 4) == 0 ? 0 : half));
-				
-				var child = new OctreeNode { Min = childMin, Size = half };
-				node.Children[i] = child;
-				Subdivide(child);
-			}
-		}
-
-		/// <summary>
-		/// Connects free nodes into a graph using Face Adjacency.
-		/// Correctly connects large super-cells with multiple small nodes.
-		/// </summary>
-		private void BuildNeighborGraph()
-		{
-			var freeNodes = new List<OctreeNode>();
-			CollectFreeNodes(_root, freeNodes);
-
-			// Search neighbors only in 3 positive directions (X+, Y+, Z+) to avoid duplicate checks. Links are added bidirectionally.
-			foreach (var node in freeNodes)
-			{
-				for (int axis = 0; axis < 3; axis++)
+			for(;;)
+			{	if(current.Type == NodeType.Unknown)
 				{
-					var neighbors = new List<OctreeNode>();
-					FindFaceNeighbors(_root, node, axis, neighbors);
-			
-					foreach (var neighbor in neighbors)
-					{
-						// Bidirectional link for an undirected graph
-						node.Neighbors.Add(neighbor);
-						neighbor.Neighbors.Add(node); 
+					--Statistic.Unknown;
+
+					int lod = CalculateLodLevel(current.Size);
+
+					if (lod >= _coarseLod)
+					{	current.Type = NodeType.Top;
 					}
+					else
+					{	var voxelMin = current.Min;
+						var voxelMax = current.Min + current.Size - 1;
+						current.Type = VoxelCellType(_voxel, voxelMin, voxelMax, lod-1);
+
+						Utilities.Log($"VoxelCellType {current.Min} / {voxelMin}-{voxelMax} / {lod} / {current.Type}");
+					}
+
+					switch(current.Type)
+					{	case NodeType.Top: ++Statistic.Top; break;
+						case NodeType.Free: ++Statistic.Free; break;
+						case NodeType.Mixed: ++Statistic.Mixed; break;
+						case NodeType.Blocked: ++Statistic.Blocked; break;
+					}
+
+					if (lod <= 1) return current; // leaf node
+
+					if (current.Type == NodeType.Free ||
+						current.Type == NodeType.Blocked) return current; // supercell
+
+					var half = current.Size / 2;
+					current.Children = new OctreeNode[8];
+			
+					for (int i = 0; i < 8; ++i)
+					{
+						var childMin = new Vector3I(
+							current.Min.X + ((i & 1) == 0 ? 0 : half),
+							current.Min.Y + ((i & 2) == 0 ? 0 : half),
+							current.Min.Z + ((i & 4) == 0 ? 0 : half));
+				
+						var child = new OctreeNode { Min = childMin, Size = half, Type = NodeType.Unknown };
+						current.Children[i] = child;
+					}
+
+					Statistic.Unknown += 8;
 				}
-			}
-		}
-
-		/// <summary>
-		/// Recursively finds all free nodes touching the face of target along the given axis (in +1 direction).
-		/// </summary>
-		private void FindFaceNeighbors(OctreeNode current, OctreeNode target, int axis, List<OctreeNode> results)
-		{
-			// Prune branches that cannot physically contain neighbors
-			if (!CanContainFaceNeighbor(current, target, axis))
-				return;
-
-			if (current.Type == NodeType.Free)
-			{
-				// Found a leaf node. Check for exact face contact.
-				if (IsExactFaceNeighbor(current, target, axis))
+			
+				if(current.Children != null)
 				{
-					results.Add(current);
+					var half = current.Size / 2;
+					bool x = pos.X >= current.Min.X + half;
+					bool y = pos.Y >= current.Min.Y + half;
+					bool z = pos.Z >= current.Min.Z + half;
+				
+					int index = (x ? 1 : 0) | (y ? 2 : 0) | (z ? 4 : 0);
+					current = current.Children[index];
 				}
-				return;
-			}
-
-			if (current.Children != null)
-			{
-				foreach (var child in current.Children)
-				{
-					FindFaceNeighbors(child, target, axis, results);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Check: can the subtree rooted at curr contain a node touching the face of target?
-		/// </summary>
-		private bool CanContainFaceNeighbor(OctreeNode curr, OctreeNode target, int axis)
-		{
-			int axis1 = (axis + 1) % 3;
-			int axis2 = (axis + 2) % 3;
-
-			// 1. Must overlap on both cross-axes
-			if (curr.Min[axis1] >= target.Min[axis1] + target.Size) return false;
-			if (curr.Min[axis1] + curr.Size <= target.Min[axis1]) return false;
-
-			if (curr.Min[axis2] >= target.Min[axis2] + target.Size) return false;
-			if (curr.Min[axis2] + curr.Size <= target.Min[axis2]) return false;
-
-			// 2. Node curr must "cover" the contact plane
-			int boundary = target.Min[axis] + target.Size;
-			if (curr.Min[axis] > boundary) return false;
-			if (curr.Min[axis] + curr.Size <= boundary) return false;
-
-			return true;
-		}
-
-		/// <summary>
-		/// Strict check: does the leaf node neighbor actually touch the face of target?
-		/// </summary>
-		private bool IsExactFaceNeighbor(OctreeNode neighbor, OctreeNode target, int axis)
-		{
-			int axis1 = (axis + 1) % 3;
-			int axis2 = (axis + 2) % 3;
-
-			// Overlap on cross-axes (must share area)
-			if (neighbor.Min[axis1] >= target.Min[axis1] + target.Size) return false;
-			if (neighbor.Min[axis1] + neighbor.Size <= target.Min[axis1]) return false;
-			if (neighbor.Min[axis2] >= target.Min[axis2] + target.Size) return false;
-			if (neighbor.Min[axis2] + neighbor.Size <= target.Min[axis2]) return false;
-
-			// Exact contact along the main axis
-			return neighbor.Min[axis] == target.Min[axis] + target.Size;
-		}
-
-		private void CollectFreeNodes(OctreeNode node, List<OctreeNode> result)
-		{
-			if (node.Type == NodeType.Free)
-			{
-				result.Add(node);
-			}
-			else if (node.Children != null)
-			{
-				foreach (var child in node.Children)
-					CollectFreeNodes(child, result);
+				else return current;
 			}
 		}
 
@@ -277,13 +162,13 @@ namespace LLE
 			return new BoundingBoxD(min, max);
 		}
 
-		public OctreeNode FindNodeAtWorld(Vector3D worldPos)
+		public OctreeNode GetNodeAtWorld(Vector3D worldPos)
 		{
 			var voxelPos = new Vector3I(
 				(int)Math.Floor(worldPos.X - _voxel.PositionLeftBottomCorner.X),
 				(int)Math.Floor(worldPos.Y - _voxel.PositionLeftBottomCorner.Y),
 				(int)Math.Floor(worldPos.Z - _voxel.PositionLeftBottomCorner.Z));
-			return FindNodeAt(voxelPos);
+			return GetNodeAt(voxelPos);
 		}
 
 		/// <summary>
@@ -367,13 +252,6 @@ namespace LLE
 				if (!parent.TryGetValue(current, out current)) break;
 			}
 			result.Reverse();
-		}
-
-		private int NextPowerOfTwo(int value)
-		{
-			int res = 1;
-			while (res < value) res *= 2;
-			return res;
 		}
 
 		private static readonly MyStorageData storage = new MyStorageData();
