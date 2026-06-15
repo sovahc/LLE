@@ -9,6 +9,7 @@ using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRage.Utils;
+using System.CodeDom.Compiler;
 
 namespace LLE
 {
@@ -211,7 +212,7 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			var pm = ch.GetHeadMatrix(false);
+			var pm = ch.GetHeadMatrix(false, false);
 
 			Common.StartFrame();
 
@@ -298,7 +299,7 @@ namespace LLE
 			Color color;
 			switch(node.Type)
 			{	case NodeType.Free: color = Color.Green; break;
-				case NodeType.Blocked: color = Color.Green; break;
+				case NodeType.Blocked: color = Color.Red; break;
 				default: color = Color.Gray; break;
 			}
 
@@ -312,12 +313,12 @@ namespace LLE
 
 			if(marker) Drawing.RoundMarker(matrix.Translation, color);
 
-			var half = (bb.Max - bb.Min) * 0.475;
+			var half = (bb.Max - bb.Min) * 0.49;
 			var localBb = new BoundingBoxD(-half, half);
 
 			var material = MyStringId.GetOrCompute("Square");
 			MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref localBb, ref color,
-				MySimpleObjectRasterizer.Wireframe, 1, 0.002f, material, material);
+				MySimpleObjectRasterizer.Wireframe, 1, 0.003f, material, material);
 		}
 
 		void OnEntityAdd(IMyEntity entity)

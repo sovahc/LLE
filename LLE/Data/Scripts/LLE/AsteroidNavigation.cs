@@ -7,6 +7,7 @@ using VRage.Voxels;
 using Sandbox.Game.Entities;
 
 using Priority_Queue;
+using VRage.Utils;
 
 // MyVoxelConstants.VOXEL_SIZE_IN_METRES
 
@@ -50,7 +51,7 @@ namespace LLE
 			_voxel = voxel;
 		}
 
-		public void Build(Vector3I min, Vector3I max, int coarseLod = 4) // 4 = 16m
+		public void Build(Vector3I min, Vector3I max, int coarseLod = 3) // 3 = 8m
 		{
 			FreeNodes = BlockedNodes = MixedNodes = 0;
 
@@ -363,6 +364,8 @@ namespace LLE
 
 			storage.Resize(coordMin, coordMax);
 			voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, coordMin, coordMax);
+
+			Utilities.Log(storage.ToBase64());
 		
 			Vector3I offset = Vector3I.Zero;
 
