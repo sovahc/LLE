@@ -108,8 +108,7 @@ namespace LLE
 			var freeNodes = new List<OctNode>();
 			CollectFreeNodes(_root, freeNodes);
 
-			// Ищем соседей только в 3 положительных направлениях (X+, Y+, Z+), 
-			// чтобы избежать дублирования проверок. Связи добавляются в обе стороны.
+			// Search neighbors only in 3 positive directions (X+, Y+, Z+) to avoid duplicate checks. Links are added bidirectionally.
 			foreach (var node in freeNodes)
 			{
 				for (int axis = 0; axis < 3; axis++)
@@ -119,7 +118,7 @@ namespace LLE
 			
 					foreach (var neighbor in neighbors)
 					{
-						// Двусторонняя связь для неориентированного графа
+						// Bidirectional link for an undirected graph
 						node.Neighbors.Add(neighbor);
 						neighbor.Neighbors.Add(node); 
 					}
@@ -128,17 +127,17 @@ namespace LLE
 		}
 
 		/// <summary>
-		/// Рекурсивно находит все свободные ноды, касающиеся грани target по заданной оси (в направлении +1).
+		/// Recursively finds all free nodes touching the face of target along the given axis (in +1 direction).
 		/// </summary>
 		private void FindFaceNeighbors(OctNode current, OctNode target, int axis, List<OctNode> results)
 		{
-			// Отсекаем ветви дерева, которые физически не могут содержать соседей
+			// Prune branches that cannot physically contain neighbors
 			if (!CanContainFaceNeighbor(current, target, axis))
 				return;
 
 			if (current.Type == NodeType.Free)
 			{
-				// Нашли листовую ноду. Проверяем точное касание.
+				// Found a leaf node. Check for exact face contact.
 				if (IsExactFaceNeighbor(current, target, axis))
 				{
 					results.Add(current);
@@ -147,9 +146,9 @@ namespace LLE
 			}
 
 			if (current.Type == NodeType.Blocked)
-				return; // В заблокированных зонах нет свободных путей
+				return; // No free paths in blocked zones
 
-			// Mixed - спускаемся к детям
+			// Mixed - descend to children
 			if (current.Children != null)
 			{
 				foreach (var child in current.Children)
@@ -160,21 +159,21 @@ namespace LLE
 		}
 
 		/// <summary>
-		/// Проверка: может ли поддерево curr содержать ноду, которая касается грани target?
+		/// Check: can the subtree rooted at curr contain a node touching the face of target?
 		/// </summary>
 		private bool CanContainFaceNeighbor(OctNode curr, OctNode target, int axis)
 		{
 			int axis1 = (axis + 1) % 3;
 			int axis2 = (axis + 2) % 3;
 
-			// 1. Должно быть пересечение по двум поперечным осям
+			// 1. Must overlap on both cross-axes
 			if (curr.Min[axis1] >= target.Min[axis1] + target.Size) return false;
 			if (curr.Min[axis1] + curr.Size <= target.Min[axis1]) return false;
 
 			if (curr.Min[axis2] >= target.Min[axis2] + target.Size) return false;
 			if (curr.Min[axis2] + curr.Size <= target.Min[axis2]) return false;
 
-			// 2. Нода curr должна "накрывать" плоскость касания
+			// 2. Node curr must "cover" the contact plane
 			int boundary = target.Min[axis] + target.Size;
 			if (curr.Min[axis] > boundary) return false;
 			if (curr.Min[axis] + curr.Size <= boundary) return false;
@@ -183,20 +182,20 @@ namespace LLE
 		}
 
 		/// <summary>
-		/// Строгая проверка: действительно ли листовая нода neighbor касается грани target?
+		/// Strict check: does the leaf node neighbor actually touch the face of target?
 		/// </summary>
 		private bool IsExactFaceNeighbor(OctNode neighbor, OctNode target, int axis)
 		{
 			int axis1 = (axis + 1) % 3;
 			int axis2 = (axis + 2) % 3;
 
-			// Пересечение по поперечным осям (должны иметь общую площадь)
+			// Overlap on cross-axes (must share area)
 			if (neighbor.Min[axis1] >= target.Min[axis1] + target.Size) return false;
 			if (neighbor.Min[axis1] + neighbor.Size <= target.Min[axis1]) return false;
 			if (neighbor.Min[axis2] >= target.Min[axis2] + target.Size) return false;
 			if (neighbor.Min[axis2] + neighbor.Size <= target.Min[axis2]) return false;
 
-			// Точное касание по основной оси
+			// Exact contact along the main axis
 			return neighbor.Min[axis] == target.Min[axis] + target.Size;
 		}
 
