@@ -38,11 +38,6 @@ namespace LLE
 
 		private bool pauseLLM;
 
-		private IMyCubeGrid selectedGrid;
-		private Vector3I selectedBlock;
-		private Vector3I freeSpaceA, freeSpaceB;
-		private static Vector3D testSphereCenter;
-
 		public static void Log(string s) => Utilities.Log(s);
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
@@ -216,62 +211,6 @@ namespace LLE
 			{	font.String("LLE_Loader is not present.", new Vector2D(0.0, -0.1), 0.00075f, Color.Red);
 				Common.Call_Add_Billboards();
 				return;
-			}
-
-			if(MyAPIGateway.Input.IsNewLeftMousePressed())
-			{	Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
-					out selectedGrid, out selectedBlock, out freeSpaceA);
-			}
-
-			if(MyAPIGateway.Input.IsNewRightMousePressed())
-			{	Vector3I unused;				
-				Utilities.MyRaycast(Utilities.GetEngineerCenter(ch), ch.WorldMatrix.Forward,
-					out selectedGrid, out unused, out freeSpaceB);
-
-				if(selectedGrid != null)
-				{	commands.navigation.TestAstar(selectedGrid, freeSpaceA, freeSpaceB);
-				}
-			}
-			commands?.navigation?.TestAstarStep();
-			commands?.navigation?.DrawPath();
-
-			if (selectedGrid != null)
-			{	
-				var block = selectedGrid.GetCubeBlock(selectedBlock);
-				
-				if (block != null)
-				{	
-					if(MyAPIGateway.Input.IsNewLeftMousePressed())
-					{	MyConsole.Add($"{Commands.Name(block)} at {Commands.IJK(selectedBlock)}");
-					}
-
-					Collisions.Draw(selectedGrid, block);
-					Collisions.DrawTraversability(selectedGrid, selectedBlock);
-				}
-
-				Utilities.HighlightCell(selectedGrid, freeSpaceA, Color.Green);
-				Utilities.HighlightCell(selectedGrid, freeSpaceB, Color.DarkMagenta);
-			}
-
-			// Right click — test sphere collision with block
-			if (MyAPIGateway.Input.IsNewRightMousePressed())
-			{
-				var engineerCenter = Utilities.GetEngineerCenter(ch);
-				testSphereCenter = engineerCenter + 5.0 * ch.WorldMatrix.Forward;
-			}
-
-			// Draw test sphere
-			if (selectedGrid != null)
-			{
-				var block = selectedGrid.GetCubeBlock(selectedBlock);
-
-				bool intersection = false;
-				if(block != null)
-					intersection = Collisions.CheckWorldSphere(selectedGrid, block, testSphereCenter, 0.5);
-
-				var color = intersection ? new Vector4(1f, 0f, 0f, 1f) : new Vector4(0f, 1f, 0f, 1f);
-				Drawing.ScreenSphere(testSphereCenter, 0.5f, color);
-				Drawing.RoundMarker(testSphereCenter, intersection ? Color.Red : Color.Lime);
 			}
 
 			if(Debug.grid != null)
