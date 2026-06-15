@@ -11,7 +11,7 @@ using Priority_Queue;
 
 namespace LLE
 {
-	public enum NodeType { Free, Blocked, Mixed }
+	public enum NodeType { Free, Blocked, Mixed, TopLevel }
 
 	/// <summary>
 	/// Octree node. Can be a large free zone (super-cell) or a small block.
@@ -35,10 +35,11 @@ namespace LLE
 
 	public class AsteroidNavigation
 	{
+		private int _coarseLod;
 		private readonly MyVoxelBase _voxel;
 		private OctreeNode _root;
-
-		private int FreeNodes = 0, BlockedNodes = 0, MixedNodes = 0;
+		
+		private int FreeNodes = 0, BlockedNodes = 0, MixedNodes = 0, TopLevelNodes = 0;
 		public string statistic { get; private set; }
 
 		private void CountNodes(OctreeNode node)
@@ -48,6 +49,7 @@ namespace LLE
 				case NodeType.Free: ++FreeNodes; break;
 				case NodeType.Blocked: ++BlockedNodes; break;
 				case NodeType.Mixed: ++MixedNodes; break;
+				case NodeType.TopLevel: ++TopLevelNodes; break;
 			}
 
 			if(node.Children != null)
@@ -61,8 +63,9 @@ namespace LLE
 			_voxel = voxel;
 		}
 
-		public void Build(Vector3I min, Vector3I max, int coarseLod = 3) // 3 = 8m
+		public void Build(Vector3I min, Vector3I max)
 		{
+			_coarseLod = 4; // 3 = 8m
 			Vector3I size = max - min;
 			var maxDimension = Math.Max(size.X, Math.Max(size.Y, size.Z));
 
@@ -72,12 +75,12 @@ namespace LLE
 			if (_voxel == null || _voxel.MarkedForClose) return;
 
 			using (_voxel.Pin()) // Do I need this?
-				Subdivide(_root, coarseLod);
+				Subdivide(_root);
 
 			BuildNeighborGraph();
 			CountNodes(_root);
 
-			statistic = $"Free={FreeNodes} Blocked={BlockedNodes} Mixed={MixedNodes}";
+			statistic = $"Free={FreeNodes} Blocked={BlockedNodes} Mixed={MixedNodes}, TopLevel={TopLevelNodes}";
 		}
 
 		private int CalculateLodLevel(int size)
@@ -86,24 +89,39 @@ namespace LLE
 			return lod;
 		}
 
-		private void Subdivide(OctreeNode node, int coarseLod)
+		private void Subdivide(OctreeNode node)
 		{
 			int lod = CalculateLodLevel(node.Size);
-			lod = Math.Min(lod, coarseLod);
 
 			// Get voxel AABB for this node at the current LOD
 			var voxelMin = node.Min;
 			var voxelMax = node.Min + node.Size - 1;
 
-			node.Type = VoxelCellType(_voxel, voxelMin, voxelMax, lod);
+			int m = -100;
 
-			Utilities.Log($"VoxelCellType {node.Min} / {voxelMin}-{voxelMax} / {lod} / {node.Type}");
+			if (lod >= _coarseLod)
+				node.Type = NodeType.TopLevel;
+			else
+			{	/*
+				Vector3I coordMin = voxelMin >> lod;
+				Vector3I coordMax = voxelMax >> lod;
 
-			if (node.Size <= 1) return; // leaf node
-
-			if (node.Type != NodeType.Mixed)
-			{	if(lod <= coarseLod) return; // supercell
+				storage.Resize(coordMin, coordMax);
+				_voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, coordMin, coordMax);
+				
+				m = storage.Material(0);
+				if(m == byte.MaxValue) node.Type = NodeType.Free;
+				else if(m <= 5) node.Type = NodeType.Blocked;
+				else node.Type = NodeType.Mixed;*/
+				node.Type = VoxelCellType(_voxel, voxelMin, voxelMax, lod-1);
 			}
+
+			Utilities.Log($"VoxelCellType {node.Min} / {voxelMin}-{voxelMax} / {lod} / {m} / {node.Type}");
+
+			if (lod <= 1) return; // leaf node
+
+			if (node.Type == NodeType.Free ||
+				node.Type == NodeType.Blocked) return; // supercell
 
 			var half = node.Size / 2;
 			node.Children = new OctreeNode[8];
@@ -117,7 +135,7 @@ namespace LLE
 				
 				var child = new OctreeNode { Min = childMin, Size = half };
 				node.Children[i] = child;
-				Subdivide(child, coarseLod);
+				Subdivide(child);
 			}
 		}
 
@@ -167,10 +185,6 @@ namespace LLE
 				return;
 			}
 
-			if (current.Type == NodeType.Blocked)
-				return; // No free paths in blocked zones
-
-			// Mixed - descend to children
 			if (current.Children != null)
 			{
 				foreach (var child in current.Children)
@@ -240,7 +254,7 @@ namespace LLE
 		public OctreeNode FindNodeAt(Vector3I pos)
 		{
 			var current = _root;
-			while (current.Type == NodeType.Mixed && current.Children != null)
+			while (current.Children != null)
 			{
 				var half = current.Size / 2;
 				bool x = pos.X >= current.Min.X + half;

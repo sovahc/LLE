@@ -266,7 +266,7 @@ namespace LLE
 
 			if (Debug.asteroidNav != null)
 			{
-				var ahead = pm.Translation + pm.Forward * 25;
+				var ahead = pm.Translation + pm.Forward * 10;
 
 				// Debug: show conversion on screen
 				var nav = Debug.asteroidNav;
