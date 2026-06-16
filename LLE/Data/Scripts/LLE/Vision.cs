@@ -79,7 +79,7 @@ namespace LLE
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
+					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
 					if (isBlocked) continue;
 
 					var type = grid.GridSizeEnum == MyCubeSize.Large ? ObjectType.LargeShip : ObjectType.SmallShip;
@@ -98,7 +98,7 @@ namespace LLE
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
+					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
 					if (isBlocked) continue;
 
 					SetLKS(entity, ObjectType.Asteroid, true);
@@ -115,7 +115,7 @@ namespace LLE
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 
-					Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
+					//Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
 					if (isBlocked) continue;
 
 					SetLKS(entity, ObjectType.Floating, true);
