@@ -19,11 +19,6 @@ namespace LLE
 		public static IMyCubeGrid grid;
 		public static List<Vector3I> highlightCellsRed = new List<Vector3I>();
 		public static List<Vector3I> highlightCellsGreen = new List<Vector3I>();
-		public static AsteroidNavigation asteroidNav;
-		public static MyVoxelBase currentAsteroid;
-		public static readonly List<MyVoxelBase> voxelSearchList = new List<MyVoxelBase>();
-		public static OctreeNode pathStart, pathGoal;
-		public static List<OctreeNode> pathNodes;
 
 		internal static void Start(IMyCubeGrid grid_)
 		{	grid = grid_;
@@ -226,78 +221,6 @@ namespace LLE
 					Utilities.HighlightCell(Debug.grid, cell, Color.Red);
 				foreach(var cell in Debug.highlightCellsGreen)
 					Utilities.HighlightCell(Debug.grid, cell, Color.Green);
-			}
-
-			// Auto-detect nearest asteroid within 500m
-			Debug.voxelSearchList.Clear();
-			var searchSphere = new BoundingSphereD(pm.Translation, 500);
-			MyGamePruningStructure.GetAllVoxelMapsInSphere(ref searchSphere, Debug.voxelSearchList);
-
-			MyVoxelBase nearestAsteroid = null;
-			double nearestDistSq = double.MaxValue;
-			for (int i = 0; i < Debug.voxelSearchList.Count; i++)
-			{
-				var vb = Debug.voxelSearchList[i];
-				if (vb == vb.RootVoxel)
-				{
-					var distSq = Vector3D.DistanceSquared(vb.PositionComp.GetPosition(), pm.Translation);
-					if (distSq < nearestDistSq)
-					{
-						nearestAsteroid = vb;
-						nearestDistSq = distSq;
-					}
-				}
-			}
-			Debug.voxelSearchList.Clear();
-
-			if (nearestAsteroid != Debug.currentAsteroid)
-			{
-				Debug.currentAsteroid = nearestAsteroid;
-				if (nearestAsteroid != null && nearestAsteroid.Storage != null)
-				{
-					Debug.asteroidNav = new AsteroidNavigation(nearestAsteroid);
-				}
-				else
-				{
-					Debug.asteroidNav = null;
-				}
-			}
-
-			if (Debug.asteroidNav != null)
-			{
-				var ahead = pm.Translation + pm.Forward * 10;
-
-				var nav = Debug.asteroidNav;
-				font.String(nav.Statistic.ToString(), new Vector2D(0, 0.85f), 0.00075f, Color.White);
-				var currentNode = nav.GetNodeAtWorld(ahead);
-
-				if (currentNode != null)
-				{
-					DrawOctNode(Debug.asteroidNav, currentNode, true);
-				}
-
-				if (MyAPIGateway.Input.IsNewLeftMousePressed())
-				{
-					Debug.pathStart = nav.GetNodeAtWorld(ahead);
-					Debug.pathGoal = null;
-					Debug.pathNodes = null;
-				}
-
-				if (MyAPIGateway.Input.IsNewRightMousePressed())
-				{
-					Debug.pathGoal = nav.GetNodeAtWorld(ahead);
-					if (Debug.pathStart != null && Debug.pathGoal != null)
-						Debug.pathNodes = nav.FindPath(Debug.pathStart, Debug.pathGoal);
-				}
-
-				// Draw path markers
-				if (Debug.pathStart != null) Drawing.RoundMarker(nav.NodeToWorldBB(Debug.pathStart).Center, Color.Yellow);
-				if (Debug.pathGoal != null) Drawing.RoundMarker(nav.NodeToWorldBB(Debug.pathGoal).Center, Color.Magenta);
-				if (Debug.pathNodes != null)
-				{
-					for (int i = 0; i < Debug.pathNodes.Count; i++)
-						Drawing.RoundMarker(nav.NodeToWorldBB(Debug.pathNodes[i]).Center, Color.Cyan);
-				}
 			}
 
 			MyConsole.Render(font);
