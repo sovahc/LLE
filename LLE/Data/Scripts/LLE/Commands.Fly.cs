@@ -139,14 +139,14 @@ namespace LLE
 				yield return sb.ToString();
 			}
 
-			//var currentGrid = GetCurrentEngineerGrid();
-			//if(currentGrid != null && currentGrid != selectedGrid)
-			// fly out of the current grid toward the target, as the path may be blocked
+			var currentGrid = GetCurrentEngineerGrid();
+			/*if(currentGrid != null && currentGrid != selectedGrid)
+			{	// fly out of the current grid toward the target, as the path may be blocked
 
-			//	up = currentGrid.WorldMatrix.Up;
+				up = currentGrid.WorldMatrix.Up;
 
-				//xx
-			//}
+				MyConsole.Add("Fly out of the current grid toward the target");
+			}*/
 
 			up = selectedGrid.WorldMatrix.Up;
 

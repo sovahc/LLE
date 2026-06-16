@@ -144,12 +144,12 @@ namespace LLE
 			if(result == null) return;
 
 			Log($"CommandResult:\n{result}");
-				
+					
 			toLLM.Append("\n[RESULT]:\n");
 			toLLM.Append(result);
 			toLLM.Append('\n');
 
-			MyConsole.AddMultiline(toLLM.ToString(), Color.GreenYellow);
+			MyConsole.AddMultiline(result, Color.Green);
 		}
 
 		MessageType lastType = MessageType.Stop;
