@@ -14,6 +14,6 @@
 	"[csharp]": {
 		"editor.semanticHighlighting.enabled": false
 	},
-	// Disables random unimported namespaces appearing on typo - I'm fucking tired of deleting them
+	// Disables auto-inserting random 'using' directives on typos - I'm fucking tired of deleting them
 	"dotnet.completion.showCompletionItemsFromUnimportedNamespaces": false
 }
