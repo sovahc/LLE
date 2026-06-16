@@ -9,7 +9,6 @@ using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRage.Utils;
-using System.CodeDom.Compiler;
 
 namespace LLE
 {
