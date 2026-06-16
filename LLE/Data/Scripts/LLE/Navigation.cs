@@ -54,7 +54,7 @@ namespace LLE
 
 			var fromI = grid.WorldToGridInteger(from);
 
-			RunAstar(fromI, toI);
+			RunAstar(toI, fromI); // ! Reversed
 		}
 
 		internal string Step()
@@ -76,7 +76,7 @@ namespace LLE
 
 					for(int i = 0; i < ar.Count; ++i)
 					{	
-						var v = ar[i] + grid.Min - AStarBorder;
+						var v = ar[ar.Count - i - 1] + grid.Min - AStarBorder; // ! Reverse back
 
 						path.Add(grid.GridIntegerToWorld(v));				
 					}
