@@ -119,9 +119,9 @@ namespace LLE
 				if(current.Children[index] == null)
 				{	
 					var childMin = new Vector3I(
-					current.Min.X + ((index & 1) == 0 ? 0 : half),
-					current.Min.Y + ((index & 2) == 0 ? 0 : half),
-					current.Min.Z + ((index & 4) == 0 ? 0 : half));
+						current.Min.X + (x ? half : 0),
+						current.Min.Y + (y ? half : 0),
+						current.Min.Z + (z ? half : 0));
 					
 					current.Children[index] = new OctreeNode { Min = childMin, Size = half, Type = NodeType.Unknown };
 					++Statistic.Unknown;
