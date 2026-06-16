@@ -20,8 +20,6 @@ namespace LLE
 
 		private readonly IMyCharacter character;
 		
-		internal Navigation navigation;
-
 		private IEnumerator currentCommand;
 
 		private double resumeTime;
@@ -36,7 +34,6 @@ namespace LLE
 		public Commands(IMyCharacter character_)
 		{
 			character = character_;
-			navigation = new Navigation(character);
 
 			foreach (var def in MyDefinitionManager.Static.GetDefinitionsOfType<MyPhysicalItemDefinition>())
 			{
@@ -201,33 +198,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			if(added > 1)
 			{	sb.Append($"(Nearest to you is {IJK(nearestFreeSpace)})");
-			}
-		}
-
-		internal IEnumerator Fly(TokenParser tp)
-		{
-			string message;
-
-			if(!GridIsSet(out message)) yield return message;
-
-			Vector3I ijk;
-			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
-
-			var block = selectedGrid.GetCubeBlock(ijk);
-			if(!Collisions.CenterIsFree(block, ijk))
-			{	
-				StringBuilder sb = new StringBuilder();
-				sb.Append($"Error: Destination is blocked by {Quote(Name(block))}, nearest free space is:\n");
-
-				ListFreeSpace_ToSb(ijk, sb);
-
-				yield return sb.ToString();
-			}
-
-			navigation.FlyInsideGrid(selectedGrid, ijk);
-
-			for(;;)
-			{	yield return navigation.Step();				
 			}
 		}
 

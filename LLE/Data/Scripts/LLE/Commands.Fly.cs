@@ -1,35 +1,28 @@
+using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 
 using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
 
-using Sandbox.ModAPI;
 using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
+using Sandbox.Game.Entities.Character.Components;
 
 namespace LLE
 {
-	public class Navigation
+	public partial class Commands
 	{
-		private readonly MicroNavigation micro = new MicroNavigation();
-		private readonly DampedSpringController springController = new DampedSpringController();
-		private Vector3D up;
-		private readonly IMyCharacter character;
-
-		private IMyCubeGrid grid;
-		private AStar astar;
+        private Vector3D up;
+        
+        private AStar astar;
 		private const int AStarBorder = 1;
 
-		public Navigation(IMyCharacter character)
-		{	this.character = character;
-		}
+        private readonly MicroNavigation micro = new MicroNavigation();
+		private readonly DampedSpringController springController = new DampedSpringController();
 
-		internal string CharacterCellText()
-		{	Vector3D e = Utilities.GetEngineerCenter(character);
-			return Commands.IJK(grid.WorldToGridInteger(e));
-		}
-
-		internal bool IsEngineerInsideGrid(IMyCubeGrid grid)
+        internal bool IsEngineerInsideGrid(IMyCubeGrid grid)
 		{
 			var pos = Utilities.GetEngineerCenter(character);
 			var local = grid.WorldToGridInteger(pos);
@@ -63,40 +56,72 @@ namespace LLE
 
 			return result;
 		}
-		
-		internal void FlyInsideGrid(IMyCubeGrid largeGrid, Vector3I toI)
+
+		internal IEnumerator Fly(TokenParser tp)
 		{
-			grid = largeGrid;
+			string message;
 
-			up = grid.WorldMatrix.Up;
+			if(!GridIsSet(out message)) yield return message;
 
-			Vector3D from = Utilities.GetEngineerCenter(character);
-			Vector3D to = grid.GridIntegerToWorld(toI);
+			Vector3I ijk;
+			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
-			// try direct path to point
+			var block = selectedGrid.GetCubeBlock(ijk);
+			if(!Collisions.CenterIsFree(block, ijk))
+			{	
+				StringBuilder sb = new StringBuilder();
+				sb.Append($"Error: Destination is blocked by {Quote(Name(block))}, nearest free space is:\n");
 
-			/*double dist;
-			IMySlimBlock slimBlock;
-			LineD line = new LineD(from, to);
-			grid.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
+				ListFreeSpace_ToSb(ijk, sb);
 
-			if (slimBlock == null)
-			{	List<Vector3D> path = new List<Vector3D>();
-				path.Add(from);
-				path.Add(to);
-				micro.Fly(path);
-				return;
-			}*/
+				yield return sb.ToString();
+			}
 
-			// run A*
+            up = selectedGrid.WorldMatrix.Up;
 
-			var fromI = grid.WorldToGridInteger(from);
+			Vector3D fromWorld = Utilities.GetEngineerCenter(character);
+            
+            var from = selectedGrid.WorldToGridInteger(fromWorld);
+            var to = ijk;
 
-			RunAstar(toI, fromI); // ! Reversed
+			RunAstar(to, from); // ! Reversed
+
+			for(;;)
+			{	yield return NavigationStep();				
+			}
 		}
 
-		internal string Step()
+        public void RunAstar(Vector3I point_A, Vector3I point_B)
 		{
+            var grid = selectedGrid;
+
+			Vector3I gridSize = grid.Max - grid.Min + 1;
+
+			Utilities.Log($"RunAstar {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
+
+			var astarSize = gridSize + AStarBorder + AStarBorder;
+
+			var source = new TraversabilityCalculator(grid, AStarBorder);
+
+			if (astar == null || astar.Size != astarSize)
+				astar = new AStar(astarSize, source);
+
+			astar.Reset();
+
+			var a = point_A - grid.Min + AStarBorder;
+			var b = point_B - grid.Min + AStarBorder;
+			astar.RunCalculation(a, b);
+		}
+
+        internal string CharacterCellText()
+		{	Vector3D e = Utilities.GetEngineerCenter(character);
+			return IJK(selectedGrid.WorldToGridInteger(e));
+		}
+
+        internal string NavigationStep()
+		{
+            var grid = selectedGrid;
+
 			if (astar != null && !astar.Completed())
 			{	
 				astar.Iteration();
@@ -120,6 +145,10 @@ namespace LLE
 					}
 
 					MyConsole.Add($"path.Count {path.Count}", Color.IndianRed);
+
+                    var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
+                    jetComp.TurnOnJetpack(true);
+
 					micro.Fly(path);
 				}
 				return null; // "thinking"
@@ -155,7 +184,7 @@ namespace LLE
 			return null; // In progress
 		}
 
-		public void JustRotateTo(Vector3D target)
+        public void CharacterRotateTo(Vector3D target)
 		{
 			var cm = character.GetHeadMatrix(true);
 			var center = cm.Translation;
@@ -168,32 +197,15 @@ namespace LLE
 			character.MoveAndRotate(Vector3.Zero, rotation, roll);
 		}
 
-		public void RunAstar(Vector3I point_A, Vector3I point_B)
-		{
-			Vector3I gridSize = grid.Max - grid.Min + 1;
-
-			Utilities.Log($"RunAstar {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
-
-			var astarSize = gridSize + AStarBorder + AStarBorder;
-
-			var source = new TraversabilityCalculator(grid, AStarBorder);
-
-			if (astar == null || astar.Size != astarSize)
-				astar = new AStar(astarSize, source);
-
-			astar.Reset();
-
-			var a = point_A - grid.Min + AStarBorder;
-			var b = point_B - grid.Min + AStarBorder;
-			astar.RunCalculation(a, b);
-		}
-
-		internal void DrawPath()
+        internal void DrawPath()
 		{	if(astar == null) return;
+
+            var grid = selectedGrid;
+
 			foreach(var p in astar.result)
 			{	var iv = p + grid.Min - AStarBorder;
 				Drawing.RoundMarker(grid.GridIntegerToWorld(iv), Color.DarkMagenta);
 			}
 		}
-	}
+    }
 }

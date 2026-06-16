@@ -83,7 +83,7 @@ namespace LLE
 			SetPause(1.0);
 			while (IsPaused())
 			{
-				navigation.JustRotateTo(bp);
+				CharacterRotateTo(bp);
 				yield return null;
 			}
 
@@ -241,7 +241,7 @@ namespace LLE
 			SetPause(1.0);
 			while (IsPaused())
 			{
-				navigation.JustRotateTo(bp);
+				CharacterRotateTo(bp);
 				yield return null;
 			}
 
