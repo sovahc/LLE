@@ -68,67 +68,8 @@ namespace LLE
 
 		public OctreeNode GetNodeAt(Vector3I pos)
 		{
-			if (_voxel == null || _voxel.MarkedForClose) return null;
-
-			var current = _root;
-
-			for(;;)
-			{	if(current.Type == NodeType.Unknown)
-				{
-					--Statistic.Unknown;
-
-					int lod = CalculateLodLevel(current.Size);
-
-					if (lod >= _coarseLod)
-					{	current.Type = NodeType.Top;
-					}
-					else
-					{	var voxelMin = current.Min;
-						var voxelMax = current.Min + current.Size - 1;
-						current.Type = VoxelCellType(_voxel, voxelMin, voxelMax, lod-1);
-
-						Utilities.Log($"VoxelCellType {current.Min} / {voxelMin}-{voxelMax} / {lod} / {current.Type}");
-					}
-
-					switch(current.Type)
-					{	case NodeType.Top: ++Statistic.Top; break;
-						case NodeType.Free: ++Statistic.Free; break;
-						case NodeType.Mixed: ++Statistic.Mixed; break;
-						case NodeType.Blocked: ++Statistic.Blocked; break;
-					}
-
-					if (lod <= 1) return current; // leaf node
-
-					if (current.Type == NodeType.Free ||
-						current.Type == NodeType.Blocked) return current; // super-cell
-				}
-
-				if(current.Type != NodeType.Mixed &&
-					current.Type != NodeType.Top) return current;
-				
-				if(current.Children == null)
-					current.Children = new OctreeNode[8];
-
-				var half = current.Size / 2;
-				bool x = pos.X >= current.Min.X + half;
-				bool y = pos.Y >= current.Min.Y + half;
-				bool z = pos.Z >= current.Min.Z + half;
-			
-				int index = (x ? 1 : 0) | (y ? 2 : 0) | (z ? 4 : 0);
-
-				if(current.Children[index] == null)
-				{	
-					var childMin = new Vector3I(
-						current.Min.X + (x ? half : 0),
-						current.Min.Y + (y ? half : 0),
-						current.Min.Z + (z ? half : 0));
-					
-					current.Children[index] = new OctreeNode { Min = childMin, Size = half, Type = NodeType.Unknown };
-					++Statistic.Unknown;
-				}
-
-				current = current.Children[index];
-			}
+			var nodes = GetNodesInRange(pos, pos);
+			return nodes.Count > 0 ? nodes[0] : null;
 		}
 
 		/// <summary>
@@ -292,6 +233,83 @@ namespace LLE
 
 			if (v0 == byte.MaxValue) return NodeType.Free;
 			return NodeType.Blocked;
+		}
+
+		public List<OctreeNode> GetNodesInRange(Vector3I min, Vector3I max)
+		{
+			if (_voxel == null || _voxel.MarkedForClose) return new List<OctreeNode>();
+
+			var result = new List<OctreeNode>();
+			CollectInRange(_root, min, max, result);
+			return result;
+		}
+
+		private void CollectInRange(OctreeNode node, Vector3I queryMin, Vector3I queryMax, List<OctreeNode> result)
+		{
+			var nodeMax = node.Min + node.Size - 1;
+
+			if (node.Min.X > queryMax.X || nodeMax.X < queryMin.X ||
+			    node.Min.Y > queryMax.Y || nodeMax.Y < queryMin.Y ||
+			    node.Min.Z > queryMax.Z || nodeMax.Z < queryMin.Z)
+				return;
+
+			if (node.Type == NodeType.Unknown)
+			{
+				--Statistic.Unknown;
+				int lod = CalculateLodLevel(node.Size);
+
+				if (lod >= _coarseLod)
+					node.Type = NodeType.Top;
+				else
+				{
+					var voxelMin = node.Min;
+					var voxelMax = node.Min + node.Size - 1;
+					node.Type = VoxelCellType(_voxel, voxelMin, voxelMax, lod - 1);
+					Utilities.Log($"VoxelCellType {node.Min} / {voxelMin}-{voxelMax} / {lod} / {node.Type}");
+				}
+
+				switch(node.Type)
+				{
+					case NodeType.Top: ++Statistic.Top; break;
+					case NodeType.Free: ++Statistic.Free; break;
+					case NodeType.Mixed: ++Statistic.Mixed; break;
+					case NodeType.Blocked: ++Statistic.Blocked; break;
+				}
+			}
+
+			if (node.Type != NodeType.Mixed && node.Type != NodeType.Top)
+			{
+				result.Add(node);
+				return;
+			}
+
+			if (node.Children == null)
+				node.Children = new OctreeNode[8];
+
+			var half = node.Size / 2;
+			for (int i = 0; i < 8; i++)
+			{
+				int ix = (i & 1) != 0 ? half : 0;
+				int iy = (i & 2) != 0 ? half : 0;
+				int iz = (i & 4) != 0 ? half : 0;
+
+				var childMin = node.Min + new Vector3I(ix, iy, iz);
+				var childMax = childMin + half - 1;
+
+				// Skip allocation if child is outside query range
+				if (childMin.X > queryMax.X || childMax.X < queryMin.X ||
+				    childMin.Y > queryMax.Y || childMax.Y < queryMin.Y ||
+				    childMin.Z > queryMax.Z || childMax.Z < queryMin.Z)
+					continue;
+
+				if (node.Children[i] == null)
+				{
+					node.Children[i] = new OctreeNode { Min = childMin, Size = half, Type = NodeType.Unknown };
+					++Statistic.Unknown;
+				}
+
+				CollectInRange(node.Children[i], queryMin, queryMax, result);
+			}
 		}
 	}
 }
