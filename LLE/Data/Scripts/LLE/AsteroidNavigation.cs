@@ -99,7 +99,7 @@ namespace LLE
 					var voxelMin = node.Min;
 					var voxelMax = node.Min + node.Size - 1;
 					node.Type = VoxelCellType(_voxel, voxelMin, voxelMax, lod - 1);
-					Utilities.Log($"VoxelCellType {node.Min} / {voxelMin}-{voxelMax} / {lod} / {node.Type}");
+					//Utilities.Log($"VoxelCellType {node.Min} / {voxelMin}-{voxelMax} / {lod} / {node.Type}");
 				}
 
 				switch(node.Type)
@@ -152,14 +152,9 @@ namespace LLE
 			Vector3I coordMin = min >> lod;
 			Vector3I coordMax = max >> lod;
 
-			//Vector3I.Clamp(ref coordMin, ref Vector3I.Zero, ref storageMax, out coordMin);
-			//Vector3I.Clamp(ref coordMax, ref Vector3I.Zero, ref storageMax, out coordMax);
-
 			storage.Resize(coordMin, coordMax);
 			voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, coordMin, coordMax);
 
-			Utilities.Log(storage.ToBase64());
-		
 			Vector3I offset = Vector3I.Zero;
 
 			var index = storage.ComputeLinear(ref offset);
