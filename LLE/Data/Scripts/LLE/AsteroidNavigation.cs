@@ -101,35 +101,33 @@ namespace LLE
 
 					if (current.Type == NodeType.Free ||
 						current.Type == NodeType.Blocked) return current; // super-cell
+				}
 
-					var half = current.Size / 2;
+				if(current.Type != NodeType.Mixed &&
+					current.Type != NodeType.Top) return current;
+				
+				if(current.Children == null)
 					current.Children = new OctreeNode[8];
-			
-					for (int i = 0; i < 8; ++i)
-					{
-						var childMin = new Vector3I(
-							current.Min.X + ((i & 1) == 0 ? 0 : half),
-							current.Min.Y + ((i & 2) == 0 ? 0 : half),
-							current.Min.Z + ((i & 4) == 0 ? 0 : half));
-				
-						var child = new OctreeNode { Min = childMin, Size = half, Type = NodeType.Unknown };
-						current.Children[i] = child;
-					}
 
-					Statistic.Unknown += 8;
-				}
+				var half = current.Size / 2;
+				bool x = pos.X >= current.Min.X + half;
+				bool y = pos.Y >= current.Min.Y + half;
+				bool z = pos.Z >= current.Min.Z + half;
 			
-				if(current.Children != null)
-				{
-					var half = current.Size / 2;
-					bool x = pos.X >= current.Min.X + half;
-					bool y = pos.Y >= current.Min.Y + half;
-					bool z = pos.Z >= current.Min.Z + half;
-				
-					int index = (x ? 1 : 0) | (y ? 2 : 0) | (z ? 4 : 0);
-					current = current.Children[index];
+				int index = (x ? 1 : 0) | (y ? 2 : 0) | (z ? 4 : 0);
+
+				if(current.Children[index] == null)
+				{	
+					var childMin = new Vector3I(
+					current.Min.X + ((index & 1) == 0 ? 0 : half),
+					current.Min.Y + ((index & 2) == 0 ? 0 : half),
+					current.Min.Z + ((index & 4) == 0 ? 0 : half));
+					
+					current.Children[index] = new OctreeNode { Min = childMin, Size = half, Type = NodeType.Unknown };
+					++Statistic.Unknown;
 				}
-				else return current;
+
+				current = current.Children[index];
 			}
 		}
 
