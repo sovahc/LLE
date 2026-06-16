@@ -1,8 +1,11 @@
-using System;
 using System.Collections.Generic;
-using Sandbox.ModAPI;
-using VRage.Game.ModAPI;
+
 using VRageMath;
+using VRage.Game;
+using VRage.Game.ModAPI;
+
+using Sandbox.ModAPI;
+using Sandbox.Game.Entities;
 
 namespace LLE
 {
@@ -24,6 +27,41 @@ namespace LLE
 		internal string CharacterCellText()
 		{	Vector3D e = Utilities.GetEngineerCenter(character);
 			return Commands.IJK(grid.WorldToGridInteger(e));
+		}
+
+		internal bool IsEngineerInsideGrid(IMyCubeGrid grid)
+		{
+			var pos = Utilities.GetEngineerCenter(character);
+			var local = grid.WorldToGridInteger(pos);
+			return local.X >= grid.Min.X - 1 && local.X <= grid.Max.X + 1 &&
+			       local.Y >= grid.Min.Y - 1 && local.Y <= grid.Max.Y + 1 &&
+			       local.Z >= grid.Min.Z - 1 && local.Z <= grid.Max.Z + 1;
+		}
+
+		internal IMyCubeGrid GetCurrentEngineerGrid()
+		{
+			var ec = Utilities.GetEngineerCenter(character);
+			var sphere = new BoundingSphereD(ec, 10);
+			var entities = MyEntities.GetTopMostEntitiesInSphere(ref sphere);
+
+			IMyCubeGrid result = null;
+			double minimalDistanceSq = double.MaxValue;
+
+			foreach (var e in entities)
+			{
+				var g = e as IMyCubeGrid;
+				if (g == null || g.GridSizeEnum != MyCubeSize.Large) continue;
+
+				if(!IsEngineerInsideGrid(g)) continue;
+
+				double distanceSq = (ec - g.PositionComp.WorldAABB.Center).LengthSquared();
+				if(distanceSq > minimalDistanceSq) continue;
+
+				minimalDistanceSq = distanceSq;
+				result = g;
+			}
+
+			return result;
 		}
 		
 		internal void FlyInsideGrid(IMyCubeGrid largeGrid, Vector3I toI)
