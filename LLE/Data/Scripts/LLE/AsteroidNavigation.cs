@@ -73,12 +73,13 @@ namespace LLE
 			if (_voxel == null || _voxel.MarkedForClose) return null;
 
 			var result = new List<OctreeNode>();
-			CollectInRange(_root, pos, pos, result);
+			CollectInRange(_root, pos, pos, result, false);
 
 			return result.Count > 0 ? result[0] : null;
 		}
 
-		private void CollectInRange(OctreeNode node, Vector3I queryMin, Vector3I queryMax, List<OctreeNode> result)
+		private void CollectInRange(OctreeNode node, Vector3I queryMin, Vector3I queryMax,
+			List<OctreeNode> result, bool freeOnly)
 		{
 			var nodeMax = node.Min + node.Size - 1;
 
@@ -113,7 +114,7 @@ namespace LLE
 
 			if (node.Type != NodeType.Mixed && node.Type != NodeType.Top)
 			{
-				result.Add(node);
+				if(!freeOnly || node.Type == NodeType.Free) result.Add(node);
 				return;
 			}
 
@@ -142,7 +143,7 @@ namespace LLE
 					++Statistic.Unknown;
 				}
 
-				CollectInRange(node.Children[i], queryMin, queryMax, result);
+				CollectInRange(node.Children[i], queryMin, queryMax, result, freeOnly);
 			}
 		}
 
@@ -151,7 +152,7 @@ namespace LLE
 			var neighbors = new List<OctreeNode>();
 			var queryMin = node.Min - Vector3I.One;
 			var queryMax = node.Min + node.Size;
-			CollectInRange(_root, queryMin, queryMax, neighbors);
+			CollectInRange(_root, queryMin, queryMax, neighbors, true);
 
 			var set = new HashSet<OctreeNode>(neighbors);
 			set.Remove(node);

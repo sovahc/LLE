@@ -23,6 +23,8 @@ namespace LLE
 		public static AsteroidNavigation asteroidNav;
 		public static MyVoxelBase currentAsteroid;
 		public static readonly List<MyVoxelBase> voxelSearchList = new List<MyVoxelBase>();
+		public static OctreeNode pathStart, pathGoal;
+		public static List<OctreeNode> pathNodes;
 
 		internal static void Start(IMyCubeGrid grid_)
 		{	grid = grid_;
@@ -273,6 +275,29 @@ namespace LLE
 				if (currentNode != null)
 				{
 					DrawOctNode(Debug.asteroidNav, currentNode, true);
+				}
+
+				if (MyAPIGateway.Input.IsNewLeftMousePressed())
+				{
+					Debug.pathStart = nav.GetNodeAtWorld(ahead);
+					Debug.pathGoal = null;
+					Debug.pathNodes = null;
+				}
+
+				if (MyAPIGateway.Input.IsNewRightMousePressed())
+				{
+					Debug.pathGoal = nav.GetNodeAtWorld(ahead);
+					if (Debug.pathStart != null && Debug.pathGoal != null)
+						Debug.pathNodes = nav.FindPath(Debug.pathStart, Debug.pathGoal);
+				}
+
+				// Draw path markers
+				if (Debug.pathStart != null) Drawing.RoundMarker(nav.NodeToWorldBB(Debug.pathStart).Center, Color.Yellow);
+				if (Debug.pathGoal != null) Drawing.RoundMarker(nav.NodeToWorldBB(Debug.pathGoal).Center, Color.Magenta);
+				if (Debug.pathNodes != null)
+				{
+					for (int i = 0; i < Debug.pathNodes.Count; i++)
+						Drawing.RoundMarker(nav.NodeToWorldBB(Debug.pathNodes[i]).Center, Color.Cyan);
 				}
 			}
 
