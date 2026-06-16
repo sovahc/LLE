@@ -1,0 +1,19 @@
+{
+	"editor.tokenColorCustomizations": {
+		"textMateRules": [
+			{
+				"name": "Highlight yield",
+				"scope": "keyword.control.flow.yield.cs",
+				"settings": {
+					"foreground": "#ff0080",
+					"fontStyle": "bold"
+				}
+			}
+		]
+	},
+	"[csharp]": {
+		"editor.semanticHighlighting.enabled": false
+	},
+	// Disables random unimported namespaces appearing on typo - I'm fucking tired of deleting them
+	"dotnet.completion.showCompletionItemsFromUnimportedNamespaces": false
+}

@@ -1,6 +1,7 @@
 # VS / OmniSharp local artifacts
 *.user
-.vscode/
+.vscode/*
+!.vscode/settings.json
 */bin
 */obj
 */win
