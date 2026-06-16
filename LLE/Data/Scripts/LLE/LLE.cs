@@ -1,8 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Text;
-using Sandbox.ModAPI;
-using Sandbox.Game.Entities;
 
 using VRageMath;
 using VRage.Game;
@@ -10,6 +7,7 @@ using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRage.Utils;
+using Sandbox.ModAPI;
 
 namespace LLE
 {
