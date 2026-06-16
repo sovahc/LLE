@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+
 using VRageMath;
+
 using Priority_Queue;
 
 namespace LLE
@@ -96,10 +98,12 @@ namespace LLE
 
 		public IEnumerator FindPath(Vector3I start, Vector3I goal)
 		{
-			if(!_indexer.In(start) || !_indexer.In(goal))
-			{	MyConsole.Add($"FindPath Error - index out of range: start {start} goal {goal} size {_indexer.Size}", Color.Red);
+			if(!_indexer.In(start))
+			{	MyConsole.Add($"FindPath Error - start index out of range (start {start} size {_indexer.Size})", Color.Red);
 				yield break;
 			}
+
+			bool goalOutside = !_indexer.In(goal);
 
 			int startIndex = _indexer.Index(start.X, start.Y, start.Z);
 			int goalIndex = _indexer.Index(goal.X, goal.Y, goal.Z);
@@ -109,8 +113,8 @@ namespace LLE
 				yield break;
 			}
 			
-			if(GetTraversability(goalIndex).Center)
-			{   MyConsole.Add($"FindPath Error - goal obstructed", Color.Red);
+			if(!goalOutside && GetTraversability(goalIndex).Center)
+			{   MyConsole.Add($"FindPath Error - goal is obstructed", Color.Red);
 				yield break;
 			}
 
@@ -142,11 +146,22 @@ namespace LLE
 				Vector3I cv;
 				_indexer.IndexToPosition(currentI, out cv);
 
-				if (currentI == goalIndex)
-				{	MyConsole.Add($"cellsAnalyzed {cellsAnalyzed}", Color.Red);
-					result.AddList(ReconstructPath(goalIndex, goal));
-					resultSimplifyed.AddList(SimplifyPath(result));
-					yield break;
+				if(goalOutside)
+				{	
+					if(OnBorder(cv))
+					{	MyConsole.Add($"(Exit) cellsAnalyzed {cellsAnalyzed}", Color.Red);
+						result.AddList(ReconstructPath(currentI, cv));
+						resultSimplifyed.AddList(SimplifyPath(result));
+						yield break;
+					}
+				}
+				else
+				{	if (currentI == goalIndex)
+					{	MyConsole.Add($"(Goal) cellsAnalyzed {cellsAnalyzed}", Color.Red);
+						result.AddList(ReconstructPath(goalIndex, goal));
+						resultSimplifyed.AddList(SimplifyPath(result));
+						yield break;
+					}
 				}
 
 				float curG = _gScore[currentI];
@@ -191,6 +206,13 @@ namespace LLE
 			}
 
 			yield break;
+		}
+
+		private bool OnBorder(Vector3I v)
+		{
+			if(v.X == 0 || v.Y == 0 || v.Z == 0) return true;
+			if(v.X == Size.X-1 || v.Y == Size.Y-1 || v.Z == Size.Z-1) return true;
+			return false;
 		}
 
 		private List<Vector3I> ReconstructPath(int goalIndex, Vector3I goal)
