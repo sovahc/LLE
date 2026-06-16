@@ -97,6 +97,9 @@ namespace LLE
 			EnableEffect(block, MyParticleEffectsNameEnum.ShipGrinder);
 			EnableSound("ToolPlayGrindMetal");
 
+			var current = new Dictionary<string, double>();
+			InventoryDelta(inventory, current, +1);
+
 			for(;;)
 			{	
 				// Check if inventory can accept at least one unit of any stockpile component
@@ -120,7 +123,17 @@ namespace LLE
 
 					var p0 = integrity0 / block.MaxIntegrity;
 					var p1 = block.Integrity / block.MaxIntegrity;
-					yield return $"Block integrity changed from {Percent(p0)} to {Percent(p1)}\nYour inventory is full.";
+
+					StringBuilder sb = new StringBuilder();
+					sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
+					sb.Append($"Inventory change:\n");
+
+					InventoryDelta(inventory, current, -1);
+					InventoryDiff(current, sb);
+
+					sb.Append($"Your inventory is full.\n");
+
+					yield return sb.ToString();
 				}
 
 				block.DecreaseMountLevel(grindAmount, inventory);
@@ -129,11 +142,20 @@ namespace LLE
 				// Handle block destruction
 				if (block.IsDestroyed && block.StockpileEmpty)
 				{
+					DisableEffectAndSound();
+					
 					block.SpawnConstructionStockpile();
 					block.CubeGrid.RazeBlock(block.Min);
 
-					DisableEffectAndSound();
-					yield return $"Done! {Commands.Name(block)} has been removed.";
+					StringBuilder sb = new StringBuilder();
+					sb.Append($"Inventory change:\n");
+
+					InventoryDelta(inventory, current, -1);
+					InventoryDiff(current, sb);
+
+					sb.Append($"Done! {Commands.Name(block)} has been removed.");
+
+					yield return sb.ToString();
 				}
 
 				yield return null;
@@ -227,11 +249,13 @@ namespace LLE
 			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
 			// Apply welding
-
 			var integrity0 = block.Integrity;
 
 			EnableEffect(block, MyParticleEffectsNameEnum.WelderContactPoint);
 			EnableSound("ToolPlayWeldMetal");
+
+			var current = new Dictionary<string, double>();
+			InventoryDelta(inventory, current, +1);
 
 			for (;;)
 			{
@@ -244,7 +268,14 @@ namespace LLE
 				if (block.Integrity >= block.MaxIntegrity)
 				{
 					DisableEffectAndSound();
-					yield return "Done! Block integrity is full.";
+
+					StringBuilder sb = new StringBuilder();
+					sb.Append($"Inventory change:\n");
+					InventoryDelta(inventory, current, -1);
+					InventoryDiff(current, sb);
+					sb.Append("Done! Block integrity is full.");
+
+					yield return sb.ToString();
 				}
 				else if (block.Integrity == pbi)
 				{
@@ -252,8 +283,14 @@ namespace LLE
 
 					var p0 = integrity0 / block.MaxIntegrity;
 					var p1 = block.Integrity / block.MaxIntegrity;
-					
-					yield return $"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n{MissingComponentsText(block)}";
+
+					StringBuilder sb = new StringBuilder();
+					sb.Append($"Inventory change:\n");
+					InventoryDelta(inventory, current, -1);
+					InventoryDiff(current, sb);
+					sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n{MissingComponentsText(block)}");
+
+					yield return sb.ToString();
 				}
 
 				yield return null;

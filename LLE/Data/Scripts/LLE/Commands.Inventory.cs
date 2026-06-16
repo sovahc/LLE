@@ -12,6 +12,7 @@ using VRage.Game.ModAPI;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
+using System;
 
 namespace LLE
 {
@@ -398,6 +399,42 @@ namespace LLE
 				}
 			}
 			return false;
+		}
+
+		internal static void InventoryDelta(IMyInventory inv, Dictionary<string, double> current, int sign)
+		{
+			List<MyInventoryItem> items = new List<MyInventoryItem>();
+			inv.GetItems(items);
+			foreach (var item in items)
+			{
+				var def = (MyDefinitionId)item.Type;
+				var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
+
+				var name = itemDef.DisplayNameText;
+				double amount = (double)item.Amount;
+
+				if (current.ContainsKey(name))
+					current[name] += sign * amount;
+				else
+					current[name] = sign * amount;
+			}
+		}
+
+		internal static void InventoryDiff(Dictionary<string, double> delta, StringBuilder result)
+		{
+			bool added = false;
+
+			foreach (var kv in delta)
+			{
+				if(Math.Abs(kv.Value) < 1e-3) continue;
+
+				string operation = kv.Value < 0 ? "Added" : "Removed";
+				result.Append($"{operation} {Math.Abs(kv.Value)} {Quote(kv.Key)}\n");
+
+				added = true;
+			}
+
+			if(!added) result.Append("none\n");
 		}
 	}
 }
