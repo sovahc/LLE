@@ -22,7 +22,7 @@ namespace LLE
 		public int Size;
 		public NodeType Type;
 		
-		public HashSet<OctreeNode> Neighbors = new HashSet<OctreeNode>();
+		public HashSet<OctreeNode> Neighbors;
 		public OctreeNode[] Children;
 
 		public Vector3D Center => new Vector3D(Min.X + Size / 2.0, Min.Y + Size / 2.0, Min.Z + Size / 2.0);
@@ -146,6 +146,18 @@ namespace LLE
 			}
 		}
 
+		private void ComputeNeighbors(OctreeNode node)
+		{
+			var neighbors = new List<OctreeNode>();
+			var queryMin = node.Min - Vector3I.One;
+			var queryMax = node.Min + node.Size;
+			CollectInRange(_root, queryMin, queryMax, neighbors);
+
+			var set = new HashSet<OctreeNode>(neighbors);
+			set.Remove(node);
+			node.Neighbors = set;
+		}
+
 		public static NodeType VoxelCellType(MyVoxelBase voxel, Vector3I min, Vector3I max, int lod = 0)
 		{
 			Vector3I storageMax = voxel.Storage.Size - 1;
@@ -236,6 +248,9 @@ namespace LLE
 
 				closed.Add(current);
 				inOpen.Remove(current);
+
+				if (current.Neighbors == null)
+					ComputeNeighbors(current);
 
 				foreach (var neighbor in current.Neighbors)
 				{
