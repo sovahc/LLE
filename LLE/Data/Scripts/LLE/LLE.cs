@@ -366,8 +366,7 @@ namespace LLE
 				ProcessLlmContent($"Execute `{command}`");
 			}
 			else
-			{	if(message == "go") pauseLLM = false;
-				
+			{	pauseLLM = false;
 				LLE_Loader.SendMessageToLLM($"[GAME CHAT] {player.DisplayName}: {message}");
 			}
 		}
