@@ -163,6 +163,8 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
+			Vision.Tick(Utilities.GetEngineerCenter(ch));
+
 			// Lazy initialization
 			if (commands == null)
 			{

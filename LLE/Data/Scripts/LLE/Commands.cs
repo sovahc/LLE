@@ -8,6 +8,7 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using Sandbox.Game.Screens;
 
 namespace LLE
 {
@@ -49,9 +50,8 @@ namespace LLE
 		{
 			return @"## AVAILABLE COMMANDS
 
-* select_grid 'name'    		- Select a ship or station on which to grind, weld, and perform other operations.
-* select_asteroid 'name'		- Select an asteroid on which to mine.
-
+* vision						- Get current visual input (what the bot sees right now)
+* select_grid 'name'    		- Select a ship or station on which to grind, weld, fly, and perform other operations.
 * overview						- List grid blocks by category.
 * integrity						- Show damaged blocks on the selected grid.
 * fly I J K						- Fly to specific grid coordinates. e.g. `fly 10 -5 13`
@@ -70,10 +70,9 @@ namespace LLE
 }
 
 /*
-
+* select_asteroid 'name'		- Select an asteroid on which to mine.
 * search 'substring'			- Search block coordinates by name.
 search ['substring']   - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
-vision                 - Get current visual input (what the bot sees right now)
 info 'name'        - Get detailed information about a specific object.
 look at 'name'     - Rotate to face the object
 hack 'block_name'  - Grind a specific block just below the hacking point (weld it back to restore functionality).
@@ -292,7 +291,13 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			var tp = new TokenParser(command);
 
-			if(tp.Match("Overview"))
+			if(tp.Match("Vision"))
+			{	
+				StringBuilder sb = new StringBuilder();
+				Vision.GetVisible(Utilities.GetEngineerCenter(character), sb);
+				result = sb.ToString();
+			}
+			else if(tp.Match("Overview"))
 			{	result = Overview();
 			}
 			else if(tp.Match("Integrity"))

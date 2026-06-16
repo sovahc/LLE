@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage.Game;
@@ -50,9 +51,9 @@ namespace LLE
 			}
 		}
 
-		public static void HighlightVisible(Vector3D rayOrigin, Vector3D rayDir, float range = 1000)
+		public static void Tick(Vector3D engineer, float range = 1000)
 		{
-			BoundingSphereD pruneSphere = new BoundingSphereD(rayOrigin, range);
+			BoundingSphereD pruneSphere = new BoundingSphereD(engineer, range);
 
 			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
 
@@ -74,11 +75,11 @@ namespace LLE
 					bool r = SurfaceSampler.TryGetRandomBlockOnSurface(grid, random, out p);
 					if (!r) continue;
 
-					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
+					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
+					Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
 					if (isBlocked) continue;
 
 					var type = grid.GridSizeEnum == MyCubeSize.Large ? ObjectType.LargeShip : ObjectType.SmallShip;
@@ -93,11 +94,11 @@ namespace LLE
 					bool r = SurfaceSampler.TryGetRandomSurfacePoint(voxel, random, out p);
 					if (!r) continue;
 
-					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
+					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
+					Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
 					if (isBlocked) continue;
 
 					SetLKS(entity, ObjectType.Asteroid, true);
@@ -109,18 +110,21 @@ namespace LLE
 					// Staggered sampling: process every Nth floater, shifting the window each frame
 					if (localSkipCounter++ % RAYCAST_SKIP_INTERVAL != 0) continue;
 
-					MyAPIGateway.Physics.CastRay(rayOrigin, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
+					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 
-					//Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
+					Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
 					if (isBlocked) continue;
 
 					SetLKS(entity, ObjectType.Floating, true);
 				}
 			}
+		}
 
+		public static void GetVisible(Vector3D engineer, StringBuilder result)
+		{
 			//MyConsole.Add($"raycasts: {raycasts} ", Color.Red);
 			foreach (var v in lks.Values)
 			{
@@ -128,8 +132,8 @@ namespace LLE
 				v.Visible = delta < 1.0;
 				if (!v.Visible) continue;
 
-				double distance = (rayOrigin - new Vector3D(v.X, v.Y, v.Z)).Length();
-				//MyConsole.Add($"{v.Type} {distance:F0} {delta:F0} {v.DisplayName} {v.Debug}", Color.White);
+				double distance = (engineer - new Vector3D(v.X, v.Y, v.Z)).Length();
+				result.Append($"* {v.Type} {Commands.Quote(v.DisplayName)} ({Commands.Distance(distance)})\n");
 			}
 		}
 
