@@ -12,23 +12,85 @@ using Sandbox.Game.Entities.Character.Components;
 
 namespace LLE
 {
-	public partial class Commands
+	class AStarHelper
 	{
-        private Vector3D up;
-        
-        private AStar astar;
+		private IMyCubeGrid grid;
+		private AStar astar;
 		private const int AStarBorder = 1;
 
-        private readonly MicroNavigation micro = new MicroNavigation();
+		public List<Vector3D> GetPath()
+		{
+			List<Vector3D> path = new List<Vector3D>();
+
+			var ar = astar.resultSimplifyed;
+
+			for(int i = 0; i < ar.Count; ++i)
+			{	
+				var v = ar[ar.Count - i - 1] + grid.Min - AStarBorder; // ! Reverse back
+
+				path.Add(grid.GridIntegerToWorld(v));				
+			}
+			return path;
+		}
+
+		public AStarHelper(IMyCubeGrid grid_, Vector3I point_A, Vector3I point_B)
+		{	grid = grid_;
+
+			Vector3I gridSize = grid.Max - grid.Min + 1;
+
+			Utilities.Log($"RunAstar {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
+
+			var astarSize = gridSize + AStarBorder + AStarBorder;
+
+			var source = new TraversabilityCalculator(grid, AStarBorder);
+
+			if (astar == null || astar.Size != astarSize)
+				astar = new AStar(astarSize, source);
+
+			astar.Reset();
+
+			var a = point_A - grid.Min + AStarBorder;
+			var b = point_B - grid.Min + AStarBorder;
+			astar.RunCalculation(a, b);
+		}
+
+		public bool Tick()
+		{	
+			if (astar.Completed()) return true;
+
+			astar.Iteration();
+
+			if (!astar.Completed()) return false;
+
+			return true;
+		}
+
+		internal void DrawPath()
+		{	if(astar == null) return;
+
+			foreach(var p in astar.result)
+			{	var iv = p + grid.Min - AStarBorder;
+				Drawing.RoundMarker(grid.GridIntegerToWorld(iv), Color.DarkMagenta);
+			}
+		}
+	}
+
+	public partial class Commands
+	{
+		private Vector3D up;
+
+		private readonly MicroNavigation micro = new MicroNavigation();
 		private readonly DampedSpringController springController = new DampedSpringController();
 
-        internal bool IsEngineerInsideGrid(IMyCubeGrid grid)
+		private AStarHelper aStarHelper;
+
+		internal bool IsEngineerInsideGrid(IMyCubeGrid grid)
 		{
 			var pos = Utilities.GetEngineerCenter(character);
 			var local = grid.WorldToGridInteger(pos);
 			return local.X >= grid.Min.X - 1 && local.X <= grid.Max.X + 1 &&
-			       local.Y >= grid.Min.Y - 1 && local.Y <= grid.Max.Y + 1 &&
-			       local.Z >= grid.Min.Z - 1 && local.Z <= grid.Max.Z + 1;
+				   local.Y >= grid.Min.Y - 1 && local.Y <= grid.Max.Y + 1 &&
+				   local.Z >= grid.Min.Z - 1 && local.Z <= grid.Max.Z + 1;
 		}
 
 		internal IMyCubeGrid GetCurrentEngineerGrid()
@@ -77,83 +139,53 @@ namespace LLE
 				yield return sb.ToString();
 			}
 
-            up = selectedGrid.WorldMatrix.Up;
+			//var currentGrid = GetCurrentEngineerGrid();
+			//if(currentGrid != null && currentGrid != selectedGrid)
+			// fly out of the current grid toward the target, as the path may be blocked
+
+			//	up = currentGrid.WorldMatrix.Up;
+
+				//xx
+			//}
+
+			up = selectedGrid.WorldMatrix.Up;
 
 			Vector3D fromWorld = Utilities.GetEngineerCenter(character);
-            
-            var from = selectedGrid.WorldToGridInteger(fromWorld);
-            var to = ijk;
+			
+			var from = selectedGrid.WorldToGridInteger(fromWorld);
+			var to = ijk;
 
-			RunAstar(to, from); // ! Reversed
+			aStarHelper = new AStarHelper(selectedGrid, to, from); // ! Reversed
+
+			while(!aStarHelper.Tick())
+			{	yield return null;
+			}
+
+			var worldPath = aStarHelper.GetPath();
+
+			if(worldPath.Count == 0) yield return "There is no path to your destination.";
+
+			//path.Add(Utilities.GetEngineerCenter(character));
+
+			MyConsole.Add($"path.Count {worldPath.Count}", Color.IndianRed);
+
+			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
+			jetComp.TurnOnJetpack(true);
+
+			micro.Fly(worldPath);
 
 			for(;;)
-			{	yield return NavigationStep();				
+			{	yield return NavigationStep(selectedGrid);
 			}
 		}
 
-        public void RunAstar(Vector3I point_A, Vector3I point_B)
-		{
-            var grid = selectedGrid;
-
-			Vector3I gridSize = grid.Max - grid.Min + 1;
-
-			Utilities.Log($"RunAstar {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
-
-			var astarSize = gridSize + AStarBorder + AStarBorder;
-
-			var source = new TraversabilityCalculator(grid, AStarBorder);
-
-			if (astar == null || astar.Size != astarSize)
-				astar = new AStar(astarSize, source);
-
-			astar.Reset();
-
-			var a = point_A - grid.Min + AStarBorder;
-			var b = point_B - grid.Min + AStarBorder;
-			astar.RunCalculation(a, b);
-		}
-
-        internal string CharacterCellText()
+		internal string CharacterCellText()
 		{	Vector3D e = Utilities.GetEngineerCenter(character);
 			return IJK(selectedGrid.WorldToGridInteger(e));
 		}
 
-        internal string NavigationStep()
+		internal string NavigationStep(IMyCubeGrid grid)
 		{
-            var grid = selectedGrid;
-
-			if (astar != null && !astar.Completed())
-			{	
-				astar.Iteration();
-
-				if(astar.Completed())
-				{
-					var ar = astar.resultSimplifyed;
-
-					if(ar.Count == 0)
-						return "There is no path to your destination.";
-
-					List<Vector3D> path = new List<Vector3D>();
-
-					path.Add(Utilities.GetEngineerCenter(character));
-
-					for(int i = 0; i < ar.Count; ++i)
-					{	
-						var v = ar[ar.Count - i - 1] + grid.Min - AStarBorder; // ! Reverse back
-
-						path.Add(grid.GridIntegerToWorld(v));				
-					}
-
-					MyConsole.Add($"path.Count {path.Count}", Color.IndianRed);
-
-                    var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
-                    jetComp.TurnOnJetpack(true);
-
-					micro.Fly(path);
-				}
-				return null; // "thinking"
-			}
-
 			if(micro.Arrived()) return $"Arrived. Position: {CharacterCellText()}";
 
 			if(MyAPIGateway.Input.IsNewLeftMousePressed() ||
@@ -184,7 +216,7 @@ namespace LLE
 			return null; // In progress
 		}
 
-        public void CharacterRotateTo(Vector3D target)
+		public void CharacterRotateTo(Vector3D target)
 		{
 			var cm = character.GetHeadMatrix(true);
 			var center = cm.Translation;
@@ -196,16 +228,5 @@ namespace LLE
 
 			character.MoveAndRotate(Vector3.Zero, rotation, roll);
 		}
-
-        internal void DrawPath()
-		{	if(astar == null) return;
-
-            var grid = selectedGrid;
-
-			foreach(var p in astar.result)
-			{	var iv = p + grid.Min - AStarBorder;
-				Drawing.RoundMarker(grid.GridIntegerToWorld(iv), Color.DarkMagenta);
-			}
-		}
-    }
+	}
 }
