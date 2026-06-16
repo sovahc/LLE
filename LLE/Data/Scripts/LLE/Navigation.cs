@@ -16,7 +16,6 @@ namespace LLE
 		private IMyCubeGrid grid;
 		private AStar astar;
 		private const int AStarBorder = 1;
-		private bool isTest;
 
 		public Navigation(IMyCharacter character)
 		{	this.character = character;
@@ -29,8 +28,6 @@ namespace LLE
 		
 		internal void FlyInsideGrid(IMyCubeGrid largeGrid, Vector3I toI)
 		{
-			isTest = false;
-
 			grid = largeGrid;
 
 			up = grid.WorldMatrix.Up;
@@ -151,17 +148,6 @@ namespace LLE
 			var a = point_A - grid.Min + AStarBorder;
 			var b = point_B - grid.Min + AStarBorder;
 			astar.RunCalculation(a, b);
-		}
-
-		internal void TestAstar(IMyCubeGrid selectedGrid, Vector3I a, Vector3I b)
-		{
-			isTest = true;
-			grid = selectedGrid;
-			RunAstar(a, b);
-		}
-
-		internal void TestAstarStep()
-		{	if(isTest && astar != null) astar.Iteration();
 		}
 
 		internal void DrawPath()
