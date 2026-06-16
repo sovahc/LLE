@@ -145,6 +145,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	case ObjectType.LargeShip:
 					selectedGrid = select as IMyCubeGrid;
 					if(selectedGrid == null) return $"Error: {Quote(name)} is {category}";
+					else Debug.Start(selectedGrid);
 					break;
 				case ObjectType.Asteroid:
 					selectedAsteroid = select as MyVoxelBase;
@@ -184,7 +185,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 				{	if(added != 0) sb.Append("; ");
 					sb.Append(IJK(position));
 					++added;
-					Debug.highlightCellsGreen.Add(position);
 
 					var bp = selectedGrid.GridIntegerToWorld(position);
 					var dsq = (ec - bp).LengthSquared();
@@ -194,8 +194,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 						nearestFreeSpace = position;
 					}
 				}
-				else
-					Debug.highlightCellsRed.Add(position);
 			}
 			if(added == 0)
 			{	sb.Append(" -- none -- ");
@@ -220,8 +218,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(!Collisions.CenterIsFree(block, ijk))
 			{	
-				Debug.Start(selectedGrid);
-
 				StringBuilder sb = new StringBuilder();
 				sb.Append($"Error: Destination is blocked by {Quote(Name(block))}, nearest free space is:\n");
 

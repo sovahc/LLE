@@ -97,7 +97,7 @@ namespace LLE
 		public IEnumerator FindPath(Vector3I start, Vector3I goal)
 		{
 			if(!_indexer.In(start) || !_indexer.In(goal))
-			{	Utilities.Log($"FindPath Error - index out of range: start {start} goal {goal} size {_indexer.Size}");
+			{	MyConsole.Add($"FindPath Error - index out of range: start {start} goal {goal} size {_indexer.Size}", Color.Red);
 				yield break;
 			}
 

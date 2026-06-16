@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Sandbox.ModAPI;
@@ -17,13 +18,82 @@ namespace LLE
 	public static class Debug
 	{
 		public static IMyCubeGrid grid;
-		public static List<Vector3I> highlightCellsRed = new List<Vector3I>();
-		public static List<Vector3I> highlightCellsGreen = new List<Vector3I>();
+		
+		public static Vector3I? astarStart;
+		public static Vector3I? astarGoal;
+
+		const int AStarBorder = 1;
+		internal static AStar astar;
+		public static List<Vector3I> path = new List<Vector3I>();
 
 		internal static void Start(IMyCubeGrid grid_)
 		{	grid = grid_;
-			highlightCellsRed.Clear();
-			highlightCellsGreen.Clear();
+
+			astarStart = null;
+			astarGoal = null;
+			
+			var gridSize = grid.Max - grid.Min + 1;
+			var astarSize = gridSize + AStarBorder * 2;
+			astar = new AStar(astarSize, new TraversabilityCalculator(grid_, AStarBorder));
+		}
+
+		internal static void Pathfinding(Vector3D point)
+		{
+			if (grid == null) return;
+
+			var cell = grid.WorldToGridInteger(point);
+
+			Utilities.HighlightCell(grid, cell, Color.Gray);
+
+			if (MyAPIGateway.Input.IsNewLeftMousePressed())
+			{
+				astarStart = cell;
+				MyConsole.Add($"A* start: {cell}", Color.Green);
+			}
+			if (MyAPIGateway.Input.IsNewRightMousePressed())
+			{
+				astarGoal = cell;
+				MyConsole.Add($"A* goal: {cell}", Color.Red);
+			}
+
+			if (MyAPIGateway.Input.IsNewLeftMousePressed() ||
+				MyAPIGateway.Input.IsNewRightMousePressed())
+			{
+				if(astarStart != null && astarGoal != null)
+				{
+					astar.Reset();
+					astar.RunCalculation((Vector3I)astarStart - grid.Min + AStarBorder,
+						(Vector3I)astarGoal - grid.Min + AStarBorder);
+				}
+			}
+
+			if(!astar.Completed())
+			{	astar.Iteration();
+
+				if(astar.Completed())
+				{
+					var result = astar.result;
+
+					MyConsole.Add($"A* path length: {result.Count}", Color.DarkMagenta);
+
+					path.Clear();
+					for(int i = 0; i < result.Count; ++i)
+					{	path.Add(result[i] + grid.Min - AStarBorder);
+					}
+				}
+			}
+		}
+
+		internal static void Draw()
+		{
+			if(grid == null) return;
+
+			foreach(var cell in path)
+			{	Drawing.RoundMarker(grid.GridIntegerToWorld(cell), Color.Yellow);
+			}
+
+			if(astarStart != null) Drawing.RoundMarker(grid.GridIntegerToWorld((Vector3I)astarStart), Color.Green);
+			if(astarGoal != null) Drawing.RoundMarker(grid.GridIntegerToWorld((Vector3I)astarGoal), Color.Red);
 		}
 	}
 
@@ -216,15 +286,13 @@ namespace LLE
 				return;
 			}
 
-			if(Debug.grid != null)
-			{	foreach(var cell in Debug.highlightCellsRed)
-					Utilities.HighlightCell(Debug.grid, cell, Color.Red);
-				foreach(var cell in Debug.highlightCellsGreen)
-					Utilities.HighlightCell(Debug.grid, cell, Color.Green);
-			}
+			var headMatrix = ch.GetHeadMatrix(false);
+			Vector3D ahead = headMatrix.Translation + headMatrix.Forward * 10;
+
+			Debug.Pathfinding(ahead);
+			Debug.Draw();
 
 			MyConsole.Render(font);
-
 			Common.Call_Add_Billboards(); // just for sure
 		}
 
