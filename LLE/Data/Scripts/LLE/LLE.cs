@@ -286,11 +286,10 @@ namespace LLE
 				return;
 			}
 
-			var headMatrix = ch.GetHeadMatrix(false, false);
-			Vector3D ahead = headMatrix.Translation + headMatrix.Forward * 10;
-
-			Debug.Pathfinding(ahead);
-			Debug.Draw();
+			//var headMatrix = ch.GetHeadMatrix(false, false);
+			//Vector3D ahead = headMatrix.Translation + headMatrix.Forward * 10;
+			//Debug.Pathfinding(ahead);
+			//Debug.Draw();
 
 			MyConsole.Render(font);
 			Common.Call_Add_Billboards(); // just for sure

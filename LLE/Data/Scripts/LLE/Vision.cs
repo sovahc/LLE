@@ -133,7 +133,7 @@ namespace LLE
 				if (!v.Visible) continue;
 
 				double distance = (engineer - new Vector3D(v.X, v.Y, v.Z)).Length();
-				result.Append($"* {v.Type} {Commands.Quote(v.DisplayName)} ({Commands.Distance(distance)})\n");
+				result.Append($"* {v.Type} '{v.DisplayName}' ({Commands.Distance(distance)})\n");
 			}
 		}
 
