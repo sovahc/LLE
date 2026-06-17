@@ -286,7 +286,7 @@ namespace LLE
 				return;
 			}
 
-			var headMatrix = ch.GetHeadMatrix(false);
+			var headMatrix = ch.GetHeadMatrix(false, false);
 			Vector3D ahead = headMatrix.Translation + headMatrix.Forward * 10;
 
 			Debug.Pathfinding(ahead);
