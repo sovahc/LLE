@@ -22,11 +22,11 @@ namespace LLE
 		{
 			List<Vector3D> path = new List<Vector3D>();
 
-			var ar = astar.resultSimplifyed;
+			var ar = astar.resultSimplified;
 
 			for(int i = 0; i < ar.Count; ++i)
 			{	
-				var v = ar[ar.Count - i - 1] + grid.Min - AStarBorder; // ! Reverse back
+				var v = ar[i] + grid.Min - AStarBorder;
 
 				path.Add(grid.GridIntegerToWorld(v));				
 			}
@@ -84,19 +84,17 @@ namespace LLE
 
 		private AStarHelper aStarHelper;
 
-		internal bool IsEngineerInsideGrid(IMyCubeGrid grid)
+		internal bool IsEngineerInsideGrid(Vector3D engineer, IMyCubeGrid grid)
 		{
-			var pos = Utilities.GetEngineerCenter(character);
-			var local = grid.WorldToGridInteger(pos);
+			var local = grid.WorldToGridInteger(engineer);
 			return local.X >= grid.Min.X - 1 && local.X <= grid.Max.X + 1 &&
 				   local.Y >= grid.Min.Y - 1 && local.Y <= grid.Max.Y + 1 &&
 				   local.Z >= grid.Min.Z - 1 && local.Z <= grid.Max.Z + 1;
 		}
 
-		internal IMyCubeGrid GetCurrentEngineerGrid()
+		internal IMyCubeGrid GetCurrentEngineerGrid(Vector3D engineer)
 		{
-			var ec = Utilities.GetEngineerCenter(character);
-			var sphere = new BoundingSphereD(ec, 10);
+			var sphere = new BoundingSphereD(engineer, 10);
 			var entities = MyEntities.GetTopMostEntitiesInSphere(ref sphere);
 
 			IMyCubeGrid result = null;
@@ -107,9 +105,9 @@ namespace LLE
 				var g = e as IMyCubeGrid;
 				if (g == null || g.GridSizeEnum != MyCubeSize.Large) continue;
 
-				if(!IsEngineerInsideGrid(g)) continue;
+				if(!IsEngineerInsideGrid(engineer, g)) continue;
 
-				double distanceSq = (ec - g.PositionComp.WorldAABB.Center).LengthSquared();
+				double distanceSq = (engineer - g.PositionComp.WorldAABB.Center).LengthSquared();
 				if(distanceSq > minimalDistanceSq) continue;
 
 				minimalDistanceSq = distanceSq;
@@ -139,38 +137,73 @@ namespace LLE
 				yield return sb.ToString();
 			}
 
-			var currentGrid = GetCurrentEngineerGrid();
-			/*if(currentGrid != null && currentGrid != selectedGrid)
-			{	// fly out of the current grid toward the target, as the path may be blocked
+			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
+			jetComp.TurnOnJetpack(true);
+
+			Vector3D engineer = Utilities.GetEngineerCenter(character);
+			Vector3D destination = selectedGrid.GridIntegerToWorld(ijk);
+
+			Vector3I from, to;
+
+			List<Vector3D> worldPath;
+
+			var currentGrid = GetCurrentEngineerGrid(engineer);
+
+			if(currentGrid != null && currentGrid != selectedGrid)
+			{	MyConsole.Add("Fly out of the current grid toward the target");
 
 				up = currentGrid.WorldMatrix.Up;
 
-				MyConsole.Add("Fly out of the current grid toward the target");
-			}*/
+				from = currentGrid.WorldToGridInteger(engineer);
+				to = currentGrid.WorldToGridInteger(destination);
+
+				aStarHelper = new AStarHelper(currentGrid, from, to);
+
+				while(!aStarHelper.Tick()) yield return null;
+
+				worldPath = aStarHelper.GetPath();
+
+				if(worldPath.Count == 0) yield return "There is no out path from grid";
+
+				MyConsole.Add($"path.Count {worldPath.Count}", Color.IndianRed);
+
+				micro.Fly(worldPath);
+
+				for(;;)
+				{	var r = NavigationStep(currentGrid);
+					if(r != null)
+					{	MyConsole.Add($"Fly out: {r}");
+						break;
+					}
+					
+					yield return null;
+
+					engineer = Utilities.GetEngineerCenter(character);
+
+					if(!IsEngineerInsideGrid(engineer, currentGrid))
+					{	MyConsole.Add("Fly out successfull!");
+						break;
+					}
+				}
+			}
+
+			engineer = Utilities.GetEngineerCenter(character);
 
 			up = selectedGrid.WorldMatrix.Up;
 
-			Vector3D fromWorld = Utilities.GetEngineerCenter(character);
-			
-			var from = selectedGrid.WorldToGridInteger(fromWorld);
-			var to = ijk;
+			from = selectedGrid.WorldToGridInteger(engineer);
+			to = ijk;
 
-			aStarHelper = new AStarHelper(selectedGrid, to, from); // ! Reversed
+			aStarHelper = new AStarHelper(selectedGrid, to, from); // Reversed: A* only knows how to find a path OUT of the grid (to border), so we search backward and reverse the result
 
-			while(!aStarHelper.Tick())
-			{	yield return null;
-			}
+			while(!aStarHelper.Tick()) yield return null;
 
-			var worldPath = aStarHelper.GetPath();
+			worldPath = aStarHelper.GetPath();
+			worldPath.Reverse(); // ! Reverse back
 
 			if(worldPath.Count == 0) yield return "There is no path to your destination.";
 
-			//path.Add(Utilities.GetEngineerCenter(character));
-
 			MyConsole.Add($"path.Count {worldPath.Count}", Color.IndianRed);
-
-			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
-			jetComp.TurnOnJetpack(true);
 
 			micro.Fly(worldPath);
 

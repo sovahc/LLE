@@ -32,7 +32,7 @@ namespace LLE
 		private IEnumerator iterator;
 
 		public readonly List<Vector3I> result = new List<Vector3I>();
-		public readonly List<Vector3I> resultSimplifyed =  new List<Vector3I>();
+		public readonly List<Vector3I> resultSimplified =  new List<Vector3I>();
 
 		public Vector3I Size => _indexer.Size;
 		public void IndexToPosition(int index, out Vector3I pos) => _indexer.IndexToPosition(index, out pos);
@@ -86,7 +86,7 @@ namespace LLE
 
 		public void RunCalculation(Vector3I start, Vector3I goal)
 		{	result.Clear();
-			resultSimplifyed.Clear();
+			resultSimplified.Clear();
 			iterator = FindPath(start, goal);
 		}
 
@@ -151,7 +151,7 @@ namespace LLE
 					if(OnBorder(cv))
 					{	MyConsole.Add($"(Exit) cellsAnalyzed {cellsAnalyzed}", Color.Red);
 						result.AddList(ReconstructPath(currentI, cv));
-						resultSimplifyed.AddList(SimplifyPath(result));
+						resultSimplified.AddList(SimplifyPath(result));
 						yield break;
 					}
 				}
@@ -159,7 +159,7 @@ namespace LLE
 				{	if (currentI == goalIndex)
 					{	MyConsole.Add($"(Goal) cellsAnalyzed {cellsAnalyzed}", Color.Red);
 						result.AddList(ReconstructPath(goalIndex, goal));
-						resultSimplifyed.AddList(SimplifyPath(result));
+						resultSimplified.AddList(SimplifyPath(result));
 						yield break;
 					}
 				}
