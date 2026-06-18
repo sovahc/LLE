@@ -47,7 +47,7 @@ namespace LLE
 			return @"## AVAILABLE COMMANDS
 
 * vision						- Get current visual input (what the bot sees right now)
-* select_grid 'name'    		- Select a ship or station on which to grind, weld, fly, and perform other operations.
+* select 'name'		    		- Select a ship or station on which to grind, weld, fly, and perform other operations.
 * overview						- List grid blocks by category.
 * integrity						- Show damaged blocks on the selected grid.
 * fly I J K						- Fly to specific grid coordinates. e.g. `fly 10 -5 13`
@@ -106,7 +106,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return sb.ToString();
 		}
 
-		internal string Select(ObjectType type, TokenParser tp)
+		internal string Select(TokenParser tp)
 		{
 			var what = tp.NextString();
 
@@ -136,21 +136,21 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			Description(select, out category, out name);
 
-			switch(type)
-			{	case ObjectType.LargeShip:
-					selectedGrid = select as IMyCubeGrid;
-					if(selectedGrid == null) return $"Error: {Quote(name)} is {category}";
-					else Debug.Start(selectedGrid);
-					break;
-				case ObjectType.Asteroid:
-					selectedAsteroid = select as MyVoxelBase;
-					if(selectedAsteroid == null) return $"Error: {Quote(name)} is {category}";
-					break;
-				default:
-					return "Internal error";
+			var grid = select as IMyCubeGrid;
+			if(grid != null)
+			{	selectedGrid = grid;
+				selectedAsteroid = null;
+				return $"Selected {category} {Quote(name)}";
 			}
 
-			return $"Selected {category} {Quote(name)}";
+			var asteroid = select as MyVoxelBase;
+			if(asteroid != null)
+			{	selectedGrid = null;
+				selectedAsteroid = asteroid;
+				return $"Selected {category} {Quote(name)}";
+			}
+			
+			return $"Error: can't select {category} '{name}'";
 		}
 
 		internal bool GridIsSet(out string message)
@@ -272,11 +272,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 			else if(tp.Match("Integrity"))
 			{	result = Integrity();
 			}
-			else if(tp.Match("Select_Asteroid"))
-			{	result = Select(ObjectType.Asteroid, tp);
-			}
-			else if(tp.Match("Select_grid") || tp.Match("Select"))
-			{	result = Select(ObjectType.LargeShip, tp);
+			else if(tp.Match("Select"))
+			{	result = Select(tp);
 			}
 			else if(tp.Match("Fly"))
 			{	currentCommand = Fly(tp);

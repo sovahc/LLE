@@ -16,7 +16,7 @@ namespace LLE
 	{
 		private IMyCubeGrid grid;
 		private AStar astar;
-		private const int AStarBorder = 1;
+		private const int AStarBorder = 2;
 
 		public List<Vector3D> GetPath()
 		{
