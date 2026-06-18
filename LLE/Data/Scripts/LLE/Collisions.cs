@@ -64,7 +64,6 @@ namespace LLE
 			return new MatrixD(bo) { Translation = blockCenter };
 		}
 
-
 		public static void Draw(IMyCubeGrid grid, IMySlimBlock block)
 		{
 			CollisionGeometry geometry;
@@ -196,6 +195,7 @@ namespace LLE
 				if (sphere != null && Intersections.SphereVsSphere(
 					center, radius, new Vector3D(sphere.Transform.Translation), sphere.Radius))
 					return true;
+				// XX Capsule
 			}
 			return false;
 		}

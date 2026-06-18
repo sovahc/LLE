@@ -126,6 +126,7 @@ namespace LLE
 
 			_gScore[startIndex] = 0f;
 			_parent[startIndex] = -1;
+			// Heuristic x2: intentional overestimation for speed (sacrifices optimality)
 			float startF = Manhattan(start, goal) * 2;
 			_open.Enqueue(_nodes[startIndex], startF);
 			_inOpen.Set(startIndex, 1);
@@ -194,6 +195,7 @@ namespace LLE
 					_gScore[nextI] = tentativeG;
 					_parent[nextI] = currentI;
 
+					// Heuristic x2: intentional overestimation for speed (sacrifices optimality)
 					float h = Manhattan(next, goal) * 2;
 					if (_inOpen.Get(nextI) != 0)
 						_open.UpdatePriority(_nodes[nextI], tentativeG + h);
