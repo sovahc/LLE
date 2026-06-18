@@ -75,11 +75,11 @@ namespace LLE
 					bool r = SurfaceSampler.TryGetRandomBlockOnSurface(grid, random, out p);
 					if (!r) continue;
 
-					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
+					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
+					Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
 					if (isBlocked) continue;
 
 					var type = grid.GridSizeEnum == MyCubeSize.Large ? ObjectType.LargeShip : ObjectType.SmallShip;
@@ -94,7 +94,7 @@ namespace LLE
 					bool r = SurfaceSampler.TryGetRandomSurfacePoint(voxel, random, out p);
 					if (!r) continue;
 
-					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
+					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
@@ -110,7 +110,7 @@ namespace LLE
 					// Staggered sampling: process every Nth floater, shifting the window each frame
 					if (localSkipCounter++ % RAYCAST_SKIP_INTERVAL != 0) continue;
 
-					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.VoxelCollisionLayer);
+					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
