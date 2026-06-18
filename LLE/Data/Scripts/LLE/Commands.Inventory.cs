@@ -192,7 +192,7 @@ namespace LLE
 			List<string> items = new List<string>() { item };
 
 			StringBuilder sb = new StringBuilder();
-			sb.Append($"Transfering from {fromName} into your inventory\n");
+			sb.Append($"Transferring from {fromName} into your inventory\n");
 
 			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
 			
@@ -258,7 +258,7 @@ namespace LLE
 				toList.Add(fat.GetInventory(ii));
 
 			StringBuilder sb = new StringBuilder();
-			sb.Append($"Transfering from your inventory into {toName}\n");
+			sb.Append($"Transferring from your inventory into {toName}\n");
 
 			if(allComponents)
 			{
@@ -325,7 +325,7 @@ namespace LLE
 			List<string> items = new List<string>() { item };
 
 			StringBuilder sb = new StringBuilder();
-			sb.Append($"Transfering from {fromName} into {toName}\n");
+			sb.Append($"Transferring from {fromName} into {toName}\n");
 
 			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
 
@@ -348,7 +348,7 @@ namespace LLE
 		{	
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 
-			bool somethingTransfered = false;;
+			bool somethingTransfered = false;
 
 			foreach(IMyInventory from in fromList)
 			{	

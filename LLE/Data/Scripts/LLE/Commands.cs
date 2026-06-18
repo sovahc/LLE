@@ -162,7 +162,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return true;
 		}
 
-		internal void ListFreeSpace_ToSb(Vector3I ijk, StringBuilder sb)
+		internal void AppendNearbyFreeCells(Vector3I ijk, StringBuilder sb)
 		{	
 			Vector3D ec = Utilities.GetEngineerCenter(character);
 
@@ -213,7 +213,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				StringBuilder sb = new StringBuilder();
 				sb.Append($"You are too far from {Name(block)} to interact ({Distance(distance)})\n");
 				sb.Append($"Possible interaction points is: ");
-				ListFreeSpace_ToSb(ijk, sb);
+					AppendNearbyFreeCells(ijk, sb);
 				message = sb.ToString();
 				return true;
 			}

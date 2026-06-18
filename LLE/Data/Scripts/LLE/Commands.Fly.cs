@@ -132,7 +132,7 @@ namespace LLE
 				StringBuilder sb = new StringBuilder();
 				sb.Append($"Error: Destination is blocked by {Quote(Name(block))}, nearest free space is:\n");
 
-				ListFreeSpace_ToSb(ijk, sb);
+				AppendNearbyFreeCells(ijk, sb);
 
 				yield return sb.ToString();
 			}

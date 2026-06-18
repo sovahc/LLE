@@ -100,10 +100,11 @@ namespace LLE
 			var current = new Dictionary<string, double>();
 			InventoryDelta(inventory, current, +1);
 
+			Dictionary<string, int> stock = new Dictionary<string, int>();
+
 			for(;;)
 			{	
 				// Check if inventory can accept at least one unit of any stockpile component
-				Dictionary<string, int> stock = new Dictionary<string, int>();
 				GetStockpileComponents(block, stock);
 
 				var def = block.BlockDefinition as MyCubeBlockDefinition;
