@@ -84,12 +84,12 @@ namespace LLE
 
 		private AStarHelper aStarHelper;
 
-		internal bool IsEngineerInsideGrid(Vector3D engineer, IMyCubeGrid grid)
+		internal bool IsEngineerInsideGrid(Vector3D engineer, IMyCubeGrid grid, int border = 1)
 		{
 			var local = grid.WorldToGridInteger(engineer);
-			return local.X >= grid.Min.X - 1 && local.X <= grid.Max.X + 1 &&
-				   local.Y >= grid.Min.Y - 1 && local.Y <= grid.Max.Y + 1 &&
-				   local.Z >= grid.Min.Z - 1 && local.Z <= grid.Max.Z + 1;
+			return local.X >= grid.Min.X - border && local.X <= grid.Max.X + border &&
+				   local.Y >= grid.Min.Y - border && local.Y <= grid.Max.Y + border &&
+				   local.Z >= grid.Min.Z - border && local.Z <= grid.Max.Z + border;
 		}
 
 		internal IMyCubeGrid GetCurrentEngineerGrid(Vector3D engineer)
