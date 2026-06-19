@@ -238,18 +238,18 @@ namespace MwmCollisionExtractor
             {
                 case HkShapeType.ConvexTranslate:
                     var translate = (HkConvexTranslateShape)shape;
-                    Flatten(translate.ChildShape.Base, currentTransform * Matrix.CreateTranslation(translate.Translation), result);
+                    Flatten(translate.ChildShape.Base, Matrix.CreateTranslation(translate.Translation) * currentTransform, result);
                     break;
 
                 case HkShapeType.ConvexTransform:
                     var transform = (HkConvexTransformShape)shape;
-                    Flatten(transform.ChildShape.Base, currentTransform * transform.Transform, result);
+                    Flatten(transform.ChildShape.Base, transform.Transform * currentTransform, result);
                     break;
 
                 case HkShapeType.StaticCompound:
                     var sCompound = (HkStaticCompoundShape)shape;
                     for (int i = 0; i < sCompound.InstanceCount; i++)
-                        Flatten(sCompound.GetInstance(i), currentTransform * sCompound.GetInstanceTransform(i), result);
+                        Flatten(sCompound.GetInstance(i), sCompound.GetInstanceTransform(i) * currentTransform, result);
                     break;
 
                 default:

@@ -92,6 +92,12 @@ namespace LLE
 
 			if(astarStart != null) Drawing.RoundMarker(grid.GridIntegerToWorld((Vector3I)astarStart), Color.Green);
 			if(astarGoal != null) Drawing.RoundMarker(grid.GridIntegerToWorld((Vector3I)astarGoal), Color.Red);
+
+			if(astarStart != null)
+			{	var block = grid.GetCubeBlock((Vector3I)astarStart);
+				if(block != null)
+					Collisions.Draw(grid, block);
+			}
 		}
 	}
 
