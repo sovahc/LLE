@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using HarmonyLib;
 using SpaceEngineers;
 using VRage.FileSystem;
-using System.Linq;
 
 namespace LLELoader
 {
@@ -47,28 +46,11 @@ namespace LLELoader
 
 		private static readonly ConcurrentQueue<LLE.FromLLM> _commandQueue = new ConcurrentQueue<LLE.FromLLM>();
 
-		private static string _systemPrompt = "Reply max 50 characters. No explanations.";
+		private static string _systemPrompt = "";
 
 		static MessageBroker()
 		{
-			try
-			{
-				string loaderDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-				string sysPath = Path.Combine(loaderDir, "SYSTEM.md");
-				if (File.Exists(sysPath))
-				{
-					_systemPrompt = File.ReadAllText(sysPath);
-					Logger.Write("[LLELoader] Loaded SYSTEM.md from " + sysPath);
-				}
-				else
-				{
-					Logger.Write("[LLELoader] SYSTEM.md not found, using default.");
-				}
-			}
-			catch (Exception ex)
-			{
-				Logger.Write("[LLELoader] Error loading SYSTEM.md: " + ex.Message);
-			}
+			//string loaderDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 		}
 
 		public static bool GetChunkFromLLM(out LLE.FromLLM cmd)

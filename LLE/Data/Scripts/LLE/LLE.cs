@@ -112,6 +112,7 @@ namespace LLE
 		private readonly StringBuilder llmContent = new StringBuilder();
 		private readonly StringBuilder commandToProcess = new StringBuilder();
 		private readonly StringBuilder toLLM = new StringBuilder();
+		private readonly StringBuilder visionReport = new StringBuilder();
 
 		private bool pauseLLM;
 
@@ -149,13 +150,9 @@ namespace LLE
 		{
 			if(result == null) return;
 
-			Log($"CommandResult:\n{result}");
-					
 			toLLM.Append("\n[RESULT]:\n");
 			toLLM.Append(result);
 			toLLM.Append('\n');
-
-			MyConsole.AddMultiline(result, Color.Green);
 		}
 
 		MessageType lastType = MessageType.Stop;
@@ -187,11 +184,30 @@ namespace LLE
 			// Wait for in-progress command to finish
 			if (commands.InProgress()) return;
 
+
+			// Vision subsystem reports
+
+			visionReport.Clear();
+			visionReport.Append("VISION:\n");
+
+			int l = visionReport.Length;
+			Vision.VisionReport(Utilities.GetEngineerCenter(ch), visionReport);
+			
+			if(visionReport.Length != l)
+			{	toLLM.Append(visionReport.ToString());
+				visionReport.Clear();
+				pauseLLM = false;
+			}
+
 			// Send accumulated results to LLM
 			if (toLLM.Length != 0 && !pauseLLM)
 			{
-				LLE_Loader.SendMessageToLLM(toLLM.ToString());
+				string m = toLLM.ToString();
 				toLLM.Clear();
+
+				Log($"toLLM: {m}");
+				MyConsole.AddMultiline(m, Color.Green);
+				LLE_Loader.SendMessageToLLM(m);
 				return;
 			}
 
@@ -370,8 +386,8 @@ namespace LLE
 				ProcessLlmContent($"Execute `{command}`");
 			}
 			else
-			{	pauseLLM = false;
-				LLE_Loader.SendMessageToLLM($"[GAME CHAT] {player.DisplayName}: {message}");
+			{	toLLM.Append($"[GAME CHAT] {player.DisplayName}: {message}");
+				pauseLLM = false;
 			}
 		}
 	}

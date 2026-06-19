@@ -11,13 +11,12 @@ using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
-	// Deltas: NEW, GONE, MOVED, grouping
-
     class Vision
 	{
 		private static Random random = new Random();
 		private const int RAYCAST_SKIP_INTERVAL = 10;
 		private static int _frameSkipOffset;
+		private static double nextVisionReport;
 
 		internal static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
 
@@ -35,7 +34,7 @@ namespace LLE
 				state.Y = p.Y;
 				state.Z = p.Z;
 				state.LastSeenAt = 0;
-				state.Debug = "";
+				state.Report = true;
 
 				lks.Add(entity.EntityId, state);
 			}
@@ -123,17 +122,31 @@ namespace LLE
 			}
 		}
 
-		public static void GetVisible(Vector3D engineer, StringBuilder result)
+		public static void VisionReport(Vector3D engineer, StringBuilder result)
 		{
-			//MyConsole.Add($"raycasts: {raycasts} ", Color.Red);
+			if(Time.Now < nextVisionReport) return;
+			nextVisionReport = Time.Now + 1;
+
 			foreach (var v in lks.Values)
 			{
 				var delta = Time.Now - v.LastSeenAt;
 				v.Visible = delta < 1.0;
-				if (!v.Visible) continue;
+				if (v.Visible || v.Closed)
+				{	if (!v.Report) continue;
+					v.Report = false;
 
-				double distance = (engineer - new Vector3D(v.X, v.Y, v.Z)).Length();
-				result.Append($"* {v.Type} '{v.DisplayName}' ({Commands.Distance(distance)})\n");
+					string state = v.Closed ? "GONE" : "NEW";
+					double distance = (engineer - new Vector3D(v.X, v.Y, v.Z)).Length();
+					result.Append($"* {state} {v.Type} '{v.DisplayName}' ({Commands.Distance(distance)})\n");
+				}
+			}
+
+			// Remove only one entity to avoid modifying collection during enumeration
+			foreach (var v in lks.Values)
+			{	if(!v.Closed) continue;
+		    
+		    	lks.Remove(v.EntityId);
+		    	break;
 			}
 		}
 
@@ -147,7 +160,12 @@ namespace LLE
 				grid.OnGridChanged -= Grid_OnGridChanged;
 			}
 
-			lks.Remove(e.EntityId);
+			LastKnownState state;
+
+			if (!lks.TryGetValue(e.EntityId, out state)) return;
+			
+			state.Closed = true;
+			state.Report = true;
 		}
 
 		public static void Grid_OnBlockAdded(IMySlimBlock block) { }

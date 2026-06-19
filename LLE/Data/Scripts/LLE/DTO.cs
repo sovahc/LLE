@@ -4,6 +4,8 @@ using VRageMath;
 
 namespace LLE
 {
+	public enum ObjectType { Asteroid, LargeShip, SmallShip, Floating }
+
 	public class LastKnownState
 	{
 		public ObjectType Type;
@@ -12,9 +14,11 @@ namespace LLE
 		public double X, Y, Z;
 		public double LastSeenAt;
 		public bool Visible;
-
-		public string Debug;
+		public bool Closed;
+		public bool Report;
 	}
+
+	//
 
 	public enum MessageType { Reasoning, Content, Stop }
 
@@ -24,7 +28,7 @@ namespace LLE
 		public string Payload;
 	}
 
-	public enum ObjectType { Asteroid, LargeShip, SmallShip, Floating }
+	//
 
 	[ProtoContract]
 	public struct DefinitionIdAsText

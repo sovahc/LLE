@@ -44,9 +44,26 @@ namespace LLE
 
 		internal string Help()
 		{
-			return @"## AVAILABLE COMMANDS
+			return @"
+You are an autonomous agent controlling a Space Engineer in-game character.
+Your goal is to execute instructions from the chat.
 
-* vision						- Get current visual input (what the bot sees right now)
+## ENVIRONMENT
+You are inside Space Engineers game.
+You control a character that can fly, weld, grind, and manage inventories.
+You operate on a selected grid (ship or station).
+
+## EXECUTION RULES
+
+1. First think about your next actions, then on the last line output: Execute `command`, for example: Execute `fly -10 5 3`.
+2. Your tasks will be described in the chat. When you complete a task, or you don't have a task - execute the `pause` command.
+
+## HINTS
+
+1. If you lack required components, execute `inventories` to list all containers.
+
+## AVAILABLE COMMANDS
+
 * select 'name'		    		- Select a ship or station on which to grind, weld, fly, and perform other operations.
 * overview						- List grid blocks by category.
 * integrity						- Show damaged blocks on the selected grid.
@@ -261,13 +278,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			var tp = new TokenParser(command);
 
-			if(tp.Match("Vision"))
-			{	
-				StringBuilder sb = new StringBuilder();
-				Vision.GetVisible(Utilities.GetEngineerCenter(character), sb);
-				result = sb.ToString();
-			}
-			else if(tp.Match("Overview"))
+			if(tp.Match("Overview"))
 			{	result = Overview();
 			}
 			else if(tp.Match("Integrity"))
