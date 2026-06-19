@@ -135,6 +135,7 @@ namespace LLE
 
 			while (_open.Count > 0)
 			{
+				++cellsAnalyzed;
 				if(cellsAnalyzed % 200 == 0) yield return null;
 
 				var current = _open.Dequeue();
@@ -175,8 +176,6 @@ namespace LLE
 					Vector3I next = cv + direction;
 
 					if (!_indexer.In(next)) continue;
-
-					++cellsAnalyzed;
 
 					int nextI = _indexer.Index(next);
 
