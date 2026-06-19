@@ -276,7 +276,7 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			var pm = ch.GetHeadMatrix(false, false);
+			var hm = ch.GetHeadMatrix(false, false);
 
 			Common.StartFrame();
 
@@ -286,8 +286,7 @@ namespace LLE
 				return;
 			}
 
-			var headMatrix = ch.GetHeadMatrix(false, false);
-			Vector3D ahead = headMatrix.Translation + headMatrix.Forward * 10;
+			Vector3D ahead = hm.Translation + hm.Forward * 10;
 			Debug.Pathfinding(ahead);
 			Debug.Draw();
 
