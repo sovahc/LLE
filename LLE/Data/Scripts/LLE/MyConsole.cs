@@ -90,7 +90,7 @@ namespace LLE
 				var w = font.String(line.Text, new Vector2D(x0, y), scale, line.Color);
 				if (w > rectangleW) rectangleW = w;
 
-				if(y < 0) break;
+				if(y > 1) break;
 			}
 
 			var bb = font.Rectangle(new Vector2(x0 - border, y0 - border),
