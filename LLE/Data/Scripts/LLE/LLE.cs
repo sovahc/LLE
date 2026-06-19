@@ -43,19 +43,19 @@ namespace LLE
 
 			Utilities.HighlightCell(grid, cell, Color.Gray);
 
-			if (MyAPIGateway.Input.IsNewLeftMousePressed())
-			{
-				astarStart = cell;
+			var lm = MyAPIGateway.Input.IsNewLeftMousePressed();
+			var rm = MyAPIGateway.Input.IsNewRightMousePressed();
+
+			if (lm)
+			{	astarStart = cell;
 				MyConsole.Add($"A* start: {cell}", Color.Green);
 			}
-			if (MyAPIGateway.Input.IsNewRightMousePressed())
-			{
-				astarGoal = cell;
+			if (rm)
+			{	astarGoal = cell;
 				MyConsole.Add($"A* goal: {cell}", Color.Red);
 			}
 
-			if (MyAPIGateway.Input.IsNewLeftMousePressed() ||
-				MyAPIGateway.Input.IsNewRightMousePressed())
+			if (lm || rm)
 			{
 				if(astarStart != null && astarGoal != null)
 				{

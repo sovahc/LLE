@@ -311,7 +311,8 @@ namespace LLE
 			if(fatTo == null || !fatTo.HasInventory)
 				yield return $"Block {Quote(toName)} does not have an inventory.";
 
-			if(IsTooFar(ijkFrom, out message) && IsTooFar(ijkTo, out message)) yield return message; /// XXX Incorrect!
+			if(IsTooFar(ijkFrom, out message) || IsTooFar(ijkTo, out message)) yield return message;
+				// TODO: Check conveyor connection between inventories
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
