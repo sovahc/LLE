@@ -138,7 +138,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			var grid = select as IMyCubeGrid;
 			if(grid != null)
-			{	selectedGrid = grid;
+			{	Debug.Start(grid);
+				selectedGrid = grid;
 				selectedAsteroid = null;
 				return $"Selected {category} {Quote(name)}";
 			}
