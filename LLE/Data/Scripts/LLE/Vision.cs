@@ -75,7 +75,7 @@ namespace LLE
 					bool r = SurfaceSampler.TryGetRandomBlockOnSurface(grid, random, out p);
 					if (!r) continue;
 
-					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
+					MyAPIGateway.Physics.CastRay(engineer, p, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
@@ -94,7 +94,7 @@ namespace LLE
 					bool r = SurfaceSampler.TryGetRandomSurfacePoint(voxel, random, out p);
 					if (!r) continue;
 
-					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
+					MyAPIGateway.Physics.CastRay(engineer, p, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
