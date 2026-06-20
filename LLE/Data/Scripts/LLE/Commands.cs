@@ -2,12 +2,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
-using Sandbox.Definitions;
-using Sandbox.Game.Entities;
+
 using VRageMath;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using Sandbox.Definitions;
+using Sandbox.Game;
+using Sandbox.Game.Entities;
 
 namespace LLE
 {
@@ -56,7 +58,8 @@ You operate on a selected grid (ship or station).
 ## EXECUTION RULES
 
 1. First think about your next actions, then on the last line output: Execute `command`, for example: Execute `fly -10 5 3`.
-2. Your tasks will be described in the chat. When you complete a task, or you don't have a task - execute the `pause` command.
+2. Your tasks will be described in the chat. If you don't have a task - execute the `pause` command.
+3. When you complete a task or are stuck, report status using `say 'text'`.
 
 ## HINTS
 
@@ -79,6 +82,7 @@ You operate on a selected grid (ship or station).
 * put count 'item' into I J K	- Transfer an item from your inventory to a container. e.g. `put 1 'Medkit' into 14 0 2`
 * put all components into I J K	- Transfer all blocks components from your inventory to a container (very useful shortcut).
 * transfer count 'item' from I1 J1 K1 to I2 J2 K2 - Transfer an item from one inventory to another.
+* say 'message'					- Send a message to the in-game chat.
 ";
 }
 
@@ -121,6 +125,17 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 			sb.Append("\n\n");
 			return sb.ToString();
+		}
+
+		internal string Say(TokenParser tp)
+		{
+			var message = tp.NextString();
+			if (string.IsNullOrEmpty(message))
+				return "Error: provide a message. Usage: say 'Hello world'";
+
+			MyVisualScriptLogicProvider.SendChatMessage(
+				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
+			return "Done";
 		}
 
 		internal string Select(TokenParser tp)
@@ -310,6 +325,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 			else if(tp.Match("Put"))
 			{	currentCommand = Put(tp);
+			}
+			else if(tp.Match("Say"))
+			{	result = Say(tp);
 			}
 			else if(tp.Match("Transfer"))
 			{	currentCommand = Transfer(tp);
