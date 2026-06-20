@@ -50,6 +50,10 @@ namespace LLE
 			}
 		}
 
+		public static void Initialize()
+		{	nextVisionReport = Time.Now + 1;			
+		}
+
 		public static void Tick(Vector3D engineer, float range = 1000)
 		{
 			BoundingSphereD pruneSphere = new BoundingSphereD(engineer, range);

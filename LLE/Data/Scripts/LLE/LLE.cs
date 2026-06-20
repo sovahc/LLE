@@ -150,7 +150,7 @@ namespace LLE
 		{
 			if(result == null) return;
 
-			toLLM.Append("\n[RESULT]:\n");
+			toLLM.Append("\n[COMMAND RESULT]:\n");
 			toLLM.Append(result);
 			toLLM.Append('\n');
 		}
@@ -171,6 +171,7 @@ namespace LLE
 			{
 				commands = new Commands(ch);
 				LLE_Loader.SetHelp(commands.Help());
+				Vision.Initialize();
 			}
 
 			// Process command result
@@ -183,7 +184,6 @@ namespace LLE
 
 			// Wait for in-progress command to finish
 			if (commands.InProgress()) return;
-
 
 			// Vision subsystem reports
 
@@ -279,13 +279,13 @@ namespace LLE
 
 			string command = lastLine.Substring(prefix.Length, closingBacktick - prefix.Length);
 
-			//toLLM.Append($"Execute `{command}`");
-			toLLM.Append(content);
-
 			if(command == "pause")
 			{	pauseLLM = true;
 				return;
 			}
+
+			toLLM.Append(content);
+			toLLM.Append($"[LLM COMMAND]: {command}\n");
 
 			string result = commands.Execute(command);
 			CommandResult(result);
