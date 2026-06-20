@@ -349,6 +349,7 @@ namespace LLE
 				grid.OnBlockRemoved += Vision.OnBlockRemoved;
 				grid.OnGridChanged += Vision.OnGridChanged;
 				grid.OnGridSplit += Vision.OnGridSplit;
+				grid.OnGridMerge += Vision.OnGridMerge;
 			}
 		}
 
@@ -363,6 +364,7 @@ namespace LLE
 				grid.OnBlockRemoved -= Vision.OnBlockRemoved;
 				grid.OnGridChanged -= Vision.OnGridChanged;
 				grid.OnGridSplit -= Vision.OnGridSplit;
+				grid.OnGridMerge -= Vision.OnGridMerge;
 			}
 		}
 

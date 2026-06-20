@@ -184,8 +184,10 @@ namespace LLE
 
 			if (!lks.TryGetValue(grid.EntityId, out state)) return;
 			
-			state.Closed = true;
-			state.Report = true;
+			if(!state.Closed)
+			{	state.Closed = true;
+				state.Report = true;
+			}
 		}
 
 		internal static void OnBlockAdded(IMySlimBlock block)
@@ -198,13 +200,23 @@ namespace LLE
 
 		internal static void OnGridChanged(IMyCubeGrid grid) { }
 
-		internal static void OnGridSplit(IMyCubeGrid originalGrid, IMyCubeGrid newGrid)
+		internal static void OnGridSplit(IMyCubeGrid original, IMyCubeGrid created)
 		{
-			var state = SetLKS(newGrid, false);
+			var state = SetLKS(created, false);
 			state.Report = false; // overwrite
 
 			visionReport.Clear(); // hack: stop BLOCK REMOVED spam
-			visionReport.Append($"* GRID SPLIT '{originalGrid.DisplayName}' / '{newGrid.DisplayName}'\n");
+			visionReport.Append($"* GRID SPLIT '{original.DisplayName}' / '{created.DisplayName}'\n");
+		}
+
+		internal static void OnGridMerge(IMyCubeGrid a, IMyCubeGrid b)
+		{
+			var state = SetLKS(b, false);
+			state.Closed = true;
+			state.Report = false;
+
+			visionReport.Clear(); // hack: stop BLOCK ADDED spam
+			visionReport.Append($"* GRID MERGE '{a.DisplayName}' / '{b.DisplayName}'\n");
 		}
 	}
 }
