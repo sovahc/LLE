@@ -4,7 +4,7 @@ using VRageMath;
 
 namespace LLE
 {
-	public enum ObjectType { Asteroid, LargeShip, SmallShip, Floating }
+	public enum ObjectType { Unknown, Asteroid, LargeShip, SmallShip, Floating }
 
 	public class LastKnownState
 	{

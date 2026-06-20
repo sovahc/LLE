@@ -5,6 +5,7 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using VRage.ObjectBuilders;
 
 namespace LLE
 {
@@ -40,6 +41,10 @@ namespace LLE
 
 		public static string IJK(Vector3I v)
 		{	return $"{v.X} {v.Y} {v.Z}";
+		}
+
+		public static string BlockName(IMySlimBlock block)
+		{	return block?.BlockDefinition?.DisplayNameText ?? "Unknown";
 		}
 
 		public static void Description(MyEntity e, out string category, out string name)

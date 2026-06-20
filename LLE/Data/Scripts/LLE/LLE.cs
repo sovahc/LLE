@@ -8,6 +8,7 @@ using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRage.Utils;
 using Sandbox.ModAPI;
+using Sandbox.Game.Entities;
 
 namespace LLE
 {
@@ -112,7 +113,6 @@ namespace LLE
 		private readonly StringBuilder llmContent = new StringBuilder();
 		private readonly StringBuilder commandToProcess = new StringBuilder();
 		private readonly StringBuilder toLLM = new StringBuilder();
-		private readonly StringBuilder visionReport = new StringBuilder();
 
 		private bool pauseLLM;
 
@@ -133,16 +133,16 @@ namespace LLE
 			Collisions.Load(ModContext);
 
 			var entities = new HashSet<IMyEntity>();
-			//MyAPIGateway.Entities.GetEntities(entities);
-			//foreach (var e in entities) OnEntityAdd(e);
+			MyAPIGateway.Entities.GetEntities(entities);
+			foreach (var e in entities) OnEntityAdd(e);
 
-			//MyEntities.OnEntityAdd += OnEntityAdd;
+			MyEntities.OnEntityAdd += OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered += OnChatMessage;
 		}
 
 		protected override void UnloadData()
 		{
-			//MyEntities.OnEntityAdd -= OnEntityAdd;
+			MyEntities.OnEntityAdd -= OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
 
@@ -186,16 +186,11 @@ namespace LLE
 			if (commands.InProgress()) return;
 
 			// Vision subsystem reports
-
-			visionReport.Clear();
-			visionReport.Append("VISION:\n");
-
-			int l = visionReport.Length;
-			Vision.VisionReport(Utilities.GetEngineerCenter(ch), visionReport);
+			string vr = Vision.VisionReport(Utilities.GetEngineerCenter(ch));
 			
-			if(visionReport.Length != l)
-			{	toLLM.Append(visionReport.ToString());
-				visionReport.Clear();
+			if(vr != null)
+			{	toLLM.Append("[VISION]:\n");
+				toLLM.Append(vr);
 				pauseLLM = false;
 			}
 
@@ -350,9 +345,10 @@ namespace LLE
 			{
 				grid.OnClose += OnClose;
 
-				grid.OnBlockAdded += Grid_OnBlockAdded;
-				grid.OnBlockRemoved += Grid_OnBlockRemoved;
-				grid.OnGridChanged += Grid_OnGridChanged;
+				grid.OnBlockAdded += Vision.OnBlockAdded;
+				grid.OnBlockRemoved += Vision.OnBlockRemoved;
+				grid.OnGridChanged += Vision.OnGridChanged;
+				grid.OnGridSplit += Vision.OnGridSplit;
 			}
 		}
 
@@ -361,17 +357,14 @@ namespace LLE
 			var grid = entity as IMyCubeGrid;
 			if (grid != null)
 			{
-				grid.OnBlockAdded -= Grid_OnBlockAdded;
-				grid.OnBlockRemoved -= Grid_OnBlockRemoved;
-				grid.OnGridChanged -= Grid_OnGridChanged;
+				Vision.OnClose(grid);
+
+				grid.OnBlockAdded -= Vision.OnBlockAdded;
+				grid.OnBlockRemoved -= Vision.OnBlockRemoved;
+				grid.OnGridChanged -= Vision.OnGridChanged;
+				grid.OnGridSplit -= Vision.OnGridSplit;
 			}
 		}
-
-		public static void Grid_OnBlockAdded(IMySlimBlock block) { }
-
-		public static void Grid_OnBlockRemoved(IMySlimBlock block) { }
-
-		public static void Grid_OnGridChanged(IMyCubeGrid grid) { }
 
 		void OnChatMessage(string message, ref bool sendToOthers)
 		{

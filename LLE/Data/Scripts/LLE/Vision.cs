@@ -11,17 +11,33 @@ using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
-    class Vision
+	class Vision
 	{
 		private static Random random = new Random();
 		private const int RAYCAST_SKIP_INTERVAL = 10;
 		private static int _frameSkipOffset;
+		private static readonly StringBuilder visionReport = new StringBuilder();
 		private static double nextVisionReport;
 
 		internal static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
 
-		private static void SetLKS(IMyEntity entity, ObjectType type, bool isVisible)
+		private static LastKnownState SetLKS(IMyEntity entity, bool isVisible)
 		{
+			ObjectType type = ObjectType.Unknown;
+
+			var grid = entity as IMyCubeGrid;
+			if (grid != null)
+			{	type = grid.GridSizeEnum == MyCubeSize.Large ? ObjectType.LargeShip : ObjectType.SmallShip;
+			}
+			var voxel = entity as MyVoxelBase;
+			if (voxel != null)
+			{	type = ObjectType.Asteroid;
+			}
+			var floater = entity as IMyFloatingObject;
+			if (floater != null)
+			{	type = ObjectType.Floating;				
+			}
+
 			LastKnownState state;
 			if (!lks.TryGetValue(entity.EntityId, out state))
 			{
@@ -48,6 +64,8 @@ namespace LLE
 				state.Z = p.Z;
 				state.LastSeenAt = Time.Now;
 			}
+
+			return state;
 		}
 
 		public static void Initialize()
@@ -85,8 +103,7 @@ namespace LLE
 					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
 					if (isBlocked) continue;
 
-					var type = grid.GridSizeEnum == MyCubeSize.Large ? ObjectType.LargeShip : ObjectType.SmallShip;
-					SetLKS(entity, type, true);
+					SetLKS(entity, true);
 				}
 
 				var voxel = entity as MyVoxelBase;
@@ -104,7 +121,7 @@ namespace LLE
 					//Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
 					if (isBlocked) continue;
 
-					SetLKS(entity, ObjectType.Asteroid, true);
+					SetLKS(entity, true);
 				}
 
 				var floater = entity as IMyFloatingObject;
@@ -121,15 +138,17 @@ namespace LLE
 					//Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
 					if (isBlocked) continue;
 
-					SetLKS(entity, ObjectType.Floating, true);
+					SetLKS(entity, true);
 				}
 			}
 		}
 
-		public static void VisionReport(Vector3D engineer, StringBuilder result)
+		public static string VisionReport(Vector3D engineer)
 		{
-			if(Time.Now < nextVisionReport) return;
+			if(Time.Now < nextVisionReport) return null;
 			nextVisionReport = Time.Now + 1;
+
+			int l = visionReport.Length;
 
 			foreach (var v in lks.Values)
 			{
@@ -141,41 +160,51 @@ namespace LLE
 
 					string state = v.Closed ? "GONE" : "NEW";
 					double distance = (engineer - new Vector3D(v.X, v.Y, v.Z)).Length();
-					result.Append($"* {state} {v.Type} '{v.DisplayName}' ({Commands.Distance(distance)})\n");
+					visionReport.Append($"* {state} {v.Type} '{v.DisplayName}' ({Commands.Distance(distance)})\n");
 				}
 			}
 
 			// Remove only one entity to avoid modifying collection during enumeration
 			foreach (var v in lks.Values)
 			{	if(!v.Closed) continue;
-		    
-		    	lks.Remove(v.EntityId);
-		    	break;
+			
+				lks.Remove(v.EntityId);
+				break;
 			}
+
+			if(visionReport.Length == 0) return null;
+			string r = visionReport.ToString();
+			visionReport.Clear();
+			return r;
 		}
 
-		public static void OnClose(IMyEntity e)
+		internal static void OnClose(IMyCubeGrid grid)
 		{
-			var grid = e as IMyCubeGrid;
-			if (grid != null)
-			{
-				grid.OnBlockAdded -= Grid_OnBlockAdded;
-				grid.OnBlockRemoved -= Grid_OnBlockRemoved;
-				grid.OnGridChanged -= Grid_OnGridChanged;
-			}
-
 			LastKnownState state;
 
-			if (!lks.TryGetValue(e.EntityId, out state)) return;
+			if (!lks.TryGetValue(grid.EntityId, out state)) return;
 			
 			state.Closed = true;
 			state.Report = true;
 		}
 
-		public static void Grid_OnBlockAdded(IMySlimBlock block) { }
+		internal static void OnBlockAdded(IMySlimBlock block)
+		{	visionReport.Append($"* BLOCK ADDED {Commands.BlockName(block)} at {Commands.IJK(block.Min)}\n");
+		}
 
-		public static void Grid_OnBlockRemoved(IMySlimBlock block) { }
+		internal static void OnBlockRemoved(IMySlimBlock block)
+		{	visionReport.Append($"* BLOCK REMOVED {Commands.BlockName(block)} at {Commands.IJK(block.Min)}\n");
+		}
 
-		public static void Grid_OnGridChanged(IMyCubeGrid grid) { }
+		internal static void OnGridChanged(IMyCubeGrid grid) { }
+
+		internal static void OnGridSplit(IMyCubeGrid originalGrid, IMyCubeGrid newGrid)
+		{
+			var state = SetLKS(newGrid, false);
+			state.Report = false; // overwrite
+
+			visionReport.Clear(); // hack: stop BLOCK REMOVED spam
+			visionReport.Append($"* GRID SPLIT '{originalGrid.DisplayName}' / '{newGrid.DisplayName}'\n");
+		}
 	}
 }
