@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using VRageMath;
 using VRage.Voxels;
 using Sandbox.Game.Entities;
-
 using Priority_Queue;
 
 // MyVoxelConstants.VOXEL_SIZE_IN_METRES

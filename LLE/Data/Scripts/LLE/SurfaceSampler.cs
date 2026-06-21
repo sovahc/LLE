@@ -1,8 +1,9 @@
 using System;
-using Sandbox.Game.Entities;
+
+using VRageMath;
 using VRage.Game.ModAPI;
 using VRage.Voxels;
-using VRageMath;
+using Sandbox.Game.Entities;
 
 namespace LLE
 {

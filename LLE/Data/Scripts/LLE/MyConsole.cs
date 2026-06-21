@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
+
+using VRageMath;
 using VRage.Game;
 using VRage.Utils;
-using VRageMath;
 
 namespace LLE
 {

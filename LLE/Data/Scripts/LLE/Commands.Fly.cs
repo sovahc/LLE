@@ -5,10 +5,9 @@ using System.Text;
 using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
-
 using Sandbox.Game.Entities;
-using Sandbox.ModAPI;
 using Sandbox.Game.Entities.Character.Components;
+using Sandbox.ModAPI;
 
 namespace LLE
 {

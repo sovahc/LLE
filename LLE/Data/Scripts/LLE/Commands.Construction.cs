@@ -2,12 +2,13 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
-using Sandbox.Definitions;
-using Sandbox.ModAPI;
-using Sandbox.ModAPI.Weapons;
+
 using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
+using Sandbox.Definitions;
+using Sandbox.ModAPI;
+using Sandbox.ModAPI.Weapons;
 
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 

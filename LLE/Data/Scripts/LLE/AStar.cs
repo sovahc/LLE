@@ -3,12 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 
 using VRageMath;
-
 using Priority_Queue;
 
 namespace LLE
 {
-
 	public class MyNode : FastPriorityQueueNode
 	{
 		public int Index;

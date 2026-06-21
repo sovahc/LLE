@@ -1,6 +1,7 @@
 using System.Collections.Generic;
-using ProtoBuf;
+
 using VRageMath;
+using ProtoBuf;
 
 namespace LLE
 {

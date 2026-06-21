@@ -1,18 +1,18 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+
+using VRageMath;
+using VRage;
+using VRage.Game;
+using VRage.Game.ModAPI;
 using Sandbox.Common.ObjectBuilders.Definitions;
 using Sandbox.Definitions;
 using Sandbox.ModAPI;
-using VRage;
-using VRageMath;
-using VRage.Game;
-
-using VRage.Game.ModAPI;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
-using System;
 
 namespace LLE
 {
