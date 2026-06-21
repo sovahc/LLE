@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using VRage.Game;
 using VRage.Utils;
@@ -43,30 +44,26 @@ namespace LLE
 		public static void AddMultiline(string chunk, Color color)
 		{
 			if (chunk == null) return;
+			if (_lines.Count == 0) AddNewLine(color);
 
-			if(_lines.Count == 0) AddNewLine(color);
+			var lines = chunk.Split('\n');
+			for (int li = 0; li < lines.Length; li++)
+			{
+				var segment = lines[li];
 
-			do
-			{	var lastLineText = _lines[_lines.Count-1].Text;
-				var freeSpace = MaxLineWidth - lastLineText.Length;
+				while (segment.Length > 0)
+				{
+					var last = _lines[_lines.Count - 1];
+					int freeSpace = MaxLineWidth - last.Text.Length;
+					if (freeSpace <= 0) { AddNewLine(color); continue; }
 
-				if(freeSpace <= 0) { AddNewLine(color); continue; }
-
-				var newLine = chunk.IndexOf('\n');
-				var end = newLine >= 0 ? newLine : chunk.Length;
-
-				if (end > freeSpace) end = freeSpace;
-
-				lastLineText += chunk.Substring(0, end);
-
-				_lines[_lines.Count-1] = new LineData { Text = lastLineText, Color = color };
-
-				if(newLine >= 0)
-				{   ++end;
-					AddNewLine(color);
+					int take = Math.Min(segment.Length, freeSpace);
+					_lines[_lines.Count - 1] = new LineData { Text = last.Text + segment.Substring(0, take), Color = color };
+					segment = segment.Substring(take);
 				}
-				chunk = chunk.Substring(end);
-			} while(chunk.Length != 0);
+
+				if (li < lines.Length - 1) AddNewLine(color);
+			}
 
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
 		}

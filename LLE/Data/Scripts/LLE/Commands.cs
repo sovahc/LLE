@@ -188,7 +188,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		internal bool GridIsSet(out string message)
 		{	if(selectedGrid == null)
-			{	message = "Error: you should select a grid first. Use `select_grid name`";
+			{	message = "Error: you should select a grid first. Use `select name`";
 				return false;
 			}
 			message = null;
