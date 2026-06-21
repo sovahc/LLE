@@ -189,7 +189,6 @@ namespace LLE
 
 			// Vision subsystem reports
 			string vr = Vision.VisionReport(Utilities.GetEngineerCenter(ch));
-			
 			if(vr != null)
 			{	toLLM.Append("[VISION]:\n");
 				toLLM.Append(vr);
@@ -199,8 +198,10 @@ namespace LLE
 			// Status subsystem reports
 			string sr = Status.Report();
 			if(sr != null)
-			{	toLLM.Append("[STATUS]:\n");
+			{	toLLM.Append("[STATUS]:");
 				toLLM.Append(sr);
+				toLLM.Append("\n");
+				pauseLLM = false;
 			}
 
 			// Send accumulated results to LLM
@@ -387,7 +388,8 @@ namespace LLE
 			if(message.StartsWith(">"))
 			{	pauseLLM = true;
 				var command = message.Substring(1).Trim();
-				ProcessLlmContent($"Execute `{command}`");
+				string result = commands.Execute(command);
+				MyConsole.AddMultiline(result, Color.SeaGreen);
 			}
 			else
 			{	toLLM.Append($"[GAME CHAT] {player.DisplayName}: {message}");

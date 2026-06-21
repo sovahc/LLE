@@ -30,7 +30,14 @@ namespace LLE
 		private static int Bucket(float f)
 		{	if(f < 0) return int.MinValue;
 			if(f > 1) return int.MaxValue;
-			return (int)(f * 10);
+			if(f < 0.05) return 1;
+			if(f < 0.10) return 2;
+			if(f < 0.15) return 3;
+			if(f < 0.20) return 4;
+			if(f < 0.25) return 5;
+			if(f < 0.50) return 6;
+			if(f < 0.75) return 7;
+			return 10;
 		}
 
 		public static void Initialize()
@@ -50,10 +57,10 @@ namespace LLE
 				Hydrogen = character.GetSuitGasFillLevel(hydrogenId)
 			};
 
-			if (Bucket(current.Health) != Bucket(previous.Health)) report.Append($"Health {current.Health*100:F0}%\n");
-			if (Bucket(current.Energy) != Bucket(previous.Energy)) report.Append($"Energy {current.Energy*100:F0}%\n");
-			if (Bucket(current.Oxygen) != Bucket(previous.Oxygen)) report.Append($"Oxygen {current.Oxygen*100:F0}%\n");
-			if (Bucket(current.Hydrogen) != Bucket(previous.Hydrogen)) report.Append($"Hydrogen {current.Hydrogen*100:F0}%\n");
+			if (Bucket(current.Health) != Bucket(previous.Health)) report.Append($" Health {current.Health*100:F0}%");
+			if (Bucket(current.Energy) != Bucket(previous.Energy)) report.Append($" Energy {current.Energy*100:F0}%");
+			if (Bucket(current.Oxygen) != Bucket(previous.Oxygen)) report.Append($" Oxygen {current.Oxygen*100:F0}%");
+			if (Bucket(current.Hydrogen) != Bucket(previous.Hydrogen)) report.Append($" Hydrogen {current.Hydrogen*100:F0}%");
 
 			previous = current;
 		}
