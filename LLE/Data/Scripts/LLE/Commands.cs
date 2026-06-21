@@ -82,6 +82,7 @@ You operate on a selected grid (ship or station).
 * put count 'item' into I J K	- Transfer an item from your inventory to a container. e.g. `put 1 'Medkit' into 14 0 2`
 * put all components into I J K	- Transfer all blocks components from your inventory to a container (very useful shortcut).
 * transfer count 'item' from I1 J1 K1 to I2 J2 K2 - Transfer an item from one inventory to another.
+* status					- Check bot status: Health, Oxygen, Hydrogen, Energy.
 * say 'message'					- Send a message to the in-game chat.
 ";
 }
@@ -94,7 +95,7 @@ info 'name'        - Get detailed information about a specific object.
 look at 'name'     - Rotate to face the object
 hack 'block_name'  - Grind a specific block just below the hacking point (weld it back to restore functionality).
 mine 'block_name'  - Mine a specific ore deposit.
-status             - Check bot status: Battery, Hydrogen, Oxygen.
+status             - Check bot status: Health, Oxygen, Hydrogen, Energy.
 pickup 'name'      - Pick up a specified object.
 drop 'name' [quantity|all] - Drop a specified object.
 ? move {forward|backward|left|right|up|down} {distance} - Move in a direction
@@ -325,6 +326,10 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 			else if(tp.Match("Put"))
 			{	currentCommand = Put(tp);
+			}
+			else if(tp.Match("Status"))
+			{	Status.ReportNow(character);
+				result = Status.Report();
 			}
 			else if(tp.Match("Say"))
 			{	result = Say(tp);

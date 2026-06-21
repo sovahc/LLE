@@ -165,6 +165,7 @@ namespace LLE
 			if (ch == null) return;
 
 			Vision.Tick(Utilities.GetEngineerCenter(ch));
+			Status.Tick(ch);
 
 			// Lazy initialization
 			if (commands == null)
@@ -172,6 +173,7 @@ namespace LLE
 				commands = new Commands(ch);
 				LLE_Loader.SetHelp(commands.Help());
 				Vision.Initialize();
+				Status.Initialize();
 			}
 
 			// Process command result
@@ -192,6 +194,13 @@ namespace LLE
 			{	toLLM.Append("[VISION]:\n");
 				toLLM.Append(vr);
 				pauseLLM = false;
+			}
+
+			// Status subsystem reports
+			string sr = Status.Report();
+			if(sr != null)
+			{	toLLM.Append("[STATUS]:\n");
+				toLLM.Append(sr);
 			}
 
 			// Send accumulated results to LLM
