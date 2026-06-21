@@ -148,8 +148,6 @@ namespace LLE
 			if(Time.Now < nextVisionReport) return null;
 			nextVisionReport = Time.Now + 1;
 
-			int l = visionReport.Length;
-
 			foreach (var v in lks.Values)
 			{
 				var delta = Time.Now - v.LastSeenAt;
