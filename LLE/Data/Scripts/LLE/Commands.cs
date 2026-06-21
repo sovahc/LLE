@@ -328,8 +328,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	currentCommand = Put(tp);
 			}
 			else if(tp.Match("Status"))
-			{	Status.ReportNow(character);
-				result = Status.Report();
+			{	result = Status.ReportNow(character);
 			}
 			else if(tp.Match("Say"))
 			{	result = Say(tp);

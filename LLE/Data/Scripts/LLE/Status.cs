@@ -8,52 +8,54 @@ namespace LLE
 {
 	static class Status
 	{
-		const double SAMPLE_INTERVAL = 2.0;
+		private static readonly MyDefinitionId oxygenId = new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Oxygen");
+		private static readonly MyDefinitionId hydrogenId = new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
 
-		static readonly MyDefinitionId oxygenId = new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Oxygen");
-		static readonly MyDefinitionId hydrogenId = new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
+		private static readonly StringBuilder report = new StringBuilder();
+		private static double nextReport;
 
-		static readonly StringBuilder report = new StringBuilder();
+		private struct All
+		{	public float Health;
+			public float Energy;
+			public float Oxygen;
+			public float Hydrogen;
+		}
 
-		static double nextTick;
+		private static All MinusOne()
+		{	return new All() { Health = -1, Energy = -1, Oxygen = -1, Hydrogen = -1  };
+		}
 
-		// Previous bucket indices (0-10), -1 = not yet initialized
-		static int prevHealthBucket = -1;
-		static int prevOxygenBucket = -1;
-		static int prevHydrogenBucket = -1;
-		static int prevEnergyBucket = -1;
+		private static All previous = MinusOne();
+
+		private static int Bucket(float f)
+		{	if(f < 0) return int.MinValue;
+			if(f > 1) return int.MaxValue;
+			return (int)(f * 10);
+		}
 
 		public static void Initialize()
 		{
-			nextTick = Time.Now + SAMPLE_INTERVAL;
+			nextReport = Time.Now + 1;
 		}
 
 		public static void Tick(IMyCharacter character)
 		{
-			if (Time.Now < nextTick) return;
-			nextTick = Time.Now + SAMPLE_INTERVAL;
+			if (Time.Now < nextReport) return;
+			nextReport = Time.Now + 2.5;
 
-			float healthPct = character.Integrity * 100f;
-			float oxygenPct = character.GetSuitGasFillLevel(oxygenId) * 100f;
-			float hydrogenPct = character.GetSuitGasFillLevel(hydrogenId) * 100f;
-			float energyPct = character.SuitEnergyLevel * 100f;
+			var current = new All()
+			{	Health = character.Integrity/100,
+				Energy = character.SuitEnergyLevel,
+				Oxygen = character.GetSuitGasFillLevel(oxygenId),
+				Hydrogen = character.GetSuitGasFillLevel(hydrogenId)
+			};
 
-			int healthBucket = ClampBucket(healthPct);
-			int oxygenBucket = ClampBucket(oxygenPct);
-			int hydrogenBucket = ClampBucket(hydrogenPct);
-			int energyBucket = ClampBucket(energyPct);
+			if (Bucket(current.Health) != Bucket(previous.Health)) report.Append($"Health {current.Health*100:F0}%\n");
+			if (Bucket(current.Energy) != Bucket(previous.Energy)) report.Append($"Energy {current.Energy*100:F0}%\n");
+			if (Bucket(current.Oxygen) != Bucket(previous.Oxygen)) report.Append($"Oxygen {current.Oxygen*100:F0}%\n");
+			if (Bucket(current.Hydrogen) != Bucket(previous.Hydrogen)) report.Append($"Hydrogen {current.Hydrogen*100:F0}%\n");
 
-			if (prevHealthBucket < 0) { prevHealthBucket = healthBucket; return; }
-
-			if (healthBucket != prevHealthBucket) AppendLine("Health", healthPct, healthBucket);
-			if (oxygenBucket != prevOxygenBucket) AppendLine("Oxygen", oxygenPct, oxygenBucket);
-			if (hydrogenBucket != prevHydrogenBucket) AppendLine("Hydrogen", hydrogenPct, hydrogenBucket);
-			if (energyBucket != prevEnergyBucket) AppendLine("Energy", energyPct, energyBucket);
-
-			prevHealthBucket = healthBucket;
-			prevOxygenBucket = oxygenBucket;
-			prevHydrogenBucket = hydrogenBucket;
-			prevEnergyBucket = energyBucket;
+			previous = current;
 		}
 
 		public static string Report()
@@ -64,30 +66,15 @@ namespace LLE
 			return r;
 		}
 
-		public static void ReportNow(IMyCharacter character)
+		public static string ReportNow(IMyCharacter character)
 		{
-			float healthPct = character.Integrity * 100f;
-			float oxygenPct = character.GetSuitGasFillLevel(oxygenId) * 100f;
-			float hydrogenPct = character.GetSuitGasFillLevel(hydrogenId) * 100f;
-			float energyPct = character.SuitEnergyLevel * 100f;
+			previous = MinusOne();
+			nextReport = Time.Now - 1;
+			Tick(character);
 
-			report.Append($"* Health: {healthPct:F0}%\n");
-			report.Append($"* Oxygen: {oxygenPct:F0}%\n");
-			report.Append($"* Hydrogen: {hydrogenPct:F0}%\n");
-			report.Append($"* Energy: {energyPct:F0}%\n");
-		}
-
-		static int ClampBucket(float pct)
-		{
-			int bucket = (int)(pct / 10f);
-			if (bucket < 0) return 0;
-			if (bucket > 10) return 10;
-			return bucket;
-		}
-
-		static void AppendLine(string label, float pct, int bucket)
-		{
-			report.Append($"* {label}: {pct:F0}%\n");
+			var r = report.ToString();
+			report.Clear();
+			return r;
 		}
 	}
 }

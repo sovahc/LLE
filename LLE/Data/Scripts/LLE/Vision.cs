@@ -18,7 +18,7 @@ namespace LLE
 		private const int RAYCAST_SKIP_INTERVAL = 10;
 		private static int _frameSkipOffset;
 		private static readonly StringBuilder visionReport = new StringBuilder();
-		private static double nextVisionReport;
+		private static double nextReport;
 
 		internal static readonly Dictionary<long, LastKnownState> lks = new Dictionary<long, LastKnownState>();
 
@@ -70,7 +70,7 @@ namespace LLE
 		}
 
 		public static void Initialize()
-		{	nextVisionReport = Time.Now + 1;			
+		{	nextReport = Time.Now + 1;			
 		}
 
 		public static void Tick(Vector3D engineer, float range = 1000)
@@ -146,8 +146,8 @@ namespace LLE
 
 		public static string VisionReport(Vector3D engineer)
 		{
-			if(Time.Now < nextVisionReport) return null;
-			nextVisionReport = Time.Now + 1;
+			if(Time.Now < nextReport) return null;
+			nextReport = Time.Now + 1;
 
 			foreach (var v in lks.Values)
 			{
