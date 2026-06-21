@@ -296,7 +296,6 @@ namespace LLE
 			if (points == null || points.Length < 2) return;
 
 			var camera = MyAPIGateway.Session.Camera;
-			if (camera == null) return;
 
 			var worldPoints = new Vector3D[points.Length];
 			for (int i = 0; i < points.Length; i++)
@@ -332,7 +331,6 @@ namespace LLE
 		{
 			if (!Common.Enabled) return;
 			var camera = MyAPIGateway.Session.Camera;
-			if (camera == null) return;
 
 			Vector3D viewDir = Vector3D.Normalize(point - camera.Position);
 			double distance = (point - camera.Position).Length();
@@ -420,6 +418,7 @@ namespace LLE
 
 		public static void ScreenSphere(Vector3D worldCenter, float radius, Vector4 color)
 		{
+			if(!Common.Enabled) return;
 			var camera = MyAPIGateway.Session.Camera;
 			Vector3D viewDir = Vector3D.Normalize(worldCenter - camera.Position);
 
