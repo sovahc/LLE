@@ -55,7 +55,7 @@ namespace LLE
 			return block.BlockDefinition.DisplayNameText;
 		}
 
-		internal void ListDescrtiption(List<Vector3I> coordinates, string firstLine, bool byCategory)
+		internal void ListDescription(List<Vector3I> coordinates, string firstLine, bool byCategory)
 		{	MyMarkdown.Clear();
 			MyMarkdown.Append(firstLine);
 			MyMarkdown.Append($"Legend: Name → count (positions on the grid)");
@@ -116,7 +116,7 @@ namespace LLE
 			positions.Clear();
 			foreach(var block in terminalBlocks) positions.Add(block.SlimBlock.Position);
 
-			ListDescrtiption(positions, firstLine, true);
+			ListDescription(positions, firstLine, true);
 
 			terminalBlocks.Clear();
 			positions.Clear();
@@ -205,7 +205,7 @@ namespace LLE
 			{	positions.Add(ijk + direction);
 			}
 
-			ListDescrtiption(positions, firstLine, false);
+			ListDescription(positions, firstLine, false);
 
 			return MyMarkdown.Result();
 		}
