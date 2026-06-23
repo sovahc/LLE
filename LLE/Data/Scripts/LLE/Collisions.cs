@@ -248,10 +248,12 @@ namespace LLE
 
 		// Return the world-space center of the nearest collision shape to the given point.
 		// Returns null if the block has no collision geometry.
-		public static Vector3D? GetNearestCollisionCenter(IMyCubeGrid grid, IMySlimBlock block, Vector3D worldPoint)
+		public static bool GetNearestCollisionCenter(IMyCubeGrid grid, IMySlimBlock block, Vector3D worldPoint, out Vector3D result)
 		{
+			result = Vector3D.Zero;
+
 			CollisionGeometry geometry;
-			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return null;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
 			var blockMatrix = GetBlockWorldMatrix(grid, block);
 			MatrixD invBlock;
@@ -273,16 +275,18 @@ namespace LLE
 				}
 			}
 
-			if (bestLocalCenter == null) return null;
-			return Vector3D.Transform(new Vector3D(bestLocalCenter.Value), blockMatrix);
+			if (bestLocalCenter == null) return false;
+			result = Vector3D.Transform(new Vector3D(bestLocalCenter.Value), blockMatrix);
+			return true;
 		}
 
 		// Return the world-space center of the nearest detector whose name starts with `namePrefix`.
 		// Returns null if no matching detector is found or the block has no collision geometry.
-		public static Vector3D? GetNearestDetectorCenterByPrefix(IMyCubeGrid grid, IMySlimBlock block, Vector3D worldPoint, string namePrefix)
+		public static bool GetNearestDetectorCenterByPrefix(IMyCubeGrid grid, IMySlimBlock block, Vector3D worldPoint, string namePrefix, out Vector3D result)
 		{
+			result = Vector3D.Zero;
 			CollisionGeometry geometry;
-			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return null;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
 			var blockMatrix = GetBlockWorldMatrix(grid, block);
 			MatrixD invBlock;
@@ -307,8 +311,9 @@ namespace LLE
 				}
 			}
 
-			if (bestLocalCenter == null) return null;
-			return Vector3D.Transform(new Vector3D(bestLocalCenter.Value), blockMatrix);
+			if (bestLocalCenter == null) return false;
+			result = Vector3D.Transform(new Vector3D(bestLocalCenter.Value), blockMatrix);
+			return true;
 		}
 
 		private static Vector3 GetShapeLocalCenter(CollisionShape shape)
