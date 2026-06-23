@@ -114,7 +114,7 @@
             <TypeId>GasProperties</TypeId>
             <SubtypeId>Hydrogen</SubtypeId>
           </Id>
-          <MaxCapacity>125</MaxCapacity>
+          <MaxCapacity>200</MaxCapacity>
           <Throughput>1000</Throughput>
         </Resource>
         <Resource>

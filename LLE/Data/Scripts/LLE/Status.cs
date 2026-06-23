@@ -1,4 +1,6 @@
+using System.Linq;
 using System.Text;
+using Sandbox.Definitions;
 using Sandbox.Game.Components;
 using Sandbox.Game.Entities.Character.Components;
 using VRage.Game;
@@ -12,12 +14,16 @@ namespace LLE
 		private static readonly MyDefinitionId hydrogenId =
 			new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
 
+		// Sandbox.Game.MyEnergyConstants.BATTERY_MAX_CAPACITY
+		private const float BatteryMaxCapacityWh = 10f;
+
 		private readonly IMyCharacter character;
 		private double nextReport;
 		private readonly StringBuilder report = new StringBuilder();
 
 		public Status(IMyCharacter character_)
-		{	character = character_;
+		{
+			character = character_;
 			nextReport = Time.Now + 1;
 		}
 
@@ -62,16 +68,27 @@ namespace LLE
 
 		private void MakeReport()
 		{
+			var sc = character.Components?.Get<MyCharacterStatComponent>();
+			var healthMax = sc.Health.MaxValue;
+			float health = sc.Health.Value / healthMax;
+			
+			var hydrogenMax = (character.Definition as MyCharacterDefinition)?.SuitResourceStorage?
+				.FirstOrDefault(g => g.Id.SubtypeName == hydrogenId.SubtypeName)?
+				.MaxCapacity ?? 0f;
+
 			var current = new All()
 			{
-				Health = character.Integrity / 100,
+				Health = health,
 				Energy = character.SuitEnergyLevel,
 				Hydrogen = character.GetSuitGasFillLevel(hydrogenId)
 			};
 
-			if (Bucket(current.Health) != Bucket(previous.Health)) report.Append($" Health {current.Health * 100:F0}%");
-			if (Bucket(current.Energy) != Bucket(previous.Energy)) report.Append($" Energy {current.Energy * 100:F0}%");
-			if (Bucket(current.Hydrogen) != Bucket(previous.Hydrogen)) report.Append($" Hydrogen {current.Hydrogen * 100:F0}%");
+			var c = current;
+			var p = previous;
+
+			if (Bucket(c.Health) != Bucket(p.Health)) report.Append($" Health {c.Health * 100:F0}% ({c.Health * healthMax:F0})");
+			if (Bucket(c.Energy) != Bucket(p.Energy)) report.Append($" Energy {c.Energy * 100:F0}% ({c.Energy * BatteryMaxCapacityWh:F1}Wh)");
+			if (Bucket(c.Hydrogen) != Bucket(p.Hydrogen)) report.Append($" Hydrogen {c.Hydrogen * 100:F0}% ({c.Hydrogen * hydrogenMax:F0}L)");
 
 			previous = current;
 		}
