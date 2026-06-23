@@ -17,6 +17,8 @@ namespace LLE
 		internal static Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
 		internal static Dictionary<MyDefinitionId, Traversability> _traversabilityCache;
 
+		const float ProbeRadius = Constants.CollisionProbeRadius;
+
 		public static void Load(IMyModContext ModContext)
 		{
 			const string collisions_bin = "Data/collisions.bin";
@@ -159,8 +161,6 @@ namespace LLE
 			}
 		}
 
-		private const float probeRadius = 0.6f;
-
 		private static Traversability CalculateTraversability(CollisionGeometry geometry)
 		{
 			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
@@ -169,7 +169,7 @@ namespace LLE
 			var trav = new Traversability();
 
 			// Center probe
-			if (ProbeIntersects(geometry, Vector3.Zero, probeRadius))
+			if (ProbeIntersects(geometry, Vector3.Zero, ProbeRadius))
 				trav[0, 0, 0] = true;
 
 			// 6 directional probes around the center
@@ -178,7 +178,7 @@ namespace LLE
 			{
 				Vector3I dir = dirs[d];
 				Vector3 probeCenter = new Vector3(dir.X, dir.Y, dir.Z) * offset;
-				if (ProbeIntersects(geometry, probeCenter, probeRadius))
+				if (ProbeIntersects(geometry, probeCenter, ProbeRadius))
 					trav[dir] = true;
 			}
 
@@ -219,14 +219,14 @@ namespace LLE
 
 			var color = new Vector4(0.25f, 0.25f, 0.25f, 1.0f);
 
-			Drawing.ScreenSphere(zero, probeRadius, color);
+			Drawing.ScreenSphere(zero, ProbeRadius, color);
 			var dirs = Constants.SixDirections;
 
 			for (int d = 0; d < dirs.Length; ++d)
 			{
 				Vector3I dir = dirs[d];
 				var world = zero + offset * Vector3D.TransformNormal(new Vector3D(dir.X, dir.Y, dir.Z), grid.WorldMatrix);
-				Drawing.ScreenSphere(world, probeRadius, color);
+				Drawing.ScreenSphere(world, ProbeRadius, color);
 				Drawing.RoundMarker(world, t[dirs[d]] ? Color.Black : Color.Lime);
 			}
 			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.Black : Color.Green);
@@ -373,7 +373,7 @@ namespace LLE
 			var trav = new Traversability();
 
 			// Center probe
-			if (ProbeIntersects(geometry, localCellCenter, probeRadius))
+			if (ProbeIntersects(geometry, localCellCenter, ProbeRadius))
 				trav[0, 0, 0] = true;
 
 			// 6 directional probes around the cell
@@ -382,7 +382,7 @@ namespace LLE
 			{
 				Vector3I dir = dirs[d];
 				Vector3 localProbe = localCellCenter + Vector3.Transform(new Vector3(dir.X, dir.Y, dir.Z), invOrient) * offset;
-				if (ProbeIntersects(geometry, localProbe, probeRadius))
+				if (ProbeIntersects(geometry, localProbe, ProbeRadius))
 					trav[dir] = true;
 			}
 

@@ -19,6 +19,7 @@ namespace LLE
 		public const float EngineerCapsuleHeight = 0.8f;
 		public const float EngineerCapsuleRadius = 0.5f;
 		public const float EngineerHeight = 1.8f;
+		public const float CollisionProbeRadius = 0.6f;
 
 		public const float WeldAndGrindSpeed = 0.03f;
 		public const float SoundVolume = 0.5f;
