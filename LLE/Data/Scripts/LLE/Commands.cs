@@ -21,6 +21,10 @@ namespace LLE
 		private MyVoxelBase selectedAsteroid;
 
 		private readonly IMyCharacter character;
+
+		private Status status;
+
+		internal string Status_ReportChanged() => status.ReportChanged();
 		
 		private IEnumerator currentCommand;
 
@@ -36,6 +40,7 @@ namespace LLE
 		public Commands(IMyCharacter character_)
 		{
 			character = character_;
+			status = new Status(character);
 
 			foreach (var def in MyDefinitionManager.Static.GetDefinitionsOfType<MyPhysicalItemDefinition>())
 			{
@@ -261,6 +266,8 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		internal string Update()
 		{
+			status.Tick();
+
 			if (currentCommand == null) return null;
 
 			// yield return null; = wait
@@ -328,7 +335,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	currentCommand = Put(tp);
 			}
 			else if(tp.Match("Status"))
-			{	result = Status.ReportNow(character);
+			{	result = status.ReportAll();
 			}
 			else if(tp.Match("Say"))
 			{	result = Say(tp);

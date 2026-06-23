@@ -6,13 +6,19 @@ using VRage.Game.ObjectBuilders.Definitions;
 
 namespace LLE
 {
-	static class Status
+	class Status
 	{
 		private static readonly MyDefinitionId oxygenId = new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Oxygen");
 		private static readonly MyDefinitionId hydrogenId = new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
 
-		private static readonly StringBuilder report = new StringBuilder();
-		private static double nextReport;
+		private readonly IMyCharacter character;
+		private double nextReport;
+		private readonly StringBuilder report = new StringBuilder();
+
+		public Status(IMyCharacter character_)
+		{	character = character_;
+			nextReport = Time.Now + 1;
+		}
 
 		private struct All
 		{	public float Health;
@@ -21,13 +27,13 @@ namespace LLE
 			public float Hydrogen;
 		}
 
-		private static All MinusOne()
+		private static All Undefined()
 		{	return new All() { Health = -1, Energy = -1, Oxygen = -1, Hydrogen = -1  };
 		}
 
-		private static All previous = MinusOne();
+		private All previous = Undefined();
 
-		private static int Bucket(float f)
+		private int Bucket(float f)
 		{	if(f < 0) return int.MinValue;
 			if(f > 1) return int.MaxValue;
 			if(f < 0.05) return 1;
@@ -40,32 +46,33 @@ namespace LLE
 			return 10;
 		}
 
-		public static void Initialize()
-		{
-			nextReport = Time.Now + 1;
-		}
-
-		public static void Tick(IMyCharacter character)
+		public void Tick()
 		{
 			if (Time.Now < nextReport) return;
 			nextReport = Time.Now + 2.5;
 
+			MakeReport();
+		}
+
+		private void MakeReport()
+		{
 			var current = new All()
-			{	Health = character.Integrity/100,
+			{
+				Health = character.Integrity / 100,
 				Energy = character.SuitEnergyLevel,
 				Oxygen = character.GetSuitGasFillLevel(oxygenId),
 				Hydrogen = character.GetSuitGasFillLevel(hydrogenId)
 			};
 
-			if (Bucket(current.Health) != Bucket(previous.Health)) report.Append($" Health {current.Health*100:F0}%");
-			if (Bucket(current.Energy) != Bucket(previous.Energy)) report.Append($" Energy {current.Energy*100:F0}%");
-			if (Bucket(current.Oxygen) != Bucket(previous.Oxygen)) report.Append($" Oxygen {current.Oxygen*100:F0}%");
-			if (Bucket(current.Hydrogen) != Bucket(previous.Hydrogen)) report.Append($" Hydrogen {current.Hydrogen*100:F0}%");
+			if (Bucket(current.Health) != Bucket(previous.Health)) report.Append($" Health {current.Health * 100:F0}%");
+			if (Bucket(current.Energy) != Bucket(previous.Energy)) report.Append($" Energy {current.Energy * 100:F0}%");
+			if (Bucket(current.Oxygen) != Bucket(previous.Oxygen)) report.Append($" Oxygen {current.Oxygen * 100:F0}%");
+			if (Bucket(current.Hydrogen) != Bucket(previous.Hydrogen)) report.Append($" Hydrogen {current.Hydrogen * 100:F0}%");
 
 			previous = current;
 		}
 
-		public static string Report()
+		public string ReportChanged()
 		{
 			if (report.Length == 0) return null;
 			string r = report.ToString();
@@ -73,11 +80,11 @@ namespace LLE
 			return r;
 		}
 
-		public static string ReportNow(IMyCharacter character)
+		public string ReportAll()
 		{
-			previous = MinusOne();
-			nextReport = Time.Now - 1;
-			Tick(character);
+			previous = Undefined();
+			report.Clear();
+			MakeReport();
 
 			var r = report.ToString();
 			report.Clear();
