@@ -56,15 +56,17 @@ namespace LLE
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
 		}
 
-		private static MatrixD GetBlockWorldMatrix(IMyCubeGrid grid, IMySlimBlock block)
+		private static MatrixD GetBlockWorldMatrix(IMySlimBlock block)
 		{
-			Matrix bo;
-			block.Orientation.GetMatrix(out bo);
-			Quaternion q = Quaternion.CreateFromRotationMatrix(grid.WorldMatrix);
-			Matrix.Transform(ref bo, ref q, out bo);
+			Matrix localMatrix;
+			block.Orientation.GetMatrix(out localMatrix);
 
-			var blockCenter = 0.5 * (grid.GridIntegerToWorld(block.Min) + grid.GridIntegerToWorld(block.Max));
-			return new MatrixD(bo) { Translation = blockCenter };
+			Vector3D worldCenter;
+			block.ComputeWorldCenter(out worldCenter);
+
+			MatrixD worldMatrix = new MatrixD(localMatrix) * block.CubeGrid.WorldMatrix;
+			worldMatrix.Translation = worldCenter;
+			return worldMatrix;
 		}
 
 		public static void Draw(IMyCubeGrid grid, IMySlimBlock block)
@@ -73,7 +75,7 @@ namespace LLE
 			var id = block.BlockDefinition.Id;
 
 			if (_collisionGeometry.TryGetValue(id, out geometry))
-				Draw(geometry, GetBlockWorldMatrix(grid, block));
+				Draw(geometry, GetBlockWorldMatrix(block));
 		}
 
 		private static void DrawConvexOutline(List<Vector3> localVerts, Matrix localTransform,
@@ -237,7 +239,7 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			var blockMatrix = GetBlockWorldMatrix(grid, block);
+			var blockMatrix = GetBlockWorldMatrix(block);
 
 			MatrixD invBlock;
 			MatrixD.Invert(ref blockMatrix, out invBlock);
@@ -248,14 +250,14 @@ namespace LLE
 
 		// Return the world-space center of the nearest collision shape to the given point.
 		// Returns null if the block has no collision geometry.
-		public static bool GetNearestCollisionCenter(IMyCubeGrid grid, IMySlimBlock block, Vector3D worldPoint, out Vector3D result)
+		public static bool GetNearestCollisionCenter(IMySlimBlock block, Vector3D worldPoint, out Vector3D result)
 		{
 			result = Vector3D.Zero;
 
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			var blockMatrix = GetBlockWorldMatrix(grid, block);
+			var blockMatrix = GetBlockWorldMatrix(block);
 			MatrixD invBlock;
 			MatrixD.Invert(ref blockMatrix, out invBlock);
 			Vector3D localPoint = Vector3D.Transform(worldPoint, invBlock);
@@ -282,13 +284,13 @@ namespace LLE
 
 		// Return the world-space center of the nearest detector whose name starts with `namePrefix`.
 		// Returns null if no matching detector is found or the block has no collision geometry.
-		public static bool GetNearestDetectorCenterByPrefix(IMyCubeGrid grid, IMySlimBlock block, Vector3D worldPoint, string namePrefix, out Vector3D result)
+		public static bool GetNearestDetectorCenterByPrefix(IMySlimBlock block, Vector3D worldPoint, string namePrefix, out Vector3D result)
 		{
 			result = Vector3D.Zero;
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			var blockMatrix = GetBlockWorldMatrix(grid, block);
+			var blockMatrix = GetBlockWorldMatrix(block);
 			MatrixD invBlock;
 			MatrixD.Invert(ref blockMatrix, out invBlock);
 			Vector3D localPoint = Vector3D.Transform(worldPoint, invBlock);

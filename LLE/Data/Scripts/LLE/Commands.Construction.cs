@@ -80,7 +80,7 @@ namespace LLE
 
 			Vector3D ec = Utilities.GetEngineerCenter(character);
 			Vector3D bp;
-			if(!Collisions.GetNearestCollisionCenter(selectedGrid, block, ec, out bp))
+			if(!Collisions.GetNearestCollisionCenter(block, ec, out bp))
 				block.ComputeWorldCenter(out bp);
 
 			SetPause(1.0);
@@ -241,7 +241,7 @@ namespace LLE
 
 			Vector3D ec = Utilities.GetEngineerCenter(character);
 			Vector3D bp;
-			if(!Collisions.GetNearestCollisionCenter(selectedGrid, block, ec, out bp))
+			if(!Collisions.GetNearestCollisionCenter(block, ec, out bp))
 				block.ComputeWorldCenter(out bp);
 
 			SetPause(1.0);

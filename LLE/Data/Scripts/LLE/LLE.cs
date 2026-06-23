@@ -101,10 +101,10 @@ namespace LLE
 					Collisions.Draw(grid, block);
 
 					Vector3D v;
-					if(Collisions.GetNearestCollisionCenter(grid, block, queryPoint, out v))
+					if(Collisions.GetNearestCollisionCenter(block, queryPoint, out v))
 						Drawing.RoundMarker(v, Color.Red);
 
-					if(Collisions.GetNearestDetectorCenterByPrefix(grid, block, queryPoint, "conveyor_", out v))
+					if(Collisions.GetNearestDetectorCenterByPrefix(block, queryPoint, "conveyor_", out v))
 						Drawing.RoundMarker(v, Color.Yellow);
 				}
 			}
