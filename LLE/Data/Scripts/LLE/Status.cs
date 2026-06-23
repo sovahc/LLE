@@ -1,5 +1,6 @@
 using System.Text;
-
+using Sandbox.Game.Components;
+using Sandbox.Game.Entities.Character.Components;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.Game.ObjectBuilders.Definitions;
@@ -8,8 +9,8 @@ namespace LLE
 {
 	class Status
 	{
-		private static readonly MyDefinitionId oxygenId = new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Oxygen");
-		private static readonly MyDefinitionId hydrogenId = new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
+		private static readonly MyDefinitionId hydrogenId =
+			new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
 
 		private readonly IMyCharacter character;
 		private double nextReport;
@@ -23,12 +24,11 @@ namespace LLE
 		private struct All
 		{	public float Health;
 			public float Energy;
-			public float Oxygen;
 			public float Hydrogen;
 		}
 
 		private static All Undefined()
-		{	return new All() { Health = -1, Energy = -1, Oxygen = -1, Hydrogen = -1  };
+		{	return new All() { Health = -1, Energy = -1, Hydrogen = -1  };
 		}
 
 		private All previous = Undefined();
@@ -51,6 +51,12 @@ namespace LLE
 			if (Time.Now < nextReport) return;
 			nextReport = Time.Now + 2.5;
 
+			var sc = character.Components?.Get<MyCharacterStatComponent>();
+			if (sc?.Food != null) sc.Food.Value = sc.Food.MaxValue;
+
+			var oc = character.Components?.Get<MyCharacterOxygenComponent>();
+			if (oc != null) oc.SuitOxygenLevel = 1f;
+
 			MakeReport();
 		}
 
@@ -60,13 +66,11 @@ namespace LLE
 			{
 				Health = character.Integrity / 100,
 				Energy = character.SuitEnergyLevel,
-				Oxygen = character.GetSuitGasFillLevel(oxygenId),
 				Hydrogen = character.GetSuitGasFillLevel(hydrogenId)
 			};
 
 			if (Bucket(current.Health) != Bucket(previous.Health)) report.Append($" Health {current.Health * 100:F0}%");
 			if (Bucket(current.Energy) != Bucket(previous.Energy)) report.Append($" Energy {current.Energy * 100:F0}%");
-			if (Bucket(current.Oxygen) != Bucket(previous.Oxygen)) report.Append($" Oxygen {current.Oxygen * 100:F0}%");
 			if (Bucket(current.Hydrogen) != Bucket(previous.Hydrogen)) report.Append($" Hydrogen {current.Hydrogen * 100:F0}%");
 
 			previous = current;
