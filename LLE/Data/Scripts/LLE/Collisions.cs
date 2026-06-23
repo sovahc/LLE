@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -243,6 +244,88 @@ namespace LLE
 			Vector3D localCenter = Vector3D.Transform(worldCenter, invBlock);
 
 			return ProbeIntersects(geometry, localCenter, radius);
+		}
+
+		// Return the world-space center of the nearest collision shape to the given point.
+		// Returns null if the block has no collision geometry.
+		public static Vector3D? GetNearestCollisionCenter(IMyCubeGrid grid, IMySlimBlock block, Vector3D worldPoint)
+		{
+			CollisionGeometry geometry;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return null;
+
+			var blockMatrix = GetBlockWorldMatrix(grid, block);
+			MatrixD invBlock;
+			MatrixD.Invert(ref blockMatrix, out invBlock);
+			Vector3D localPoint = Vector3D.Transform(worldPoint, invBlock);
+
+			double bestDistSq = double.MaxValue;
+			Vector3? bestLocalCenter = null;
+
+			foreach (var shape in geometry.Shapes)
+			{
+				Vector3 center = GetShapeLocalCenter(shape);
+				Vector3D diff = new Vector3D(center) - localPoint;
+				double distSq = diff.LengthSquared();
+				if (distSq < bestDistSq)
+				{
+					bestDistSq = distSq;
+					bestLocalCenter = center;
+				}
+			}
+
+			if (bestLocalCenter == null) return null;
+			return Vector3D.Transform(new Vector3D(bestLocalCenter.Value), blockMatrix);
+		}
+
+		// Return the world-space center of the nearest detector whose name starts with `namePrefix`.
+		// Returns null if no matching detector is found or the block has no collision geometry.
+		public static Vector3D? GetNearestDetectorCenterByPrefix(IMyCubeGrid grid, IMySlimBlock block, Vector3D worldPoint, string namePrefix)
+		{
+			CollisionGeometry geometry;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return null;
+
+			var blockMatrix = GetBlockWorldMatrix(grid, block);
+			MatrixD invBlock;
+			MatrixD.Invert(ref blockMatrix, out invBlock);
+			Vector3D localPoint = Vector3D.Transform(worldPoint, invBlock);
+
+			double bestDistSq = double.MaxValue;
+			Vector3? bestLocalCenter = null;
+
+			foreach (var detector in geometry.Detectors)
+			{
+				if (!detector.Name.StartsWith(namePrefix)) continue;
+
+				// Detector is a unit cube centered at origin with half-extents (0.5, 0.5, 0.5).
+				Vector3 center = detector.Transform.Translation;
+				Vector3D diff = new Vector3D(center) - localPoint;
+				double distSq = diff.LengthSquared();
+				if (distSq < bestDistSq)
+				{
+					bestDistSq = distSq;
+					bestLocalCenter = center;
+				}
+			}
+
+			if (bestLocalCenter == null) return null;
+			return Vector3D.Transform(new Vector3D(bestLocalCenter.Value), blockMatrix);
+		}
+
+		private static Vector3 GetShapeLocalCenter(CollisionShape shape)
+		{
+			var convex = shape as ConvexHullShape;
+			if (convex != null)
+				return convex.Vertices.Aggregate(Vector3.Zero, (a, v) => a + v) / convex.Vertices.Count;
+
+			var sphere = shape as SphereShape;
+			if (sphere != null)
+				return shape.Transform.Translation;
+
+			var capsule = shape as CapsuleShape;
+			if (capsule != null)
+				return 0.5f * (Vector3.Transform(capsule.VertexA, shape.Transform) + Vector3.Transform(capsule.VertexB, shape.Transform));
+
+			return Vector3.Zero;
 		}
 
 		public static Traversability GetBlockTraversability(IMySlimBlock slim, Vector3I position)

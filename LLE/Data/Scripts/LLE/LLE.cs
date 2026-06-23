@@ -83,7 +83,7 @@ namespace LLE
 			}
 		}
 
-		internal static void Draw()
+		internal static void Draw(Vector3D queryPoint)
 		{
 			if(grid == null) return;
 
@@ -91,13 +91,23 @@ namespace LLE
 			{	Drawing.RoundMarker(grid.GridIntegerToWorld(cell), Color.Yellow);
 			}
 
-			if(astarStart != null) Drawing.RoundMarker(grid.GridIntegerToWorld((Vector3I)astarStart), Color.Green);
-			if(astarGoal != null) Drawing.RoundMarker(grid.GridIntegerToWorld((Vector3I)astarGoal), Color.Red);
+			if(astarStart != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarStart.Value), Color.Green);
+			if(astarGoal != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarGoal.Value), Color.Red);
 
 			if(astarStart != null)
-			{	var block = grid.GetCubeBlock((Vector3I)astarStart);
+			{	var block = grid.GetCubeBlock(astarStart.Value);
 				if(block != null)
+				{
 					Collisions.Draw(grid, block);
+
+					var nearestCollision = Collisions.GetNearestCollisionCenter(grid, block, queryPoint);
+					if (nearestCollision != null)
+						Drawing.RoundMarker(nearestCollision.Value, Color.Red);
+
+					var nearestDetector = Collisions.GetNearestDetectorCenterByPrefix(grid, block, queryPoint, "conveyor_");
+					if (nearestDetector != null)
+						Drawing.RoundMarker(nearestDetector.Value, Color.Yellow);
+				}
 			}
 		}
 	}
@@ -314,7 +324,7 @@ namespace LLE
 
 			Vector3D ahead = hm.Translation + hm.Forward * 10;
 			Debug.Pathfinding(ahead);
-			Debug.Draw();
+			Debug.Draw(hm.Translation);
 
 			MyConsole.Render(font);
 			Common.Call_Add_Billboards(); // just for sure
