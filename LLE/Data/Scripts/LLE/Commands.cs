@@ -49,6 +49,11 @@ namespace LLE
 			}
 		}
 
+		public Vector3D GetEngineerCenter()
+		{
+			return character.GetPosition() + Constants.EngineerHeight/2 * character.WorldMatrix.Up;
+		}
+
 		internal string Help()
 		{
 			return @"
@@ -72,7 +77,7 @@ You operate on a selected grid (ship or station).
 
 ## AVAILABLE COMMANDS
 
-* select 'name'		    		- Select a ship or station on which to grind, weld, fly, and perform other operations.
+* select 'name'		    		- Select a large ship or station on which to grind, weld, fly, and perform other operations.
 * overview						- List grid blocks by category.
 * integrity						- Show damaged blocks on the selected grid.
 * fly I J K						- Fly to specific grid coordinates. e.g. `fly 10 -5 13`
@@ -150,7 +155,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			const int radius = 1000;
 
-			var engineer = Utilities.GetEngineerCenter(character);
+			var engineer = GetEngineerCenter();
 			
 			BoundingSphereD S = new BoundingSphereD(engineer, radius);
 			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
@@ -203,7 +208,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 		internal void AppendNearbyFreeCells(Vector3I ijk, StringBuilder sb)
 		{	
-			Vector3D ec = Utilities.GetEngineerCenter(character);
+			Vector3D ec = GetEngineerCenter();
 
 			var minimalDistanceSq = double.MaxValue;
 			var nearestFreeSpace = Vector3I.Zero;
@@ -246,7 +251,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			Vector3D world;
 			block.ComputeWorldCenter(out world);
-			var distance = (world - Utilities.GetEngineerCenter(character)).Length();
+			var distance = (world - GetEngineerCenter()).Length();
 			if(distance > 6) // XX 5->6 for Large container
 			{	
 				StringBuilder sb = new StringBuilder();

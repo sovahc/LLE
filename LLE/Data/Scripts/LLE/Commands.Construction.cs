@@ -78,9 +78,8 @@ namespace LLE
 
 			float grindAmount = Constants.WeldAndGrindSpeed * speedMultiplier * MyAPIGateway.Session.GrinderSpeedMultiplier;
 
-			Vector3D ec = Utilities.GetEngineerCenter(character);
 			Vector3D bp;
-			if(!Collisions.GetNearestCollisionCenter(block, ec, out bp))
+			if(!Collisions.GetNearestCollisionCenter(block, GetEngineerCenter(), out bp))
 				block.ComputeWorldCenter(out bp);
 
 			SetPause(1.0);
@@ -239,9 +238,8 @@ namespace LLE
 			// Check if block can accept components from inventory
 			if (!block.CanContinueBuild(inventory)) yield return MissingComponentsText(block);
 
-			Vector3D ec = Utilities.GetEngineerCenter(character);
 			Vector3D bp;
-			if(!Collisions.GetNearestCollisionCenter(block, ec, out bp))
+			if(!Collisions.GetNearestCollisionCenter(block, GetEngineerCenter(), out bp))
 				block.ComputeWorldCenter(out bp);
 
 			SetPause(1.0);

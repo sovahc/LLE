@@ -173,8 +173,6 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			Vision.Tick(Utilities.GetEngineerCenter(ch));
-
 			// Lazy initialization
 			if (commands == null)
 			{
@@ -183,6 +181,8 @@ namespace LLE
 				Vision.Initialize();
 				
 			}
+
+			Vision.Tick(commands.GetEngineerCenter());
 
 			// Process command result
 			string result = commands.Update();
@@ -196,7 +196,7 @@ namespace LLE
 			if (commands.InProgress()) return;
 
 			// Vision subsystem reports
-			string vr = Vision.VisionReport(Utilities.GetEngineerCenter(ch));
+			string vr = Vision.VisionReport(commands.GetEngineerCenter());
 			if(vr != null)
 			{	toLLM.Append("[VISION]:\n");
 				toLLM.Append(vr);

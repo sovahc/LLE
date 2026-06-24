@@ -139,7 +139,7 @@ namespace LLE
 			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
 			jetComp.TurnOnJetpack(true);
 
-			Vector3D engineer = Utilities.GetEngineerCenter(character);
+			Vector3D engineer = GetEngineerCenter();
 			Vector3D destination = selectedGrid.GridIntegerToWorld(ijk);
 
 			Vector3I from, to;
@@ -177,7 +177,7 @@ namespace LLE
 					
 					yield return null;
 
-					engineer = Utilities.GetEngineerCenter(character);
+					engineer = GetEngineerCenter();
 
 					if(!IsEngineerInsideGrid(engineer, currentGrid))
 					{	MyConsole.Add("Fly out successfull!");
@@ -186,7 +186,7 @@ namespace LLE
 				}
 			}
 
-			engineer = Utilities.GetEngineerCenter(character);
+			engineer = GetEngineerCenter();
 
 			up = selectedGrid.WorldMatrix.Up;
 
@@ -212,8 +212,7 @@ namespace LLE
 		}
 
 		internal string CharacterCellText()
-		{	Vector3D e = Utilities.GetEngineerCenter(character);
-			return IJK(selectedGrid.WorldToGridInteger(e));
+		{	return IJK(selectedGrid.WorldToGridInteger(GetEngineerCenter()));
 		}
 
 		internal string NavigationStep(IMyCubeGrid grid)
@@ -231,7 +230,7 @@ namespace LLE
 				return $"Stuck at position: {CharacterCellText()}";
 			}
 
-			var ec = Utilities.GetEngineerCenter(character);
+			var ec = GetEngineerCenter();
 
 			Vector2 rotation = Vector2.Zero;
 			float roll = 0;

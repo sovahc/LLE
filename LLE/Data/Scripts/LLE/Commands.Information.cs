@@ -187,8 +187,7 @@ namespace LLE
 			string hint;
 
 			if(tp.End)
-			{	var center = Utilities.GetEngineerCenter(character);
-				ijk = selectedGrid.WorldToGridInteger(center);
+			{	ijk = selectedGrid.WorldToGridInteger(GetEngineerCenter());
 				hint = "Your block";
 			}
 			else

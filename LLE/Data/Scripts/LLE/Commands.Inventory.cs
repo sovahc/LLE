@@ -168,9 +168,8 @@ namespace LLE
 
 			if(IsTooFar(ijk, out message)) yield return message;
 
-			Vector3D ec = Utilities.GetEngineerCenter(character);
 			Vector3D bp;
-			if(!Collisions.GetNearestDetectorCenterByPrefix(block, ec, "conveyor_", out bp))
+			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
 
 			SetPause(2.0);
@@ -238,9 +237,8 @@ namespace LLE
 
 			if(IsTooFar(ijk, out message)) yield return message;
 
-			Vector3D ec = Utilities.GetEngineerCenter(character);
 			Vector3D bp;
-			if(!Collisions.GetNearestDetectorCenterByPrefix(block, ec, "conveyor_", out bp))
+			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
 
 			SetPause(2.0);

@@ -111,11 +111,6 @@ namespace LLE
 			var ms = (now - start) / (double)TimeSpan.TicksPerMillisecond;
 			MyConsole.Add($"{name}: {ms:0.##}", Color.IndianRed);
 		}
-
-		public static Vector3D GetEngineerCenter(IMyCharacter ch)
-		{
-			return ch.GetPosition() + Constants.EngineerHeight/2 * ch.WorldMatrix.Up;
-		}
 	}
 
 	public struct Profiler : IDisposable
