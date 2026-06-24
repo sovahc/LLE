@@ -4,16 +4,16 @@ using System.Collections.Generic;
 using System.Text;
 
 using VRageMath;
-using Sandbox.Game.Entities;
 
 using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Definitions;
+using Sandbox.Game;
+using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Weapons;
 
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
-using Sandbox.Game;
 
 namespace LLE
 {
@@ -40,7 +40,7 @@ namespace LLE
 
 			if (targetDefId == null) return false;
 
-			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
+			var controller = character as IMyControllableEntity;
 			if (!controller.CanSwitchToWeapon(targetDefId.Value)) return false;
 			
 			controller.SwitchToWeapon(targetDefId.Value);
