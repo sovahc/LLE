@@ -31,11 +31,11 @@ namespace LLE
 			foreach (var item in items)
 			{
 				var handItemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(item.Type);
-				if (handItemDef != null && handItemDef.Id.SubtypeName.IndexOf(toolSubtype, StringComparison.OrdinalIgnoreCase) >= 0)
-				{
-					targetDefId = handItemDef.PhysicalItemId;
-					break;
-				}
+				if (handItemDef == null) continue;
+				if (handItemDef.Id.SubtypeName.IndexOf(toolSubtype, StringComparison.OrdinalIgnoreCase) < 0) continue;
+				
+				targetDefId = handItemDef.PhysicalItemId;
+				break;
 			}
 
 			if (targetDefId == null) return false;
