@@ -46,7 +46,7 @@ namespace LLE
 			controller.SwitchToWeapon(targetDefId.Value);
 			return true;
 		}
-		
+
 		internal IEnumerator Grind(TokenParser tp)
 		{
 			string message;
@@ -95,24 +95,37 @@ namespace LLE
 
 			for(;;)
 			{
-				// Check if inventory can accept at least one unit of any stockpile component
-				GetStockpileComponents(block, stock);
+				// CanShoot enforces ToolCooldownMs (250ms) so Grind doesn't fire every tick.
+				MyGunStatusEnum status = MyGunStatusEnum.Cooldown;
+				for(int i = 0; i < 30; ++i)
+				{	if(!grinderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
+						yield return null;
+				}
 
-				var def = block.BlockDefinition as MyCubeBlockDefinition;
+				if(status != MyGunStatusEnum.OK)
+				{	grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
+					yield return $"Tool status: {status}";
+				}
+
+				// Check if inventory can accept at least one unit of any stockpile component
 				bool canAccept = false;
+				GetStockpileComponents(block, stock);
+				var def = block.BlockDefinition as MyCubeBlockDefinition;
+				var myInv = inventory as MyInventory;
+				if(myInv == null) yield break;
+
 				foreach (var c in def.Components)
 				{	var k = c.Definition.Id.SubtypeName;
 
 					if(stock[k] == 0) continue;
 
-					var myInv = inventory as MyInventory;
-					if (myInv != null && myInv.ComputeAmountThatFits(c.Definition.Id) > 0)
-					{	canAccept = true;
-						break;
-					}
+					if (myInv.ComputeAmountThatFits(c.Definition.Id) <= 0) continue;
+					
+					canAccept = true;
+					break;
 				}
 
-				bool cancel = CancelRequest();
+				bool cancel = CancelRequested();
 				bool tooLong = Time.Now > timeout;
 				bool removed = block.IsDestroyed && block.StockpileEmpty;
 
@@ -146,13 +159,8 @@ namespace LLE
 
 				// Native grinding: Shoot activates the tool (spinning disc, sound, particles)
 				// and after preheat the tool grinds the raycast-hit block itself.
-				// CanShoot enforces ToolCooldownMs (250ms) so Grind doesn't fire every tick.
-				MyGunStatusEnum status;
-				if (grinderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
-				{	grinderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
-
-					block.MoveItemsFromConstructionStockpile(inventory);
-				}
+				grinderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
+				//block.MoveItemsFromConstructionStockpile(inventory);
 
 				yield return null;
 			}

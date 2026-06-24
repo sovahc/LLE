@@ -218,7 +218,7 @@ namespace LLE
 		{
 			if(micro.Arrived()) return $"Arrived. Position: {CharacterCellText()}";
 
-			if(CancelRequest())
+			if(CancelRequested())
 			{	micro.Stop();
 				return $"Cancelled by user. Current position: {CharacterCellText()}";
 			}
