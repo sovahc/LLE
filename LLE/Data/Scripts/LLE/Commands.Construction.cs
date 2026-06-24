@@ -89,7 +89,7 @@ namespace LLE
 
 			Dictionary<string, int> stockpile = new Dictionary<string, int>();
 
-			var timeout = Time.Now + 20;
+			var timeout = Time.Now + 30;
 
 			for(;;)
 			{
@@ -209,10 +209,10 @@ namespace LLE
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if (block == null) yield return $"Error: no block at {IJK(ijk)}";
 
+			if (IsTooFar(ijk, out message)) yield return message;
+
 			if (block.Integrity >= block.MaxIntegrity)
 				yield return "The block is fully intact; no repairs needed.";
-
-			if (IsTooFar(ijk, out message)) yield return message;
 
 			if (!EquipTool("Welder"))
 				yield return "Cannot equip handheld welder. Do you have a welder in your inventory?";
@@ -220,27 +220,14 @@ namespace LLE
 			var inventory = character.GetInventory();
 			if (inventory == null) yield return IE_NO_INVENTORY;
 
-			var equippedTool = character.EquippedTool as IMyWelder;
-			if (equippedTool == null) yield return "Internal error: equippedTool is not IMyWelder";
-
-			float speedMultiplier = 1.0f;
-
-			var item = MyDefinitionManager.Static.GetPhysicalItemForHandItem(equippedTool.DefinitionId);
-			var itemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(item.Id);
-			var toolBaseDef = itemDef as MyEngineerToolBaseDefinition;
-
-			if (toolBaseDef != null)
-				speedMultiplier = toolBaseDef.SpeedMultiplier;
-
-			float weldAmount = Constants.WeldAndGrindSpeed * speedMultiplier * MyAPIGateway.Session.WelderSpeedMultiplier;
-
-			// Check if block can accept components from inventory
-			if (!block.CanContinueBuild(inventory)) yield return MissingComponentsText(block);
+			var welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
+			if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
 			Vector3D bp = Collisions.GetGrindWeldTarget(block, GetEngineerCenter());
+			// XX additionally verify that the block is actually raycastable
 
-			SetPause(1.0);
-			while (IsPaused())
+			SetPause(1.5);
+			while(IsPaused())
 			{
 				CharacterRotateTo(bp);
 				yield return null;
@@ -249,47 +236,54 @@ namespace LLE
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
-			// Apply welding
-			var integrity0 = block.Integrity;
-
-			EnableEffect(block, MyParticleEffectsNameEnum.WelderContactPoint);
-			EnableSound("ToolPlayWeldMetal");
+			// Check if block can accept components from inventory
+			if (!block.CanContinueBuild(inventory)) yield return MissingComponentsText(block);
 
 			var current = new Dictionary<string, double>();
 			InventoryDelta(inventory, current, +1);
 
+			var timeout = Time.Now + 30;
+			var integrity0 = block.Integrity;
+
 			for (;;)
 			{
+				MyGunStatusEnum status = MyGunStatusEnum.Cooldown;
+				for(int i = 0; i < 30; ++i)
+				{	if(!welderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
+						yield return null;
+				}
+
+				if(status != MyGunStatusEnum.OK)
+				{	welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
+					yield return $"Tool status: {status}";
+				}
+
 				block.MoveItemsToConstructionStockpile(inventory);
 
 				var pbi = block.Integrity;
 
-				block.IncreaseMountLevel(weldAmount, character.ControllerInfo.ControllingIdentityId, inventory, 1.0f);
+				welderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
 
-				if (block.Integrity >= block.MaxIntegrity)
-				{
-					DisableEffectAndSound();
+				bool stale = pbi == block.Integrity;
+				bool cancel = CancelRequested();
+				bool tooLong = Time.Now > timeout;
+				bool full = block.Integrity >= block.MaxIntegrity;
 
-					StringBuilder sb = new StringBuilder();
-					sb.Append($"Inventory change:\n");
-					InventoryDelta(inventory, current, -1);
-					InventoryDiff(current, sb);
-					sb.Append("Done! Block integrity is full.");
-
-					yield return sb.ToString();
-				}
-				else if (block.Integrity == pbi)
-				{
-					DisableEffectAndSound();
-
-					var p0 = integrity0 / block.MaxIntegrity;
-					var p1 = block.Integrity / block.MaxIntegrity;
+				if (stale || tooLong || cancel || full)
+				{	
+					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 
 					StringBuilder sb = new StringBuilder();
 					sb.Append($"Inventory change:\n");
 					InventoryDelta(inventory, current, -1);
 					InventoryDiff(current, sb);
-					sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n{MissingComponentsText(block)}");
+
+					if(full) sb.Append("Done! Block integrity is full.");
+					else
+					{	var p0 = integrity0 / block.MaxIntegrity;
+						var p1 = block.Integrity / block.MaxIntegrity;
+						sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n{MissingComponentsText(block)}");
+					}
 
 					yield return sb.ToString();
 				}
