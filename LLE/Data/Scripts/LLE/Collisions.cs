@@ -44,8 +44,6 @@ namespace LLE
 					}
 					var subtypeId = MyStringHash.GetOrCompute(kv.Key.SubtypeId);
 
-					// XX: default collision is cube.
-
 					PreprocessCG(kv.Value);
 
 					var defId = new MyDefinitionId(typeId, subtypeId);
@@ -316,6 +314,22 @@ namespace LLE
 			if (bestLocalCenter == null) return false;
 			result = Vector3D.Transform(new Vector3D(bestLocalCenter.Value), blockMatrix);
 			return true;
+		}
+
+		// Returns the best available world-space target point for a block:
+		// nearest collision center, or model AABB center, or cell center.
+		public static Vector3D GetGrindWeldTarget(IMySlimBlock block, Vector3D worldPoint)
+		{
+			Vector3D result;
+			if (GetNearestCollisionCenter(block, worldPoint, out result))
+				return result;
+
+			var fat = block.FatBlock;
+			if (fat != null)
+				return fat.PositionComp.WorldAABB.Center;
+
+			block.ComputeWorldCenter(out result);
+			return result;
 		}
 
 		private static Vector3 GetShapeLocalCenter(CollisionShape shape)

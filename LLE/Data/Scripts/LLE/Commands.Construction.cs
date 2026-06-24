@@ -9,7 +9,6 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Definitions;
 using Sandbox.Game;
-using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Weapons;
 
@@ -40,7 +39,7 @@ namespace LLE
 
 			if (targetDefId == null) return false;
 
-			var controller = character as IMyControllableEntity;
+			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
 			if (!controller.CanSwitchToWeapon(targetDefId.Value)) return false;
 			
 			controller.SwitchToWeapon(targetDefId.Value);
@@ -70,9 +69,7 @@ namespace LLE
 			var grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
-			Vector3D bp;
-			if(!Collisions.GetNearestCollisionCenter(block, GetEngineerCenter(), out bp))
-				block.ComputeWorldCenter(out bp); // XXX Incorrect, e.g. lamps and cameras lack collisions and are off-center.
+			Vector3D bp = Collisions.GetGrindWeldTarget(block, GetEngineerCenter());
 
 			SetPause(1.5);
 			while(IsPaused())
@@ -239,9 +236,7 @@ namespace LLE
 			// Check if block can accept components from inventory
 			if (!block.CanContinueBuild(inventory)) yield return MissingComponentsText(block);
 
-			Vector3D bp;
-			if(!Collisions.GetNearestCollisionCenter(block, GetEngineerCenter(), out bp))
-				block.ComputeWorldCenter(out bp);
+			Vector3D bp = Collisions.GetGrindWeldTarget(block, GetEngineerCenter());
 
 			SetPause(1.0);
 			while (IsPaused())
