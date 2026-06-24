@@ -65,17 +65,17 @@ namespace LLE
 				yield return  "Cannot equip grinder. Do you have a handheld angle grinder in your inventory?";
 
 			var inventory = character.GetInventory();
-			if (inventory == null) yield return IE_NO_INVENTORY;
+			if(inventory == null) yield return IE_NO_INVENTORY;
 
 			var grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-			if (grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
+			if(grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
 			Vector3D bp;
 			if(!Collisions.GetNearestCollisionCenter(block, GetEngineerCenter(), out bp))
-				block.ComputeWorldCenter(out bp);
+				block.ComputeWorldCenter(out bp); // Wrong! Check light
 
 			SetPause(1.5);
-			while (IsPaused())
+			while(IsPaused())
 			{
 				CharacterRotateTo(bp);
 				yield return null;
@@ -89,7 +89,7 @@ namespace LLE
 			var current = new Dictionary<string, double>();
 			InventoryDelta(inventory, current, +1);
 
-			Dictionary<string, int> stock = new Dictionary<string, int>();
+			Dictionary<string, int> stockpile = new Dictionary<string, int>();
 
 			var timeout = Time.Now + 20;
 
@@ -107,21 +107,22 @@ namespace LLE
 					yield return $"Tool status: {status}";
 				}
 
-				// Check if inventory can accept at least one unit of any stockpile component
-				bool canAccept = false;
-				GetStockpileComponents(block, stock);
-				var def = block.BlockDefinition as MyCubeBlockDefinition;
 				var myInv = inventory as MyInventory;
 				if(myInv == null) yield break;
 
+				bool inventoryFull = false;
+
+				GetStockpileComponents(block, stockpile);
+
+				var def = block.BlockDefinition as MyCubeBlockDefinition;
 				foreach (var c in def.Components)
 				{	var k = c.Definition.Id.SubtypeName;
 
-					if(stock[k] == 0) continue;
+					if (stockpile[k] == 0) continue;
 
-					if (myInv.ComputeAmountThatFits(c.Definition.Id) <= 0) continue;
-					
-					canAccept = true;
+					if (myInv.ComputeAmountThatFits(c.Definition.Id) > 0) continue;
+
+					inventoryFull = true;
 					break;
 				}
 
@@ -129,7 +130,7 @@ namespace LLE
 				bool tooLong = Time.Now > timeout;
 				bool removed = block.IsDestroyed && block.StockpileEmpty;
 
-				if (!canAccept || tooLong || cancel || removed)
+				if (inventoryFull || tooLong || cancel || removed)
 				{	
 					grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 					
@@ -144,7 +145,7 @@ namespace LLE
 					InventoryDelta(inventory, current, -1);
 					InventoryDiff(current, sb);
 
-					if(!canAccept) sb.Append($"Your inventory is full.\n");
+					if(inventoryFull) sb.Append($"Your inventory is full.\n");
 					if(tooLong) sb.Append($"Error: Timeout!\n");
 					if(cancel) sb.Append($"Cancelled by user.\n");
 					if(removed) sb.Append($"Done! {Commands.Name(block)} has been removed.");
