@@ -132,12 +132,12 @@ namespace LLE
 				{	
 					grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 					
-					var p0 = integrity0 / block.MaxIntegrity;
-					var p1 = block.Integrity / block.MaxIntegrity;
-
 					StringBuilder sb = new StringBuilder();
 					if(!removed)
+					{	var p0 = integrity0 / block.MaxIntegrity;
+						var p1 = block.Integrity / block.MaxIntegrity;
 						sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
+					}
 					sb.Append($"Inventory change:\n");
 
 					InventoryDelta(inventory, current, -1);
@@ -146,7 +146,7 @@ namespace LLE
 					if(inventoryFull) sb.Append($"Your inventory is full.\n");
 					if(tooLong) sb.Append($"Error: Timeout!\n");
 					if(cancel) sb.Append($"Cancelled by user.\n");
-					if(removed) sb.Append($"Done! {Commands.Name(block)} has been removed.");
+					if(removed) sb.Append($"Done! {Name(block)} has been removed.");
 
 					if(removed)
 					{	block.SpawnConstructionStockpile();
