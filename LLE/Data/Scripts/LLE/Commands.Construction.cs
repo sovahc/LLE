@@ -108,10 +108,11 @@ namespace LLE
 					}
 				}
 
-				bool tooLong = Time.Now > timeout;
 				bool cancel = CancelRequest();
+				bool tooLong = Time.Now > timeout;
+				bool removed = block.IsDestroyed && block.StockpileEmpty;
 
-				if (!canAccept || tooLong || cancel)
+				if (!canAccept || tooLong || cancel || removed)
 				{	
 					grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 					
@@ -119,7 +120,8 @@ namespace LLE
 					var p1 = block.Integrity / block.MaxIntegrity;
 
 					StringBuilder sb = new StringBuilder();
-					sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
+					if(!removed)
+						sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
 					sb.Append($"Inventory change:\n");
 
 					InventoryDelta(inventory, current, -1);
@@ -128,6 +130,12 @@ namespace LLE
 					if(!canAccept) sb.Append($"Your inventory is full.\n");
 					if(tooLong) sb.Append($"Error: Timeout!\n");
 					if(cancel) sb.Append($"Cancelled by user.\n");
+					if(removed) sb.Append($"Done! {Commands.Name(block)} has been removed.");
+
+					if(removed)
+					{	block.SpawnConstructionStockpile();
+						block.CubeGrid.RazeBlock(block.Min);
+					}
 
 					yield return sb.ToString();
 				}
@@ -140,25 +148,6 @@ namespace LLE
 				{	grinderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
 
 					block.MoveItemsFromConstructionStockpile(inventory);
-				}
-
-				// Handle block destruction
-				if (block.IsDestroyed && block.StockpileEmpty)
-				{	
-					grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
-					
-					block.SpawnConstructionStockpile();
-					block.CubeGrid.RazeBlock(block.Min);
-
-					StringBuilder sb = new StringBuilder();
-					sb.Append($"Inventory change:\n");
-
-					InventoryDelta(inventory, current, -1);
-					InventoryDiff(current, sb);
-
-					sb.Append($"Done! {Commands.Name(block)} has been removed.");
-
-					yield return sb.ToString();
 				}
 
 				yield return null;
