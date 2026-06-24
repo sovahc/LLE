@@ -168,8 +168,10 @@ namespace LLE
 
 			if(IsTooFar(ijk, out message)) yield return message;
 
+			Vector3D ec = Utilities.GetEngineerCenter(character);
 			Vector3D bp;
-			block.ComputeWorldCenter(out bp);
+			if(!Collisions.GetNearestDetectorCenterByPrefix(block, ec, "conveyor_", out bp))
+				block.ComputeWorldCenter(out bp);
 
 			SetPause(2.0);
 			while(IsPaused())
@@ -195,7 +197,7 @@ namespace LLE
 			sb.Append($"Transferring from {fromName} into your inventory\n");
 
 			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
-			
+
 			yield return sb.ToString();
 		}
 
@@ -236,8 +238,10 @@ namespace LLE
 
 			if(IsTooFar(ijk, out message)) yield return message;
 
+			Vector3D ec = Utilities.GetEngineerCenter(character);
 			Vector3D bp;
-			block.ComputeWorldCenter(out bp);
+			if(!Collisions.GetNearestDetectorCenterByPrefix(block, ec, "conveyor_", out bp))
+				block.ComputeWorldCenter(out bp);
 
 			SetPause(2.0);
 			while(IsPaused())
