@@ -64,25 +64,14 @@ namespace LLE
 			var inventory = character.GetInventory();
 			if (inventory == null) yield return IE_NO_INVENTORY;
 
-			var equippedTool = character.EquippedTool as IMyAngleGrinder;
-			if (equippedTool == null) yield return "Internal error: equippedTool is not IMyAngleGrinder";
-
-			float speedMultiplier = 1.0f;
-
-			var item = MyDefinitionManager.Static.GetPhysicalItemForHandItem(equippedTool.DefinitionId);
-			var itemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(item.Id);
-			var toolBaseDef = itemDef as MyEngineerToolBaseDefinition;
-
-			if (toolBaseDef != null)
-				speedMultiplier = toolBaseDef.SpeedMultiplier;
-
-			float grindAmount = Constants.WeldAndGrindSpeed * speedMultiplier * MyAPIGateway.Session.GrinderSpeedMultiplier;
+			var grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
+			if (grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
 			Vector3D bp;
 			if(!Collisions.GetNearestCollisionCenter(block, GetEngineerCenter(), out bp))
 				block.ComputeWorldCenter(out bp);
 
-			SetPause(1.0);
+			SetPause(1.5);
 			while (IsPaused())
 			{
 				CharacterRotateTo(bp);
@@ -92,12 +81,7 @@ namespace LLE
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
-			// Apply grinding
-
 			var integrity0 = block.Integrity;
-			
-			EnableEffect(block, MyParticleEffectsNameEnum.ShipGrinder);
-			EnableSound("ToolPlayGrindMetal");
 
 			var current = new Dictionary<string, double>();
 			InventoryDelta(inventory, current, +1);
@@ -105,7 +89,7 @@ namespace LLE
 			Dictionary<string, int> stock = new Dictionary<string, int>();
 
 			for(;;)
-			{	
+			{
 				// Check if inventory can accept at least one unit of any stockpile component
 				GetStockpileComponents(block, stock);
 
@@ -113,7 +97,7 @@ namespace LLE
 				bool canAccept = false;
 				foreach (var c in def.Components)
 				{	var k = c.Definition.Id.SubtypeName;
-				
+
 					if(stock[k] == 0) continue;
 
 					if(inventory.CanItemsBeAdded(1, c.Definition.Id))
@@ -121,9 +105,11 @@ namespace LLE
 						break;
 					}
 				}
-				if (!canAccept)
-				{	DisableEffectAndSound();
 
+				if (!canAccept)
+				{	
+					grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
+					
 					var p0 = integrity0 / block.MaxIntegrity;
 					var p1 = block.Integrity / block.MaxIntegrity;
 
@@ -139,13 +125,20 @@ namespace LLE
 					yield return sb.ToString();
 				}
 
-				block.DecreaseMountLevel(grindAmount, inventory);
-				block.MoveItemsFromConstructionStockpile(inventory);
+				// Native grinding: Shoot activates the tool (spinning disc, sound, particles)
+				// and after preheat the tool grinds the raycast-hit block itself.
+				// CanShoot enforces ToolCooldownMs (250ms) so Grind doesn't fire every tick.
+				MyGunStatusEnum status;
+				if (grinderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
+				{	grinderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
+
+					block.MoveItemsFromConstructionStockpile(inventory);
+				}
 
 				// Handle block destruction
 				if (block.IsDestroyed && block.StockpileEmpty)
-				{
-					DisableEffectAndSound();
+				{	
+					grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 					
 					block.SpawnConstructionStockpile();
 					block.CubeGrid.RazeBlock(block.Min);

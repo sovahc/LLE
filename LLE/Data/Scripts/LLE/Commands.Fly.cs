@@ -249,7 +249,8 @@ namespace LLE
 
 		public void CharacterRotateTo(Vector3D target)
 		{
-			var cm = character.GetHeadMatrix(false, false);
+			//var cm = character.GetHeadMatrix(false, false);
+			var cm = character.GetHeadMatrix(true, true);
 			var center = cm.Translation;
 
 			Vector2 rotation;
