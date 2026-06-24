@@ -72,7 +72,7 @@ namespace LLE
 
 			Vector3D bp;
 			if(!Collisions.GetNearestCollisionCenter(block, GetEngineerCenter(), out bp))
-				block.ComputeWorldCenter(out bp); // Wrong! Check light
+				block.ComputeWorldCenter(out bp); // XXX Incorrect, e.g. lamps and cameras lack collisions and are off-center.
 
 			SetPause(1.5);
 			while(IsPaused())
@@ -212,7 +212,7 @@ namespace LLE
 			if (block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			if (block.Integrity >= block.MaxIntegrity)
-				yield return "The block is fully intact; No repairs needed.";
+				yield return "The block is fully intact; no repairs needed.";
 
 			if (IsTooFar(ijk, out message)) yield return message;
 
