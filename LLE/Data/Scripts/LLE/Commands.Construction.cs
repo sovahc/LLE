@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Text;
 
 using VRageMath;
+using Sandbox.Game.Entities;
+
 using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Definitions;
@@ -11,6 +13,7 @@ using Sandbox.ModAPI;
 using Sandbox.ModAPI.Weapons;
 
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
+using Sandbox.Game;
 
 namespace LLE
 {
@@ -102,7 +105,8 @@ namespace LLE
 
 					if(stock[k] == 0) continue;
 
-					if(inventory.CanItemsBeAdded(1, c.Definition.Id))
+					var myInv = inventory as MyInventory;
+					if (myInv != null && myInv.ComputeAmountThatFits(c.Definition.Id) > 0)
 					{	canAccept = true;
 						break;
 					}
