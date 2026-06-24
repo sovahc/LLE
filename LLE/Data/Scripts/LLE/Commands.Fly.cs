@@ -7,7 +7,6 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Character.Components;
-using Sandbox.ModAPI;
 
 namespace LLE
 {
@@ -219,8 +218,7 @@ namespace LLE
 		{
 			if(micro.Arrived()) return $"Arrived. Position: {CharacterCellText()}";
 
-			if(MyAPIGateway.Input.IsNewLeftMousePressed() ||
-				MyAPIGateway.Input.IsNewRightMousePressed())
+			if(CancelRequest())
 			{	micro.Stop();
 				return $"Cancelled by user. Current position: {CharacterCellText()}";
 			}

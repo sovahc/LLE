@@ -10,6 +10,7 @@ using VRage.Game.ModAPI;
 using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
 
 namespace LLE
 {
@@ -52,6 +53,10 @@ namespace LLE
 		public Vector3D GetEngineerCenter()
 		{
 			return character.GetPosition() + Constants.EngineerHeight/2 * character.WorldMatrix.Up;
+		}
+
+		public bool CancelRequest()
+		{	return MyAPIGateway.Input.IsNewLeftMousePressed() || MyAPIGateway.Input.IsNewRightMousePressed();
 		}
 
 		internal string Help()

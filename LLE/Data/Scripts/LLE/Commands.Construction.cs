@@ -88,6 +88,8 @@ namespace LLE
 
 			Dictionary<string, int> stock = new Dictionary<string, int>();
 
+			var timeout = Time.Now + 20;
+
 			for(;;)
 			{
 				// Check if inventory can accept at least one unit of any stockpile component
@@ -106,7 +108,10 @@ namespace LLE
 					}
 				}
 
-				if (!canAccept)
+				bool tooLong = Time.Now > timeout;
+				bool cancel = CancelRequest();
+
+				if (!canAccept || tooLong || cancel)
 				{	
 					grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 					
@@ -120,7 +125,9 @@ namespace LLE
 					InventoryDelta(inventory, current, -1);
 					InventoryDiff(current, sb);
 
-					sb.Append($"Your inventory is full.\n");
+					if(!canAccept) sb.Append($"Your inventory is full.\n");
+					if(tooLong) sb.Append($"Error: Timeout!\n");
+					if(cancel) sb.Append($"Cancelled by user.\n");
 
 					yield return sb.ToString();
 				}
