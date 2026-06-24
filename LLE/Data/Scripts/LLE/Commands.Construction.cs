@@ -184,18 +184,20 @@ namespace LLE
 			foreach (var kv in missing) components[kv.Key] -= kv.Value;
 		}
 	
-		internal static string MissingComponentsText(IMySlimBlock block)
+		internal static void AddMissingComponentsString(IMySlimBlock block, StringBuilder result)
 		{	Dictionary<string, int> missing = new Dictionary<string, int>();
 			block.GetMissingComponents(missing);
 
-			StringBuilder sb = new StringBuilder();
+			result.Append("Missing components: ");
+
 			bool first = true;
 			foreach (var kv in missing)
-			{	if (!first) sb.Append(", ");
-				sb.Append($"{kv.Value} {Quote(kv.Key)}");
+			{	if (!first) result.Append(", ");
+				result.Append($"{kv.Value} {Quote(kv.Key)}");
 				first = false;
 			}
-			return $"Missing: {sb.ToString()}";
+			if(first) result.Append("-- none --");
+			result.Append("\n");
 		}
 
 		internal IEnumerator Weld(TokenParser tp)
@@ -236,8 +238,13 @@ namespace LLE
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
-			// Check if block can accept components from inventory
-			if (!block.CanContinueBuild(inventory)) yield return MissingComponentsText(block);
+			if (!block.CanContinueBuild(inventory))
+			{	StringBuilder sb = new StringBuilder();
+				sb.Append("You don't have the required components in your inventory\n");
+				AddMissingComponentsString(block, sb);
+				
+				yield return sb.ToString();
+			}
 
 			var current = new Dictionary<string, double>();
 			InventoryDelta(inventory, current, +1);
@@ -274,15 +281,17 @@ namespace LLE
 					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 
 					StringBuilder sb = new StringBuilder();
-					sb.Append($"Inventory change:\n");
-					InventoryDelta(inventory, current, -1);
-					InventoryDiff(current, sb);
+
+					if(tooLong) sb.Append($"Error: Timeout!\n");
+					if(cancel) sb.Append($"Cancelled by user.\n");
 
 					if(full) sb.Append("Done! Block integrity is full.");
 					else
 					{	var p0 = integrity0 / block.MaxIntegrity;
 						var p1 = block.Integrity / block.MaxIntegrity;
-						sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n{MissingComponentsText(block)}");
+						sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
+
+						if(stale) AddMissingComponentsString(block, sb);
 					}
 
 					yield return sb.ToString();
