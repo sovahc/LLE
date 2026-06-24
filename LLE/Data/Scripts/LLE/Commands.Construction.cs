@@ -160,7 +160,6 @@ namespace LLE
 				// Native grinding: Shoot activates the tool (spinning disc, sound, particles)
 				// and after preheat the tool grinds the raycast-hit block itself.
 				grinderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
-				//block.MoveItemsFromConstructionStockpile(inventory);
 
 				yield return null;
 			}
