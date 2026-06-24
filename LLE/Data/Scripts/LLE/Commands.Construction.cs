@@ -9,8 +9,6 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Definitions;
 using Sandbox.Game;
-using Sandbox.ModAPI;
-using Sandbox.ModAPI.Weapons;
 
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 
