@@ -70,6 +70,7 @@ namespace LLE
 			if(grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
 			Vector3D bp = Collisions.GetGrindWeldTarget(block, GetEngineerCenter());
+			// XX additionally verify that the block is actually raycastable
 
 			SetPause(1.5);
 			while(IsPaused())
