@@ -98,7 +98,7 @@ namespace LLE
 			{	var block = grid.GetCubeBlock(astarStart.Value);
 				if(block != null)
 				{
-					Collisions.Draw(grid, block);
+					Collisions.Draw(block);
 
 					Vector3D v;
 					if(Collisions.GetNearestCollisionCenter(block, queryPoint, out v))
@@ -106,6 +106,11 @@ namespace LLE
 
 					if(Collisions.GetNearestDetectorCenterByPrefix(block, queryPoint, "conveyor_", out v))
 						Drawing.RoundMarker(v, Color.Yellow);
+
+					List<Vector3I> ip = new List<Vector3I>();
+					Collisions.GetInteractionPoints(block, ip);
+					foreach(var p in ip)
+						Utilities.HighlightCell(grid, p, Color.Yellow);
 				}
 			}
 		}

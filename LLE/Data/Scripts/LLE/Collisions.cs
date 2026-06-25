@@ -67,8 +67,9 @@ namespace LLE
 			return worldMatrix;
 		}
 
-		public static void Draw(IMyCubeGrid grid, IMySlimBlock block)
+		public static void Draw(IMySlimBlock block)
 		{
+			IMyCubeGrid grid = block.CubeGrid;
 			CollisionGeometry geometry;
 			var id = block.BlockDefinition.Id;
 
@@ -77,7 +78,7 @@ namespace LLE
 		}
 
 		private static void DrawConvexOutline(List<Vector3> localVerts, Matrix localTransform,
-		                                      MatrixD blockMatrix, float epsilon, Vector4 color)
+											  MatrixD blockMatrix, float epsilon, Vector4 color)
 		{
 			var worldVerts = localVerts.Select(v => 
 				Vector3D.Transform(new Vector3D(Vector3.Transform(v, localTransform)), blockMatrix)).ToList();
@@ -232,7 +233,7 @@ namespace LLE
 			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.Black : Color.Green);
 		}
 
-		public static bool CheckWorldSphere(IMyCubeGrid grid, IMySlimBlock block, Vector3D worldCenter, double radius)
+		public static bool CheckWorldSphere(IMySlimBlock block, Vector3D worldCenter, double radius)
 		{
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
@@ -278,6 +279,31 @@ namespace LLE
 			if (bestLocalCenter == null) return false;
 			result = Vector3D.Transform(new Vector3D(bestLocalCenter.Value), blockMatrix);
 			return true;
+		}
+
+		public static void GetInteractionPoints(IMySlimBlock block, List<Vector3I> output)
+		{
+			var grid = block.CubeGrid;
+
+			var min = block.Min-1;
+			var max = block.Max+1;
+
+			var iter = new Vector3I_RangeIterator(ref min, ref max);
+			for (; iter.IsValid(); iter.MoveNext())
+			{
+				var ijk = iter.Current;
+
+				var b = grid.GetCubeBlock(ijk);
+				if(b != null && !CenterIsFree(b, ijk)) continue;
+
+				Vector3D world = grid.GridIntegerToWorld(ijk);
+				Vector3D conveyorWorld;
+				if(!GetNearestDetectorCenterByPrefix(block, world, "conveyor_", out conveyorWorld)) continue;
+
+				if((world - conveyorWorld).Length() > 2) continue;
+
+				output.Add(ijk);
+			}
 		}
 
 		// Return the world-space center of the nearest detector whose name starts with `namePrefix`.
