@@ -58,13 +58,18 @@ namespace LLE
 			if (Time.Now < nextReport) return;
 			nextReport = Time.Now + 2.5;
 
+			Set_food_and_oxygen_to_maximum();
+
+			MakeReport();
+		}
+
+		private void Set_food_and_oxygen_to_maximum()
+		{
 			var sc = character.Components?.Get<MyCharacterStatComponent>();
 			if (sc?.Food != null) sc.Food.Value = sc.Food.MaxValue;
 
 			var oc = character.Components?.Get<MyCharacterOxygenComponent>();
 			if (oc != null) oc.SuitOxygenLevel = 1f;
-
-			MakeReport();
 		}
 
 		private void MakeReport()
