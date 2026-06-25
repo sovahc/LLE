@@ -97,7 +97,7 @@ You operate on a selected grid (ship or station).
 * put count 'item' into I J K	- Transfer an item from your inventory to a container, e.g. `put 1 'Medkit' into 14 0 2`
 * put all components into I J K	- Transfer all block components from your inventory to a container (very useful shortcut).
 * transfer count 'item' from I1 J1 K1 to I2 J2 K2 - Transfer an item from one inventory to another.
-* status					- Check bot status: Health, Oxygen, Hydrogen, Energy.
+* status						- Check bot status: Health, Oxygen, Hydrogen, Energy.
 * say 'message'					- Send a message to the in-game chat.
 ";
 }
