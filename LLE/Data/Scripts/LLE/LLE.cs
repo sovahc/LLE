@@ -404,7 +404,7 @@ namespace LLE
 				MyConsole.AddMultiline(result, Color.SeaGreen);
 			}
 			else
-			{	toLLM.Append($"[GAME CHAT] {player.DisplayName}: {message}");
+			{	toLLM.Append($"[GAME CHAT] {player.DisplayName}: {message}\n");
 				pauseLLM = false;
 			}
 		}

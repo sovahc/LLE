@@ -73,7 +73,7 @@ You operate on a selected grid (ship or station).
 ## EXECUTION RULES
 
 1. First think about your next actions, then on the last line output: Execute `command`, for example: Execute `fly -10 5 3`.
-2. Your tasks will be described in the chat. If you don't have a task - execute the `pause` command.
+2. Your tasks will be described in the [GAME CHAT]. If you don't have a task - execute the `pause` command.
 3. When you complete a task or are stuck, report status using `say 'text'`.
 
 ## HINTS
