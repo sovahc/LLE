@@ -39,7 +39,7 @@ namespace LLE
 
 		public static void Add(string text, Color color)
 		{
-			Utilities.Log(text);
+			LLE.Log(text);
 			AddMultiline(text, color);
 			AddMultiline("\n", color);
 		}

@@ -36,7 +36,7 @@ namespace LLE
 
 			Vector3I gridSize = grid.Max - grid.Min + 1;
 
-			Utilities.Log($"RunAstar {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
+			LLE.Log($"RunAstar {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
 
 			var astarSize = gridSize + AStarBorder + AStarBorder;
 

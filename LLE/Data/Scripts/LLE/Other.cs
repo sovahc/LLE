@@ -34,8 +34,6 @@ namespace LLE
 
 	static class Utilities
 	{
-		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
-
 		public static int IndexOf(this StringBuilder sb, char c, int startIndex = 0)
 		{
 			for (int i = startIndex; i < sb.Length; ++i)

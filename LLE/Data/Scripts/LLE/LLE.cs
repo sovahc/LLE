@@ -125,7 +125,7 @@ namespace LLE
 
 		private bool pauseLLM;
 
-		public static void Log(string s) => Utilities.Log(s);
+		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
 		{

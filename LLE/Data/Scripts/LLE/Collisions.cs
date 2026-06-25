@@ -39,7 +39,7 @@ namespace LLE
 					MyObjectBuilderType typeId;
 					if (!MyObjectBuilderType.TryParse(kv.Key.TypeId, out typeId))
 					{
-						Utilities.Log($"Error: Failed to parse TypeId: {kv.Key.TypeId}");
+						LLE.Log($"Error: Failed to parse TypeId: {kv.Key.TypeId}");
 						continue;
 					}
 					var subtypeId = MyStringHash.GetOrCompute(kv.Key.SubtypeId);
