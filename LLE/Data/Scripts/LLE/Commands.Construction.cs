@@ -87,8 +87,6 @@ namespace LLE
 
 			Dictionary<string, int> stockpile = new Dictionary<string, int>();
 
-			var timeout = Time.Now + 30;
-
 			for(;;)
 			{
 				// CanShoot enforces ToolCooldownMs (250ms) so Grind doesn't fire every tick.
@@ -122,11 +120,18 @@ namespace LLE
 					break;
 				}
 
+				var pbi = block.Integrity;
+
+				// Native grinding: Shoot activates the tool (spinning disc, sound, particles)
+				// and after preheat the tool grinds the raycast-hit block itself.
+				if(!inventoryFull)
+					grinderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
+
+				bool stale = pbi == block.Integrity;
 				bool cancel = CancelRequested();
-				bool tooLong = Time.Now > timeout;
 				bool removed = block.IsDestroyed && block.StockpileEmpty;
 
-				if (inventoryFull || tooLong || cancel || removed)
+				if (inventoryFull || stale || cancel || removed)
 				{	
 					grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 					
@@ -141,9 +146,10 @@ namespace LLE
 					InventoryDelta(inventory, current, -1);
 					InventoryDiff(current, sb);
 
-					if(inventoryFull) sb.Append($"Your inventory is full.\n");
-					if(tooLong) sb.Append($"Error: Timeout!\n");
-					if(cancel) sb.Append($"Cancelled by user.\n");
+					if(inventoryFull) sb.Append("Your inventory is full.\n");
+					else if(stale) sb.Append("No progress!\n");
+					
+					if(cancel) sb.Append("Cancelled by user.\n");
 					if(removed) sb.Append($"Done! {Name(block)} has been removed.");
 
 					if(removed)
@@ -153,10 +159,6 @@ namespace LLE
 
 					yield return sb.ToString();
 				}
-
-				// Native grinding: Shoot activates the tool (spinning disc, sound, particles)
-				// and after preheat the tool grinds the raycast-hit block itself.
-				grinderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
 
 				yield return null;
 			}
@@ -247,7 +249,6 @@ namespace LLE
 			var current = new Dictionary<string, double>();
 			InventoryDelta(inventory, current, +1);
 
-			var timeout = Time.Now + 30;
 			var integrity0 = block.Integrity;
 
 			for (;;)
@@ -271,17 +272,15 @@ namespace LLE
 
 				bool stale = pbi == block.Integrity;
 				bool cancel = CancelRequested();
-				bool tooLong = Time.Now > timeout;
 				bool full = block.Integrity >= block.MaxIntegrity;
 
-				if (stale || tooLong || cancel || full)
+				if (stale || cancel || full)
 				{	
 					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 
 					StringBuilder sb = new StringBuilder();
 
-					if(tooLong) sb.Append($"Error: Timeout!\n");
-					if(cancel) sb.Append($"Cancelled by user.\n");
+					if(cancel) sb.Append("Cancelled by user.\n");
 
 					if(full) sb.Append("Done! Block integrity is full.");
 					else
