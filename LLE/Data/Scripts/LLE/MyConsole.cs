@@ -9,13 +9,19 @@ namespace LLE
 {
     class MyConsole
 	{
-		struct LineData
+		struct Segment
 		{
 			public string Text;
 			public Color Color;
 		}
 
-		private static readonly List<LineData> _lines = new List<LineData>();
+		class Line
+		{
+			public readonly List<Segment> Segments = new List<Segment>();
+			public int Length;
+		}
+
+		private static readonly List<Line> _lines = new List<Line>();
 		private const int MaxLines = 100;
 		private const int MaxLineWidth = 80;
 
@@ -38,32 +44,33 @@ namespace LLE
 			AddMultiline("\n", color);
 		}
 
-		public static void AddNewLine(Color color)
-		{   _lines.Add(new LineData { Text = "", Color = color });
+		public static void AddNewLine()
+		{   _lines.Add(new Line());
 		}
 
 		public static void AddMultiline(string chunk, Color color)
 		{
 			if (chunk == null) return;
-			if (_lines.Count == 0) AddNewLine(color);
+			if (_lines.Count == 0) AddNewLine();
 
 			var lines = chunk.Split('\n');
-			for (int li = 0; li < lines.Length; li++)
+			for (int lineIndex = 0; lineIndex < lines.Length; ++lineIndex)
 			{
-				var segment = lines[li];
+				var ss = lines[lineIndex];
 
-				while (segment.Length > 0)
+				while (ss.Length > 0)
 				{
-					var last = _lines[_lines.Count - 1];
-					int freeSpace = MaxLineWidth - last.Text.Length;
-					if (freeSpace <= 0) { AddNewLine(color); continue; }
+					var lastLine = _lines[_lines.Count - 1];
+					int freeSpace = MaxLineWidth - lastLine.Length;
+					if (freeSpace <= 0) { AddNewLine(); continue; }
 
-					int take = Math.Min(segment.Length, freeSpace);
-					_lines[_lines.Count - 1] = new LineData { Text = last.Text + segment.Substring(0, take), Color = color };
-					segment = segment.Substring(take);
+					int take = Math.Min(ss.Length, freeSpace);
+					lastLine.Segments.Add(new Segment { Text = ss.Substring(0, take), Color = color });
+					lastLine.Length += take;
+					ss = ss.Substring(take);
 				}
 
-				if (li < lines.Length - 1) AddNewLine(color);
+				if (lineIndex < lines.Length - 1) AddNewLine();
 			}
 
 			while (_lines.Count > MaxLines) _lines.RemoveAt(0);
@@ -81,12 +88,23 @@ namespace LLE
 			float rectangleH = _lines.Count * lineStep;
 			float rectangleW = 0;
 
-			for (int i = 0; i < _lines.Count; ++i)
+			for (int lineIndex = 0; lineIndex < _lines.Count; ++lineIndex)
 			{
-				var line = _lines[_lines.Count - i - 1];
-				float y = y0 + i * lineStep;
-				var w = font.String(line.Text, new Vector2D(x0, y), scale, line.Color);
-				if (w > rectangleW) rectangleW = w;
+				var line = _lines[_lines.Count - lineIndex - 1];
+				float y = y0 + lineIndex * lineStep;
+				float x = x0;
+
+				for (int sIndex = 0; sIndex < line.Segments.Count; ++sIndex)
+				{
+					var s = line.Segments[sIndex];
+					float width = font.String(s.Text, new Vector2D(x, y), scale, s.Color);
+
+					x += width;
+				}
+
+				float lineWidth = x - x0;
+
+				if (lineWidth > rectangleW) rectangleW = lineWidth;
 
 				if(y > 1) break;
 			}

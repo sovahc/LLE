@@ -392,10 +392,14 @@ namespace LLE
 			var player = MyAPIGateway.Session.Player;
 			if (player == null) return;
 
-			MyConsole.Add(message, Color.Magenta);
 			if(message.StartsWith(">"))
 			{	pauseLLM = true;
 				var command = message.Substring(1).Trim();
+
+				MyConsole.AddMultiline(">", Color.Red);
+				MyConsole.AddMultiline(command, Color.Magenta);
+				MyConsole.AddMultiline("\n", Color.Magenta);
+				
 				string result = commands.Execute(command);
 				MyConsole.AddMultiline(result, Color.SeaGreen);
 			}
