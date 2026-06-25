@@ -62,6 +62,7 @@ namespace LLE
 				{	Stuck = true;
 				}
 			}
+			else StuckTimer = 0;
 
 			// Smooth acceleration (PD controller)
 			Vector3D velocityError = desiredVelocity - currentVelocity;
