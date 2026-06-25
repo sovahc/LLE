@@ -66,14 +66,14 @@ You are an autonomous agent controlling a Space Engineer in-game character.
 Your goal is to execute instructions from the chat.
 
 ## ENVIRONMENT
-You are inside Space Engineers game.
+You are inside the Space Engineers game.
 You control a character that can fly, weld, grind, and manage inventories.
 You operate on a selected grid (ship or station).
 
 ## EXECUTION RULES
 
-1. First think about your next actions, then on the last line output: Execute `command`, for example: Execute `fly -10 5 3`.
-2. Your tasks will be described in the [GAME CHAT]. If you don't have a task - execute the `pause` command.
+1. First, think about your next actions. On the last line, output: Execute <command> (e.g., Execute fly -10 5 3).
+2. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
 3. When you complete a task or are stuck, report status using `say 'text'`.
 
 ## HINTS
@@ -85,7 +85,7 @@ You operate on a selected grid (ship or station).
 * select 'name'		    		- Select a large ship or station on which to grind, weld, fly, and perform other operations.
 * overview						- List grid blocks by category.
 * integrity						- Show damaged blocks on the selected grid.
-* fly I J K						- Fly to specific grid coordinates. e.g. `fly 10 -5 13`
+* fly I J K						- Fly to specific grid coordinates, e.g. `fly 10 -5 13`
 * grind I J K					- Grind a block at specific coordinates.
 * weld I J K					- Weld a block at specific coordinates.
 * near							- Return 6 accessible blocks around you and the block you are standing on.
@@ -93,9 +93,9 @@ You operate on a selected grid (ship or station).
 * inventory						- Return the items in your inventory.
 * inventory I J K				- Return the inventory of the container at specific coordinates.
 * inventories					- Return all inventories on the selected grid.
-* get count 'item' from I J K	- Transfer an item from a container to your inventory. e.g. `get 10 'Gold Ingot' from -1 5 2`
-* put count 'item' into I J K	- Transfer an item from your inventory to a container. e.g. `put 1 'Medkit' into 14 0 2`
-* put all components into I J K	- Transfer all blocks components from your inventory to a container (very useful shortcut).
+* get count 'item' from I J K	- Transfer an item from a container to your inventory, e.g. `get 10 'Gold Ingot' from -1 5 2`
+* put count 'item' into I J K	- Transfer an item from your inventory to a container, e.g. `put 1 'Medkit' into 14 0 2`
+* put all components into I J K	- Transfer all block components from your inventory to a container (very useful shortcut).
 * transfer count 'item' from I1 J1 K1 to I2 J2 K2 - Transfer an item from one inventory to another.
 * status					- Check bot status: Health, Oxygen, Hydrogen, Energy.
 * say 'message'					- Send a message to the in-game chat.
@@ -105,17 +105,17 @@ You operate on a selected grid (ship or station).
 /*
 * select_asteroid 'name'		- Select an asteroid on which to mine.
 * search 'substring'			- Search block coordinates by name.
-search ['substring']   - Find any objects by partial match. Ex: `search` (search anything), `search STATION`, `search Steel Plate`
+search ['substring']   - Find any objects by partial match. Ex: `search` (searches anything), `search STATION`, `search Steel Plate`
 info 'name'        - Get detailed information about a specific object.
-look at 'name'     - Rotate to face the object
+look at 'name'     - Rotate to face an object
 hack 'block_name'  - Grind a specific block just below the hacking point (weld it back to restore functionality).
 mine 'block_name'  - Mine a specific ore deposit.
 status             - Check bot status: Health, Oxygen, Hydrogen, Energy.
 pickup 'name'      - Pick up a specified object.
 drop 'name' [quantity|all] - Drop a specified object.
 ? move {forward|backward|left|right|up|down} {distance} - Move in a direction
-? recover from being stuck
-? save to memory 'string'
+? Recover from being stuck.
+? Save 'string' to memory.
 ! Pathfinding: safest (default) / shortest / scouting / prefer open space
 
 */
@@ -186,7 +186,11 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 			var grid = select as IMyCubeGrid;
 			if(grid != null)
-			{	Debug.Start(grid);
+			{	
+				if(grid.GridSizeEnum == MyCubeSize.Small)
+					return $"Operation on small grids is not supported yet.";
+				
+				Debug.Start(grid);
 				selectedGrid = grid;
 				selectedAsteroid = null;
 				return $"Selected {category} {Quote(name)}";
@@ -261,7 +265,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	
 				StringBuilder sb = new StringBuilder();
 				sb.Append($"You are too far from {Name(block)} to interact ({Distance(distance)})\n");
-				sb.Append($"Possible interaction points is: ");
+				sb.Append($"Possible interaction points are: ");
 					AppendNearbyFreeCells(ijk, sb);
 				message = sb.ToString();
 				return true;
@@ -281,9 +285,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			if (currentCommand == null) return null;
 
 			// yield return null; = wait
-			// yield retrurn string; = response to LLM
-			// yield break; = no respone, done
-			// ! Don't carry references to engine objects across `yield return null` that can be re-found.
+			// yield return string; = response to LLM
+			// yield break; = no response, done
+			// ! Re-query engine objects after `yield return null;` don't cache references.
 
 			if (currentCommand.MoveNext())
 			{	
