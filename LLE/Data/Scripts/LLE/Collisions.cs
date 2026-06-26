@@ -54,8 +54,7 @@ namespace LLE
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
 		}
 
-        // Returns a matrix that transforms from model space (canonical .sbc coordinates)
-        // to world space.
+        // Returns a matrix that transforms from model space to world space.
         private static MatrixD GetModelToWorldMatrix(IMySlimBlock block)
         {
             Matrix orientMatrix;
