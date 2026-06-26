@@ -21,9 +21,6 @@ namespace LLE
 		public const float EngineerHeight = 1.8f;
 		public const float CollisionProbeRadius = 0.6f;
 
-		public const float WeldAndGrindSpeed = 0.03f;
-		public const float SoundVolume = 0.5f;
-
 		public static readonly Vector3I[] SixDirections = new Vector3I[]
 		{	
 			new Vector3I(-1, 0, 0), new Vector3I(1, 0, 0),
