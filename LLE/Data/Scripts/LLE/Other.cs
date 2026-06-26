@@ -31,43 +31,6 @@ namespace LLE
 
 	static class Utilities
 	{
-		public static int IndexOf(this StringBuilder sb, char c, int startIndex = 0)
-		{
-			for (int i = startIndex; i < sb.Length; ++i)
-			{
-				if(sb[i] == c) return i;
-			}
-			return -1;
-		}
-
-		public static void MyRaycast(Vector3D origin, Vector3D direction,
-			out IMyCubeGrid grid, out Vector3I position, out Vector3I freeSpace, float range = 500)
-		{
-			grid = null;
-			position = Vector3I.Zero;
-			freeSpace = Vector3I.Zero;
-
-			IHitInfo hit;
-			MyAPIGateway.Physics.CastRay(origin, origin + direction * range, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
-
-			if (hit == null) return;
-
-			var g = hit.HitEntity.GetTopMostParent() as IMyCubeGrid;
-			if (g == null) return;
-
-			double dist;
-			IMySlimBlock slimBlock;
-			LineD line = new LineD(origin, origin + direction * range);
-			g.GetLineIntersectionExactAll(ref line, out dist, out slimBlock);
-
-			if (slimBlock == null) return;
-
-			grid = g;
-			position = grid.WorldToGridInteger(origin + direction * dist);
-
-			freeSpace = grid.WorldToGridInteger(origin + direction * (dist - grid.GridSize));
-		}
-
 		public static void HighlightCell(IMyCubeGrid grid, Vector3I position, Color color)
 		{
 			float blockSize = MyDefinitionManager.Static.GetCubeSize(grid.GridSizeEnum);
