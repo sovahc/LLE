@@ -76,6 +76,7 @@ namespace LLE
 	[ProtoContract]
 	public class SphereShape : CollisionShape
 	{
+		public Vector3 Center;
 		[ProtoMember(2)] public float Radius;
 		public override string ToString() => $"SphereShape: r={Radius}";
 	}

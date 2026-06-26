@@ -147,6 +147,7 @@ namespace LLE
 					for (int v = 0; v < vertices.Count; ++v)
 						vertices[v] = Vector3.Transform(vertices[v], box.Transform);
 					shapes[i] = new ConvexHullShape { Vertices = vertices };
+					continue;
 				}
 				var cylinder = shape as CylinderShape;
 				if (cylinder != null)
@@ -158,7 +159,9 @@ namespace LLE
 						vertices[v] = Vector3.Transform(vertices[v], cylinder.Transform);
 
 					shapes[i] = new ConvexHullShape { Vertices = vertices };
+					continue;
 				}
+				// XXX Capsule
 			}
 		}
 
@@ -197,7 +200,6 @@ namespace LLE
 				if (sphere != null && Intersections.SphereVsSphere(
 					center, radius, new Vector3D(sphere.Transform.Translation), sphere.Radius))
 					return true;
-				// XX Capsule
 			}
 			return false;
 		}
@@ -205,6 +207,21 @@ namespace LLE
 		private static bool ProbeIntersects(CollisionGeometry geometry, Vector3 center, double radius)
 		{
 			return ProbeIntersects(geometry, new Vector3D(center), radius);
+		}
+
+		private static bool LineIntersects(CollisionGeometry geometry, Vector3D start, Vector3D end)
+		{
+			foreach (var shape in geometry.Shapes)
+			{
+				var convex = shape as ConvexHullShape;
+				if (convex != null && Intersections.LineSegmentVsConvex(start, end, convex.Vertices))
+					return true;
+				var sphere = shape as SphereShape;
+				if (sphere != null && Intersections.LineSegmentVsSphere(
+					start, end, new Vector3D(sphere.Transform.Translation), sphere.Radius))
+					return true;
+			}
+			return false;
 		}
 
 		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
@@ -283,6 +300,9 @@ namespace LLE
 
 		public static void GetInteractionPoints(IMySlimBlock block, List<Vector3I> output)
 		{
+			string prefix1 = "conveyor_";
+			string prefix2 = "block_"; // recharge point
+
 			var grid = block.CubeGrid;
 
 			var min = block.Min-1;
@@ -297,10 +317,11 @@ namespace LLE
 				if(b != null && !CenterIsFree(b, ijk)) continue;
 
 				Vector3D world = grid.GridIntegerToWorld(ijk);
-				Vector3D conveyorWorld;
-				if(!GetNearestDetectorCenterByPrefix(block, world, "conveyor_", out conveyorWorld)) continue;
+				Vector3D ipWorld;
+				if(//!GetNearestDetectorCenterByPrefix(block, world, prefix1, out ipWorld) &&
+					!GetNearestDetectorCenterByPrefix(block, world, prefix2, out ipWorld)) continue;
 
-				if((world - conveyorWorld).Length() > 2) continue;
+				if((world - ipWorld).Length() > 2.75) continue;
 
 				output.Add(ijk);
 			}
