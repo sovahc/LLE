@@ -149,7 +149,7 @@ namespace LLE
 		}
 
 		// Bake shape transforms into vertex/center positions.
-		// After this, all geometry is in model space (canonical .sbc coordinates).
+		// After this, all geometry is in model space.
 		private static void PreprocessCG(CollisionGeometry geometry)
 		{
 			var shapes = geometry.Shapes;
