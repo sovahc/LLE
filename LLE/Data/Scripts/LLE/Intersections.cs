@@ -220,7 +220,7 @@ namespace LLE
 			v *= inverseDeterminant;
 
 			// Make sure it is inside the face
-			//if (v < 0 || u + v > 1) // original code
+			//if (v < 0 || u + v > 1) // original triangle code
 			if (v < 0 || v > 1) return null;
 
 			// Compute the distance along the ray to the parallelogram.
