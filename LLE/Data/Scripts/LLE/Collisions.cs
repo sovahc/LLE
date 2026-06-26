@@ -54,18 +54,20 @@ namespace LLE
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
 		}
 
-		private static MatrixD GetBlockWorldMatrix(IMySlimBlock block)
-		{
-			Matrix localMatrix;
-			block.Orientation.GetMatrix(out localMatrix);
+        // Returns a matrix that transforms from model space (canonical .sbc coordinates)
+        // to world space.
+        private static MatrixD GetModelToWorldMatrix(IMySlimBlock block)
+        {
+            Matrix orientMatrix;
+            block.Orientation.GetMatrix(out orientMatrix);
 
-			Vector3D worldCenter;
-			block.ComputeWorldCenter(out worldCenter);
+            Vector3D worldCenter;
+            block.ComputeWorldCenter(out worldCenter);
 
-			MatrixD worldMatrix = new MatrixD(localMatrix) * block.CubeGrid.WorldMatrix;
-			worldMatrix.Translation = worldCenter;
-			return worldMatrix;
-		}
+            MatrixD modelToWorld = new MatrixD(orientMatrix) * block.CubeGrid.WorldMatrix;
+            modelToWorld.Translation = worldCenter;
+            return modelToWorld;
+        }
 
 		public static void Draw(IMySlimBlock block)
 		{
@@ -74,31 +76,31 @@ namespace LLE
 			var id = block.BlockDefinition.Id;
 
 			if (_collisionGeometry.TryGetValue(id, out geometry))
-				Draw(geometry, GetBlockWorldMatrix(block));
+				Draw(geometry, GetModelToWorldMatrix(block));
 		}
 
-		private static void DrawConvexOutline(List<Vector3> localVerts, Matrix localTransform,
-											  MatrixD blockMatrix, float epsilon, Vector4 color)
+		private static void DrawConvexOutline(List<Vector3> modelVerts, Matrix shapeTransform,
+									  MatrixD modelToWorld, float epsilon, Vector4 color)
 		{
-			var worldVerts = localVerts.Select(v => 
-				Vector3D.Transform(new Vector3D(Vector3.Transform(v, localTransform)), blockMatrix)).ToList();
+			var worldVerts = modelVerts.Select(v => 
+				Vector3D.Transform(new Vector3D(Vector3.Transform(v, shapeTransform)), modelToWorld)).ToList();
 			var screenVerts = Drawing.WorldToScreen(worldVerts);
 			var hull = Geometry.ConvexHull(screenVerts);
 			Drawing.Contour(hull.ToArray(), true, epsilon, color);
 		}
 
-		private static void Draw(CollisionGeometry geometry, MatrixD blockMatrix)
+		private static void Draw(CollisionGeometry geometry, MatrixD modelToWorld)
 		{
 			foreach (var shape in geometry.Shapes)
 			{
 				var convex = shape as ConvexHullShape;
 				if (convex != null)
-					DrawConvexOutline(convex.Vertices, shape.Transform, blockMatrix, 1e-4f, new Vector4(1f, 0f, 0f, 1f));
+					DrawConvexOutline(convex.Vertices, shape.Transform, modelToWorld, 1e-4f, new Vector4(1f, 0f, 0f, 1f));
 
 				var sphere = shape as SphereShape;
 				if (sphere != null)
 				{
-					var worldCenter = Vector3D.Transform(new Vector3D(shape.Transform.Translation), blockMatrix);
+					var worldCenter = Vector3D.Transform(new Vector3D(shape.Transform.Translation), modelToWorld);
 					Drawing.ScreenSphere(worldCenter, sphere.Radius, new Vector4(1f, 1f, 1f, 1f));
 					Drawing.RoundMarker(worldCenter, Color.BlueViolet);
 				}
@@ -106,8 +108,8 @@ namespace LLE
 				var capsule = shape as CapsuleShape;
 				if (capsule != null)
 				{
-					var worldA = Vector3D.Transform(new Vector3D(Vector3.Transform(capsule.VertexA, shape.Transform)), blockMatrix);
-					var worldB = Vector3D.Transform(new Vector3D(Vector3.Transform(capsule.VertexB, shape.Transform)), blockMatrix);
+					var worldA = Vector3D.Transform(new Vector3D(Vector3.Transform(capsule.VertexA, shape.Transform)), modelToWorld);
+					var worldB = Vector3D.Transform(new Vector3D(Vector3.Transform(capsule.VertexB, shape.Transform)), modelToWorld);
 					Drawing.ScreenSphere(worldA, capsule.Radius, new Vector4(1f, 0f, 1f, 1f));
 					Drawing.ScreenSphere(worldB, capsule.Radius, new Vector4(1f, 0f, 1f, 1f));
 				}
@@ -127,10 +129,12 @@ namespace LLE
 
 				var vertices = new List<Vector3>();
 				Geometry.BoxToConvex(new Vector3(0.5f, 0.5f, 0.5f), vertices);
-				DrawConvexOutline(vertices, detector.Transform, blockMatrix, 5e-5f, color.ToVector4());
+				DrawConvexOutline(vertices, detector.Transform, modelToWorld, 5e-5f, color.ToVector4());
 			}
 		}
 
+		// Bake shape transforms into vertex positions.
+		// After this, all vertices are in model space (canonical .sbc coordinates).
 		private static void PreprocessCG(CollisionGeometry geometry)
 		{
 			var shapes = geometry.Shapes;
@@ -255,13 +259,13 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			var blockMatrix = GetBlockWorldMatrix(block);
+			var modelToWorld = GetModelToWorldMatrix(block);
 
-			MatrixD invBlock;
-			MatrixD.Invert(ref blockMatrix, out invBlock);
-			Vector3D localCenter = Vector3D.Transform(worldCenter, invBlock);
+			MatrixD invModelToWorld;
+			MatrixD.Invert(ref modelToWorld, out invModelToWorld);
+			Vector3D modelCenter = Vector3D.Transform(worldCenter, invModelToWorld);
 
-			return ProbeIntersects(geometry, localCenter, radius);
+			return ProbeIntersects(geometry, modelCenter, radius);
 		}
 
 		// Return the world-space center of the nearest collision shape to the given point.
@@ -273,28 +277,28 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			var blockMatrix = GetBlockWorldMatrix(block);
-			MatrixD invBlock;
-			MatrixD.Invert(ref blockMatrix, out invBlock);
-			Vector3D localPoint = Vector3D.Transform(worldPoint, invBlock);
+			var modelToWorld = GetModelToWorldMatrix(block);
+			MatrixD invModelToWorld;
+			MatrixD.Invert(ref modelToWorld, out invModelToWorld);
+			Vector3D modelPoint = Vector3D.Transform(worldPoint, invModelToWorld);
 
 			double bestDistSq = double.MaxValue;
-			Vector3? bestLocalCenter = null;
+			Vector3? bestModelCenter = null;
 
 			foreach (var shape in geometry.Shapes)
 			{
-				Vector3 center = GetShapeLocalCenter(shape);
-				Vector3D diff = new Vector3D(center) - localPoint;
+				Vector3 center = GetShapeModelCenter(shape);
+				Vector3D diff = new Vector3D(center) - modelPoint;
 				double distSq = diff.LengthSquared();
 				if (distSq < bestDistSq)
 				{
 					bestDistSq = distSq;
-					bestLocalCenter = center;
+					bestModelCenter = center;
 				}
 			}
 
-			if (bestLocalCenter == null) return false;
-			result = Vector3D.Transform(new Vector3D(bestLocalCenter.Value), blockMatrix);
+			if (bestModelCenter == null) return false;
+			result = Vector3D.Transform(new Vector3D(bestModelCenter.Value), modelToWorld);
 			return true;
 		}
 
@@ -335,13 +339,13 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			var blockMatrix = GetBlockWorldMatrix(block);
-			MatrixD invBlock;
-			MatrixD.Invert(ref blockMatrix, out invBlock);
-			Vector3D localPoint = Vector3D.Transform(worldPoint, invBlock);
+			var modelToWorld = GetModelToWorldMatrix(block);
+			MatrixD invModelToWorld;
+			MatrixD.Invert(ref modelToWorld, out invModelToWorld);
+			Vector3D modelPoint = Vector3D.Transform(worldPoint, invModelToWorld);
 
 			double bestDistSq = double.MaxValue;
-			Vector3? bestLocalCenter = null;
+			Vector3? bestModelCenter = null;
 
 			foreach (var detector in geometry.Detectors)
 			{
@@ -349,17 +353,17 @@ namespace LLE
 
 				// Detector is a unit cube centered at origin with half-extents (0.5, 0.5, 0.5).
 				Vector3 center = detector.Transform.Translation;
-				Vector3D diff = new Vector3D(center) - localPoint;
+				Vector3D diff = new Vector3D(center) - modelPoint;
 				double distSq = diff.LengthSquared();
 				if (distSq < bestDistSq)
 				{
 					bestDistSq = distSq;
-					bestLocalCenter = center;
+					bestModelCenter = center;
 				}
 			}
 
-			if (bestLocalCenter == null) return false;
-			result = Vector3D.Transform(new Vector3D(bestLocalCenter.Value), blockMatrix);
+			if (bestModelCenter == null) return false;
+			result = Vector3D.Transform(new Vector3D(bestModelCenter.Value), modelToWorld);
 			return true;
 		}
 
@@ -379,7 +383,7 @@ namespace LLE
 			return result;
 		}
 
-		private static Vector3 GetShapeLocalCenter(CollisionShape shape)
+		private static Vector3 GetShapeModelCenter(CollisionShape shape)
 		{
 			var convex = shape as ConvexHullShape;
 			if (convex != null)
@@ -431,12 +435,12 @@ namespace LLE
 			Matrix orient;
 			slim.Orientation.GetMatrix(out orient);
 			Matrix invOrient = Matrix.Transpose(orient);
-			Vector3 localCellCenter = Vector3.Transform((cellCenterGrid - blockCenterGrid) * blockSize, invOrient);
+			Vector3 modelCellCenter = Vector3.Transform((cellCenterGrid - blockCenterGrid) * blockSize, invOrient);
 
 			var trav = new Traversability();
 
 			// Center probe
-			if (ProbeIntersects(geometry, localCellCenter, ProbeRadius))
+			if (ProbeIntersects(geometry, modelCellCenter, ProbeRadius))
 				trav[0, 0, 0] = true;
 
 			// 6 directional probes around the cell
@@ -444,8 +448,8 @@ namespace LLE
 			for (int d = 0; d < dirs.Length; ++d)
 			{
 				Vector3I dir = dirs[d];
-				Vector3 localProbe = localCellCenter + Vector3.Transform(new Vector3(dir.X, dir.Y, dir.Z), invOrient) * offset;
-				if (ProbeIntersects(geometry, localProbe, ProbeRadius))
+				Vector3 modelProbe = modelCellCenter + Vector3.Transform(new Vector3(dir.X, dir.Y, dir.Z), invOrient) * offset;
+				if (ProbeIntersects(geometry, modelProbe, ProbeRadius))
 					trav[dir] = true;
 			}
 
