@@ -69,6 +69,21 @@ namespace LLE
             return modelToWorld;
         }
 
+        // Transform a point from world space to model space.
+        private static Vector3D WorldToModel(IMySlimBlock block, Vector3D worldPoint)
+        {
+            var modelToWorld = GetModelToWorldMatrix(block);
+            MatrixD invModelToWorld;
+            MatrixD.Invert(ref modelToWorld, out invModelToWorld);
+            return Vector3D.Transform(worldPoint, invModelToWorld);
+        }
+
+        // Transform a point from model space to world space.
+        private static Vector3D ModelToWorld(IMySlimBlock block, Vector3D modelPoint)
+        {
+            return Vector3D.Transform(modelPoint, GetModelToWorldMatrix(block));
+        }
+
 		public static void Draw(IMySlimBlock block)
 		{
 			IMyCubeGrid grid = block.CubeGrid;
@@ -241,7 +256,7 @@ namespace LLE
 					return true;
 				var sphere = shape as SphereShape;
 				if (sphere != null && Intersections.LineSegmentVsSphere(
-					start, end, new Vector3D(sphere.Transform.Translation), sphere.Radius))
+					start, end, new Vector3D(sphere.Center), sphere.Radius))
 					return true;
 			}
 			return false;
@@ -278,12 +293,7 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			var modelToWorld = GetModelToWorldMatrix(block);
-
-			MatrixD invModelToWorld;
-			MatrixD.Invert(ref modelToWorld, out invModelToWorld);
-			Vector3D modelCenter = Vector3D.Transform(worldCenter, invModelToWorld);
-
+			Vector3D modelCenter = WorldToModel(block, worldCenter);
 			return ProbeIntersects(geometry, modelCenter, radius);
 		}
 
@@ -296,10 +306,7 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			var modelToWorld = GetModelToWorldMatrix(block);
-			MatrixD invModelToWorld;
-			MatrixD.Invert(ref modelToWorld, out invModelToWorld);
-			Vector3D modelPoint = Vector3D.Transform(worldPoint, invModelToWorld);
+			Vector3D modelPoint = WorldToModel(block, worldPoint);
 
 			double bestDistSq = double.MaxValue;
 			Vector3? bestModelCenter = null;
@@ -317,7 +324,7 @@ namespace LLE
 			}
 
 			if (bestModelCenter == null) return false;
-			result = Vector3D.Transform(new Vector3D(bestModelCenter.Value), modelToWorld);
+			result = ModelToWorld(block, new Vector3D(bestModelCenter.Value));
 			return true;
 		}
 
@@ -358,10 +365,7 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			var modelToWorld = GetModelToWorldMatrix(block);
-			MatrixD invModelToWorld;
-			MatrixD.Invert(ref modelToWorld, out invModelToWorld);
-			Vector3D modelPoint = Vector3D.Transform(worldPoint, invModelToWorld);
+			Vector3D modelPoint = WorldToModel(block, worldPoint);
 
 			double bestDistSq = double.MaxValue;
 			Vector3? bestModelCenter = null;
@@ -382,7 +386,7 @@ namespace LLE
 			}
 
 			if (bestModelCenter == null) return false;
-			result = Vector3D.Transform(new Vector3D(bestModelCenter.Value), modelToWorld);
+			result = ModelToWorld(block, new Vector3D(bestModelCenter.Value));
 			return true;
 		}
 
@@ -410,7 +414,7 @@ namespace LLE
 
 			var sphere = shape as SphereShape;
 			if (sphere != null)
-				return shape.Transform.Translation;
+				return sphere.Center;
 
 			var capsule = shape as CapsuleShape;
 			if (capsule != null)
