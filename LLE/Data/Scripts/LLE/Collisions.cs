@@ -100,7 +100,7 @@ namespace LLE
 				var sphere = shape as SphereShape;
 				if (sphere != null)
 				{
-					var worldCenter = Vector3D.Transform(new Vector3D(shape.Transform.Translation), modelToWorld);
+					var worldCenter = Vector3D.Transform(new Vector3D(sphere.Center), modelToWorld);
 					Drawing.ScreenSphere(worldCenter, sphere.Radius, new Vector4(1f, 1f, 1f, 1f));
 					Drawing.RoundMarker(worldCenter, Color.BlueViolet);
 				}
@@ -133,8 +133,8 @@ namespace LLE
 			}
 		}
 
-		// Bake shape transforms into vertex positions.
-		// After this, all vertices are in model space (canonical .sbc coordinates).
+		// Bake shape transforms into vertex/center positions.
+		// After this, all geometry is in model space (canonical .sbc coordinates).
 		private static void PreprocessCG(CollisionGeometry geometry)
 		{
 			var shapes = geometry.Shapes;
@@ -142,29 +142,48 @@ namespace LLE
 			for (int i = 0; i < shapes.Count; ++i)
 			{
 				var shape = shapes[i];
+
 				var box = shape as BoxShape;
 				if (box != null)
 				{
 					var vertices = new List<Vector3>();
 					Geometry.BoxToConvex(box.HalfExtents, vertices);
-
 					for (int v = 0; v < vertices.Count; ++v)
 						vertices[v] = Vector3.Transform(vertices[v], box.Transform);
 					shapes[i] = new ConvexHullShape { Vertices = vertices };
+					box.Transform = Matrix.Identity;
 					continue;
 				}
+
 				var cylinder = shape as CylinderShape;
 				if (cylinder != null)
 				{
 					var vertices = new List<Vector3>();
-					var c = cylinder;
-					Geometry.CylinderToConvex(c.VertexA, c.VertexB, c.Radius, vertices);
+					Geometry.CylinderToConvex(cylinder.VertexA, cylinder.VertexB, cylinder.Radius, vertices);
 					for (int v = 0; v < vertices.Count; ++v)
 						vertices[v] = Vector3.Transform(vertices[v], cylinder.Transform);
-
 					shapes[i] = new ConvexHullShape { Vertices = vertices };
+					cylinder.Transform = Matrix.Identity;
 					continue;
 				}
+
+				var convex = shape as ConvexHullShape;
+				if (convex != null)
+				{
+					for (int v = 0; v < convex.Vertices.Count; ++v)
+						convex.Vertices[v] = Vector3.Transform(convex.Vertices[v], convex.Transform);
+					convex.Transform = Matrix.Identity;
+					continue;
+				}
+
+				var sphere = shape as SphereShape;
+				if (sphere != null)
+				{
+					sphere.Center = sphere.Transform.Translation;
+					sphere.Transform = Matrix.Identity;
+					continue;
+				}
+
 				// XXX Capsule
 			}
 		}
@@ -200,10 +219,10 @@ namespace LLE
 				var convex = shape as ConvexHullShape;
 				if (convex != null && Intersections.SphereVsConvex(center, radius, convex.Vertices))
 					return true;
-				var sphere = shape as SphereShape;
-				if (sphere != null && Intersections.SphereVsSphere(
-					center, radius, new Vector3D(sphere.Transform.Translation), sphere.Radius))
-					return true;
+			var sphere = shape as SphereShape;
+			if (sphere != null && Intersections.SphereVsSphere(
+				center, radius, new Vector3D(sphere.Center), sphere.Radius))
+				return true;
 			}
 			return false;
 		}
