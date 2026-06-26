@@ -60,15 +60,17 @@ namespace LLE
 	[ProtoInclude(14, typeof(CylinderShape))]
 	[ProtoInclude(15, typeof(ConvexHullShape))]
 	[ProtoContract]
-	public abstract class CollisionShape
+	public class CollisionShape
 	{
+		public CollisionShape() { }
 		[ProtoMember(1)] public Matrix Transform = Matrix.Identity;
-		public abstract override string ToString();
+		public override string ToString() => "CollisionShape";
 	}
 
 	[ProtoContract]
 	public class BoxShape : CollisionShape
 	{
+		public BoxShape() { }
 		[ProtoMember(2)] public Vector3 HalfExtents;
 		public override string ToString() => $"BoxShape: {HalfExtents}";
 	}
@@ -76,6 +78,7 @@ namespace LLE
 	[ProtoContract]
 	public class SphereShape : CollisionShape
 	{
+		public SphereShape() { }
 		public Vector3 Center;
 		[ProtoMember(2)] public float Radius;
 		public override string ToString() => $"SphereShape: r={Radius}";
@@ -84,6 +87,7 @@ namespace LLE
 	[ProtoContract]
 	public class CapsuleShape : CollisionShape
 	{
+		public CapsuleShape() { }
 		[ProtoMember(2)] public Vector3 VertexA;
 		[ProtoMember(3)] public Vector3 VertexB;
 		[ProtoMember(4)] public float Radius;
@@ -93,6 +97,7 @@ namespace LLE
 	[ProtoContract]
 	public class CylinderShape : CollisionShape
 	{
+		public CylinderShape() { }
 		[ProtoMember(2)] public Vector3 VertexA;
 		[ProtoMember(3)] public Vector3 VertexB;
 		[ProtoMember(4)] public float Radius;
@@ -102,6 +107,7 @@ namespace LLE
 	[ProtoContract]
 	public class ConvexHullShape : CollisionShape
 	{
+		public ConvexHullShape() { }
 		[ProtoMember(2)] public List<Vector3> Vertices = new List<Vector3>();
 		public override string ToString() => $"ConvexHullShape: {Vertices.Count} vertices";
 	}
