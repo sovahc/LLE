@@ -176,5 +176,67 @@ namespace LLE
 			// Check if the squared distance is less than or equal to the squared radius
 			return (distanceX * distanceX + distanceY * distanceY + distanceZ * distanceZ) <= (sphereRadius * sphereRadius);
 		}
+
+		// Möller–Trumbore Ray-Triangle Intersection
+		public static float? GetLineTriangleIntersection(ref Line line,
+			ref Vector3 Vertex0, ref Vector3 Vertex1, ref Vector3 Vertex2)
+		{
+			// Compute vectors along two edges of the triangleVertexes.
+			Vector3 edge1, edge2;
+
+			Vector3.Subtract(ref Vertex1, ref Vertex0, out edge1);
+			Vector3.Subtract(ref Vertex2, ref Vertex0, out edge2);
+
+			// Compute the determinant.
+			Vector3 directionCrossEdge2;
+			Vector3.Cross(ref line.Direction, ref edge2, out directionCrossEdge2);
+
+			float determinant;
+			Vector3.Dot(ref edge1, ref directionCrossEdge2, out determinant);
+
+			// If the ray is parallel to the triangleVertexes plane, there is no collision.
+			if (determinant > -float.Epsilon && determinant < float.Epsilon)
+				return null;
+
+			float inverseDeterminant = 1.0f / determinant;
+
+			// Calculate the U parameter of the intersection point.
+			Vector3 distanceVector;
+			Vector3.Subtract(ref line.From, ref Vertex0, out distanceVector);
+
+			float triangleU;
+			Vector3.Dot(ref distanceVector, ref directionCrossEdge2, out triangleU);
+			triangleU *= inverseDeterminant;
+
+			// Make sure it is inside the triangleVertexes.
+			if (triangleU < 0 || triangleU > 1)
+				return null;
+
+			// Calculate the V parameter of the intersection point.
+			Vector3 distanceCrossEdge1;
+			Vector3.Cross(ref distanceVector, ref edge1, out distanceCrossEdge1);
+
+			float triangleV;
+			Vector3.Dot(ref line.Direction, ref distanceCrossEdge1, out triangleV);
+			triangleV *= inverseDeterminant;
+
+			// Make sure it is inside the triangleVertexes.
+			if (triangleV < 0 || triangleU + triangleV > 1)
+				return null;
+
+			// Compute the distance along the ray to the triangleVertexes.
+			float rayDistance;
+			Vector3.Dot(ref edge2, ref distanceCrossEdge1, out rayDistance);
+			rayDistance *= inverseDeterminant;
+
+			// Is the triangleVertexes behind the ray origin?
+			if (rayDistance < 0)
+				return null;
+
+			//  Does the intersection point lie on the line (ray hasn't end, but line does)
+			if (rayDistance > line.Length) return null;
+
+			return rayDistance;
+		}
 	}
 }
