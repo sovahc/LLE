@@ -249,21 +249,6 @@ namespace LLE
 			return ProbeIntersects(geometry, new Vector3D(center), radius);
 		}
 
-		private static bool LineIntersects(CollisionGeometry geometry, Vector3D start, Vector3D end)
-		{
-			foreach (var shape in geometry.Shapes)
-			{
-				var convex = shape as ConvexHullShape;
-				if (convex != null && Intersections.LineSegmentVsConvex(start, end, convex.Vertices))
-					return true;
-				var sphere = shape as SphereShape;
-				if (sphere != null && Intersections.LineSegmentVsSphere(
-					start, end, new Vector3D(sphere.Center), sphere.Radius))
-					return true;
-			}
-			return false;
-		}
-
 		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
 		{
 			var calc = new TraversabilityCalculator(grid, 0);

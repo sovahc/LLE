@@ -184,7 +184,6 @@ namespace LLE
 				commands = new Commands(ch);
 				LLE_Loader.SetHelp(commands.Help());
 				Vision.Initialize();
-				
 			}
 
 			Vision.Tick(commands.GetEngineerCenter());

@@ -176,47 +176,5 @@ namespace LLE
 			// Check if the squared distance is less than or equal to the squared radius
 			return (distanceX * distanceX + distanceY * distanceY + distanceZ * distanceZ) <= (sphereRadius * sphereRadius);
 		}
-
-		public static bool LineSegmentVsConvex(
-			Vector3D segmentStart, Vector3D segmentEnd,
-			List<Vector3> convexVertices)
-		{
-			if (convexVertices == null || convexVertices.Count < 3)
-				return false;
-
-			// Treat the line segment as a degenerate convex with two vertices.
-			var segmentVerts = new List<Vector3>
-			{
-				new Vector3((float)segmentStart.X, (float)segmentStart.Y, (float)segmentStart.Z),
-				new Vector3((float)segmentEnd.X, (float)segmentEnd.Y, (float)segmentEnd.Z)
-			};
-
-			return ConvexVsConvex(segmentVerts, convexVertices);
-		}
-
-		public static bool LineSegmentVsSphere(
-			Vector3D segmentStart, Vector3D segmentEnd,
-			Vector3D sphereCenter, double sphereRadius)
-		{
-			// Find the closest point on the line segment to the sphere center.
-			Vector3D segmentDir = segmentEnd - segmentStart;
-			double segmentLenSq = segmentDir.LengthSquared();
-
-			Vector3D closest;
-			if (segmentLenSq < ZeroEpsilon)
-			{
-				// Degenerate segment — treat as a point.
-				closest = segmentStart;
-			}
-			else
-			{
-				double t = Vector3D.Dot(sphereCenter - segmentStart, segmentDir) / segmentLenSq;
-				t = Math.Max(0.0, Math.Min(1.0, t));
-				closest = segmentStart + t * segmentDir;
-			}
-
-			Vector3D diff = sphereCenter - closest;
-			return diff.LengthSquared() <= sphereRadius * sphereRadius;
-		}
 	}
 }
