@@ -177,15 +177,15 @@ namespace LLE
 			return (distanceX * distanceX + distanceY * distanceY + distanceZ * distanceZ) <= (sphereRadius * sphereRadius);
 		}
 
-		// Möller–Trumbore Ray-Triangle Intersection
-		public static float? GetLineTriangleIntersection(ref Line line,
-			ref Vector3 Vertex0, ref Vector3 Vertex1, ref Vector3 Vertex2)
+		// ! Modified ! Möller–Trumbore Ray-Triangle Intersection
+		public static float? GetLineParallelogramIntersection(ref Line line,
+			ref Vector3 A, ref Vector3 B, ref Vector3 C)
 		{
-			// Compute vectors along two edges of the triangleVertexes.
+			// Compute vectors along two edges.
 			Vector3 edge1, edge2;
 
-			Vector3.Subtract(ref Vertex1, ref Vertex0, out edge1);
-			Vector3.Subtract(ref Vertex2, ref Vertex0, out edge2);
+			Vector3.Subtract(ref B, ref A, out edge1);
+			Vector3.Subtract(ref C, ref A, out edge2);
 
 			// Compute the determinant.
 			Vector3 directionCrossEdge2;
@@ -194,46 +194,44 @@ namespace LLE
 			float determinant;
 			Vector3.Dot(ref edge1, ref directionCrossEdge2, out determinant);
 
-			// If the ray is parallel to the triangleVertexes plane, there is no collision.
-			if (determinant > -float.Epsilon && determinant < float.Epsilon)
+			// If the ray is parallel to the face plane, there is no collision.
+			if (determinant > -ZeroEpsilon && determinant < ZeroEpsilon)
 				return null;
 
 			float inverseDeterminant = 1.0f / determinant;
 
 			// Calculate the U parameter of the intersection point.
 			Vector3 distanceVector;
-			Vector3.Subtract(ref line.From, ref Vertex0, out distanceVector);
+			Vector3.Subtract(ref line.From, ref A, out distanceVector);
 
-			float triangleU;
-			Vector3.Dot(ref distanceVector, ref directionCrossEdge2, out triangleU);
-			triangleU *= inverseDeterminant;
+			float u;
+			Vector3.Dot(ref distanceVector, ref directionCrossEdge2, out u);
+			u *= inverseDeterminant;
 
-			// Make sure it is inside the triangleVertexes.
-			if (triangleU < 0 || triangleU > 1)
-				return null;
+			// Make sure it is inside the face
+			if (u < 0 || u > 1) return null;
 
 			// Calculate the V parameter of the intersection point.
 			Vector3 distanceCrossEdge1;
 			Vector3.Cross(ref distanceVector, ref edge1, out distanceCrossEdge1);
 
-			float triangleV;
-			Vector3.Dot(ref line.Direction, ref distanceCrossEdge1, out triangleV);
-			triangleV *= inverseDeterminant;
+			float v;
+			Vector3.Dot(ref line.Direction, ref distanceCrossEdge1, out v);
+			v *= inverseDeterminant;
 
-			// Make sure it is inside the triangleVertexes.
-			if (triangleV < 0 || triangleU + triangleV > 1)
-				return null;
+			// Make sure it is inside the face
+			//if (v < 0 || u + v > 1) // original code
+			if (v < 0 || v > 1) return null;
 
-			// Compute the distance along the ray to the triangleVertexes.
+			// Compute the distance along the ray to the parallelogram.
 			float rayDistance;
 			Vector3.Dot(ref edge2, ref distanceCrossEdge1, out rayDistance);
 			rayDistance *= inverseDeterminant;
 
-			// Is the triangleVertexes behind the ray origin?
-			if (rayDistance < 0)
-				return null;
+			// Is the face behind the ray origin?
+			if (rayDistance < 0) return null;
 
-			//  Does the intersection point lie on the line (ray hasn't end, but line does)
+			// Does the intersection point lie on the line (ray hasn't end, but line does)
 			if (rayDistance > line.Length) return null;
 
 			return rayDistance;
