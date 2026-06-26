@@ -233,10 +233,10 @@ namespace LLE
 				var convex = shape as ConvexHullShape;
 				if (convex != null && Intersections.SphereVsConvex(center, radius, convex.Vertices))
 					return true;
-			var sphere = shape as SphereShape;
-			if (sphere != null && Intersections.SphereVsSphere(
-				center, radius, new Vector3D(sphere.Center), sphere.Radius))
-				return true;
+				var sphere = shape as SphereShape;
+				if (sphere != null && Intersections.SphereVsSphere(
+					center, radius, new Vector3D(sphere.Center), sphere.Radius))
+					return true;
 			}
 			return false;
 		}
