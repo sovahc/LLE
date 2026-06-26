@@ -190,15 +190,18 @@ namespace LLE
 					continue;
 				}
 
-				var sphere = shape as SphereShape;
-				if (sphere != null)
+				var capsule = shape as CapsuleShape;
+				if (capsule != null)
 				{
-					sphere.Center = sphere.Transform.Translation;
-					sphere.Transform = Matrix.Identity;
+					Vector3 mA = Vector3.Transform(capsule.VertexA, capsule.Transform);
+					Vector3 mB = Vector3.Transform(capsule.VertexB, capsule.Transform);
+
+					var vertices = new List<Vector3>();
+					Geometry.CapsuleToConvex(mA, mB, capsule.Radius, vertices);
+					shapes[i] = new ConvexHullShape { Vertices = vertices };
+					capsule.Transform = Matrix.Identity;
 					continue;
 				}
-
-				// XXX Capsule
 			}
 		}
 

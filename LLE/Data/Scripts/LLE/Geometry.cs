@@ -38,6 +38,36 @@ namespace LLE
 			}
 		}
 
+		public static void CapsuleToConvex(Vector3 a, Vector3 b, float R, List<Vector3> out_vertices, int segments = 8)
+			{
+				var vv = out_vertices;
+
+				var axis = Vector3.Normalize(b - a);
+				Vector3 right, localUp;
+				OrthonormalBasis(axis, out right, out localUp);
+
+				// Generate points for two hemispheres at A and B
+				for (int lat = 0; lat <= segments / 2; lat++)
+				{
+					float phi = lat * (float)Math.PI / segments;
+					float sinPhi = (float)Math.Sin(phi);
+					float cosPhi = (float)Math.Cos(phi);
+
+					for (int lon = 0; lon < segments; lon++)
+					{
+						float theta = lon * (float)Math.PI * 2 / segments;
+						float c = (float)Math.Cos(theta);
+						float sn = (float)Math.Sin(theta);
+
+						Vector3 offset = (float)c * right * sinPhi * R + (float)sn * localUp * sinPhi * R;
+						Vector3 poleOffset = (float)cosPhi * axis * R;
+
+						vv.Add(a - poleOffset + offset);
+						vv.Add(b + poleOffset + offset);
+					}
+				}
+			}
+
 		public static void OrthonormalBasis(Vector3 axis, out Vector3 right, out Vector3 up)
 		{
 			var perp = Math.Abs(Vector3.Dot(axis, Vector3.Up)) > 0.99f ? Vector3.Forward : Vector3.Up;
