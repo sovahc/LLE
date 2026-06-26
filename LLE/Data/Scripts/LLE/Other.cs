@@ -133,23 +133,23 @@ namespace LLE
 
 	public class MyMarkdown
 	{
-		private static readonly Dictionary<string, StringBuilder> data = new Dictionary<string, StringBuilder>();
+		private readonly Dictionary<string, StringBuilder> data = new Dictionary<string, StringBuilder>();
 
-		private static readonly StringBuilder result = new StringBuilder();
+		private readonly StringBuilder result = new StringBuilder();
 
-		public static void Clear()
+		public void Clear()
 		{	
 			result.Clear();
 			foreach(var b in data.Values) b.Clear();
 		}
 
-		public static void Append(string s)
+		public void Append(string s)
 		{	
 			result.Append(s);
 			result.Append('\n');
 		}
 
-		public static void Add(string category, string element)
+		public void Add(string category, string element)
 		{
 			StringBuilder b;
 
@@ -165,7 +165,7 @@ namespace LLE
 			data[category] = b;
 		}
 
-		public static string Result()
+		public string Result()
 		{
 			foreach(var kv in data)
 			{	

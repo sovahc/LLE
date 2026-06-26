@@ -56,10 +56,8 @@ namespace LLE
 			return block.BlockDefinition.DisplayNameText;
 		}
 
-		internal void ListDescription(List<Vector3I> coordinates, string firstLine, bool byCategory)
-		{	MyMarkdown.Clear();
-			MyMarkdown.Append(firstLine);
-			MyMarkdown.Append($"Legend: Name → count (positions on the grid)");
+		internal void ListDescription(List<Vector3I> coordinates, bool byCategory, MyMarkdown md)
+		{	md.Append($"Legend: Name → count (positions on the grid)");
 
 			describer.Clear();
 
@@ -92,9 +90,9 @@ namespace LLE
 				sb.Append(")");
 
 				if(byCategory)
-					MyMarkdown.Add($"## {category}", sb.ToString());
+					md.Add($"## {category}", sb.ToString());
 				else
-					MyMarkdown.Append(sb.ToString());
+					md.Append(sb.ToString());
 			}
 
 			describer.Clear();
@@ -108,7 +106,8 @@ namespace LLE
 			string category, name;
 			Description(selectedGrid as MyEntity, out category, out name);
 
-			string firstLine = $"# {category} '{name}'";
+			var md = new MyMarkdown();
+			md.Append($"# {category} '{name}'");
 
 			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 			terminalBlocks.Clear();
@@ -117,12 +116,12 @@ namespace LLE
 			positions.Clear();
 			foreach(var block in terminalBlocks) positions.Add(block.SlimBlock.Position);
 
-			ListDescription(positions, firstLine, true);
+			ListDescription(positions, true, md);
 
 			terminalBlocks.Clear();
 			positions.Clear();
 
-			return MyMarkdown.Result();
+			return md.Result();
 		}
 
 		internal string Integrity()
@@ -133,8 +132,8 @@ namespace LLE
 			string category, name;
 			Description(selectedGrid as MyEntity, out category, out name);
 
-			MyMarkdown.Clear();
-			MyMarkdown.Append($"# Integrity Check {Quote(name)}");
+			var md = new MyMarkdown();
+			md.Append($"# Integrity Check {Quote(name)}");
 
 			var damaged = new List<IMySlimBlock>();
 			foreach (IMySlimBlock block in (selectedGrid as MyCubeGrid).CubeBlocks)
@@ -145,8 +144,8 @@ namespace LLE
 
 			if (damaged.Count == 0)
 			{
-				MyMarkdown.Append("All blocks are intact.");
-				return MyMarkdown.Result();
+				md.Append("All blocks are intact.");
+				return md.Result();
 			}
 
 			var byCategory = new Dictionary<string, List<IMySlimBlock>>();
@@ -170,10 +169,10 @@ namespace LLE
 					var p = block.Integrity / block.MaxIntegrity;
 					sb.Append($"* {Quote(Name(block))} at ({IJK(block.Position)}) [{Percent(p)}]\n");
 				}
-				MyMarkdown.Add($"## {kv.Key}", sb.ToString());
+				md.Add($"## {kv.Key}", sb.ToString());
 			}
 
-			return MyMarkdown.Result();
+			return md.Result();
 		}
 
 		internal string Near(TokenParser tp)
@@ -181,7 +180,7 @@ namespace LLE
 			string message;
 			if(!GridIsSet(out message)) return message;
 
-			MyMarkdown.Clear();
+			var md = new MyMarkdown();
 
 			Vector3I ijk;
 			string hint;
@@ -197,7 +196,7 @@ namespace LLE
 
 			var name = Name(selectedGrid.GetCubeBlock(ijk));
 			
-			string firstLine = $"# {hint}: {Quote(name)} Position: ({IJK(ijk)})";
+			md.Append($"# {hint}: {Quote(name)} Position: ({IJK(ijk)})");
 
 			positions.Clear();
 
@@ -205,9 +204,9 @@ namespace LLE
 			{	positions.Add(ijk + direction);
 			}
 
-			ListDescription(positions, firstLine, false);
+			ListDescription(positions, false, md);
 
-			return MyMarkdown.Result();
+			return md.Result();
 		}
 	}
 }
