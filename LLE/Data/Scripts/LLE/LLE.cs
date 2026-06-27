@@ -24,6 +24,9 @@ namespace LLE
 		const int AStarBorder = 2;
 		internal static AStar astar;
 		public static List<Vector3I> path = new List<Vector3I>();
+		
+		public static List<LineD> linesRed = new List<LineD>();
+		public static List<LineD> linesGray = new List<LineD>();
 
 		internal static void Start(IMyCubeGrid grid_)
 		{	grid = grid_;
@@ -108,24 +111,19 @@ namespace LLE
 					if(Collisions.GetNearestCollisionCenter(block, queryPoint, out v))
 						Drawing.RoundMarker(v, Color.Red);
 
-					if(Collisions.GetNearestDetectorCenterByPrefix(block, queryPoint, "conveyor_", out v))
-						Drawing.RoundMarker(v, Color.Yellow);
-
 					List<Vector3I> ip = new List<Vector3I>();
-					Collisions.GetInteractionPoints(block, ip);
+					Collisions.GetInteractionPoints(block, "conveyor_", ip);
 					foreach(var p in ip)
 						Utilities.HighlightCell(grid, p, Color.Yellow);
 
-					var Z = hm.Translation + hm.Forward * 5;
-					LineD line = new LineD(Z + hm.Right, Z - hm.Right);
-					
 					var material = MyStringId.GetOrCompute("Square");
-					var color = Color.Red.ToVector4();
+					var red = Color.Red.ToVector4();
+					var gray = Color.Gray.ToVector4();
 					
-					bool b = Collisions.LineHitsDetector(block, line, "conveyor_");
-
-					MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref color, 0.01f);
-					if(b) Drawing.RoundMarker(line.To, Color.Green);
+					foreach(var line in linesRed)
+						MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref red, 0.01f);
+					foreach(var line in linesGray)
+						MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref gray, 0.01f);
 				}
 			}
 		}

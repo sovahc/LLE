@@ -334,37 +334,6 @@ namespace LLE
 			return true;
 		}
 
-		public static void GetInteractionPoints(IMySlimBlock block, List<Vector3I> output)
-		{
-			string prefix1 = "conveyor_";
-			string prefix2 = "block_"; // recharge point
-
-			var grid = block.CubeGrid;
-
-			var min = block.Min-1;
-			var max = block.Max+1;
-
-			var iter = new Vector3I_RangeIterator(ref min, ref max);
-			for (; iter.IsValid(); iter.MoveNext())
-			{
-				var ijk = iter.Current;
-
-				var b = grid.GetCubeBlock(ijk);
-				if(b != null && !CenterIsFree(b, ijk)) continue;
-
-				Vector3D world = grid.GridIntegerToWorld(ijk);
-				Vector3D ipWorld;
-				if(//!GetNearestDetectorCenterByPrefix(block, world, prefix1, out ipWorld) &&
-					!GetNearestDetectorCenterByPrefix(block, world, prefix2, out ipWorld)) continue;
-
-				if((world - ipWorld).Length() > 2.75) continue;
-
-				output.Add(ijk);
-			}
-		}
-
-		// Return the world-space center of the nearest detector whose name starts with `namePrefix`.
-		// Returns null if no matching detector is found or the block has no collision geometry.
 		public static bool GetNearestDetectorCenterByPrefix(IMySlimBlock block, Vector3D worldPoint, string namePrefix, out Vector3D result)
 		{
 			result = Vector3D.Zero;
@@ -485,14 +454,10 @@ namespace LLE
 			return trav;
 		}
 
-		public static bool LineHitsDetector(IMySlimBlock block, LineD worldLine, string detectorPrefix)
+		public static bool LineHitsDetector(IMySlimBlock block, Line modelLine, DetectorInfo detector)
 		{
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
-
-			Line modelLine = new Line(
-				(Vector3)WorldToModel(block, worldLine.From),
-				(Vector3)WorldToModel(block, worldLine.To));
 
 			float minCollisionHit = float.MaxValue;
 			float minDetectorHit = float.MaxValue;
@@ -511,22 +476,67 @@ namespace LLE
 				}
 			}
 
-			foreach (var detector in geometry.Detectors)
-			{	if(!detector.Name.StartsWith(detectorPrefix)) continue;
+			var dfr = detector.ForRaycast;
+			if(dfr == null) return false;
 
-				var fr = detector.ForRaycast;
-				if(fr == null) continue;
+			for(int i = 0; i < dfr.Count; ++i)
+			{	var p = dfr[i];
+				var intersection = Intersections.GetLineParallelogramIntersection(ref modelLine, ref p);
 
-				for(int i = 0; i < fr.Count; ++i)
-				{	var p = fr[i];
-					var intersection = Intersections.GetLineParallelogramIntersection(ref modelLine, ref p);
-
-					if(intersection == null) continue;
-					if(intersection.Value < minDetectorHit) minDetectorHit = intersection.Value;
-				}
+				if(intersection == null) continue;
+				if(intersection.Value < minDetectorHit) minDetectorHit = intersection.Value;
 			}
 
 			return minDetectorHit < minCollisionHit;
+		}
+
+		public static void GetInteractionPoints(IMySlimBlock block, string detectorPrefix, List<Vector3I> output)
+		{
+			Debug.linesRed.Clear();
+			Debug.linesGray.Clear();
+
+			CollisionGeometry geometry;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return;
+
+			var grid = block.CubeGrid;
+
+			var min = block.Min-1;
+			var max = block.Max+1;
+
+			var iter = new Vector3I_RangeIterator(ref min, ref max);
+			for (; iter.IsValid(); iter.MoveNext())
+			{
+				var ijk = iter.Current;
+
+				var b = grid.GetCubeBlock(ijk);
+				if(b != null && !CenterIsFree(b, ijk)) continue;
+
+				Vector3D worldFrom = grid.GridIntegerToWorld(ijk);
+				Vector3 modelFrom = WorldToModel(block, worldFrom);
+
+				foreach (var detector in geometry.Detectors)
+				{	
+					if(!detector.Name.StartsWith(detectorPrefix)) continue;
+
+					var fr = detector.ForRaycast;
+					if(fr == null) continue;
+
+					var detectorCenter = detector.Transform.Translation;
+					
+					var modelLine = new Line(modelFrom, detectorCenter);
+
+					var worldLine = new LineD(ModelToWorld(block, modelLine.From), ModelToWorld(block, modelLine.To));
+
+					bool hit = LineHitsDetector(block, modelLine, detector);
+
+					if(hit) Debug.linesRed.Add(worldLine);
+					else Debug.linesGray.Add(worldLine);
+
+					if(!hit) continue;
+
+					output.Add(ijk);
+				}
+			}
 		}
 	}
 }
