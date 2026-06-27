@@ -46,19 +46,21 @@ namespace LLE
 		public override string ToString() => $"CollisionGeometry: {Shapes.Count} root shapes, {Detectors.Count} detectors";
 	}
 
+	public struct Parallelogram
+	{	public Vector3 A, B, C; // D = A + AB + AC
+		public Parallelogram(Vector3 a, Vector3 b, Vector3 c)
+		{	A = a; B = b; C = c;
+		}
+	}
+
 	[ProtoContract]
 	public class DetectorInfo
 	{
 		[ProtoMember(1)] public string Name;
 		[ProtoMember(2)] public Matrix Transform;
 		public override string ToString() => $"Detector: {Name}";
-	}
 
-	public struct Parallelogram
-	{	public Vector3 A, B, C; // D = A + AB + AC
-		public Parallelogram(Vector3 a, Vector3 b, Vector3 c)
-		{	A = a; B = b; C = c;
-		}
+		public List<Parallelogram> ForRaycast;
 	}
 
 	[ProtoInclude(11, typeof(BoxShape))]

@@ -120,20 +120,12 @@ namespace LLE
 					LineD line = new LineD(Z + hm.Right, Z - hm.Right);
 					
 					var material = MyStringId.GetOrCompute("Square");
-					var color = Color.Red.ToVector4();					
+					var color = Color.Red.ToVector4();
+					
+					bool b = Collisions.LineHitsDetector(block, line, "conveyor_");
 
 					MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref color, 0.01f);
-
-					List<float> intersections = new List<float>();
-					Collisions.CollisionLineCast(block, line, intersections);
-
-					foreach(var f in intersections)
-					{	MyConsole.AddMultiline($" {f}", Color.Red);
-						var intp = line.From + line.Direction * (double)f;
-
-						Drawing.RoundMarker(intp, Color.Red);
-					}
-					MyConsole.AddMultiline("\n", Color.Red);
+					if(b) Drawing.RoundMarker(line.To, Color.Green);
 				}
 			}
 		}

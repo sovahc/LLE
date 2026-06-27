@@ -159,27 +159,17 @@ namespace LLE
 
 				var box = shape as BoxShape;
 				if (box != null)
-				{
-					var vertices = new List<Vector3>();
-					Geometry.BoxToConvex(box.HalfExtents, vertices);
-					for (int v = 0; v < vertices.Count; ++v)
-						vertices[v] = Vector3.Transform(vertices[v], box.Transform);
-					shapes[i] = new ConvexHullShape { Vertices = vertices };
-					
-					var pList = new List<Parallelogram>();
-					Geometry.BoxToParallelograms(box.HalfExtents, pList);
-					for (int v = 0; v < pList.Count; ++v)
-					{	Parallelogram p = pList[v];
-						p.A = Vector3.Transform(p.A, box.Transform);
-						p.B = Vector3.Transform(p.B, box.Transform);
-						p.C = Vector3.Transform(p.C, box.Transform);
-						pList[v] = p;
-					}
-					shapes[i].ForRaycast = pList;
-					continue;
-				}
+                {
+                    var vertices = new List<Vector3>();
+                    Geometry.BoxToConvex(box.HalfExtents, vertices);
+                    for (int v = 0; v < vertices.Count; ++v)
+                        vertices[v] = Vector3.Transform(vertices[v], box.Transform);
+                    shapes[i] = new ConvexHullShape { Vertices = vertices };
+					shapes[i].ForRaycast = BoxToPgList(box.HalfExtents, box.Transform);
+                    continue;
+                }
 
-				var cylinder = shape as CylinderShape;
+                var cylinder = shape as CylinderShape;
 				if (cylinder != null)
 				{
 					var vertices = new List<Vector3>();
@@ -210,9 +200,31 @@ namespace LLE
 					continue;
 				}
 			}
+
+			for (int i = 0; i < geometry.Detectors.Count; ++i)
+			{
+				var d = geometry.Detectors[i];
+				d.ForRaycast = BoxToPgList(Vector3.Half, d.Transform);
+			}
 		}
 
-		private static Traversability CalculateTraversability(CollisionGeometry geometry)
+        private static List<Parallelogram> BoxToPgList(Vector3 halfExtents, Matrix transform)
+        {
+            var pList = new List<Parallelogram>();
+            Geometry.BoxToParallelograms(halfExtents, pList);
+            for (int v = 0; v < pList.Count; ++v)
+            {
+                Parallelogram p = pList[v];
+                p.A = Vector3.Transform(p.A, transform);
+                p.B = Vector3.Transform(p.B, transform);
+                p.C = Vector3.Transform(p.C, transform);
+                pList[v] = p;
+            }
+
+            return pList;
+        }
+
+        private static Traversability CalculateTraversability(CollisionGeometry geometry)
 		{
 			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
 			float offset = blockSize / 2;
@@ -473,19 +485,21 @@ namespace LLE
 			return trav;
 		}
 
-		public static void CollisionLineCast(IMySlimBlock block, LineD worldLine, List<float> intersections)
+		public static bool LineHitsDetector(IMySlimBlock block, LineD worldLine, string detectorPrefix)
 		{
 			CollisionGeometry geometry;
-			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
 			Line modelLine = new Line(
 				(Vector3)WorldToModel(block, worldLine.From),
 				(Vector3)WorldToModel(block, worldLine.To));
 
+			float minCollisionHit = float.MaxValue;
+			float minDetectorHit = float.MaxValue;
+
 			foreach (var shape in geometry.Shapes)
 			{	
 				var fr = shape.ForRaycast;
-
 				if(fr == null) continue;
 				
 				for(int i = 0; i < fr.Count; ++i)
@@ -493,9 +507,26 @@ namespace LLE
 					var intersection = Intersections.GetLineParallelogramIntersection(ref modelLine, ref p);
 
 					if(intersection == null) continue;
-					intersections.Add(intersection.Value);
+					if(intersection.Value < minCollisionHit) minCollisionHit = intersection.Value;
 				}
 			}
+
+			foreach (var detector in geometry.Detectors)
+			{	if(!detector.Name.StartsWith(detectorPrefix)) continue;
+
+				var fr = detector.ForRaycast;
+				if(fr == null) continue;
+
+				for(int i = 0; i < fr.Count; ++i)
+				{	var p = fr[i];
+					var intersection = Intersections.GetLineParallelogramIntersection(ref modelLine, ref p);
+
+					if(intersection == null) continue;
+					if(intersection.Value < minDetectorHit) minDetectorHit = intersection.Value;
+				}
+			}
+
+			return minDetectorHit < minCollisionHit;
 		}
 	}
 }
