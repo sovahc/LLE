@@ -20,6 +20,7 @@ namespace LLE
 		public const float EngineerCapsuleRadius = 0.5f;
 		public const float EngineerHeight = 1.8f;
 		public const float CollisionProbeRadius = 0.6f;
+		public const float InteractionDistance = 4.5f;
 
 		public static readonly Vector3I[] SixDirections = new Vector3I[]
 		{	
@@ -27,7 +28,7 @@ namespace LLE
 			new Vector3I(0, -1, 0), new Vector3I(0, 1, 0),
 			new Vector3I(0, 0, -1), new Vector3I(0, 0, 1)
 		};
-	}
+    }
 
 	static class Utilities
 	{

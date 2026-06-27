@@ -454,42 +454,6 @@ namespace LLE
 			return trav;
 		}
 
-		public static bool LineHitsDetector(IMySlimBlock block, Line modelLine, DetectorInfo detector)
-		{
-			CollisionGeometry geometry;
-			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
-
-			float minCollisionHit = float.MaxValue;
-			float minDetectorHit = float.MaxValue;
-
-			foreach (var shape in geometry.Shapes)
-			{	
-				var fr = shape.ForRaycast;
-				if(fr == null) continue;
-				
-				for(int i = 0; i < fr.Count; ++i)
-				{	var p = fr[i];
-					var intersection = Intersections.GetLineParallelogramIntersection(ref modelLine, ref p);
-
-					if(intersection == null) continue;
-					if(intersection.Value < minCollisionHit) minCollisionHit = intersection.Value;
-				}
-			}
-
-			var dfr = detector.ForRaycast;
-			if(dfr == null) return false;
-
-			for(int i = 0; i < dfr.Count; ++i)
-			{	var p = dfr[i];
-				var intersection = Intersections.GetLineParallelogramIntersection(ref modelLine, ref p);
-
-				if(intersection == null) continue;
-				if(intersection.Value < minDetectorHit) minDetectorHit = intersection.Value;
-			}
-
-			return minDetectorHit < minCollisionHit;
-		}
-
 		public static void GetInteractionPoints(IMySlimBlock block, string detectorPrefix, List<Vector3I> output)
 		{
 			Debug.linesRed.Clear();
@@ -509,32 +473,48 @@ namespace LLE
 				var ijk = iter.Current;
 
 				var b = grid.GetCubeBlock(ijk);
-				if(b != null && !CenterIsFree(b, ijk)) continue;
+				if(b != null && !CenterIsFree(b, ijk))
+				{	Drawing.RoundMarker(grid.GridIntegerToWorld(ijk), Color.BlueViolet);
+					continue;
+				}
 
 				Vector3D worldFrom = grid.GridIntegerToWorld(ijk);
-				Vector3 modelFrom = WorldToModel(block, worldFrom);
+				//Vector3 modelFrom = WorldToModel(block, worldFrom);
 
 				foreach (var detector in geometry.Detectors)
 				{	
 					if(!detector.Name.StartsWith(detectorPrefix)) continue;
 
-					var fr = detector.ForRaycast;
-					if(fr == null) continue;
-
 					var detectorCenter = detector.Transform.Translation;
 					
-					var modelLine = new Line(modelFrom, detectorCenter);
+					var worldLine = new LineD(worldFrom, ModelToWorld(block, detectorCenter));
+					if(worldLine.Length >= Constants.InteractionDistance) continue;
 
-					var worldLine = new LineD(ModelToWorld(block, modelLine.From), ModelToWorld(block, modelLine.To));
+					double dist;
+					IMySlimBlock hitBlock;
+					grid.GetLineIntersectionExactAll(ref worldLine, out dist, out hitBlock);
 
-					bool hit = LineHitsDetector(block, modelLine, detector);
+					//if (hitBlock != block)
+					//{	Debug.linesGray.Add(worldLine);
+					//	continue;						
+					//}
+					if(hitBlock == null) continue;
 
-					if(hit) Debug.linesRed.Add(worldLine);
-					else Debug.linesGray.Add(worldLine);
+					worldLine = new LineD(worldFrom, worldFrom + (worldLine.To - worldFrom) * dist / worldLine.Length);
+					
+					Debug.linesRed.Add(worldLine);
 
-					if(!hit) continue;
+					Vector3D modelHitPoint = WorldToModel(block, worldLine.To);
+					Matrix invDet;
+					Matrix.Invert(ref detector.Transform, out invDet);
+					Vector3 localHit = Vector3.Transform(modelHitPoint, invDet);
 
-					output.Add(ijk);
+					if (Math.Abs(localHit.X) <= 0.5f &&
+						Math.Abs(localHit.Y) <= 0.5f &&
+						Math.Abs(localHit.Z) <= 0.5f)
+					{	
+						output.Add(ijk);
+					}
 				}
 			}
 		}

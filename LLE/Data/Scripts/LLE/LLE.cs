@@ -120,10 +120,13 @@ namespace LLE
 					var red = Color.Red.ToVector4();
 					var gray = Color.Gray.ToVector4();
 					
-					foreach(var line in linesRed)
-						MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref red, 0.01f);
 					foreach(var line in linesGray)
-						MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref gray, 0.01f);
+					{	MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref gray, 0.01f);
+					}
+					foreach(var line in linesRed)
+					{	MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref red, 0.01f);
+						Drawing.RoundMarker(line.To, Color.OrangeRed);
+					}
 				}
 			}
 		}
