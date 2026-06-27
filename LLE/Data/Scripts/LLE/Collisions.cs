@@ -165,7 +165,17 @@ namespace LLE
 					for (int v = 0; v < vertices.Count; ++v)
 						vertices[v] = Vector3.Transform(vertices[v], box.Transform);
 					shapes[i] = new ConvexHullShape { Vertices = vertices };
-					box.Transform = Matrix.Identity;
+					
+					var pList = new List<Parallelogram>();
+					Geometry.BoxToParallelograms(box.HalfExtents, pList);
+					for (int v = 0; v < pList.Count; ++v)
+					{	Parallelogram p = pList[v];
+						p.A = Vector3.Transform(p.A, box.Transform);
+						p.B = Vector3.Transform(p.B, box.Transform);
+						p.C = Vector3.Transform(p.C, box.Transform);
+						pList[v] = p;
+					}
+					shapes[i].ForRaycast = pList;
 					continue;
 				}
 
@@ -177,7 +187,6 @@ namespace LLE
 					for (int v = 0; v < vertices.Count; ++v)
 						vertices[v] = Vector3.Transform(vertices[v], cylinder.Transform);
 					shapes[i] = new ConvexHullShape { Vertices = vertices };
-					cylinder.Transform = Matrix.Identity;
 					continue;
 				}
 
@@ -186,7 +195,6 @@ namespace LLE
 				{
 					for (int v = 0; v < convex.Vertices.Count; ++v)
 						convex.Vertices[v] = Vector3.Transform(convex.Vertices[v], convex.Transform);
-					convex.Transform = Matrix.Identity;
 					continue;
 				}
 
@@ -199,7 +207,6 @@ namespace LLE
 					var vertices = new List<Vector3>();
 					Geometry.CapsuleToConvex(mA, mB, capsule.Radius, vertices);
 					shapes[i] = new ConvexHullShape { Vertices = vertices };
-					capsule.Transform = Matrix.Identity;
 					continue;
 				}
 			}
@@ -464,6 +471,31 @@ namespace LLE
 			}
 
 			return trav;
+		}
+
+		public static void CollisionLineCast(IMySlimBlock block, LineD worldLine, List<float> intersections)
+		{
+			CollisionGeometry geometry;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return;
+
+			Line modelLine = new Line(
+				(Vector3)WorldToModel(block, worldLine.From),
+				(Vector3)WorldToModel(block, worldLine.To));
+
+			foreach (var shape in geometry.Shapes)
+			{	
+				var fr = shape.ForRaycast;
+
+				if(fr == null) continue;
+				
+				for(int i = 0; i < fr.Count; ++i)
+				{	var p = fr[i];
+					var intersection = Intersections.GetLineParallelogramIntersection(ref modelLine, ref p);
+
+					if(intersection == null) continue;
+					intersections.Add(intersection.Value);
+				}
+			}
 		}
 	}
 }

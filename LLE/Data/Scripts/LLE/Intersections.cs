@@ -178,14 +178,13 @@ namespace LLE
 		}
 
 		// ! Modified ! Möller–Trumbore Ray-Triangle Intersection
-		public static float? GetLineParallelogramIntersection(ref Line line,
-			ref Vector3 A, ref Vector3 B, ref Vector3 C)
+		public static float? GetLineParallelogramIntersection(ref Line line, ref Parallelogram parallelogram)
 		{
 			// Compute vectors along two edges.
 			Vector3 edge1, edge2;
 
-			Vector3.Subtract(ref B, ref A, out edge1);
-			Vector3.Subtract(ref C, ref A, out edge2);
+			Vector3.Subtract(ref parallelogram.B, ref parallelogram.A, out edge1);
+			Vector3.Subtract(ref parallelogram.C, ref parallelogram.A, out edge2);
 
 			// Compute the determinant.
 			Vector3 directionCrossEdge2;
@@ -202,7 +201,7 @@ namespace LLE
 
 			// Calculate the U parameter of the intersection point.
 			Vector3 distanceVector;
-			Vector3.Subtract(ref line.From, ref A, out distanceVector);
+			Vector3.Subtract(ref line.From, ref parallelogram.A, out distanceVector);
 
 			float u;
 			Vector3.Dot(ref distanceVector, ref directionCrossEdge2, out u);

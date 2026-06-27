@@ -19,6 +19,27 @@ namespace LLE
 			result.Add(new Vector3(-he.X, -he.Y, -he.Z));
 		}
 
+		public static void BoxToParallelograms(Vector3 he, List<Parallelogram> result)
+		{
+			var A = new Vector3(-he.X,  -he.Y,  -he.Z);
+			var B = new Vector3(+he.X,  -he.Y,  -he.Z);
+			var C = new Vector3(-he.X,  +he.Y,  -he.Z);
+			var D = new Vector3(-he.X,  -he.Y,  +he.Z);
+			
+			result.Add(new Parallelogram(A, C, B));
+			result.Add(new Parallelogram(A, D, C));
+			result.Add(new Parallelogram(A, B, D));
+
+			A = new Vector3(+he.X,  +he.Y,  +he.Z);
+			B = new Vector3(-he.X,  +he.Y,  +he.Z);
+			C = new Vector3(+he.X,  -he.Y,  +he.Z);
+			D = new Vector3(+he.X,  +he.Y,  -he.Z);
+
+			result.Add(new Parallelogram(A, B, C));
+			result.Add(new Parallelogram(A, C, D));
+			result.Add(new Parallelogram(A, D, B));
+		}
+
 		public static void CylinderToConvex(Vector3 a, Vector3 b, float R,
 			List<Vector3> out_vertices, int segments = 16)
 		{

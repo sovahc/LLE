@@ -36,11 +36,13 @@ namespace LLE
 			astar = new AStar(astarSize, new TraversabilityCalculator(grid_, AStarBorder));
 		}
 
-		internal static void Pathfinding(Vector3D point)
+		internal static void Pathfinding(MatrixD hm)
 		{
 			if (grid == null) return;
 
-			var cell = grid.WorldToGridInteger(point);
+			Vector3D ahead = hm.Translation + hm.Forward * 7;
+
+			var cell = grid.WorldToGridInteger(ahead);
 
 			Utilities.HighlightCell(grid, cell, Color.Gray);
 
@@ -83,7 +85,7 @@ namespace LLE
 			}
 		}
 
-		internal static void Draw(Vector3D queryPoint)
+		internal static void Draw(MatrixD hm)
 		{
 			if(grid == null) return;
 
@@ -100,6 +102,8 @@ namespace LLE
 				{
 					Collisions.Draw(block);
 
+					var queryPoint = hm.Translation;
+
 					Vector3D v;
 					if(Collisions.GetNearestCollisionCenter(block, queryPoint, out v))
 						Drawing.RoundMarker(v, Color.Red);
@@ -111,6 +115,25 @@ namespace LLE
 					Collisions.GetInteractionPoints(block, ip);
 					foreach(var p in ip)
 						Utilities.HighlightCell(grid, p, Color.Yellow);
+
+					var Z = hm.Translation + hm.Forward * 5;
+					LineD line = new LineD(Z + hm.Right, Z - hm.Right);
+					
+					var material = MyStringId.GetOrCompute("Square");
+					var color = Color.Red.ToVector4();					
+
+					MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref color, 0.01f);
+
+					List<float> intersections = new List<float>();
+					Collisions.CollisionLineCast(block, line, intersections);
+
+					foreach(var f in intersections)
+					{	MyConsole.AddMultiline($" {f}", Color.Red);
+						var intp = line.From + line.Direction * (double)f;
+
+						Drawing.RoundMarker(intp, Color.Red);
+					}
+					MyConsole.AddMultiline("\n", Color.Red);
 				}
 			}
 		}
@@ -325,9 +348,9 @@ namespace LLE
 				return;
 			}
 
-			Vector3D ahead = hm.Translation + hm.Forward * 10;
-			Debug.Pathfinding(ahead);
-			Debug.Draw(hm.Translation);
+			
+			Debug.Pathfinding(hm);
+			Debug.Draw(hm);
 
 			MyConsole.Render(font);
 			Common.Call_Add_Billboards(); // just for sure

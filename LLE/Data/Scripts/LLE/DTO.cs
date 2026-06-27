@@ -54,6 +54,13 @@ namespace LLE
 		public override string ToString() => $"Detector: {Name}";
 	}
 
+	public struct Parallelogram
+	{	public Vector3 A, B, C; // D = A + AB + AC
+		public Parallelogram(Vector3 a, Vector3 b, Vector3 c)
+		{	A = a; B = b; C = c;
+		}
+	}
+
 	[ProtoInclude(11, typeof(BoxShape))]
 	[ProtoInclude(12, typeof(SphereShape))]
 	[ProtoInclude(13, typeof(CapsuleShape))]
@@ -65,6 +72,8 @@ namespace LLE
 		public CollisionShape() { }
 		[ProtoMember(1)] public Matrix Transform = Matrix.Identity;
 		public override string ToString() => "CollisionShape";
+
+		public List<Parallelogram> ForRaycast;
 	}
 
 	[ProtoContract]
