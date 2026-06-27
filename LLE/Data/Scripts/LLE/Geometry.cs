@@ -26,9 +26,9 @@ namespace LLE
 			var C = new Vector3(-he.X,  +he.Y,  -he.Z);
 			var D = new Vector3(-he.X,  -he.Y,  +he.Z);
 			
-			result.Add(new Parallelogram(A, C, B));
-			result.Add(new Parallelogram(A, D, C));
-			result.Add(new Parallelogram(A, B, D));
+			result.Add(new Parallelogram(A, B, C));
+			result.Add(new Parallelogram(A, C, D));
+			result.Add(new Parallelogram(A, D, B));
 
 			A = new Vector3(+he.X,  +he.Y,  +he.Z);
 			B = new Vector3(-he.X,  +he.Y,  +he.Z);
