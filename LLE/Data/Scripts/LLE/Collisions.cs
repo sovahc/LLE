@@ -285,10 +285,6 @@ namespace LLE
 			return false;
 		}
 
-		// Check whether a world-space line segment is occluded by any block in the grid
-		// within the [min, max] bounding box (grid integer coordinates).
-		// Uses 3D DDA (GridIntersection) to traverse only the cells the line passes through.
-		// skipBlock is excluded from the check (e.g. the block the line ends inside).
 		internal static bool GridLineOccluded(IMyCubeGrid grid, LineD worldLine, Vector3I min, Vector3I max)
 		{
 			// GridIntersection.Calculate works in grid-local space (meters from grid origin)
