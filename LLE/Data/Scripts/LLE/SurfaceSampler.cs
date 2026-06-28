@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 using VRageMath;
 using VRage.Game.ModAPI;
@@ -91,22 +92,16 @@ namespace LLE
 
 			Vector3D start = center + dir * tExit;
 
-			// March from surface point back to center, half-cell steps.
-			Vector3D path = center - start;
-			int steps = (int)Math.Ceiling(path.Length() * 2) + 1;
-			Vector3D delta = path / steps;
+			// Trace ray from surface point to center using 3D DDA.
+			// DDA expects cell corners at integer positions; our grid has cell
+			// centers at integers, so shift by half a cell (same as
+			// MyCubeGrid.RayCastCells in game sources).
+			var cells = new List<Vector3I>();
+			Vector3D halfCell = new Vector3D(0.5);
+			GridIntersection.Calculate(cells, 1.0f, start + halfCell, center + halfCell, min, max);
 
-			Vector3I prevCell = new Vector3I(int.MinValue, int.MinValue, int.MinValue);
-			for (int i = 0; i <= steps; i++)
+			foreach (var cell in cells)
 			{
-				Vector3D p = start + delta * i;
-				Vector3I cell = new Vector3I(
-					(int)Math.Round(p.X),
-					(int)Math.Round(p.Y),
-					(int)Math.Round(p.Z));
-				if (cell == prevCell) continue;
-				prevCell = cell;
-
 				var block = grid.GetCubeBlock(cell);
 				if (block != null)
 				{
