@@ -64,8 +64,6 @@ namespace LLE
 			}
 		}
 
-		private static List<Vector3I> staticCells = new List<Vector3I>();
-
 		public static bool TryGetRandomBlockOnSurface(IMyCubeGrid grid, Random random, out Vector3D worldPosition)
 		{
 			worldPosition = Vector3D.Zero;
@@ -94,16 +92,22 @@ namespace LLE
 
 			Vector3D start = center + dir * tExit;
 
-			// Trace ray from surface point to center using 3D DDA.
-			// DDA expects cell corners at integer positions; our grid has cell
-			// centers at integers, so shift by half a cell (same as
-			// MyCubeGrid.RayCastCells in game sources).
-			Vector3D halfCell = Vector3D.Half;
-			staticCells.Clear();
-			GridIntersection.Calculate(staticCells, 1.0f, start + halfCell, center + halfCell, min, max);
+			// March from surface point back to center, half-cell steps.
+			Vector3D path = center - start;
+			int steps = (int)Math.Ceiling(path.Length() * 2) + 1;
+			Vector3D delta = path / steps;
 
-			foreach (var cell in staticCells)
+			Vector3I prevCell = new Vector3I(int.MinValue, int.MinValue, int.MinValue);
+			for (int i = 0; i <= steps; i++)
 			{
+				Vector3D p = start + delta * i;
+				Vector3I cell = new Vector3I(
+					(int)Math.Round(p.X),
+					(int)Math.Round(p.Y),
+					(int)Math.Round(p.Z));
+				if (cell == prevCell) continue;
+				prevCell = cell;
+
 				var block = grid.GetCubeBlock(cell);
 				if (block != null)
 				{
