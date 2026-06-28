@@ -74,8 +74,6 @@ namespace LLE
 		public CollisionShape() { }
 		[ProtoMember(1)] public Matrix Transform = Matrix.Identity;
 		public override string ToString() => "CollisionShape";
-
-		public List<Parallelogram> ForRaycast;
 	}
 
 	[ProtoContract]

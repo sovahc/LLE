@@ -168,7 +168,6 @@ namespace LLE
                     for (int v = 0; v < vertices.Count; ++v)
                         vertices[v] = Vector3.Transform(vertices[v], box.Transform);
                     shapes[i] = new ConvexHullShape { Vertices = vertices };
-					shapes[i].ForRaycast = BoxToPgList(box.HalfExtents, box.Transform);
                     continue;
                 }
 
@@ -285,7 +284,7 @@ namespace LLE
 			return false;
 		}
 
-		internal static bool GridLineOccluded(IMyCubeGrid grid, LineD worldLine, Vector3I min, Vector3I max)
+		internal static bool LineIntersectsGridGeometry(IMyCubeGrid grid, LineD worldLine, Vector3I min, Vector3I max)
 		{
 			// GridIntersection.Calculate works in grid-local space (meters from grid origin)
 			// and treats cell corners as cell centers, so convert the world-space line to
@@ -549,7 +548,7 @@ namespace LLE
 					var clippedByDetector = new Line(line.From, line.From + line.Direction * minIntersection);
 					var worldLine = new LineD(worldFrom, ModelToWorld(block, clippedByDetector.To));
 
-					if(GridLineOccluded(grid, worldLine, min, max))
+					if(LineIntersectsGridGeometry(grid, worldLine, min, max))
 					{	Drawing.RoundMarker(worldLine.To, Color.Gray);
 						continue;
 					}
