@@ -304,9 +304,10 @@ namespace LLE
 				if (slim == null) continue;
 
 				CollisionGeometry cellGeometry;
-				if (!_collisionGeometry.TryGetValue(slim.BlockDefinition.Id, out cellGeometry)) return true; // for unknown block
+				if (!_collisionGeometry.TryGetValue(slim.BlockDefinition.Id, out cellGeometry))
+					return true; // for unknown block
 
-				var modelFrom = WorldToModel(slim, worldLine.From);
+				var modelFrom = WorldToModel(slim, worldLine.From); // XX double inverse matrix calculatuion
 				var modelTo = WorldToModel(slim, worldLine.To);
 				if (LineIntersects(cellGeometry, modelFrom, modelTo))
 					return true;
