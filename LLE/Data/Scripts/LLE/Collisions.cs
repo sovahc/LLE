@@ -55,7 +55,7 @@ namespace LLE
 		}
 
         // Returns a matrix that transforms from model space to world space.
-        private static MatrixD GetModelToWorldMatrix(IMySlimBlock block)
+        internal static MatrixD GetModelToWorldMatrix(IMySlimBlock block)
         {
             Matrix orientMatrix;
             block.Orientation.GetMatrix(out orientMatrix);
@@ -69,7 +69,7 @@ namespace LLE
         }
 
         // Transform a point from world space to model space.
-        private static Vector3D WorldToModel(IMySlimBlock block, Vector3D worldPoint)
+        internal static Vector3D WorldToModel(IMySlimBlock block, Vector3D worldPoint)
         {
             var modelToWorld = GetModelToWorldMatrix(block);
             MatrixD invModelToWorld;
@@ -248,7 +248,7 @@ namespace LLE
 			return trav;
 		}
 
-		private static bool ProbeIntersects(CollisionGeometry geometry, Vector3D center, double radius)
+		internal static bool ProbeIntersects(CollisionGeometry geometry, Vector3D center, double radius)
 		{
 			foreach (var shape in geometry.Shapes)
 			{
@@ -263,9 +263,23 @@ namespace LLE
 			return false;
 		}
 
-		private static bool ProbeIntersects(CollisionGeometry geometry, Vector3 center, double radius)
+		internal static bool ProbeIntersects(CollisionGeometry geometry, Vector3 center, double radius)
 		{
 			return ProbeIntersects(geometry, new Vector3D(center), radius);
+		}
+
+		internal static bool LineIntersects(CollisionGeometry geometry, Vector3 A, Vector3 B)
+		{
+			foreach (var shape in geometry.Shapes)
+			{
+				var convex = shape as ConvexHullShape;
+				if (convex != null && Intersections.LineSegmentVsConvex(A, B, convex.Vertices))
+					return true;
+				var sphere = shape as SphereShape;
+				if (sphere != null && Intersections.LineSegmentVsSphere(A, B, sphere.Center, sphere.Radius))
+					return true;
+			}
+			return false;
 		}
 
 		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
@@ -473,48 +487,47 @@ namespace LLE
 				var ijk = iter.Current;
 
 				var b = grid.GetCubeBlock(ijk);
-				if(b != null && !CenterIsFree(b, ijk))
-				{	Drawing.RoundMarker(grid.GridIntegerToWorld(ijk), Color.BlueViolet);
-					continue;
-				}
+				if(b != null && !CenterIsFree(b, ijk)) continue;
 
 				Vector3D worldFrom = grid.GridIntegerToWorld(ijk);
-				//Vector3 modelFrom = WorldToModel(block, worldFrom);
+				Vector3 modelFrom = WorldToModel(block, worldFrom);
 
 				foreach (var detector in geometry.Detectors)
 				{	
 					if(!detector.Name.StartsWith(detectorPrefix)) continue;
 
 					var detectorCenter = detector.Transform.Translation;
+					var line = new Line(modelFrom, detectorCenter);
 					
-					var worldLine = new LineD(worldFrom, ModelToWorld(block, detectorCenter));
-					if(worldLine.Length >= Constants.InteractionDistance) continue;
+					if(line.Length >= Constants.InteractionDistance) continue;
 
-					double dist;
-					IMySlimBlock hitBlock;
-					grid.GetLineIntersectionExactAll(ref worldLine, out dist, out hitBlock);
+					float minIntersection = float.MaxValue;
 
-					//if (hitBlock != block)
-					//{	Debug.linesGray.Add(worldLine);
-					//	continue;						
-					//}
-					if(hitBlock == null) continue;
+					foreach(var p in detector.ForRaycast)
+					{	var lp = p;
+						var f = Intersections.GetLineParallelogramIntersection(ref line, ref lp);
+						if(!f.HasValue) continue;
 
-					worldLine = new LineD(worldFrom, worldFrom + (worldLine.To - worldFrom) * dist / worldLine.Length);
+						if(f.Value < minIntersection) minIntersection = f.Value;
+					}
+
+					if(minIntersection >= float.MaxValue) continue;
+
+					var clippedByDetector = new Line(line.From, line.From + line.Direction * minIntersection);
+					var inColl = LineIntersects(geometry, clippedByDetector.From, clippedByDetector.To);
+
+					var worldLine = new LineD(worldFrom, ModelToWorld(block, clippedByDetector.To));
+					Drawing.RoundMarker(worldLine.From, Color.Green);
+					Drawing.RoundMarker(worldLine.To, Color.Magenta);
 					
+					if(inColl)
+					{	Debug.linesGray.Add(worldLine);
+						continue;
+					}
+
 					Debug.linesRed.Add(worldLine);
 
-					Vector3D modelHitPoint = WorldToModel(block, worldLine.To);
-					Matrix invDet;
-					Matrix.Invert(ref detector.Transform, out invDet);
-					Vector3 localHit = Vector3.Transform(modelHitPoint, invDet);
-
-					if (Math.Abs(localHit.X) <= 0.5f &&
-						Math.Abs(localHit.Y) <= 0.5f &&
-						Math.Abs(localHit.Z) <= 0.5f)
-					{	
-						output.Add(ijk);
-					}
+					output.Add(ijk);
 				}
 			}
 		}

@@ -150,6 +150,40 @@ namespace LLE
 			return best;
 		}
 
+		public static bool LineSegmentVsConvex(Vector3 A, Vector3 B, List<Vector3> convexVertices)
+		{
+			if (convexVertices == null || convexVertices.Count < 3)
+				return false;
+
+			// Treat the line segment as a degenerate convex with two vertices.
+			var segmentVerts = new List<Vector3> { A, B };
+
+			return ConvexVsConvex(segmentVerts, convexVertices);
+		}
+
+		public static bool LineSegmentVsSphere(Vector3 A, Vector3 B, Vector3 sphereCenter, float sphereRadius)
+		{
+			// Find the closest point on the line segment to the sphere center.
+			Vector3 segmentDir = B - A;
+			float segmentLenSq = segmentDir.LengthSquared();
+
+			Vector3 closest;
+			if (segmentLenSq < ZeroEpsilon)
+			{
+				// Degenerate segment — treat as a point.
+				closest = A;
+			}
+			else
+			{
+				float t = Vector3.Dot(sphereCenter - A, segmentDir) / segmentLenSq;
+				t = Math.Max(0.0f, Math.Min(1.0f, t));
+				closest = A + t * segmentDir;
+			}
+
+			Vector3 diff = sphereCenter - closest;
+			return diff.LengthSquared() <= sphereRadius * sphereRadius;
+		}
+
 		public static bool SphereVsSphere(
 			Vector3D centerA, double radiusA,
 			Vector3D centerB, double radiusB)

@@ -105,6 +105,28 @@ namespace LLE
 				{
 					Collisions.Draw(block);
 
+/*
+					CollisionGeometry geometry;
+					var id = block.BlockDefinition.Id;
+
+					if (Collisions._collisionGeometry.TryGetValue(id, out geometry))
+					{
+						var Z = hm.Translation + hm.Forward * 5;
+						var A = Z + hm.Right;
+						var B = Z + hm.Left;
+
+						var material = MyStringId.GetOrCompute("Square");
+
+						var Am = Collisions.WorldToModel(block, A);
+						var Bm = Collisions.WorldToModel(block, B);
+
+						var inter = Collisions.LineIntersects(geometry, Am, Bm);
+
+						var color = inter ? Color.Red.ToVector4() : Color.Gray.ToVector4();
+
+						MySimpleObjectDraw.DrawLine(A, B, material, ref color, 0.01f);
+					}
+*/
 					var queryPoint = hm.Translation;
 
 					Vector3D v;
