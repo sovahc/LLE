@@ -57,34 +57,34 @@ namespace LLE
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
 		}
 
-        // Returns a matrix that transforms from model space to world space.
-        internal static MatrixD GetModelToWorldMatrix(IMySlimBlock block)
-        {
-            Matrix orientMatrix;
-            block.Orientation.GetMatrix(out orientMatrix);
+		// Returns a matrix that transforms from model space to world space.
+		internal static MatrixD GetModelToWorldMatrix(IMySlimBlock block)
+		{
+			Matrix orientMatrix;
+			block.Orientation.GetMatrix(out orientMatrix);
 
-            Vector3D worldCenter;
-            block.ComputeWorldCenter(out worldCenter);
+			Vector3D worldCenter;
+			block.ComputeWorldCenter(out worldCenter);
 
-            MatrixD modelToWorld = new MatrixD(orientMatrix) * block.CubeGrid.WorldMatrix;
-            modelToWorld.Translation = worldCenter;
-            return modelToWorld;
-        }
+			MatrixD modelToWorld = new MatrixD(orientMatrix) * block.CubeGrid.WorldMatrix;
+			modelToWorld.Translation = worldCenter;
+			return modelToWorld;
+		}
 
-        // Transform a point from world space to model space.
-        internal static Vector3D WorldToModel(IMySlimBlock block, Vector3D worldPoint)
-        {
-            var modelToWorld = GetModelToWorldMatrix(block);
-            MatrixD invModelToWorld;
-            MatrixD.Invert(ref modelToWorld, out invModelToWorld);
-            return Vector3D.Transform(worldPoint, invModelToWorld);
-        }
+		// Transform a point from world space to model space.
+		internal static Vector3D WorldToModel(IMySlimBlock block, Vector3D worldPoint)
+		{
+			var modelToWorld = GetModelToWorldMatrix(block);
+			MatrixD invModelToWorld;
+			MatrixD.Invert(ref modelToWorld, out invModelToWorld);
+			return Vector3D.Transform(worldPoint, invModelToWorld);
+		}
 
-        // Transform a point from model space to world space.
-        private static Vector3D ModelToWorld(IMySlimBlock block, Vector3D modelPoint)
-        {
-            return Vector3D.Transform(modelPoint, GetModelToWorldMatrix(block));
-        }
+		// Transform a point from model space to world space.
+		private static Vector3D ModelToWorld(IMySlimBlock block, Vector3D modelPoint)
+		{
+			return Vector3D.Transform(modelPoint, GetModelToWorldMatrix(block));
+		}
 
 		public static void Draw(IMySlimBlock block)
 		{
@@ -162,16 +162,16 @@ namespace LLE
 
 				var box = shape as BoxShape;
 				if (box != null)
-                {
-                    var vertices = new List<Vector3>();
-                    Geometry.BoxToConvex(box.HalfExtents, vertices);
-                    for (int v = 0; v < vertices.Count; ++v)
-                        vertices[v] = Vector3.Transform(vertices[v], box.Transform);
-                    shapes[i] = new ConvexHullShape { Vertices = vertices };
-                    continue;
-                }
+				{
+					var vertices = new List<Vector3>();
+					Geometry.BoxToConvex(box.HalfExtents, vertices);
+					for (int v = 0; v < vertices.Count; ++v)
+						vertices[v] = Vector3.Transform(vertices[v], box.Transform);
+					shapes[i] = new ConvexHullShape { Vertices = vertices };
+					continue;
+				}
 
-                var cylinder = shape as CylinderShape;
+				var cylinder = shape as CylinderShape;
 				if (cylinder != null)
 				{
 					var vertices = new List<Vector3>();
@@ -210,23 +210,23 @@ namespace LLE
 			}
 		}
 
-        private static List<Parallelogram> BoxToPgList(Vector3 halfExtents, Matrix transform)
-        {
-            var pList = new List<Parallelogram>();
-            Geometry.BoxToParallelograms(halfExtents, pList);
-            for (int v = 0; v < pList.Count; ++v)
-            {
-                Parallelogram p = pList[v];
-                p.A = Vector3.Transform(p.A, transform);
-                p.B = Vector3.Transform(p.B, transform);
-                p.C = Vector3.Transform(p.C, transform);
-                pList[v] = p;
-            }
+		private static List<Parallelogram> BoxToPgList(Vector3 halfExtents, Matrix transform)
+		{
+			var pList = new List<Parallelogram>();
+			Geometry.BoxToParallelograms(halfExtents, pList);
+			for (int v = 0; v < pList.Count; ++v)
+			{
+				Parallelogram p = pList[v];
+				p.A = Vector3.Transform(p.A, transform);
+				p.B = Vector3.Transform(p.B, transform);
+				p.C = Vector3.Transform(p.C, transform);
+				pList[v] = p;
+			}
 
-            return pList;
-        }
+			return pList;
+		}
 
-        private static Traversability CalculateTraversability(CollisionGeometry geometry)
+		private static Traversability CalculateTraversability(CollisionGeometry geometry)
 		{
 			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
 			float offset = blockSize / 2;
@@ -500,14 +500,16 @@ namespace LLE
 			return trav;
 		}
 
-		public static void GetInteractionPoints(IMySlimBlock block, float maxDistance,
-			List<Vector3I> inventoryIP, List<Vector3I> medblockIP)
+		public static void GetInteractionPoints(IMySlimBlock block, List<Vector3I> inventoryIP, List<Vector3I> medblockIP)
 		{
 			Debug.linesRed.Clear();
 			Debug.linesGray.Clear();
 
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return;
+
+			List<float> inventoryDistance = new List<float>();
+			List<float> medblockDistance = new List<float>();
 
 			var grid = block.CubeGrid;
 
@@ -529,7 +531,8 @@ namespace LLE
 				{	
 					bool inventory =
 						detector.Name.StartsWith("conveyor_") ||
-						detector.Name.StartsWith("inventory_");
+						detector.Name.StartsWith("inventory_") || 
+						detector.Name.StartsWith("cockpit_");
 					bool medblock = detector.Name.StartsWith("block_");
 
 					if(!inventory && !medblock) continue;
@@ -537,7 +540,7 @@ namespace LLE
 					var detectorCenter = detector.Transform.Translation;
 					var line = new Line(modelFrom, detectorCenter);
 					
-					if(line.Length >= maxDistance) continue;
+					if(line.Length > Constants.MaxInteractionDistance) continue;
 
 					float minIntersection = float.MaxValue;
 
@@ -563,9 +566,36 @@ namespace LLE
 
 					Debug.linesRed.Add(worldLine);
 
-					if(inventory) inventoryIP.Add(ijk);
-					if(medblock) medblockIP.Add(ijk);
+					if(inventory)
+					{	inventoryIP.Add(ijk);
+						inventoryDistance.Add(minIntersection);
+					}
+					if(medblock)
+					{	medblockIP.Add(ijk);
+						medblockDistance.Add(minIntersection);
+					}
 				}
+			}
+
+			SelectNearest(inventoryIP, inventoryDistance);
+			SelectNearest(medblockIP, medblockDistance);
+		}
+
+		private static void SelectNearest(List<Vector3I> ijk, List<float> distance)
+		{
+			if (distance.Count == 0) return;
+
+			float min = distance[0];
+			for (int n = 1; n < distance.Count; ++n)
+				if (distance[n] < min) min = distance[n];
+
+			float threshold = min + 0.25f;
+
+			for (int n = distance.Count - 1; n >= 0; --n)
+			{	if (distance[n] <= threshold) continue;
+
+				ijk.RemoveAt(n);
+				distance.RemoveAt(n);
 			}
 		}
 	}

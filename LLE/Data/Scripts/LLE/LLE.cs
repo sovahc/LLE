@@ -113,9 +113,7 @@ namespace LLE
 
 					List<Vector3I> iip = new List<Vector3I>();
 					List<Vector3I> mip = new List<Vector3I>();
-					Collisions.GetInteractionPoints(block, Constants.InteractionDistance1, iip, mip);
-					if(iip.Count == 0 && mip.Count == 0)
-						Collisions.GetInteractionPoints(block, Constants.InteractionDistance2, iip, mip);
+					Collisions.GetInteractionPoints(block, iip, mip);
 
 					foreach(var p in iip)
 						Utilities.HighlightCell(grid, p, Color.Yellow);
