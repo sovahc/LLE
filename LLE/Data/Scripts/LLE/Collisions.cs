@@ -486,8 +486,8 @@ namespace LLE
 			{
 				var ijk = iter.Current;
 
-				var b = grid.GetCubeBlock(ijk);
-				if(b != null && !CenterIsFree(b, ijk)) continue;
+				var ijkBlock = grid.GetCubeBlock(ijk);
+				if(ijkBlock != null && !CenterIsFree(ijkBlock, ijk)) continue;
 
 				Vector3D worldFrom = grid.GridIntegerToWorld(ijk);
 				Vector3 modelFrom = WorldToModel(block, worldFrom);
@@ -514,16 +514,24 @@ namespace LLE
 					if(minIntersection >= float.MaxValue) continue;
 
 					var clippedByDetector = new Line(line.From, line.From + line.Direction * minIntersection);
-					var inColl = LineIntersects(geometry, clippedByDetector.From, clippedByDetector.To);
-
 					var worldLine = new LineD(worldFrom, ModelToWorld(block, clippedByDetector.To));
-					Drawing.RoundMarker(worldLine.From, Color.Green);
-					Drawing.RoundMarker(worldLine.To, Color.Magenta);
-					
-					if(inColl)
-					{	Debug.linesGray.Add(worldLine);
-						continue;
+
+					if(ijkBlock != null && ijkBlock != block)
+					{	var ijkLine = new Line(WorldToModel(ijkBlock, worldLine.From), WorldToModel(ijkBlock, worldLine.To));
+						var c = LineIntersects(geometry, ijkLine.From, ijkLine.To);
+						if(c)
+						{	Drawing.RoundMarker(worldLine.To, Color.Gray);
+							continue;
+						}
 					}
+
+					var c2 = LineIntersects(geometry, clippedByDetector.From, clippedByDetector.To);
+					if(c2)
+					{	Drawing.RoundMarker(worldLine.To, Color.Black);
+						continue;		
+					}
+
+					Drawing.RoundMarker(worldLine.To, Color.Green);
 
 					Debug.linesRed.Add(worldLine);
 
