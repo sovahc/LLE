@@ -289,8 +289,7 @@ namespace LLE
 		// within the [min, max] bounding box (grid integer coordinates).
 		// Uses 3D DDA (GridIntersection) to traverse only the cells the line passes through.
 		// skipBlock is excluded from the check (e.g. the block the line ends inside).
-		internal static bool GridLineOccluded(IMyCubeGrid grid, LineD worldLine, Vector3I min, Vector3I max,
-			Vector3I add1, Vector3I add2)
+		internal static bool GridLineOccluded(IMyCubeGrid grid, LineD worldLine, Vector3I min, Vector3I max)
 		{
 			// GridIntersection.Calculate works in grid-local space (meters from grid origin)
 			// and treats cell corners as cell centers, so convert the world-space line to
@@ -301,8 +300,6 @@ namespace LLE
 			Vector3D localTo   = Vector3D.Transform(worldLine.To,   invWorld) + halfOffset;
 
 			_gridLineCells.Clear();
-			_gridLineCells.Add(add1);
-			_gridLineCells.Add(add2);
 			GridIntersection.Calculate(_gridLineCells, grid.GridSize, localFrom, localTo, min, max);
 
 			foreach (var cell in _gridLineCells)
@@ -555,7 +552,7 @@ namespace LLE
 					var clippedByDetector = new Line(line.From, line.From + line.Direction * minIntersection);
 					var worldLine = new LineD(worldFrom, ModelToWorld(block, clippedByDetector.To));
 
-					if(GridLineOccluded(grid, worldLine, min, max, min, ijk))
+					if(GridLineOccluded(grid, worldLine, min, max))
 					{	Drawing.RoundMarker(worldLine.To, Color.Gray);
 						continue;
 					}
