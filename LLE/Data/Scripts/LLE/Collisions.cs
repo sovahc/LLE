@@ -500,7 +500,8 @@ namespace LLE
 			return trav;
 		}
 
-		public static void GetInteractionPoints(IMySlimBlock block, string detectorPrefix, List<Vector3I> output)
+		public static void GetInteractionPoints(IMySlimBlock block, float maxDistance,
+			List<Vector3I> inventoryIP, List<Vector3I> medblockIP)
 		{
 			Debug.linesRed.Clear();
 			Debug.linesGray.Clear();
@@ -526,12 +527,17 @@ namespace LLE
 
 				foreach (var detector in geometry.Detectors)
 				{	
-					if(!detector.Name.StartsWith(detectorPrefix)) continue;
+					bool inventory =
+						detector.Name.StartsWith("conveyor_") ||
+						detector.Name.StartsWith("inventory_");
+					bool medblock = detector.Name.StartsWith("block_");
+
+					if(!inventory && !medblock) continue;
 
 					var detectorCenter = detector.Transform.Translation;
 					var line = new Line(modelFrom, detectorCenter);
 					
-					if(line.Length >= Constants.InteractionDistance) continue;
+					if(line.Length >= maxDistance) continue;
 
 					float minIntersection = float.MaxValue;
 
@@ -557,7 +563,8 @@ namespace LLE
 
 					Debug.linesRed.Add(worldLine);
 
-					output.Add(ijk);
+					if(inventory) inventoryIP.Add(ijk);
+					if(medblock) medblockIP.Add(ijk);
 				}
 			}
 		}

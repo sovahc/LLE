@@ -107,38 +107,20 @@ namespace LLE
 				{
 					Collisions.Draw(block);
 
-/*
-					CollisionGeometry geometry;
-					var id = block.BlockDefinition.Id;
-
-					if (Collisions._collisionGeometry.TryGetValue(id, out geometry))
-					{
-						var Z = hm.Translation + hm.Forward * 5;
-						var A = Z + hm.Right;
-						var B = Z + hm.Left;
-
-						var material = MyStringId.GetOrCompute("Square");
-
-						var Am = Collisions.WorldToModel(block, A);
-						var Bm = Collisions.WorldToModel(block, B);
-
-						var inter = Collisions.LineIntersects(geometry, Am, Bm);
-
-						var color = inter ? Color.Red.ToVector4() : Color.Gray.ToVector4();
-
-						MySimpleObjectDraw.DrawLine(A, B, material, ref color, 0.01f);
-					}
-*/
-					var queryPoint = hm.Translation;
-
 					Vector3D v;
-					if(Collisions.GetNearestCollisionCenter(block, queryPoint, out v))
+					if(Collisions.GetNearestCollisionCenter(block, hm.Translation, out v))
 						Drawing.RoundMarker(v, Color.Red);
 
-					List<Vector3I> ip = new List<Vector3I>();
-					Collisions.GetInteractionPoints(block, "conveyor_", ip);
-					foreach(var p in ip)
+					List<Vector3I> iip = new List<Vector3I>();
+					List<Vector3I> mip = new List<Vector3I>();
+					Collisions.GetInteractionPoints(block, Constants.InteractionDistance1, iip, mip);
+					if(iip.Count == 0 && mip.Count == 0)
+						Collisions.GetInteractionPoints(block, Constants.InteractionDistance2, iip, mip);
+
+					foreach(var p in iip)
 						Utilities.HighlightCell(grid, p, Color.Yellow);
+					foreach(var p in mip)
+						Utilities.HighlightCell(grid, p, Color.White);
 
 					var material = MyStringId.GetOrCompute("Square");
 					var red = Color.Red.ToVector4();
