@@ -16,7 +16,7 @@ namespace LLE
 
 	public static class Debug
 	{
-		public static bool Vision = true;
+		public static bool Vision = false;
 
 		public static IMyCubeGrid grid;
 		

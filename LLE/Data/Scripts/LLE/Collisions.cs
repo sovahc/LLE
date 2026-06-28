@@ -17,6 +17,9 @@ namespace LLE
 		internal static Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
 		internal static Dictionary<MyDefinitionId, Traversability> _traversabilityCache;
 
+		// Reusable buffer for DDA cell traversal. The mod is single-threaded.
+		static readonly List<Vector3I> _gridLineCells = new List<Vector3I>();
+
 		const float ProbeRadius = Constants.CollisionProbeRadius;
 
 		public static void Load(IMyModContext ModContext)
@@ -282,6 +285,42 @@ namespace LLE
 			return false;
 		}
 
+		// Check whether a world-space line segment is occluded by any block in the grid
+		// within the [min, max] bounding box (grid integer coordinates).
+		// Uses 3D DDA (GridIntersection) to traverse only the cells the line passes through.
+		// skipBlock is excluded from the check (e.g. the block the line ends inside).
+		internal static bool GridLineOccluded(IMyCubeGrid grid, LineD worldLine, Vector3I min, Vector3I max,
+			Vector3I add1, Vector3I add2)
+		{
+			// GridIntersection.Calculate works in grid-local space (meters from grid origin)
+			// and treats cell corners as cell centers, so convert the world-space line to
+			// local and add half a cell (matching MyCubeGrid.RayCastCells).
+			MatrixD invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
+			Vector3D halfOffset = new Vector3D(grid.GridSize * 0.5f);
+			Vector3D localFrom = Vector3D.Transform(worldLine.From, invWorld) + halfOffset;
+			Vector3D localTo   = Vector3D.Transform(worldLine.To,   invWorld) + halfOffset;
+
+			_gridLineCells.Clear();
+			_gridLineCells.Add(add1);
+			_gridLineCells.Add(add2);
+			GridIntersection.Calculate(_gridLineCells, grid.GridSize, localFrom, localTo, min, max);
+
+			foreach (var cell in _gridLineCells)
+			{
+				var slim = grid.GetCubeBlock(cell);
+				if (slim == null) continue;
+
+				CollisionGeometry cellGeometry;
+				if (!_collisionGeometry.TryGetValue(slim.BlockDefinition.Id, out cellGeometry)) return true; // for unknown block
+
+				var modelFrom = WorldToModel(slim, worldLine.From);
+				var modelTo = WorldToModel(slim, worldLine.To);
+				if (LineIntersects(cellGeometry, modelFrom, modelTo))
+					return true;
+			}
+			return false;
+		}
+
 		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
 		{
 			var calc = new TraversabilityCalculator(grid, 0);
@@ -516,19 +555,9 @@ namespace LLE
 					var clippedByDetector = new Line(line.From, line.From + line.Direction * minIntersection);
 					var worldLine = new LineD(worldFrom, ModelToWorld(block, clippedByDetector.To));
 
-					if(ijkBlock != null && ijkBlock != block)
-					{	var ijkLine = new Line(WorldToModel(ijkBlock, worldLine.From), WorldToModel(ijkBlock, worldLine.To));
-						var c = LineIntersects(geometry, ijkLine.From, ijkLine.To);
-						if(c)
-						{	Drawing.RoundMarker(worldLine.To, Color.Gray);
-							continue;
-						}
-					}
-
-					var c2 = LineIntersects(geometry, clippedByDetector.From, clippedByDetector.To);
-					if(c2)
-					{	Drawing.RoundMarker(worldLine.To, Color.Black);
-						continue;		
+					if(GridLineOccluded(grid, worldLine, min, max, min, ijk))
+					{	Drawing.RoundMarker(worldLine.To, Color.Gray);
+						continue;
 					}
 
 					Drawing.RoundMarker(worldLine.To, Color.Green);
