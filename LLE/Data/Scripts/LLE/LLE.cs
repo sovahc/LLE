@@ -16,6 +16,8 @@ namespace LLE
 
 	public static class Debug
 	{
+		public static bool Vision = true;
+
 		public static IMyCubeGrid grid;
 		
 		public static Vector3I? astarStart;

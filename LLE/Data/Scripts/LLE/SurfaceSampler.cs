@@ -64,6 +64,8 @@ namespace LLE
 			}
 		}
 
+		private static List<Vector3I> staticCells = new List<Vector3I>();
+
 		public static bool TryGetRandomBlockOnSurface(IMyCubeGrid grid, Random random, out Vector3D worldPosition)
 		{
 			worldPosition = Vector3D.Zero;
@@ -96,11 +98,11 @@ namespace LLE
 			// DDA expects cell corners at integer positions; our grid has cell
 			// centers at integers, so shift by half a cell (same as
 			// MyCubeGrid.RayCastCells in game sources).
-			var cells = new List<Vector3I>();
-			Vector3D halfCell = new Vector3D(0.5);
-			GridIntersection.Calculate(cells, 1.0f, start + halfCell, center + halfCell, min, max);
+			Vector3D halfCell = Vector3D.Half;
+			staticCells.Clear();
+			GridIntersection.Calculate(staticCells, 1.0f, start + halfCell, center + halfCell, min, max);
 
-			foreach (var cell in cells)
+			foreach (var cell in staticCells)
 			{
 				var block = grid.GetCubeBlock(cell);
 				if (block != null)
