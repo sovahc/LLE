@@ -4,7 +4,7 @@
 		<Container>
 			<Id>
 				<TypeId>MyObjectBuilder_Character</TypeId>
-				<SubtypeId>CharicterTarget_Dummy</SubtypeId>
+				<SubtypeId>CharacterTarget_Dummy</SubtypeId>
 			</Id>
 			<DefaultComponents>
 				<Component BuilderType="MyObjectBuilder_CharacterStatComponent" SubtypeId="Target_Dummy" ForceCreate="true"/>

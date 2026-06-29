@@ -150,6 +150,10 @@ namespace LLE
 
 		private bool pauseLLM;
 
+		private bool initialized;
+		private IMyCharacter bot;
+		private int spawnDelay;
+
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
@@ -199,9 +203,19 @@ namespace LLE
 			if (ch == null) return;
 
 			// Lazy initialization
-			if (commands == null)
-			{
-				commands = new Commands(ch);
+
+			if(!initialized)
+			{	
+				if(bot == null)
+				{	if(spawnDelay++ % 100 == 0)
+						bot = Bot.Spawn(player);
+				}
+				MyConsole.Add($"bot={bot}");
+				if(bot == null) return;
+
+				initialized = true;
+
+				commands = new Commands(bot);
 				LLE_Loader.SetHelp(commands.Help());
 				Vision.Initialize();
 			}
@@ -335,8 +349,6 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
-			var hm = ch.GetHeadMatrix(false, false);
-
 			Common.StartFrame();
 
 			if(!LLE_Loader.IsPresent())
@@ -345,9 +357,12 @@ namespace LLE
 				return;
 			}
 
-			
-			Debug.Pathfinding(hm);
-			Debug.Draw(hm);
+			if(initialized)
+			{
+				var hm = ch.GetHeadMatrix(false, false);
+				Debug.Pathfinding(hm);
+				Debug.Draw(hm);
+			}
 
 			MyConsole.Render(font);
 			Common.Call_Add_Billboards(); // just for sure
