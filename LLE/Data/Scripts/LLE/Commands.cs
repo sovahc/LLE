@@ -215,42 +215,60 @@ drop 'name' [quantity|all] - Drop a specified object.
 			return true;
 		}
 
-		internal void AppendNearbyFreeCells(Vector3I ijk, StringBuilder sb)
+		internal void AppendList(List<Vector3I> list, StringBuilder sb)
 		{	
 			Vector3D ec = GetEngineerCenter();
-
-			var minimalDistanceSq = double.MaxValue;
-			var nearestFreeSpace = Vector3I.Zero;
-
+			
 			sb.Append("(");
-
 			int added = 0;
-			foreach (var direction in Constants.SixDirections)
-			{	var position = ijk + direction;
-					
-				var block = selectedGrid.GetCubeBlock(position);
-				if(Collisions.CenterIsFree(block, position))
-				{	if(added != 0) sb.Append("; ");
-					sb.Append(IJK(position));
-					++added;
+			var minimalDistanceSq = double.MaxValue;
+			var nearest = Vector3I.Zero;
 
-					var bp = selectedGrid.GridIntegerToWorld(position);
-					var dsq = (ec - bp).LengthSquared();
+			foreach (var ijk in list)
+			{	var block = selectedGrid.GetCubeBlock(ijk);
+				
+				if(added != 0) sb.Append("; ");
+				sb.Append(IJK(ijk));
 
-					if(dsq < minimalDistanceSq)
-					{	minimalDistanceSq = dsq;
-						nearestFreeSpace = position;
-					}
+				var bp = selectedGrid.GridIntegerToWorld(ijk);
+				var dsq = (ec - bp).LengthSquared();
+
+				if(dsq < minimalDistanceSq)
+				{	minimalDistanceSq = dsq;
+					nearest = ijk;
 				}
 			}
-			if(added == 0)
-			{	sb.Append(" -- none -- ");
+
+			sb.Append(")");
+
+			if(added >= 2)
+			{	sb.Append($" (Nearest is {IJK(nearest)})");
 			}
 
-			sb.Append(")\n");
+			sb.Append("\n");
+		}
 
-			if(added > 1)
-			{	sb.Append($"(Nearest to you is {IJK(nearestFreeSpace)})");
+		internal void AppendInteractionPoints(Vector3I ijk, StringBuilder sb)
+		{	
+			var block = selectedGrid.GetCubeBlock(ijk);
+
+			var inventoryIP = new List<Vector3I>();
+			var medblockIP = new List<Vector3I>();
+			Collisions.GetInteractionPoints(block, inventoryIP, medblockIP);
+
+			sb.Append("Possible interaction points are:\n");
+
+			if(inventoryIP.Count != 0)
+			{	sb.Append("* Inventory: ");
+				AppendList(inventoryIP, sb);
+			}
+			if(medblockIP.Count != 0)
+			{	sb.Append("* Recharge: ");
+				AppendList(inventoryIP, sb);
+			}
+
+			if(inventoryIP.Count == 0 && medblockIP.Count == 0)
+			{	sb.Append("(none)\n");
 			}
 		}
 
@@ -265,8 +283,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	
 				StringBuilder sb = new StringBuilder();
 				sb.Append($"You are too far from {Name(block)} to interact ({Distance(distance)})\n");
-				sb.Append($"Possible interaction points are: ");
-					AppendNearbyFreeCells(ijk, sb);
+				AppendInteractionPoints(ijk, sb);
 				message = sb.ToString();
 				return true;
 			}

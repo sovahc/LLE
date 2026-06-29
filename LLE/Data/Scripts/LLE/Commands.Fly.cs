@@ -127,9 +127,8 @@ namespace LLE
 			if(!Collisions.CenterIsFree(block, ijk))
 			{	
 				StringBuilder sb = new StringBuilder();
-				sb.Append($"Error: Destination is blocked by {Quote(Name(block))}, nearest free space is:\n");
-
-				AppendNearbyFreeCells(ijk, sb);
+				sb.Append($"Destination is blocked by {Quote(Name(block))}\n");
+				AppendInteractionPoints(ijk, sb);
 
 				yield return sb.ToString();
 			}
