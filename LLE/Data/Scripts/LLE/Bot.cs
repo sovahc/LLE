@@ -66,9 +66,7 @@ namespace LLE
 		{
 			if(_controller == null) return null;
 
-			var subType = "Default_Astronaut";
-			//var subType = "CharacterTarget_Dummy";
-			//var subType = "Target_Dummy";
+			//var subType = "Default_Astronaut";
 			var forward = owner.Character.WorldMatrix.Forward;
 			var up = owner.Character.WorldMatrix.Up;
 			var spawnAt = owner.GetPosition() + forward * 2;
@@ -77,8 +75,8 @@ namespace LLE
 			{
 				Name = "Gemma",
 				DisplayName = null,
-				SubtypeName = subType,
-				CharacterModel = subType,
+				SubtypeName = "CharacterTarget_Dummy",
+				CharacterModel = "Target Dummy",
 				EntityId = 0,
 				AIMode = false,
 				JetpackEnabled = MyAPIGateway.Session.SessionSettings.EnableJetpack,
