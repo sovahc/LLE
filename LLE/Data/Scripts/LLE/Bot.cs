@@ -15,8 +15,57 @@ namespace LLE
 {
 	static class Bot
 	{
+		static IMyEntityController _controller;
+
+		/// <summary>
+		/// Call once on mod init. Spawns a dummy bot, extracts its controller, and removes the dummy.
+		/// </summary>
+		internal static bool Init()
+		{
+			if (_controller != null) return true;
+
+			var dummyId = MyVisualScriptLogicProvider.SpawnBot("SpaceSpider", Vector3D.Zero, Vector3.Forward, Vector3.Up, "");
+			if (dummyId == 0)
+				return false;
+
+			// Give the game a moment to create the bot entity
+			var dummy = MyEntities.GetEntityById(dummyId) as IMyCharacter;
+			if (dummy == null)
+				return false;
+
+			// Find the bot player that owns this character
+			var players = new List<IMyPlayer>();
+			MyAPIGateway.Players.GetPlayers(players);
+
+			for (int i = 0; i < players.Count; ++i)
+			{
+				var p = players[i];
+				if (p?.IsBot == true && p.Character?.EntityId == dummyId && p.Controller != null)
+				{
+					_controller = p.Controller;
+
+					// Remove from default hostile faction so the controller stays neutral
+					var faction = MyAPIGateway.Session.Factions?.TryGetPlayerFaction(p.IdentityId);
+					if (faction != null)
+					{
+						try { MyAPIGateway.Session.Factions.KickMember(faction.FactionId, p.IdentityId); }
+						catch { /* Factions disabled or unavailable */ }
+					}
+
+					break;
+				}
+			}
+
+			// Clean up the dummy bot
+			dummy?.Delete();
+
+			return _controller != null;
+		}
+
 		internal static IMyCharacter Spawn(IMyPlayer owner)
 		{
+			if(_controller == null) return null;
+
 			var subType = "Default_Astronaut";
 			//var subType = "CharacterTarget_Dummy";
 			//var subType = "Target_Dummy";
@@ -55,19 +104,9 @@ namespace LLE
 
 			MyEntities.Add((MyEntity)bot, true);
 
-			//owner.Controller.TakeControl(bot);
-			return bot;
+			_controller.TakeControl(bot);
 
-			//bot.Physics.LinearVelocity = grid.Physics.LinearVelocity;
-			//var controlEnt = bot as Sandbox.Game.Entities.IMyControllableEntity;
-			//if (controlEnt != null && controlEnt.RelativeDampeningEntity?.EntityId != grid.EntityId)
-			//controlEnt.RelativeDampeningEntity = grid;
-			//var players = new List<IMyPlayer>();
-			//MyAPIGateway.Players.GetPlayers(players);
-			//for (int i = 0; i < players.Count; ++i)
-			//{	var player = _tempPlayers[i];
-			//	var entityId = player?.Character?.EntityId ?? -1;
-			//	if (player?.IsBot == true && player.Controller != null)
+			return bot;
 		}
 	}
 }
