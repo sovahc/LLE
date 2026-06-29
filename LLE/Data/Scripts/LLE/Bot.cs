@@ -85,7 +85,7 @@ namespace LLE
 				PositionAndOrientation = new MyPositionAndOrientation(spawnAt, forward, up),
 				Health = 1000,
 				OwningPlayerIdentityId = owner.IdentityId,
-				ColorMaskHSV = new Vector3(0, 0, 0)
+				ColorMaskHSV = MyColorPickerConstants.HSVToHSVOffset(new Vector3(0.16f, 0.85f, 1f))
 			};
 
 			var bot = MyEntities.CreateFromObjectBuilder(ob, true) as IMyCharacter;
