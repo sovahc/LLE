@@ -209,7 +209,6 @@ namespace LLE
 				if(bot == null)
 				{	if(++spawnDelay % 100 != 0) return;
 					
-					if (!Bot.Init()) MyConsole.Add("Failed to init bot controller", Color.Red);
 					bot = Bot.Spawn(player);
 					MyConsole.Add($"bot={bot}");
 				}

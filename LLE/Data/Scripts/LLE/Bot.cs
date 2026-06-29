@@ -15,56 +15,53 @@ namespace LLE
 {
 	static class Bot
 	{
-		static IMyEntityController _controller;
-
-		/// <summary>
-		/// Call once on mod init. Spawns a dummy bot, extracts its controller, and removes the dummy.
-		/// </summary>
-		internal static bool Init()
+		internal static IMyPlayer GetPlayerById(long EntityId)
 		{
-			if (_controller != null) return true;
-
-			var dummyId = MyVisualScriptLogicProvider.SpawnBot("SpaceSpider", Vector3D.Zero, Vector3.Forward, Vector3.Up, "");
-			if (dummyId == 0)
-				return false;
-
-			// Give the game a moment to create the bot entity
-			var dummy = MyEntities.GetEntityById(dummyId) as IMyCharacter;
-			if (dummy == null)
-				return false;
-
-			// Find the bot player that owns this character
 			var players = new List<IMyPlayer>();
 			MyAPIGateway.Players.GetPlayers(players);
 
 			for (int i = 0; i < players.Count; ++i)
 			{
 				var p = players[i];
-				if (p?.IsBot == true && p.Character?.EntityId == dummyId && p.Controller != null)
-				{
-					_controller = p.Controller;
-
-					// Remove from default hostile faction so the controller stays neutral
-					var faction = MyAPIGateway.Session.Factions?.TryGetPlayerFaction(p.IdentityId);
-					if (faction != null)
-					{
-						try { MyAPIGateway.Session.Factions.KickMember(faction.FactionId, p.IdentityId); }
-						catch { /* Factions disabled or unavailable */ }
-					}
-
-					break;
-				}
+				if (p.Character.EntityId == EntityId) return p;
 			}
-
-			// Clean up the dummy bot
-			dummy?.Delete();
-
-			return _controller != null;
+			return null;
 		}
 
 		internal static IMyCharacter Spawn(IMyPlayer owner)
 		{
-			if(_controller == null) return null;
+			// Spawns a dummy bot, extracts its controller, and removes the dummy.
+
+			var dummyId = MyVisualScriptLogicProvider.SpawnBot("SpaceSpider",
+				Vector3D.Zero, Vector3.Forward, Vector3.Up, "");
+			if (dummyId == 0) return null;
+
+			var dummy = MyEntities.GetEntityById(dummyId) as IMyCharacter;
+			if (dummy == null) throw new Exception("Spawn: Failed to get entity");
+
+			var dummyPlayer = GetPlayerById(dummyId);
+			if (dummyPlayer == null) throw new Exception("GetPlayerById(dummyId) failed");
+			var controller = dummyPlayer.Controller;
+			
+			// Put bot and owner in the same faction.
+			var ownerFaction = MyAPIGateway.Session.Factions.TryGetPlayerFaction(owner.IdentityId);
+			string factionTag;
+
+			if (ownerFaction != null)
+			{	factionTag = ownerFaction.Tag;
+			}
+			else
+			{	factionTag = "LLE";
+				MyVisualScriptLogicProvider.CreateFaction(owner.IdentityId, factionTag, factionTag, factionTag);
+					// This function may fail silently.
+			}
+
+			if (!MyVisualScriptLogicProvider.SetPlayersFaction(dummyPlayer.IdentityId, factionTag))
+				MyConsole.Add("Failed to set bot faction: " + factionTag);
+
+			//
+
+			dummy.Delete();
 
 			//var subType = "Default_Astronaut";
 			var forward = owner.Character.WorldMatrix.Forward;
@@ -88,12 +85,12 @@ namespace LLE
 				PositionAndOrientation = new MyPositionAndOrientation(spawnAt, forward, up),
 				Health = 1000,
 				OwningPlayerIdentityId = owner.IdentityId,
-				ColorMaskHSV = new Vector3(0, 0, 0.05f),
+				ColorMaskHSV = new Vector3(0, 0, 0)
 			};
 
 			var bot = MyEntities.CreateFromObjectBuilder(ob, true) as IMyCharacter;
 			if (bot == null) return null;
-	
+
 			bot.Save = false;
 			bot.Synchronized = true;
 			bot.Flags &= ~VRage.ModAPI.EntityFlags.NeedsUpdate100;
@@ -102,7 +99,7 @@ namespace LLE
 
 			MyEntities.Add((MyEntity)bot, true);
 
-			_controller.TakeControl(bot);
+			controller.TakeControl(bot);
 
 			return bot;
 		}
