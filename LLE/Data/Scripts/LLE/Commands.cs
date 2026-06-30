@@ -229,6 +229,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 				
 				if(added != 0) sb.Append("; ");
 				sb.Append(IJK(ijk));
+				++added;
 
 				var bp = selectedGrid.GridIntegerToWorld(ijk);
 				var dsq = (ec - bp).LengthSquared();
