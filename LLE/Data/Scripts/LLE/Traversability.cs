@@ -147,7 +147,7 @@ namespace LLE
 		{
 			var v1 = grid.GridIntegerToWorld(gridPosition);
 			var v2 = grid.GridIntegerToWorld(gridPosition+1);
-			var vc = (v1 + v2) * 0.5;
+			var vc = v1;
 
 			var v = v2 - v1;
 			v1 -= v * 0.5;
@@ -155,74 +155,77 @@ namespace LLE
 
 			BoundingBoxD wb = new BoundingBoxD(v1, v2);
 
-			//bool i1 = HasMaterialsInBox(wb, voxel); // 0.02 // Super fast
-			//bool i2 = voxel.IsAnyAabbCornerInside(ref MatrixD.Identity, wb); // 0.04 // A bit slower
-			BoundingSphereD sphere = new BoundingSphereD(vc, 1.25); // 0.2 // Very slow but precise
-			bool i3 = voxel.GetIntersectionWithSphere(ref sphere);
+			bool hasMaterials, hasSpace;
 
-			return !i3;
+			HasMaterialsInBox(wb, voxel, 0, out hasMaterials, out hasSpace); // 0.02 // Super fast
+			//bool i2 = voxel.IsAnyAabbCornerInside(ref MatrixD.Identity, wb); // 0.04 // A bit slower
+			if(hasMaterials && hasSpace)
+			{	BoundingSphereD sphere = new BoundingSphereD(vc, 1.25); // 0.2 // Very slow but precise
+				return ! voxel.GetIntersectionWithSphere(ref sphere);
+			}
+
+			return hasSpace;
 		}
 
 		private static readonly MyStorageData storage = new MyStorageData();
 
-		// Credit: Adapted from AI Enabled mod
-		public static bool HasMaterialsInBox(BoundingBoxD worldBoundaries, MyVoxelBase voxel, int lod = 0)
+		public static void HasMaterialsInBox(BoundingBoxD worldBoundaries, MyVoxelBase voxel, int lod,
+			out bool hasMaterials, out bool hasSpace)
 		{
-			if (voxel == null || voxel.MarkedForClose) return false;
+			hasMaterials = false;
+			hasSpace = false;
 
-			Vector3I max = voxel.Storage.Size - 1;
+			if (voxel == null || voxel.MarkedForClose) { hasSpace = true; return; }
+
+			Vector3I storageSizeMax = voxel.Storage.Size - 1;
 			Vector3D bottomLeftCorner = voxel.PositionLeftBottomCorner;
 			Vector3I voxelCoordMin, voxelCoordMax;
 
 			MyVoxelCoordSystems.WorldPositionToVoxelCoord(bottomLeftCorner, ref worldBoundaries.Min, out voxelCoordMin);
 			MyVoxelCoordSystems.WorldPositionToVoxelCoord(bottomLeftCorner, ref worldBoundaries.Max, out voxelCoordMax);
-			Vector3I voxelCoord3 = voxelCoordMin - 1;
-			Vector3I voxelCoord4 = voxelCoordMax + 1;
+			Vector3I min = voxelCoordMin - 1;
+			Vector3I max = voxelCoordMax + 1;
 
-			Vector3I.Clamp(ref voxelCoord3, ref Vector3I.Zero, ref max, out voxelCoord3);
-			Vector3I.Clamp(ref voxelCoord4, ref Vector3I.Zero, ref max, out voxelCoord4);
+			Vector3I.Clamp(ref min, ref Vector3I.Zero, ref storageSizeMax, out min);
+			Vector3I.Clamp(ref max, ref Vector3I.Zero, ref storageSizeMax, out max);
 
-			voxelCoord3 >>= lod;
-			voxelCoord3 -= 1;
-			voxelCoord4 >>= lod;
-			voxelCoord4 += 1;
+			min >>= lod;
+			min -= 1;
+			max >>= lod;
+			max += 1;
 
-			storage.Resize(voxelCoord3, voxelCoord4);
+			storage.Resize(min, max);
 
-			if (voxel == null || voxel.MarkedForClose) return false;
+			if (voxel == null || voxel.MarkedForClose) { hasSpace = true; return; }
 
 			using (voxel.Pin())
 			{
-				voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, voxelCoord3, voxelCoord4);
+				voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, min, max);
 			}
 
-			Vector3I vector3I = default(Vector3I);
-			vector3I.X = voxelCoord3.X;
-			while (vector3I.X <= voxelCoord4.X)
+			Vector3I v = default(Vector3I);
+			v.X = min.X;
+			while (v.X <= max.X)
 			{
-				vector3I.Y = voxelCoord3.Y;
-				while (vector3I.Y <= voxelCoord4.Y)
+				v.Y = min.Y;
+				while (v.Y <= max.Y)
 				{
-					vector3I.Z = voxelCoord3.Z;
-					while (vector3I.Z <= voxelCoord4.Z)
+					v.Z = min.Z;
+					while (v.Z <= max.Z)
 					{
-						Vector3I p = vector3I - voxelCoord3;
-						int linearIdx = storage.ComputeLinear(ref p);
-						byte b = storage.Material(linearIdx);
+						Vector3I p = v - min;
+						int linearIndex = storage.ComputeLinear(ref p);
+						byte b = storage.Material(linearIndex);
 
-						if (b != byte.MaxValue)
-						{
-							return true;
-						}
+						if (b > 127) hasSpace = true;
+						else hasMaterials = true;
 
-						vector3I.Z++;
+						v.Z++;
 					}
-					vector3I.Y++;
+					v.Y++;
 				}
-				vector3I.X++;
+				v.X++;
 			}
-
-			return false;
 		}
 	}
 }
