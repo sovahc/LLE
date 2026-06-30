@@ -9,6 +9,7 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Common.ObjectBuilders.Definitions;
 using Sandbox.Definitions;
+using Sandbox.Game;
 using Sandbox.ModAPI;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
@@ -353,6 +354,7 @@ namespace LLE
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 
 			bool somethingTransfered = false;
+			bool nesWarning = false;
 
 			foreach(IMyInventory from in fromList)
 			{	
@@ -369,12 +371,18 @@ namespace LLE
 					var transfer = amount;
 					if(transfer > item.Amount) transfer = item.Amount;
 					
-					if(InventoryTransfer(from, i, toList, transfer))
+					MyFixedPoint transferred = InventoryTransfer(from, i, toList, transfer);
+					if(transferred > 0)
 					{
-						result.Append($"Transferred {transfer} {Quote(itemDef.DisplayNameText)}\n");
 						somethingTransfered = true;
+						result.Append($"Transferred {transferred} {Quote(itemDef.DisplayNameText)}\n");
+						if(transferred < transfer) nesWarning = true;
 					}
 				}
+			}
+
+			if(nesWarning)
+			{	result.Append($"Warning: Not all items were transferred due to insufficient inventory space.\n");
 			}
 
 			if(somethingTransfered)
@@ -387,22 +395,30 @@ namespace LLE
 			}
 		}
 
-		internal static bool InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount)
+		internal static MyFixedPoint InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount)
 		{
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 			from.GetItems(items);
 
 			var item = items[fromIndex];
+			MyFixedPoint transferred = 0;
+
 			foreach (var to in toList)
 			{
-				if (to.CanItemsBeAdded(amount, item.Type))
-				{
-					((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, amount, false);
+				if (transferred >= amount) break;
 
-					return true;
-				}
+				var toInv = to as MyInventory;
+				if (toInv == null) continue;
+
+				MyFixedPoint fits = toInv.ComputeAmountThatFits(item.Type);
+				if (fits <= 0) continue;
+
+				MyFixedPoint toTransfer = MyFixedPoint.Min(amount - transferred, fits);
+				((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, toTransfer, false);
+				transferred += toTransfer;
 			}
-			return false;
+
+			return transferred;
 		}
 
 		internal static void InventoryDelta(IMyInventory inv, Dictionary<string, double> current, int sign)
