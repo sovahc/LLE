@@ -147,6 +147,7 @@ namespace LLE
 		{
 			var v1 = grid.GridIntegerToWorld(gridPosition);
 			var v2 = grid.GridIntegerToWorld(gridPosition+1);
+			var vc = (v1 + v2) * 0.5;
 
 			var v = v2 - v1;
 			v1 -= v * 0.5;
@@ -154,12 +155,12 @@ namespace LLE
 
 			BoundingBoxD wb = new BoundingBoxD(v1, v2);
 
-			bool i1 = HasMaterialsInBox(wb, voxel); // 0.02 // Super fast
+			//bool i1 = HasMaterialsInBox(wb, voxel); // 0.02 // Super fast
 			//bool i2 = voxel.IsAnyAabbCornerInside(ref MatrixD.Identity, wb); // 0.04 // A bit slower
-			//BoundingSphereD sphere = new BoundingSphereD(vc, 1.25); // 0.2 // Very slow
-			//bool i3 = voxel.GetIntersectionWithSphere(ref sphere);
+			BoundingSphereD sphere = new BoundingSphereD(vc, 1.25); // 0.2 // Very slow but precise
+			bool i3 = voxel.GetIntersectionWithSphere(ref sphere);
 
-			return !i1;
+			return !i3;
 		}
 
 		private static readonly MyStorageData storage = new MyStorageData();
