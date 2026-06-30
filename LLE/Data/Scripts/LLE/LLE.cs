@@ -106,31 +106,7 @@ namespace LLE
 				if(block != null)
 				{
 					Collisions.Draw(block);
-
-					Vector3D v;
-					if(Collisions.GetNearestCollisionCenter(block, hm.Translation, out v))
-						Drawing.RoundMarker(v, Color.Red);
-
-					List<Vector3I> iip = new List<Vector3I>();
-					List<Vector3I> mip = new List<Vector3I>();
-					Collisions.GetInteractionPoints(block, iip, mip);
-
-					foreach(var p in iip)
-						Utilities.HighlightCell(grid, p, Color.Yellow);
-					foreach(var p in mip)
-						Utilities.HighlightCell(grid, p, Color.White);
-
-					var material = MyStringId.GetOrCompute("Square");
-					var red = Color.Red.ToVector4();
-					var gray = Color.Gray.ToVector4();
-					
-					foreach(var line in linesGray)
-					{	MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref gray, 0.01f);
-					}
-					foreach(var line in linesRed)
-					{	MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref red, 0.01f);
-						Drawing.RoundMarker(line.To, Color.OrangeRed);
-					}
+					Collisions.DrawTraversability(grid, astarStart.Value);
 				}
 			}
 		}
