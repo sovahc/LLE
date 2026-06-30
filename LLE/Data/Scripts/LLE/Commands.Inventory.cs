@@ -75,10 +75,11 @@ namespace LLE
 			StringBuilder sb = new StringBuilder();
 			sb.Append($"# Inventories on {Quote(selectedGrid.CustomName)}\n");
 
-			int count = 0;
-			foreach (var block in terminalBlocks)
-			{
-				if (!block.HasInventory) continue;
+            int count = 0;
+            foreach (var block in terminalBlocks)
+            {
+                if (block.CubeGrid != selectedGrid) continue;
+                if (!block.HasInventory) continue;
 				++count;
 
 				sb.Append($"## {Quote(Name(block.SlimBlock))} at {IJK(block.Position)}\n");

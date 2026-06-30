@@ -78,7 +78,7 @@ You operate on a selected grid (ship or station).
 
 ## HINTS
 
-1. If you lack required components, execute `inventories` to list all containers.
+1. If you lack required components or tools, execute `inventories` to list all containers.
 
 ## AVAILABLE COMMANDS
 
