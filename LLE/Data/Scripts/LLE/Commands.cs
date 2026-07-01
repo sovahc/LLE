@@ -82,23 +82,24 @@ You operate on a selected grid (ship or station).
 
 ## AVAILABLE COMMANDS
 
-* select 'name'		    		- Select a large ship or station on which to grind, weld, fly, and perform other operations.
-* overview						- List grid blocks by category.
-* integrity						- Show damaged blocks on the selected grid.
-* fly I J K						- Fly to specific grid coordinates, e.g. `fly 10 -5 13`
-* grind I J K					- Grind a block at specific coordinates.
-* weld I J K					- Weld a block at specific coordinates.
-* near							- Return all blocks in 3x3x3 cube around you (27 positions).
-* near I J K					- Return all blocks in 3x3x3 cube around specified coordinates.
-* inventory						- Return the items in your inventory.
-* inventory I J K				- Return the inventory of the container at specific coordinates.
-* inventories					- Return all inventories on the selected grid.
-* get count 'item' from I J K	- Transfer an item from a container to your inventory, e.g. `get 10 'Gold Ingot' from -1 5 2`
-* put count 'item' into I J K	- Transfer an item from your inventory to a container, e.g. `put 1 'Medkit' into 14 0 2`
-* put all components into I J K	- Transfer all block components from your inventory to a container (very useful shortcut).
+* select 'name'			    			- Select a large ship or station on which to grind, weld, fly, and perform other operations.
+* overview								- List grid blocks by category.
+* integrity								- Show damaged blocks on the selected grid.
+* fly I J K								- Fly to specific grid coordinates, e.g. `fly 10 -5 13`
+* grind I J K							- Grind a block at specific coordinates.
+* weld I J K							- Weld a block at specific coordinates.
+* near									- Return all blocks in 3x3x3 cube around you (27 positions).
+* near I J K							- Return all blocks in 3x3x3 cube around specified coordinates.
+* slice Xmin Xmax Ymin Ymax Zmin Zmax	- Return blocks in a 2D table (one axis must be height 1, max 8x8).
+* inventory								- Return the items in your inventory.
+* inventory I J K						- Return the inventory of the container at specific coordinates.
+* inventories							- Return all inventories on the selected grid.
+* get count 'item' from I J K			- Transfer an item from a container to your inventory, e.g. `get 10 'Gold Ingot' from -1 5 2`
+* put count 'item' into I J K			- Transfer an item from your inventory to a container, e.g. `put 1 'Medkit' into 14 0 2`
+* put all components into I J K			- Transfer all block components from your inventory to a container (very useful shortcut).
 * transfer count 'item' from I1 J1 K1 to I2 J2 K2 - Transfer an item from one inventory to another.
-* status						- Check bot status: Health, Oxygen, Hydrogen, Energy.
-* say 'message'					- Send a message to the in-game chat.
+* status								- Check bot status: Health, Oxygen, Hydrogen, Energy.
+* say 'message'							- Send a message to the in-game chat.
 ";
 }
 
@@ -367,6 +368,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 			else if(tp.Match("Near"))
 			{	result = Near(tp);
+			}
+			else if(tp.Match("Slice"))
+			{	result = Slice(tp);
 			}
 			else if(tp.Match("Inventory"))
 			{	result = Inventory(tp);

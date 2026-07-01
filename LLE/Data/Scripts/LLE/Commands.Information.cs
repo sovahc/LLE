@@ -214,5 +214,85 @@ namespace LLE
 
 			return md.Result();
 		}
+
+		internal string Slice(TokenParser tp)
+		{
+			string message;
+			if(!GridIsSet(out message)) return message;
+
+			int xmin, xmax, ymin, ymax, zmin, zmax;
+			if(!tp.NextInt(out xmin) || !tp.NextInt(out xmax) || !tp.NextInt(out ymin) ||
+			   !tp.NextInt(out ymax) || !tp.NextInt(out zmin) || !tp.NextInt(out zmax))
+				return "Usage: slice Xmin Xmax Ymin Ymax Zmin Zmax";
+
+			if(xmin > xmax || ymin > ymax || zmin > zmax)
+				return "Invalid range: min must be <= max.";
+
+			// Index by axis: 0=X, 1=Y, 2=Z
+			int[] min   = { xmin, ymin, zmin };
+			int[] max   = { xmax, ymax, zmax };
+			int[] count = { xmax - xmin + 1, ymax - ymin + 1, zmax - zmin + 1 };
+
+			// Find the fixed axis (thickness = 1); the other two form the table.
+			int flatAxis = -1;
+			for(int i = 0; i < 3; i++)
+			{
+				if(count[i] == 1) { flatAxis = i; break; }
+			}
+			if(flatAxis < 0)
+				return "One axis must have height 1 (min == max).";
+
+			// First remaining axis → columns, second → rows.
+			int colAxis = -1, rowAxis = -1;
+			for(int i = 0; i < 3; i++)
+			{
+				if(i == flatAxis) continue;
+				if(colAxis < 0) colAxis = i; else rowAxis = i;
+			}
+
+			int cols = count[colAxis];
+			int rows = count[rowAxis];
+			if(cols > 8 || rows > 8)
+				return $"Table dimensions ({cols}x{rows}) exceed 8x8 limit.";
+
+			string[] axisNames = { "X", "Y", "Z" };
+			var md = new MyMarkdown();
+			md.Append($"# Slice ({axisNames[flatAxis]}={min[flatAxis]})");
+
+			// Header row — show which axes form rows \ columns
+			var header = new StringBuilder($"| {axisNames[rowAxis]}\\{axisNames[colAxis]} |");
+			for(int c = 0; c < cols; c++)
+				header.Append($" {min[colAxis] + c} |");
+			md.Append(header.ToString());
+
+			// Separator row
+			var sep = new StringBuilder("|-----|");
+			for(int c = 0; c < cols; c++)
+				sep.Append("------|");
+			md.Append(sep.ToString());
+
+			// Data rows — coords[flatAxis] is fixed; colAxis and rowAxis vary.
+			int[] coords = { 0, 0, 0 };
+			coords[flatAxis] = min[flatAxis];
+
+			for(int r = 0; r < rows; r++)
+			{
+				coords[rowAxis] = min[rowAxis] + r;
+				var row = new StringBuilder($"| {coords[rowAxis]} |");
+
+				for(int c = 0; c < cols; c++)
+				{
+					coords[colAxis] = min[colAxis] + c;
+					var pos = new Vector3I(coords[0], coords[1], coords[2]);
+
+					var block = selectedGrid.GetCubeBlock(pos);
+					string name = block != null ? Name(block) : ".";
+					row.Append($" {name} |");
+				}
+				md.Append(row.ToString());
+			}
+
+			return md.Result();
+		}
 	}
 }
