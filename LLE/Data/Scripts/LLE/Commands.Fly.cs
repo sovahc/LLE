@@ -202,22 +202,9 @@ namespace LLE
 
 				micro.Fly(worldPath);
 
-				for(;;)
-				{	var r = NavigationTick();
-					if(r != null)
-					{	MyConsole.Add($"Fly out: {r}");
-						break;
-					}
-					
-					yield return null;
+				yield return NavigationTick(currentGrid);
 
-					engineer = GetEngineerCenter();
-
-					if(!IsEngineerInsideGrid(engineer, currentGrid))
-					{	MyConsole.Add("Fly out successfull!");
-						break;
-					}
-				}
+				MyConsole.Add("Fly out successfull!");
 			}
 
 			engineer = GetEngineerCenter();
@@ -240,58 +227,65 @@ namespace LLE
 
 			micro.Fly(worldPath);
 
-			for(;;)
-			{	yield return NavigationTick();
-			}
+			yield return NavigationTick();
 		}
 
 		internal string CharacterCellText()
 		{	return IJK(selectedGrid.WorldToGridInteger(GetEngineerCenter()));
 		}
 
-		internal string NavigationTick()
+		internal IEnumerator NavigationTick(IMyCubeGrid exitGrid = null)
 		{
-			if(micro.Arrived()) return $"Arrived. Position: {CharacterCellText()}";
+			for(;;)
+			{
+				if(micro.Arrived()) { yield return $"Arrived. Position: {CharacterCellText()}"; yield break; }
 
-			if(micro.Stuck)
-			{	micro.Stop();
-				return $"Stuck at position: {CharacterCellText()}";
-			}
-
-			var ec = GetEngineerCenter();
-
-			var ijk = selectedGrid.WorldToGridInteger(micro.currentTargetPoint);
-			var door = aStarHelper.GetDoorAt(ijk);
-			if(door != null)
-			{	if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
-				{	
-					character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
-
-					if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Opening)
-					{	var action = door.GetActionWithName("Open");
-						if (action != null) action.Apply(door);
-					}
-
-					return null;
+				if(micro.Stuck)
+				{	micro.Stop();
+					yield return $"Stuck at position: {CharacterCellText()}";
+					yield break;
 				}
 
-				//if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
-				//return $"Can't open door at {IJK(ijk)}, current position: {CharacterCellText()}";
+				var ec = GetEngineerCenter();
+
+				// Fly-out mode: stop when the engineer has left the grid.
+				if(exitGrid != null && !IsEngineerInsideGrid(ec, exitGrid))
+					yield break;
+
+				var ijk = selectedGrid.WorldToGridInteger(micro.currentTargetPoint);
+				var door = aStarHelper.GetDoorAt(ijk);
+				if(door != null)
+				{	if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
+					{	
+						character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
+
+						if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Opening)
+						{	var action = door.GetActionWithName("Open");
+							if (action != null) action.Apply(door);
+						}
+
+						yield return null; // wait for door to open
+						continue;
+					}
+
+					//if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
+					//return $"Can't open door at {IJK(ijk)}, current position: {CharacterCellText()}";
+				}
+
+				Vector2 rotation = Vector2.Zero;
+				float roll = 0;
+
+				if(!micro.ShortSegment)
+					springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
+						micro.currentTargetPoint, up, 0.2, out rotation, out roll);
+
+				var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
+				var move = micro.ComputeMoveInput(desiredVelocity, character.Physics.LinearVelocity, character.WorldMatrix);
+
+				character.MoveAndRotate(move, rotation, roll);
+
+				yield return null; // in progress
 			}
-
-			Vector2 rotation = Vector2.Zero;
-			float roll = 0;
-
-			if(!micro.ShortSegment)
-				springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
-					micro.currentTargetPoint, up, 0.2, out rotation, out roll);
-
-			var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
-			var move = micro.ComputeMoveInput(desiredVelocity, character.Physics.LinearVelocity, character.WorldMatrix);
-			
-			character.MoveAndRotate(move, rotation, roll);
-
-			return null; // In progress
 		}
 
 		public void CharacterRotateTo(Vector3D target)

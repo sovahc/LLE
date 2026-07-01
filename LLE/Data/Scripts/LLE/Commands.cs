@@ -12,6 +12,13 @@ using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 
+// Stack-based coroutine runner:
+//   yield return null;        = wait one tick
+//   yield return string;      = final response to LLM (terminates whole command)
+//   yield return IEnumerator; = run nested coroutine to completion, then resume parent
+//   yield break;             = done at this level (parent resumes, or command ends)
+// ! Re-query engine objects after `yield return null;` don't cache references.
+
 namespace LLE
 {
 	public partial class Commands
@@ -27,7 +34,7 @@ namespace LLE
 
 		internal string Status_ReportChanged() => status.ReportChanged();
 		
-		private IEnumerator currentCommand;
+		private readonly Stack<IEnumerator> coroutineStack = new Stack<IEnumerator>();
 
 		private double resumeTime;
 
@@ -304,36 +311,49 @@ drop 'name' [quantity|all] - Drop a specified object.
 		}
 
 		internal bool InProgress()
-		{	return currentCommand != null;
+		{	return coroutineStack.Count > 0;
 		}
 
 		internal string Update()
 		{
 			status.Tick();
 
-			if (currentCommand == null) return null;
+			if (coroutineStack.Count == 0) return null;
 
-			// yield return null; = wait
-			// yield return string; = response to LLM
-			// yield break; = no response, done
-			// ! Re-query engine objects after `yield return null;` don't cache references.
+			var top = coroutineStack.Peek();
 
-			if (currentCommand.MoveNext())
-			{	
-				var result = currentCommand.Current as string;
+			if (top.MoveNext())
+			{
+				var result = top.Current as string;
 
+				// String at any level = final response to LLM.
 				if(result != null)
-				{	(currentCommand as IDisposable)?.Dispose();
-					currentCommand = null;
+				{	DisposeAll();
 					return result;
 				}
+
+				// Nested coroutine — push onto stack, run next tick.
+				var nested = top.Current as IEnumerator;
+				if(nested != null)
+					coroutineStack.Push(nested);
 			}
 			else
-			{	MyConsole.Add("!yield break!", Color.DarkRed);
-				(currentCommand as IDisposable)?.Dispose();
-				currentCommand = null;
+			{
+				(top as IDisposable)?.Dispose();
+
+				coroutineStack.Pop(); // parent resumes next tick, or command ends
+
+				if(coroutineStack.Count == 0)
+					MyConsole.Add("!yield break!", Color.DarkRed);
 			}
 			return null;
+		}
+
+		private void DisposeAll()
+		{
+			foreach(var c in coroutineStack)
+				(c as IDisposable)?.Dispose();
+			coroutineStack.Clear();
 		}
 
 		internal string Execute(string command)
@@ -354,13 +374,13 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	result = Select(tp);
 			}
 			else if(tp.Match("Fly"))
-			{	currentCommand = Fly(tp);
+			{	coroutineStack.Push(Fly(tp));
 			}
 			else if(tp.Match("Grind"))
-			{	currentCommand = Grind(tp);
+			{	coroutineStack.Push(Grind(tp));
 			}
 			else if(tp.Match("Weld"))
-			{	currentCommand = Weld(tp);
+			{	coroutineStack.Push(Weld(tp));
 			}
 			else if(tp.Match("Near"))
 			{	result = Near(tp);
@@ -375,10 +395,10 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	result = Inventories();
 			}
 			else if(tp.Match("Get"))
-			{	currentCommand = Get(tp);
+			{	coroutineStack.Push(Get(tp));
 			}
 			else if(tp.Match("Put"))
-			{	currentCommand = Put(tp);
+			{	coroutineStack.Push(Put(tp));
 			}
 			else if(tp.Match("Status"))
 			{	result = status.ReportAll();
@@ -387,7 +407,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			{	result = Say(tp);
 			}
 			else if(tp.Match("Transfer"))
-			{	currentCommand = Transfer(tp);
+			{	coroutineStack.Push(Transfer(tp));
 			}
 			else
 			{	result = $"Unknown command '{tp.NextString()}'.";
