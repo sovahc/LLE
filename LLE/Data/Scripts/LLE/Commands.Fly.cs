@@ -202,7 +202,7 @@ namespace LLE
 
 				micro.Fly(worldPath);
 
-				yield return NavigationTick(currentGrid);
+				yield return NavigationCR(currentGrid);
 
 				MyConsole.Add("Fly out successfull!");
 			}
@@ -227,14 +227,14 @@ namespace LLE
 
 			micro.Fly(worldPath);
 
-			yield return NavigationTick();
+			yield return NavigationCR();
 		}
 
 		internal string CharacterCellText()
 		{	return IJK(selectedGrid.WorldToGridInteger(GetEngineerCenter()));
 		}
 
-		internal IEnumerator NavigationTick(IMyCubeGrid exitGrid = null)
+		internal IEnumerator NavigationCR(IMyCubeGrid exitGrid = null)
 		{
 			for(;;)
 			{
@@ -254,22 +254,29 @@ namespace LLE
 
 				var ijk = selectedGrid.WorldToGridInteger(micro.currentTargetPoint);
 				var door = aStarHelper.GetDoorAt(ijk);
-				if(door != null)
-				{	if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
+				if(door != null && door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
+				{	
+					character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
+
+					var action = door.GetActionWithName("Open");
+					if (action != null) action.Apply(door);
+
+					var pause = Time.Now + 5;
+
+					while(Time.Now < pause)
 					{	
-						character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
-
-						if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Opening)
-						{	var action = door.GetActionWithName("Open");
-							if (action != null) action.Apply(door);
-						}
-
+						door = aStarHelper.GetDoorAt(ijk);
+						if(door == null || door.Status == Sandbox.ModAPI.Ingame.DoorStatus.Open) break;
+						
 						yield return null; // wait for door to open
-						continue;
 					}
 
-					//if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
-					//return $"Can't open door at {IJK(ijk)}, current position: {CharacterCellText()}";
+					if(door == null || door.Status == Sandbox.ModAPI.Ingame.DoorStatus.Open)
+					{}
+					else
+					{	yield return $"Can't open door at {IJK(ijk)}, current position: {CharacterCellText()}";
+						yield break;
+					}
 				}
 
 				Vector2 rotation = Vector2.Zero;
