@@ -19,14 +19,15 @@ namespace LLE
 
 		internal List<Vector3I> GetPath()
 		{
-			var ar = astar.result;
+			var offset = grid.Min - AStarBorder;
+			var result = new List<Vector3I>(astar.result.Count);
 
-			for(int i = 0; i < ar.Count; ++i)
-			{	
-				ar[i] += grid.Min - AStarBorder;
+			for(int i = 0; i < astar.result.Count; ++i)
+			{
+				result.Add(astar.result[i] + offset);
 			}
 
-			return ar;
+			return result;
 		}
 
 		internal AStarHelper(IMyCubeGrid grid_, Vector3I point_A, Vector3I point_B)
@@ -175,6 +176,7 @@ namespace LLE
 			}
 
 			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
+			if(jetComp == null) yield return "Error: character has no jetpack component.";
 			jetComp.TurnOnJetpack(true);
 
 			Vector3D engineer = GetEngineerCenter();
