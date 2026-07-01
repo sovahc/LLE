@@ -238,19 +238,18 @@ namespace LLE
 		{
 			for(;;)
 			{
-				if(micro.Arrived()) { yield return $"Arrived. Position: {CharacterCellText()}"; yield break; }
+				if(micro.Arrived()) { yield return $"Arrived. Position: {CharacterCellText()}"; }
 
 				if(micro.Stuck)
 				{	micro.Stop();
 					yield return $"Stuck at position: {CharacterCellText()}";
-					yield break;
 				}
 
 				var ec = GetEngineerCenter();
 
 				// Fly-out mode: stop when the engineer has left the grid.
 				if(exitGrid != null && !IsEngineerInsideGrid(ec, exitGrid))
-					yield break;
+					yield break; // no answer to LLM, continue
 
 				var ijk = selectedGrid.WorldToGridInteger(micro.currentTargetPoint);
 				var door = aStarHelper.GetDoorAt(ijk);
@@ -275,7 +274,6 @@ namespace LLE
 					{}
 					else
 					{	yield return $"Can't open door at {IJK(ijk)}, current position: {CharacterCellText()}";
-						yield break;
 					}
 				}
 
