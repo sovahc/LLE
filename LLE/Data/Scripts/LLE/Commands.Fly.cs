@@ -268,8 +268,10 @@ namespace LLE
 						{	
 							character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
 							
-							var action = door.GetActionWithName("Open");
-							if (action != null) action.Apply(door);
+							if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Opening)
+							{	var action = door.GetActionWithName("Open");
+								if (action != null) action.Apply(door);
+							}
 
 							var pause = Time.Now + 5;
 
@@ -291,8 +293,11 @@ namespace LLE
 					if(close != null)
 					{	var door = GetDoorAt(close.Value);
 						if(door != null && door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Closed)
-						{	var action = door.GetActionWithName("Open");
-							if (action != null) action.Apply(door);
+						{	
+							if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Closing)
+							{	var action = door.GetActionWithName("Open"); // Open/Close
+								if (action != null) action.Apply(door);
+							}
 						}
 					}
 				}
