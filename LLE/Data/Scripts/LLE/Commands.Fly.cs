@@ -17,7 +17,7 @@ namespace LLE
 		private AStar astar;
 		private const int AStarBorder = 2;
 
-		public List<Vector3I> GetPath()
+		internal List<Vector3I> GetPath()
 		{
 			var ar = astar.result;
 
@@ -29,7 +29,7 @@ namespace LLE
 			return ar;
 		}
 
-		public AStarHelper(IMyCubeGrid grid_, Vector3I point_A, Vector3I point_B)
+		internal AStarHelper(IMyCubeGrid grid_, Vector3I point_A, Vector3I point_B)
 		{	grid = grid_;
 
 			Vector3I gridSize = grid.Max - grid.Min + 1;
@@ -49,7 +49,7 @@ namespace LLE
 			astar.RunCalculation(a, b);
 		}
 
-		public bool Tick()
+		internal bool Tick()
 		{	
 			if (astar.Completed()) return true;
 
@@ -187,7 +187,7 @@ namespace LLE
 			var currentGrid = GetCurrentEngineerGrid(engineer);
 
 			if(currentGrid != null && currentGrid != selectedGrid)
-			{	MyConsole.Add("Fly out of the current grid toward the target");
+			{	MyConsole.Add("Fly out of the current grid toward the target.");
 
 				up = currentGrid.WorldMatrix.Up;
 
@@ -200,7 +200,7 @@ namespace LLE
 
 				worldPath = MakePath(aStarHelper.GetPath());
 
-				if(worldPath.Count == 0) yield return "There is no out path from grid";
+				if(worldPath.Count == 0) yield return "There is no out path from grid.";
 
 				MyConsole.Add($"path.Count {worldPath.Count}", Color.IndianRed);
 
@@ -208,7 +208,7 @@ namespace LLE
 
 				yield return NavigationCR(currentGrid);
 
-				MyConsole.Add("Fly out successfull!");
+				MyConsole.Add("Fly out successful!");
 			}
 
 			engineer = GetEngineerCenter();
