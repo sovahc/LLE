@@ -55,9 +55,7 @@ namespace LLE
 
 			astar.Iteration();
 
-			if (!astar.Completed()) return false;
-
-			return true;
+			return astar.Completed();
 		}
 
 		internal void DrawPath()
