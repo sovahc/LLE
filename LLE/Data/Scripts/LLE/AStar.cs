@@ -30,7 +30,6 @@ namespace LLE
 		private IEnumerator iterator;
 
 		public readonly List<Vector3I> result = new List<Vector3I>();
-		public readonly List<Vector3I> resultSimplified =  new List<Vector3I>();
 
 		public Vector3I Size => _indexer.Size;
 		public void IndexToPosition(int index, out Vector3I pos) => _indexer.IndexToPosition(index, out pos);
@@ -84,7 +83,6 @@ namespace LLE
 
 		public void RunCalculation(Vector3I start, Vector3I goal)
 		{	result.Clear();
-			resultSimplified.Clear();
 			iterator = FindPath(start, goal);
 		}
 
@@ -151,7 +149,6 @@ namespace LLE
 					if(OnBorder(cv))
 					{	MyConsole.Add($"(Exit) cellsAnalyzed {cellsAnalyzed}", Color.Red);
 						result.AddList(ReconstructPath(currentI, cv));
-						resultSimplified.AddList(SimplifyPath(result));
 						yield break;
 					}
 				}
@@ -159,7 +156,6 @@ namespace LLE
 				{	if (currentI == goalIndex)
 					{	MyConsole.Add($"(Goal) cellsAnalyzed {cellsAnalyzed}", Color.Red);
 						result.AddList(ReconstructPath(goalIndex, goal));
-						resultSimplified.AddList(SimplifyPath(result));
 						yield break;
 					}
 				}
@@ -232,26 +228,6 @@ namespace LLE
 			return path;
 		}
 
-		private List<Vector3I> SimplifyPath(List<Vector3I> path)
-		{
-			if (path.Count <= 2)
-				return path;
-
-			var simplified = new List<Vector3I>();
-			simplified.Add(path[0]);
-
-			for (int i = 1; i < path.Count - 1; i++)
-			{
-				Vector3I prevDir = path[i] - path[i - 1];
-				Vector3I nextDir = path[i + 1] - path[i];
-
-				if (prevDir != nextDir)
-					simplified.Add(path[i]);
-			}
-
-			simplified.Add(path[path.Count - 1]);
-			return simplified;
-		}
 		private static float Manhattan(Vector3I a, Vector3I b)
 		{
 			return Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) + Math.Abs(a.Z - b.Z);

@@ -7,6 +7,7 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Character.Components;
+using Sandbox.ModAPI;
 
 namespace LLE
 {
@@ -16,18 +17,54 @@ namespace LLE
 		private AStar astar;
 		private const int AStarBorder = 2;
 
-		public List<Vector3D> GetPath()
+		internal IMyDoor GetDoorAt(Vector3I ijk)
 		{
-			List<Vector3D> path = new List<Vector3D>();
+			var block = grid?.GetCubeBlock(ijk);
+			return block?.FatBlock as IMyDoor;
+		}
 
-			var ar = astar.resultSimplified;
+		private List<Vector3I> SimplifyPath(List<Vector3I> path)
+		{
+			if (path.Count <= 2)
+				return path;
+
+			var simplified = new List<Vector3I>();
+			simplified.Add(path[0]);
+
+			for (int i = 1; i < path.Count - 1; i++)
+			{
+				Vector3I prevDir = path[i] - path[i - 1];
+				Vector3I nextDir = path[i + 1] - path[i];
+
+				bool door =
+					GetDoorAt(path[i - 1]) != null ||
+					GetDoorAt(path[i + 0]) != null ||
+					GetDoorAt(path[i + 1]) != null;
+
+				if (prevDir != nextDir || door)
+					simplified.Add(path[i]);
+			}
+
+			simplified.Add(path[path.Count - 1]);
+			return simplified;
+		}
+
+		public List<Vector3D> GetSimplePath()
+		{
+			var ar = astar.result;
 
 			for(int i = 0; i < ar.Count; ++i)
 			{	
-				var v = ar[i] + grid.Min - AStarBorder;
-
-				path.Add(grid.GridIntegerToWorld(v));				
+				ar[i] += grid.Min - AStarBorder;
 			}
+
+			ar = SimplifyPath(ar);
+
+			List<Vector3D> path = new List<Vector3D>();
+			foreach(var v in ar)
+			{	path.Add(grid.GridIntegerToWorld(v));
+			}
+
 			return path;
 		}
 
@@ -157,7 +194,7 @@ namespace LLE
 
 				while(!aStarHelper.Tick()) yield return null;
 
-				worldPath = aStarHelper.GetPath();
+				worldPath = aStarHelper.GetSimplePath();
 
 				if(worldPath.Count == 0) yield return "There is no out path from grid";
 
@@ -194,7 +231,7 @@ namespace LLE
 
 			while(!aStarHelper.Tick()) yield return null;
 
-			worldPath = aStarHelper.GetPath();
+			worldPath = aStarHelper.GetSimplePath();
 			worldPath.Reverse(); // ! Reverse back
 
 			if(worldPath.Count == 0) yield return "There is no path to your destination.";
