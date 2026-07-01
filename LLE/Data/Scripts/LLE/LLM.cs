@@ -16,6 +16,7 @@ namespace LLE
 		public bool pauseLLM;
 
 		private MessageType lastType = MessageType.Stop;
+		private bool waitingForResponse;
 
 		private Commands commands;
 
@@ -37,8 +38,10 @@ namespace LLE
 		public void Tick()
 		{
 			// Send accumulated results to LLM
-			if (output.Length != 0 && !pauseLLM)
+			if (output.Length != 0 && !pauseLLM && !waitingForResponse)
 			{
+				waitingForResponse = true;
+
 				string m = output.ToString();
 				output.Clear();
 
@@ -86,7 +89,9 @@ namespace LLE
 					Content.Append(m.Payload);
 				}
 				else if (m.Type == MessageType.Stop)
-				{	// LLM stopped sending — try to process accumulated content
+				{	waitingForResponse = false;
+
+					// LLM stopped sending — try to process accumulated content
 					ProcessLlmContent(commandToProcess.ToString());
 					commandToProcess.Clear();
 					return;
