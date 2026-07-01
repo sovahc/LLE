@@ -88,8 +88,8 @@ You operate on a selected grid (ship or station).
 * fly I J K						- Fly to specific grid coordinates, e.g. `fly 10 -5 13`
 * grind I J K					- Grind a block at specific coordinates.
 * weld I J K					- Weld a block at specific coordinates.
-* near							- Return 6 accessible blocks around you and the block you are standing on.
-* near I J K					- Return 6 accessible blocks around a block at specific coordinates.
+* near							- Return all blocks in 3x3x3 cube around you (27 positions).
+* near I J K					- Return all blocks in 3x3x3 cube around specified coordinates.
 * inventory						- Return the items in your inventory.
 * inventory I J K				- Return the inventory of the container at specific coordinates.
 * inventories					- Return all inventories on the selected grid.

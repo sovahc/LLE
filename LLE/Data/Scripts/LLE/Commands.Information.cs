@@ -203,8 +203,11 @@ namespace LLE
 
 			positions.Clear();
 
-			foreach (var direction in Constants.SixDirections)
-			{	positions.Add(ijk + direction);
+			var min = ijk - Vector3I.One;
+			var max = ijk + Vector3I.One;
+			var iter = new Vector3I_RangeIterator(ref min, ref max);
+			for (; iter.IsValid(); iter.MoveNext())
+			{	positions.Add(iter.Current);
 			}
 
 			ListDescription(positions, false, md);
