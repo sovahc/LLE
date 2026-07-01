@@ -241,20 +241,22 @@ namespace LLE
 
 		internal IEnumerator NavigationCR(IMyCubeGrid exitGrid = null)
 		{
+			bool closeBehind = false;
+
 			for(;;)
 			{
+				var ec = GetEngineerCenter();
+
+				// Fly-out mode: stop when the engineer has left the grid.
+				if(exitGrid != null && !IsEngineerInsideGrid(ec, exitGrid))
+					yield break; // no answer to LLM, continue
+
 				if(micro.Arrived()) { yield return $"Arrived. Position: {CharacterCellText()}"; }
 
 				if(micro.Stuck)
 				{	micro.Stop();
 					yield return $"Stuck at position: {CharacterCellText()}";
 				}
-
-				var ec = GetEngineerCenter();
-
-				// Fly-out mode: stop when the engineer has left the grid.
-				if(exitGrid != null && !IsEngineerInsideGrid(ec, exitGrid))
-					yield break; // no answer to LLM, continue
 
 				if(micro.Done != null)
 				{
@@ -263,6 +265,8 @@ namespace LLE
 
 					if(open != null)
 					{
+						closeBehind = false;
+
 						var door = GetDoorAt(open.Value);
 						if(door != null && door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
 						{	
@@ -271,6 +275,8 @@ namespace LLE
 							if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Opening)
 							{	var action = door.GetActionWithName("Open");
 								if (action != null) action.Apply(door);
+
+								closeBehind = true;
 							}
 
 							var pause = Time.Now + 5;
@@ -292,12 +298,12 @@ namespace LLE
 					}
 					if(close != null)
 					{	var door = GetDoorAt(close.Value);
-						if(door != null && door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Closed)
-						{	
-							if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Closing)
-							{	var action = door.GetActionWithName("Open"); // Open/Close
-								if (action != null) action.Apply(door);
-							}
+						if(door != null &&
+							door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Closed &&
+							door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Closing &&
+							closeBehind)
+						{	var action = door.GetActionWithName("Open"); // Open/Close
+							if (action != null) action.Apply(door);
 						}
 					}
 				}
