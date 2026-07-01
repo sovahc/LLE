@@ -23,10 +23,8 @@ namespace LLE
 		public static Vector3I? astarStart;
 		public static Vector3I? astarGoal;
 
-		const int AStarBorder = 2;
-		internal static AStar astar;
-		public static List<Vector3I> path = new List<Vector3I>();
-		
+		private static AStarHelper aStarHelper;
+
 		public static List<LineD> linesRed = new List<LineD>();
 		public static List<LineD> linesGray = new List<LineD>();
 
@@ -35,10 +33,6 @@ namespace LLE
 
 			astarStart = null;
 			astarGoal = null;
-			
-			var gridSize = grid.Max - grid.Min + 1;
-			var astarSize = gridSize + AStarBorder * 2;
-			astar = new AStar(astarSize, new TraversabilityCalculator(grid_, AStarBorder));
 		}
 
 		internal static void Pathfinding(MatrixD hm)
@@ -67,36 +61,19 @@ namespace LLE
 			{
 				if(astarStart != null && astarGoal != null)
 				{
-					astar.Reset();
-					astar.RunCalculation((Vector3I)astarStart - grid.Min + AStarBorder,
-						(Vector3I)astarGoal - grid.Min + AStarBorder);
+					aStarHelper = new AStarHelper(grid, astarStart.Value, astarGoal.Value);
 				}
 			}
 
-			if(!astar.Completed())
-			{	astar.Iteration();
-
-				if(astar.Completed())
-				{
-					var result = astar.result;
-
-					MyConsole.Add($"A* path length: {result.Count}", Color.DarkMagenta);
-
-					path.Clear();
-					for(int i = 0; i < result.Count; ++i)
-					{	path.Add(result[i] + grid.Min - AStarBorder);
-					}
-				}
+			if(aStarHelper != null)
+			{	aStarHelper.Tick();
+				aStarHelper.DrawPath();
 			}
 		}
 
 		internal static void Draw(MatrixD hm)
 		{
 			if(grid == null) return;
-
-			foreach(var cell in path)
-			{	Drawing.RoundMarker(grid.GridIntegerToWorld(cell), Color.Yellow);
-			}
 
 			if(astarStart != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarStart.Value), Color.Green);
 			if(astarGoal != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarGoal.Value), Color.Red);
