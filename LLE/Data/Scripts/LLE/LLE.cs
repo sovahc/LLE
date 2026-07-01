@@ -96,15 +96,9 @@ namespace LLE
 
 		private Commands commands;
 
-		private readonly StringBuilder llmReasoning = new StringBuilder();
-		private readonly StringBuilder llmContent = new StringBuilder();
-		private readonly StringBuilder commandToProcess = new StringBuilder();
-		private readonly StringBuilder toLLM = new StringBuilder();
-
-		private bool pauseLLM;
-
 		private bool initialized;
 		private IMyCharacter bot;
+		private LLM llm;		
 
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
@@ -136,17 +130,6 @@ namespace LLE
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
 
-		private void CommandResult(string result)
-		{
-			if(result == null) return;
-
-			toLLM.Append("\n[COMMAND RESULT]:\n");
-			toLLM.Append(result);
-			toLLM.Append('\n');
-		}
-
-		MessageType lastType = MessageType.Stop;
-
 		public override void UpdateBeforeSimulation()
 		{
 			var player = MyAPIGateway.Session.Player;
@@ -163,6 +146,7 @@ namespace LLE
 				LLE_Loader.SetHelp(Commands.Help());
 				Vision.Initialize();
 				commands = new Commands(ch);
+				llm = new LLM(commands);
 			}
 
 			Vision.Tick(commands.GetEngineerCenter());
@@ -171,7 +155,7 @@ namespace LLE
 			string result = commands.Update();
 			if (result != null)
 			{
-				CommandResult(result);
+				llm.CommandResult(result);
 				return;
 			}
 
@@ -181,110 +165,21 @@ namespace LLE
 			// Vision subsystem reports
 			string vr = Vision.VisionReport(commands.GetEngineerCenter());
 			if(vr != null)
-			{	toLLM.Append("[VISION]:\n");
-				toLLM.Append(vr);
-				pauseLLM = false;
+			{	llm.Append("[VISION]:\n");
+				llm.Append(vr);
+				llm.pauseLLM = false;
 			}
 
 			// Status subsystem reports
 			string sr = commands.Status_ReportChanged();
 			if(sr != null)
-			{	toLLM.Append("[STATUS]:");
-				toLLM.Append(sr);
-				toLLM.Append("\n");
-				pauseLLM = false;
+			{	llm.Append("[STATUS]:");
+				llm.Append(sr);
+				llm.Append("\n");
+				llm.pauseLLM = false;
 			}
 
-			// Send accumulated results to LLM
-			if (toLLM.Length != 0 && !pauseLLM)
-			{
-				string m = toLLM.ToString();
-				toLLM.Clear();
-
-				Log($"toLLM: {m}");
-				MyConsole.AddMultiline(m, Color.Green);
-				LLE_Loader.SendMessageToLLM(m);
-				return;
-			}
-
-			// Poll for new chunks from LLM
-
-			for (int i = 0; i < 10; ++i)
-			{
-				FromLLM m;
-				if (!LLE_Loader.GetChunkFromLLM(out m)) return;
-				
-				// Type changed — log and clear the old buffer
-				if (m.Type != lastType)
-				{
-					switch(lastType)
-					{	case MessageType.Reasoning:
-							Log($"llmReasoning:\n{llmReasoning}");
-							llmReasoning.Clear();
-							break;
-						case MessageType.Content:
-							commandToProcess.Append(llmContent);
-							commandToProcess.Append("\n");
-
-							Log($"llmContent:\n{llmContent}");
-							llmContent.Clear();
-							break;
-					}
-
-				}
-				lastType = m.Type;
-
-				if (m.Type == MessageType.Reasoning)
-				{
-					MyConsole.AddMultiline(m.Payload, Color.LightGray);
-					llmReasoning.Append(m.Payload);
-				}
-				else if (m.Type == MessageType.Content)
-				{
-					MyConsole.AddMultiline(m.Payload, Color.Cyan);
-					llmContent.Append(m.Payload);
-				}
-				else if (m.Type == MessageType.Stop)
-				{	// LLM stopped sending — try to process accumulated content
-					ProcessLlmContent(commandToProcess.ToString());
-					commandToProcess.Clear();
-					return;
-				}
-			}
-		}
-
-		private void ProcessLlmContent(string content)
-		{
-			string trimmed = content.Trim();
-			int lastNewline = trimmed.LastIndexOf('\n');
-			string lastLine = lastNewline >= 0 ? trimmed.Substring(lastNewline + 1) : trimmed;
-
-			const string prefix = "Execute `";
-			if (!lastLine.StartsWith(prefix))
-			{
-				CommandResult("ERROR: Last line must start with 'Execute `command`', e.g.: Execute `fly 10 0 0`");
-				return;
-			}
-
-			int closingBacktick = lastLine.IndexOf('`', prefix.Length);
-			if (closingBacktick < 0)
-			{
-				CommandResult("ERROR: Missing closing backtick in command.");
-				return;
-			}
-
-			string command = lastLine.Substring(prefix.Length, closingBacktick - prefix.Length);
-
-			if(command == "pause")
-			{	pauseLLM = true;
-				return;
-			}
-
-			toLLM.Append(content);
-			toLLM.Append($"[LLM COMMAND]: {command}\n");
-
-			string result = commands.Execute(command);
-			CommandResult(result);
+			llm.Tick();
 		}
 
 		public override void Draw()
@@ -385,7 +280,7 @@ namespace LLE
 				commands = new Commands(bot);
 			}
 			else if(message.StartsWith(">"))
-			{	pauseLLM = true;
+			{	llm.pauseLLM = true;
 				var command = message.Substring(1).Trim();
 
 				MyConsole.AddMultiline(">", Color.Red);
@@ -396,8 +291,8 @@ namespace LLE
 				MyConsole.AddMultiline(result, Color.SeaGreen);
 			}
 			else
-			{	toLLM.Append($"[GAME CHAT] {player.DisplayName}: {message}\n");
-				pauseLLM = false;
+			{	llm.Append($"[GAME CHAT] {player.DisplayName}: {message}\n");
+				llm.pauseLLM = false;
 			}
 		}
 	}
