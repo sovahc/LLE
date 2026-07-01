@@ -328,7 +328,11 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 				// String at any level = final response to LLM.
 				if(result != null)
-				{	DisposeAll();
+				{	
+					// Dispose all
+					foreach(var c in coroutineStack) (c as IDisposable)?.Dispose();
+					coroutineStack.Clear();
+
 					return result;
 				}
 
@@ -347,13 +351,6 @@ drop 'name' [quantity|all] - Drop a specified object.
 					MyConsole.Add("!yield break!", Color.DarkRed);
 			}
 			return null;
-		}
-
-		private void DisposeAll()
-		{
-			foreach(var c in coroutineStack)
-				(c as IDisposable)?.Dispose();
-			coroutineStack.Clear();
 		}
 
 		internal string Execute(string command)

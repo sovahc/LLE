@@ -128,7 +128,6 @@ namespace LLE
 
 		private bool initialized;
 		private IMyCharacter bot;
-		private int spawnDelay;
 
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
