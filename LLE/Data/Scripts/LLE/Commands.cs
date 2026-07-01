@@ -62,7 +62,7 @@ namespace LLE
 			return character.GetPosition() + Constants.EngineerHeight/2 * character.WorldMatrix.Up;
 		}
 
-		internal string Help()
+		internal static string Help()
 		{
 			return @"
 You are an autonomous agent controlling a Space Engineer in-game character.

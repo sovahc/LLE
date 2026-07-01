@@ -182,19 +182,11 @@ namespace LLE
 
 			if(!initialized)
 			{	
-				if(bot == null)
-				{	if(++spawnDelay % 100 != 0) return;
-					
-					bot = Bot.Spawn(player);
-					MyConsole.Add($"bot={bot}");
-				}
-				if(bot == null) return;
-
 				initialized = true;
 
-				commands = new Commands(bot);
-				LLE_Loader.SetHelp(commands.Help());
+				LLE_Loader.SetHelp(Commands.Help());
 				Vision.Initialize();
+				commands = new Commands(ch);
 			}
 
 			Vision.Tick(commands.GetEngineerCenter());
@@ -409,7 +401,14 @@ namespace LLE
 			if (player == null) return;
 			if (commands == null) return;
 
-			if(message.StartsWith(">"))
+			if(message == ">spawn")
+			{	bot = Bot.Spawn(player);
+				MyConsole.Add($"bot={bot}");
+				if(bot == null) return;				
+
+				commands = new Commands(bot);
+			}
+			else if(message.StartsWith(">"))
 			{	pauseLLM = true;
 				var command = message.Substring(1).Trim();
 
