@@ -55,10 +55,6 @@ namespace LLE
 			return character.GetPosition() + Constants.EngineerHeight/2 * character.WorldMatrix.Up;
 		}
 
-		public bool CancelRequested()
-		{	return MyAPIGateway.Input.IsNewLeftMousePressed() || MyAPIGateway.Input.IsNewRightMousePressed();
-		}
-
 		internal string Help()
 		{
 			return @"
