@@ -407,6 +407,7 @@ namespace LLE
 			if (!LLE_Loader.IsPresent()) return;
 			var player = MyAPIGateway.Session.Player;
 			if (player == null) return;
+			if (commands == null) return;
 
 			if(message.StartsWith(">"))
 			{	pauseLLM = true;

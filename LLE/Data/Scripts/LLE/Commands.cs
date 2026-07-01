@@ -279,7 +279,7 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 			if(medblockIP.Count != 0)
 			{	sb.Append("* Recharge: ");
-				AppendList(inventoryIP, sb);
+				AppendList(medblockIP, sb);
 			}
 
 			if(inventoryIP.Count == 0 && medblockIP.Count == 0)
