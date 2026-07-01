@@ -17,39 +17,7 @@ namespace LLE
 		private AStar astar;
 		private const int AStarBorder = 2;
 
-		internal IMyDoor GetDoorAt(Vector3I ijk)
-		{
-			var block = grid?.GetCubeBlock(ijk);
-			return block?.FatBlock as IMyDoor;
-		}
-
-		private List<Vector3I> SimplifyPath(List<Vector3I> path)
-		{
-			if (path.Count <= 2)
-				return path;
-
-			var simplified = new List<Vector3I>();
-			simplified.Add(path[0]);
-
-			for (int i = 1; i < path.Count - 1; i++)
-			{
-				Vector3I prevDir = path[i] - path[i - 1];
-				Vector3I nextDir = path[i + 1] - path[i];
-
-				bool door =
-					GetDoorAt(path[i - 1]) != null ||
-					GetDoorAt(path[i + 0]) != null ||
-					GetDoorAt(path[i + 1]) != null;
-
-				if (prevDir != nextDir || door)
-					simplified.Add(path[i]);
-			}
-
-			simplified.Add(path[path.Count - 1]);
-			return simplified;
-		}
-
-		public List<Vector3D> GetSimplePath()
+		public List<Vector3I> GetPath()
 		{
 			var ar = astar.result;
 
@@ -58,14 +26,7 @@ namespace LLE
 				ar[i] += grid.Min - AStarBorder;
 			}
 
-			ar = SimplifyPath(ar);
-
-			List<Vector3D> path = new List<Vector3D>();
-			foreach(var v in ar)
-			{	path.Add(grid.GridIntegerToWorld(v));
-			}
-
-			return path;
+			return ar;
 		}
 
 		public AStarHelper(IMyCubeGrid grid_, Vector3I point_A, Vector3I point_B)
@@ -151,6 +112,51 @@ namespace LLE
 			return result;
 		}
 
+		internal IMyDoor GetDoorAt(Vector3I ijk)
+		{
+			var block = selectedGrid?.GetCubeBlock(ijk);
+			return block?.FatBlock as IMyDoor;
+		}
+
+		internal class PathNode
+		{	public Vector3D v;
+			public Vector3I? openDoor;
+			public Vector3I? closeDoor;
+		}
+
+		internal Vector3D ToWorld(Vector3I ijk)
+		{	return selectedGrid.GridIntegerToWorld(ijk);
+		}
+
+		private List<PathNode> MakePath(List<Vector3I> path)
+		{
+			var result = new List<PathNode>();
+			if (path.Count == 0) return result;
+
+			result.Add(new PathNode() { v = ToWorld(path[0]) });
+			if (path.Count == 1) return result;
+
+			for (int i = 1; i < path.Count - 1; i++)
+			{
+				Vector3I prevDir = path[i] - path[i - 1];
+				Vector3I nextDir = path[i + 1] - path[i];
+
+				bool doorAhead = GetDoorAt(path[i + 1]) != null;
+				bool doorBehind = GetDoorAt(path[i - 1]) != null;
+
+				if (prevDir != nextDir || doorAhead || doorBehind)
+					result.Add(new PathNode()
+					{	v = ToWorld(path[i]),
+						openDoor = doorAhead ? (Vector3I?)path[i + 1] : null,
+						closeDoor = doorBehind ? (Vector3I?)path[i - 1] : null
+					});
+			}
+
+			result.Add(new PathNode() { v = ToWorld(path[path.Count - 1]) });
+
+			return result;
+		}
+
 		internal IEnumerator Fly(TokenParser tp)
 		{
 			string message;
@@ -178,7 +184,7 @@ namespace LLE
 
 			Vector3I from, to;
 
-			List<Vector3D> worldPath;
+			List<PathNode> worldPath;
 
 			var currentGrid = GetCurrentEngineerGrid(engineer);
 
@@ -194,7 +200,7 @@ namespace LLE
 
 				while(!aStarHelper.Tick()) yield return null;
 
-				worldPath = aStarHelper.GetSimplePath();
+				worldPath = MakePath(aStarHelper.GetPath());
 
 				if(worldPath.Count == 0) yield return "There is no out path from grid";
 
@@ -218,8 +224,9 @@ namespace LLE
 
 			while(!aStarHelper.Tick()) yield return null;
 
-			worldPath = aStarHelper.GetSimplePath();
-			worldPath.Reverse(); // ! Reverse back
+			var tmp = aStarHelper.GetPath();
+			tmp.Reverse(); // ! Reverse back
+			worldPath = MakePath(tmp);
 
 			if(worldPath.Count == 0) yield return "There is no path to your destination.";
 
@@ -251,40 +258,57 @@ namespace LLE
 				if(exitGrid != null && !IsEngineerInsideGrid(ec, exitGrid))
 					yield break; // no answer to LLM, continue
 
-				var ijk = selectedGrid.WorldToGridInteger(micro.currentTargetPoint);
-				var door = aStarHelper.GetDoorAt(ijk);
-				if(door != null && door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
-				{	
-					character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
+				if(micro.Done != null)
+				{
+					var open = micro.Done.openDoor;
+					var close = micro.Done.closeDoor;
 
-					var action = door.GetActionWithName("Open");
-					if (action != null) action.Apply(door);
+					if(open != null)
+					{
+						var door = GetDoorAt(open.Value);
+						if(door != null && door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
+						{	
+							character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
+							
+							var action = door.GetActionWithName("Open");
+							if (action != null) action.Apply(door);
 
-					var pause = Time.Now + 5;
+							var pause = Time.Now + 5;
 
-					while(Time.Now < pause)
-					{	
-						door = aStarHelper.GetDoorAt(ijk);
-						if(door == null || door.Status == Sandbox.ModAPI.Ingame.DoorStatus.Open) break;
+							while(Time.Now < pause)
+							{	
+								door = GetDoorAt(open.Value);
+								if(door == null || door.Status == Sandbox.ModAPI.Ingame.DoorStatus.Open) break;
 						
-						yield return null; // wait for door to open
-					}
+								yield return null; // wait for door to open
+							}
 
-					if(door == null || door.Status == Sandbox.ModAPI.Ingame.DoorStatus.Open)
-					{}
-					else
-					{	yield return $"Can't open door at {IJK(ijk)}, current position: {CharacterCellText()}";
+							if(door == null || door.Status == Sandbox.ModAPI.Ingame.DoorStatus.Open)
+							{}
+							else
+							{	yield return $"Can't open door at {IJK(open.Value)}, current position: {CharacterCellText()}";
+							}
+						}
+					}
+					if(close != null)
+					{	var door = GetDoorAt(close.Value);
+						if(door != null && door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Closed)
+						{	var action = door.GetActionWithName("Open");
+							if (action != null) action.Apply(door);
+						}
 					}
 				}
+				micro.Done = null;
 
 				Vector2 rotation = Vector2.Zero;
 				float roll = 0;
 
+				var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
+
 				if(!micro.ShortSegment)
 					springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
-						micro.currentTargetPoint, up, 0.2, out rotation, out roll);
-
-				var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
+						micro.Target.v, up, 0.2, out rotation, out roll);
+				
 				var move = micro.ComputeMoveInput(desiredVelocity, character.Physics.LinearVelocity, character.WorldMatrix);
 
 				character.MoveAndRotate(move, rotation, roll);

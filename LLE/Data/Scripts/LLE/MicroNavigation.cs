@@ -8,11 +8,11 @@ namespace LLE
 	class MicroNavigation
 	{
 		private const double arrivalThreshold = 0.5;
-		private List<Vector3D> path = new List<Vector3D>();
+		private List<Commands.PathNode> path = new List<Commands.PathNode>();
 		private int currentWaypointIndex;
 		private double StuckTimer;
 
-		public void Fly(List<Vector3D> path)
+		public void Fly(List<Commands.PathNode> path)
 		{
 			this.path = path;
 			currentWaypointIndex = 0;
@@ -31,23 +31,25 @@ namespace LLE
 
 		public bool Stuck;
 		public bool ShortSegment;
-		public Vector3D currentTargetPoint;
+		public Commands.PathNode Target;
+		public Commands.PathNode Done;
 
 		public Vector3D ComputeDesiredVelocity(Vector3D currentPosition, Vector3D currentVelocity, double DeltaTime = 1.0 / 60)
 		{
 			if (Arrived()) return Vector3D.Zero;
 
-			currentTargetPoint = path[currentWaypointIndex];
+			Target = path[currentWaypointIndex];
 
-			Drawing.RoundMarker(currentTargetPoint, Color.HotPink);
+			Drawing.RoundMarker(Target.v, Color.HotPink);
 
-			Vector3D toTarget = currentTargetPoint - currentPosition;
+			Vector3D toTarget = Target.v - currentPosition;
 			double distance = toTarget.Length();
 
 			ShortSegment = distance < 4.0;
 
 			if (distance < arrivalThreshold)
-			{	++currentWaypointIndex;
+			{	Done = Target;
+				++currentWaypointIndex;
 				return ComputeDesiredVelocity(currentPosition, currentVelocity);
 			}
 
