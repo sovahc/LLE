@@ -128,10 +128,9 @@ namespace LLE
 					grinderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
 
 				bool stale = pbi == block.Integrity;
-				bool cancel = CancelRequested();
 				bool removed = block.IsDestroyed && block.StockpileEmpty;
 
-				if (inventoryFull || stale || cancel || removed)
+				if (inventoryFull || stale || removed)
 				{	
 					grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 					
@@ -149,7 +148,6 @@ namespace LLE
 					if(inventoryFull) sb.Append("Your inventory is full.\n");
 					else if(stale) sb.Append("No progress!\n");
 					
-					if(cancel) sb.Append("Cancelled by user.\n");
 					if(removed) sb.Append($"Done! {Name(block)} has been removed.");
 
 					if(removed)
@@ -271,16 +269,13 @@ namespace LLE
 				welderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
 
 				bool stale = pbi == block.Integrity;
-				bool cancel = CancelRequested();
 				bool full = block.Integrity >= block.MaxIntegrity;
 
-				if (stale || cancel || full)
+				if (stale || full)
 				{	
 					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 
 					StringBuilder sb = new StringBuilder();
-
-					if(cancel) sb.Append("Cancelled by user.\n");
 
 					if(full) sb.Append("Done! Block integrity is full.");
 					else

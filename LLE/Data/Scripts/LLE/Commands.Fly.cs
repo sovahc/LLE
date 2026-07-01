@@ -203,7 +203,7 @@ namespace LLE
 				micro.Fly(worldPath);
 
 				for(;;)
-				{	var r = NavigationStep(currentGrid);
+				{	var r = NavigationTick();
 					if(r != null)
 					{	MyConsole.Add($"Fly out: {r}");
 						break;
@@ -241,7 +241,7 @@ namespace LLE
 			micro.Fly(worldPath);
 
 			for(;;)
-			{	yield return NavigationStep(selectedGrid);
+			{	yield return NavigationTick();
 			}
 		}
 
@@ -249,7 +249,7 @@ namespace LLE
 		{	return IJK(selectedGrid.WorldToGridInteger(GetEngineerCenter()));
 		}
 
-		internal string NavigationStep(IMyCubeGrid grid)
+		internal string NavigationTick()
 		{
 			if(micro.Arrived()) return $"Arrived. Position: {CharacterCellText()}";
 
@@ -259,6 +259,25 @@ namespace LLE
 			}
 
 			var ec = GetEngineerCenter();
+
+			var ijk = selectedGrid.WorldToGridInteger(micro.currentTargetPoint);
+			var door = aStarHelper.GetDoorAt(ijk);
+			if(door != null)
+			{	if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
+				{	
+					character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
+
+					if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Opening)
+					{	var action = door.GetActionWithName("Open");
+						if (action != null) action.Apply(door);
+					}
+
+					return null;
+				}
+
+				//if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
+				//return $"Can't open door at {IJK(ijk)}, current position: {CharacterCellText()}";
+			}
 
 			Vector2 rotation = Vector2.Zero;
 			float roll = 0;
