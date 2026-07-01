@@ -387,8 +387,7 @@ namespace LLE
 
 			if(somethingTransfered)
 			{
-				//EnableSound("PlayDropItem"); // Everything else works fine, but the sound is just fucking broken.
-				//EnableSound("PlayFallMetal");
+				PlaySound("PlayDropItem");
 			}
 			else
 			{	result.Append($"No items transfered!\n");

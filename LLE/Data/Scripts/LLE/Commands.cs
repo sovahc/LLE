@@ -120,6 +120,20 @@ drop 'name' [quantity|all] - Drop a specified object.
 
 */
 
+		private MyEntity3DSoundEmitter soundEmitter;
+
+		private void PlaySound(string sound)
+		{
+			if (soundEmitter == null)
+			{
+				soundEmitter = new MyEntity3DSoundEmitter(character as MyEntity);
+			}
+			if (soundEmitter != null)
+			{
+				soundEmitter.PlaySound(new MySoundPair(sound));
+			}
+		}
+
 		private static bool Include(string searchTerm, string text)
 		{	if(searchTerm == "" || searchTerm == "*") return true;
 			return text.Contains(searchTerm);
