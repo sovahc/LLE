@@ -9,8 +9,6 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.Utils;
 using Sandbox.Definitions;
-using Sandbox.ModAPI;
-using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
@@ -98,7 +96,8 @@ namespace LLE
 
 	public class MyMarkdown
 	{
-		private readonly Dictionary<string, StringBuilder> data = new Dictionary<string, StringBuilder>();
+		private readonly SortedDictionary<string, StringBuilder> data =
+			new SortedDictionary<string, StringBuilder>();
 
 		private readonly StringBuilder result = new StringBuilder();
 

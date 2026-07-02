@@ -10,7 +10,6 @@ using VRage.Game.ModAPI;
 using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
-using Sandbox.ModAPI;
 
 // Stack-based coroutine runner:
 //   yield return null;        = wait one tick

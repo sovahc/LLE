@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 using VRageMath;
 using VRage.Game.ModAPI;
