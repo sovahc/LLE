@@ -190,8 +190,11 @@ namespace LLE
 			return false;
 		}
 
-		internal static bool LineIntersectsGridGeometry(IMyCubeGrid grid, LineD worldLine, Vector3I min, Vector3I max)
+		internal static bool LineIntersectsGridGeometry(IMyCubeGrid grid, LineD worldLine, Vector3I min, Vector3I max,
+			List<IMySlimBlock> outIntersected)
 		{
+			bool returnOnFirstFound = outIntersected == null;
+
 			// GridIntersection.Calculate works in grid-local space (meters from grid origin)
 			// and treats cell corners as cell centers, so convert the world-space line to
 			// local and add half a cell (matching MyCubeGrid.RayCastCells).
@@ -215,9 +218,14 @@ namespace LLE
 				var modelFrom = Transform.WorldToModel(slim, worldLine.From); // XX double inverse matrix calculatuion
 				var modelTo = Transform.WorldToModel(slim, worldLine.To);
 				if (LineIntersects(cellGeometry, modelFrom, modelTo))
-					return true;
+				{	
+					if(returnOnFirstFound) return true;
+
+					outIntersected.Add(slim);
+				}
 			}
-			return false;
+
+			return outIntersected != null && outIntersected.Count != 0;
 		}
 
 		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)

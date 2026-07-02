@@ -66,7 +66,7 @@ namespace LLE
 					var clippedByDetector = new Line(line.From, line.From + line.Direction * minIntersection);
 					var worldLine = new LineD(worldFrom, Transform.ModelToWorld(block, clippedByDetector.To));
 
-					if(LineIntersectsGridGeometry(grid, worldLine, min, max))
+					if(LineIntersectsGridGeometry(grid, worldLine, min, max, null))
 					{	Drawing.RoundMarker(worldLine.To, Color.Gray);
 						continue;
 					}
@@ -105,6 +105,52 @@ namespace LLE
 
 				ijk.RemoveAt(n);
 				distance.RemoveAt(n);
+			}
+		}
+
+		public static void GetGrindWeldPoints(IMySlimBlock block, List<Vector3I> grindWeldIP)
+		{
+			Debug.linesRed.Clear();
+			Debug.linesGray.Clear();
+
+			CollisionGeometry geometry;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return;
+
+			var grid = block.CubeGrid;
+
+			var min = block.Min-1;
+			var max = block.Max+1;
+
+			var intersected = new List<IMySlimBlock>();
+
+			var iterator = new Vector3I_RangeIterator(ref min, ref max);
+			for (; iterator.IsValid(); iterator.MoveNext())
+			{
+				var ijk = iterator.Current;
+
+				var ijkBlock = grid.GetCubeBlock(ijk);
+				if(ijkBlock != null && !CenterIsFree(ijkBlock, ijk)) continue;
+
+				Vector3D worldFrom = grid.GridIntegerToWorld(ijk);
+
+				foreach(var direction in Constants.SixDirections)
+				{	
+					var test = ijk + direction;
+					//if(!test.IsInsideInclusiveEnd(min, max)) continue;
+					if(grid.GetCubeBlock(test) != block) continue;
+
+					Vector3D worldTo = grid.GridIntegerToWorld(test);
+
+					intersected.Clear();
+
+					LineIntersectsGridGeometry(grid, new LineD(worldFrom, worldTo), min, max, intersected);
+					
+					if(intersected.Count == 1 && intersected[0] == block)
+					{
+						grindWeldIP.Add(ijk);
+						break;
+					}
+				}
 			}
 		}
 	}

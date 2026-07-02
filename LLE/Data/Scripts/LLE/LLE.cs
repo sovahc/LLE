@@ -84,6 +84,12 @@ namespace LLE
 				{
 					Collisions.Draw(block);
 					Collisions.DrawTraversability(grid, astarStart.Value);
+
+					var ip = new List<Vector3I>();
+					Collisions.GetGrindWeldPoints(block, ip);
+
+					foreach(var p in ip)
+						Utilities.HighlightCell(grid, p, Color.Cornsilk);
 				}
 			}
 
