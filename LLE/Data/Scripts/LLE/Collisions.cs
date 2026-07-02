@@ -211,9 +211,15 @@ namespace LLE
 				var slim = grid.GetCubeBlock(cell);
 				if (slim == null) continue;
 
+				if(outIntersected != null &&
+					outIntersected.Contains(slim)) continue; // Do not test twice
+
 				CollisionGeometry cellGeometry;
 				if (!_collisionGeometry.TryGetValue(slim.BlockDefinition.Id, out cellGeometry))
-					return true; // for unknown block
+				{	if(returnOnFirstFound) return true; // For unknown block
+
+					outIntersected.Add(slim);
+				}
 
 				var modelFrom = Transform.WorldToModel(slim, worldLine.From); // XX double inverse matrix calculatuion
 				var modelTo = Transform.WorldToModel(slim, worldLine.To);

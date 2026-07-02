@@ -140,6 +140,8 @@ namespace LLE
 					if(grid.GetCubeBlock(test) != block) continue;
 
 					Vector3D worldTo = grid.GridIntegerToWorld(test);
+					Vector3D v = worldTo - worldFrom;
+					worldTo = worldFrom + v * 1.25;
 
 					intersected.Clear();
 
