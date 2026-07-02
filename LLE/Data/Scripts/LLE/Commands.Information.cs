@@ -226,8 +226,12 @@ namespace LLE
 
 		internal string Search(TokenParser tp)
 		{
-			if (!tp.Match("item"))
-				return "Error: expected 'item'. Usage: search item 'substring' [N]";
+			bool searchItems = false;
+			bool searchBlocks = false;
+
+			if (tp.Match("item")) searchItems = true;
+			else if (tp.Match("block")) searchBlocks = true;
+			else return "Error: expected 'item' or 'block'. e.g. `search item 'substring' [N]`";
 
 			string query = tp.NextString();
 			int limit;
@@ -253,35 +257,52 @@ namespace LLE
 
 				foreach (var block in terminalBlocks)
 				{
-					if (block.CubeGrid != grid || !block.HasInventory) continue;
-
-					Vector3D wc;
-					block.SlimBlock.ComputeWorldCenter(out wc);
-					double distance = (wc - engineer).Length();
+					if (block.CubeGrid != grid) continue;
 
 					string blockName = Name(block.SlimBlock);
 
-					for (int i = 0; i < block.InventoryCount; ++i)
-					{
-						var richInv = block.GetInventory(i) as WTF_IMyInventory;
-						if (richInv == null) continue;
-
-						foreach (var item in richInv.GetItems())
-						{
-							var contentId = item.Content.GetId();
-							var itemDef = MyDefinitionManager.Static.GetPhysicalItemDefinition(contentId);
-							if (itemDef == null) continue;
-
-							string itemName = itemDef.DisplayNameText;
-							if (!string.IsNullOrEmpty(query) && !itemName.Contains(query))
-								continue;
-
+					if(searchBlocks)
+					{	if(Include(query, blockName))
+						{	
+							Vector3D wc;
+							block.SlimBlock.ComputeWorldCenter(out wc);
+							double distance = (wc - engineer).Length();
+							
 							matches.Add(new SearchMatch
 							{
 								Distance = distance,
 								Text =
+$"* block {Quote(blockName)} at {IJK(block.Position)} on {Quote(gridName)} (distance {Distance(distance)})\n"
+							});					
+						}
+					}
+					
+					if(searchItems && block.HasInventory)
+					{	Vector3D wc;
+						block.SlimBlock.ComputeWorldCenter(out wc);
+						double distance = (wc - engineer).Length();
+
+						for (int i = 0; i < block.InventoryCount; ++i)
+						{
+							var richInv = block.GetInventory(i) as WTF_IMyInventory;
+							if (richInv == null) continue;
+
+							foreach (var item in richInv.GetItems())
+							{
+								var contentId = item.Content.GetId();
+								var itemDef = MyDefinitionManager.Static.GetPhysicalItemDefinition(contentId);
+								if (itemDef == null) continue;
+
+								string itemName = itemDef.DisplayNameText;
+								if(Include(query, blockName))
+								{	matches.Add(new SearchMatch
+									{
+										Distance = distance,
+										Text =
 $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {IJK(block.Position)} on {Quote(gridName)} (distance {Distance(distance)})\n"
-							});
+									});
+								}
+							}
 						}
 					}
 				}

@@ -138,6 +138,11 @@ You operate on a selected grid (ship or station).
 
 * search item 'substring' [N]
   Find items across nearby grids by partial name match. Returns N closest results (default 5).
+  e.g. search 'Welder'
+
+* search block 'substring' [N]
+  Find blocks across nearby grids by partial name match. Returns N closest results (default 5).
+  e.g. search 'Assembler' 1
 
 * status
   Check bot status: Health, Oxygen, Hydrogen, Energy.
