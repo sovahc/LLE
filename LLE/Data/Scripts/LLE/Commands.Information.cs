@@ -221,11 +221,7 @@ namespace LLE
 		private struct SearchMatch
 		{
 			public double Distance;
-			public string GridName;
-			public string BlockName;
-			public Vector3I Position;
-			public string ItemName;
-			public double Amount;
+			public string Text;
 		}
 
 		internal string Search(TokenParser tp)
@@ -259,12 +255,11 @@ namespace LLE
 				{
 					if (block.CubeGrid != grid || !block.HasInventory) continue;
 
-					Vector3D worldPos;
-					block.SlimBlock.ComputeWorldCenter(out worldPos);
-					double dist = (worldPos - engineer).Length();
+					Vector3D wc;
+					block.SlimBlock.ComputeWorldCenter(out wc);
+					double distance = (wc - engineer).Length();
 
 					string blockName = Name(block.SlimBlock);
-					Vector3I pos = block.Position;
 
 					for (int i = 0; i < block.InventoryCount; ++i)
 					{
@@ -283,12 +278,9 @@ namespace LLE
 
 							matches.Add(new SearchMatch
 							{
-								Distance = dist,
-								GridName = gridName,
-								BlockName = blockName,
-								Position = pos,
-								ItemName = itemName,
-								Amount = (double)item.Amount
+								Distance = distance,
+								Text =
+$"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {IJK(block.Position)} on {Quote(gridName)} (distance {Distance(distance)})\n"
 							});
 						}
 					}
@@ -303,10 +295,7 @@ namespace LLE
 			if (count > limit) matches.RemoveRange(limit, count - limit);
 
 			sb.Append($"Found {count} items matching {Quote(query)}:\n");
-			foreach (var m in matches)
-			{
-				sb.Append($"* {Quote(m.ItemName)} → {m.Amount:F2} block {Quote(m.BlockName)} at {IJK(m.Position)} on [{Quote(m.GridName)}] (distance {Distance(m.Distance)})\n");
-			}
+			foreach (var m in matches) sb.Append(m.Text);
 
 			return sb.ToString();
 		}

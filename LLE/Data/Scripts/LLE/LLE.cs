@@ -272,7 +272,11 @@ namespace LLE
 			if (player == null) return;
 			if (commands == null) return;
 
-			if(message == ">spawn")
+			if(message == ">sp")
+			{	string result = commands.Execute("select Platform");
+				MyConsole.AddMultiline(result, Color.SeaGreen);
+			}
+			else if(message == ">spawn")
 			{	bot = Bot.Spawn(player);
 				MyConsole.Add($"bot={bot}");
 				if(bot == null) return;				
