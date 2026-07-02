@@ -320,7 +320,7 @@ drop [quantity|all] 'name'
 			sb.Append("Possible interaction points are:\n");
 
 			if(inventoryIP.Count != 0)
-			{	sb.Append("* Inventory: ");
+			{	sb.Append("* Get/Put: ");
 				AppendList(inventoryIP, sb);
 			}
 			if(medblockIP.Count != 0)
