@@ -57,35 +57,6 @@ namespace LLE
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
 		}
 
-		// Returns a matrix that transforms from model space to world space.
-		internal static MatrixD GetModelToWorldMatrix(IMySlimBlock block)
-		{
-			Matrix orientMatrix;
-			block.Orientation.GetMatrix(out orientMatrix);
-
-			Vector3D worldCenter;
-			block.ComputeWorldCenter(out worldCenter);
-
-			MatrixD modelToWorld = new MatrixD(orientMatrix) * block.CubeGrid.WorldMatrix;
-			modelToWorld.Translation = worldCenter;
-			return modelToWorld;
-		}
-
-		// Transform a point from world space to model space.
-		internal static Vector3D WorldToModel(IMySlimBlock block, Vector3D worldPoint)
-		{
-			var modelToWorld = GetModelToWorldMatrix(block);
-			MatrixD invModelToWorld;
-			MatrixD.Invert(ref modelToWorld, out invModelToWorld);
-			return Vector3D.Transform(worldPoint, invModelToWorld);
-		}
-
-		// Transform a point from model space to world space.
-		private static Vector3D ModelToWorld(IMySlimBlock block, Vector3D modelPoint)
-		{
-			return Vector3D.Transform(modelPoint, GetModelToWorldMatrix(block));
-		}
-
 		public static void Draw(IMySlimBlock block)
 		{
 			IMyCubeGrid grid = block.CubeGrid;
@@ -93,7 +64,7 @@ namespace LLE
 			var id = block.BlockDefinition.Id;
 
 			if (_collisionGeometry.TryGetValue(id, out geometry))
-				Draw(geometry, GetModelToWorldMatrix(block));
+				Draw(geometry, Transform.GetModelToWorldMatrix(block));
 		}
 
 		private static void DrawConvexOutline(List<Vector3> modelVerts, Matrix shapeTransform,
@@ -306,8 +277,8 @@ namespace LLE
 				if (!_collisionGeometry.TryGetValue(slim.BlockDefinition.Id, out cellGeometry))
 					return true; // for unknown block
 
-				var modelFrom = WorldToModel(slim, worldLine.From); // XX double inverse matrix calculatuion
-				var modelTo = WorldToModel(slim, worldLine.To);
+				var modelFrom = Transform.WorldToModel(slim, worldLine.From); // XX double inverse matrix calculatuion
+				var modelTo = Transform.WorldToModel(slim, worldLine.To);
 				if (LineIntersects(cellGeometry, modelFrom, modelTo))
 					return true;
 			}
@@ -345,7 +316,7 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			Vector3D modelCenter = WorldToModel(block, worldCenter);
+			Vector3D modelCenter = Transform.WorldToModel(block, worldCenter);
 			return ProbeIntersects(geometry, modelCenter, radius);
 		}
 
@@ -358,7 +329,7 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			Vector3D modelPoint = WorldToModel(block, worldPoint);
+			Vector3D modelPoint = Transform.WorldToModel(block, worldPoint);
 
 			double bestDistSq = double.MaxValue;
 			Vector3? bestModelCenter = null;
@@ -376,7 +347,7 @@ namespace LLE
 			}
 
 			if (bestModelCenter == null) return false;
-			result = ModelToWorld(block, new Vector3D(bestModelCenter.Value));
+			result = Transform.ModelToWorld(block, new Vector3D(bestModelCenter.Value));
 			return true;
 		}
 
@@ -386,7 +357,7 @@ namespace LLE
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
 
-			Vector3D modelPoint = WorldToModel(block, worldPoint);
+			Vector3D modelPoint = Transform.WorldToModel(block, worldPoint);
 
 			double bestDistSq = double.MaxValue;
 			Vector3? bestModelCenter = null;
@@ -407,7 +378,7 @@ namespace LLE
 			}
 
 			if (bestModelCenter == null) return false;
-			result = ModelToWorld(block, new Vector3D(bestModelCenter.Value));
+			result = Transform.ModelToWorld(block, new Vector3D(bestModelCenter.Value));
 			return true;
 		}
 
@@ -525,7 +496,7 @@ namespace LLE
 				if(ijkBlock != null && !CenterIsFree(ijkBlock, ijk)) continue;
 
 				Vector3D worldFrom = grid.GridIntegerToWorld(ijk);
-				Vector3 modelFrom = WorldToModel(block, worldFrom);
+				Vector3 modelFrom = Transform.WorldToModel(block, worldFrom);
 
 				foreach (var detector in geometry.Detectors)
 				{	
@@ -555,7 +526,7 @@ namespace LLE
 					if(minIntersection >= float.MaxValue) continue;
 
 					var clippedByDetector = new Line(line.From, line.From + line.Direction * minIntersection);
-					var worldLine = new LineD(worldFrom, ModelToWorld(block, clippedByDetector.To));
+					var worldLine = new LineD(worldFrom, Transform.ModelToWorld(block, clippedByDetector.To));
 
 					if(LineIntersectsGridGeometry(grid, worldLine, min, max))
 					{	Drawing.RoundMarker(worldLine.To, Color.Gray);

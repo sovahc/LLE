@@ -1,0 +1,37 @@
+using VRageMath;
+using VRage.Game.ModAPI;
+
+namespace LLE
+{
+	public static class Transform
+	{
+		// Returns a matrix that transforms from model space to world space.
+		internal static MatrixD GetModelToWorldMatrix(IMySlimBlock block)
+		{
+			Matrix orientMatrix;
+			block.Orientation.GetMatrix(out orientMatrix);
+
+			Vector3D worldCenter;
+			block.ComputeWorldCenter(out worldCenter);
+
+			MatrixD modelToWorld = new MatrixD(orientMatrix) * block.CubeGrid.WorldMatrix;
+			modelToWorld.Translation = worldCenter;
+			return modelToWorld;
+		}
+
+		// Transform a point from world space to model space.
+		internal static Vector3D WorldToModel(IMySlimBlock block, Vector3D worldPoint)
+		{
+			var modelToWorld = GetModelToWorldMatrix(block);
+			MatrixD invModelToWorld;
+			MatrixD.Invert(ref modelToWorld, out invModelToWorld);
+			return Vector3D.Transform(worldPoint, invModelToWorld);
+		}
+
+		// Transform a point from model space to world space.
+		internal static Vector3D ModelToWorld(IMySlimBlock block, Vector3D modelPoint)
+		{
+			return Vector3D.Transform(modelPoint, GetModelToWorldMatrix(block));
+		}
+	}
+}
