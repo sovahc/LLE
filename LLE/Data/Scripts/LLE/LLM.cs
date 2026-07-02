@@ -102,13 +102,22 @@ namespace LLE
 		private void ProcessLlmContent(string content)
 		{
 			string trimmed = content.Trim();
-			int lastNewline = trimmed.LastIndexOf('\n');
-			string lastLine = lastNewline >= 0 ? trimmed.Substring(lastNewline + 1) : trimmed;
-
 			const string prefix = "Execute `";
-			if (!lastLine.StartsWith(prefix))
+
+			// Find last line starting with 'Execute `' — weak models sometimes
+			// echo context markers after the command.
+			string lastLine = null;
+			var lines = trimmed.Split('\n');
+			for (int i = lines.Length - 1; i >= 0; --i)
 			{
-				CommandResult("ERROR: Last line must start with 'Execute `command`', e.g.: Execute `fly 10 0 0`");
+				string l = lines[i].Trim();
+				if (l.StartsWith(prefix)) { lastLine = l; break; }
+			}
+
+			if (lastLine == null)
+			{
+				Log($"ProcessLlmContent ERROR dump: contentLength={content.Length} lastLine=[{lastLine}]\n---CONTENT START---\n{content}\n---CONTENT END---");
+				CommandResult("ERROR: Last line must start with 'Execute `command`', e.g.: Execute `fly 1 2 3`");
 				return;
 			}
 
