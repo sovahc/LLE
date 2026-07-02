@@ -21,18 +21,19 @@ namespace LLE
 		private Commands commands;
 
 		public LLM(Commands commands_)
-		{   commands = commands_;
+		{	commands = commands_;
 		}
 
 		public void CommandResult(string r)
 		{
-			Append("\n[COMMAND RESULT]:\n");
-			Append(r);
-			Append("\n");
+			Append("\n[COMMAND RESULT]:\n", Color.Yellow);
+			Append(r, Color.Green);
+			Append("\n", Color.White);
 		}
 
-		public void Append(string text)
-		{   output.Append(text);
+		public void Append(string text, Color color)
+		{	MyConsole.AddMultiline(text, color);
+			output.Append(text);
 		}
 
 		public void Tick()
@@ -46,7 +47,7 @@ namespace LLE
 				output.Clear();
 
 				Log($"toLLM: {m}");
-				MyConsole.AddMultiline(m, Color.Green);
+				//MyConsole.AddMultiline(m, Color.Green);
 				LLE_Loader.SendMessageToLLM(m);
 				return;
 			}
@@ -90,6 +91,8 @@ namespace LLE
 				}
 				else if (m.Type == MessageType.Stop)
 				{	waitingForResponse = false;
+
+					MyConsole.AddMultiline("\n", Color.White);
 
 					// LLM stopped sending — try to process accumulated content
 					ProcessLlmContent(commandToProcess.ToString());

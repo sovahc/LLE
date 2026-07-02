@@ -86,7 +86,7 @@ namespace LLE
 					Collisions.DrawTraversability(grid, astarStart.Value);
 
 					var ip = new List<Vector3I>();
-					Collisions.GetGrindWeldPoints(block, ip);
+					Collisions.CalculateGrindWeldPoints(block, ip);
 
 					foreach(var p in ip)
 						Utilities.HighlightCell(grid, p, Color.Cornsilk);
@@ -183,17 +183,17 @@ namespace LLE
 			// Vision subsystem reports
 			string vr = Vision.VisionReport(commands.GetEngineerCenter());
 			if(vr != null)
-			{	llm.Append("[VISION]:\n");
-				llm.Append(vr);
+			{	llm.Append("[VISION]:\n", Color.Yellow);
+				llm.Append(vr, Color.Yellow);
 				llm.pauseLLM = false;
 			}
 
 			// Status subsystem reports
 			string sr = commands.Status_ReportChanged();
 			if(sr != null)
-			{	llm.Append("[STATUS]:");
-				llm.Append(sr);
-				llm.Append("\n");
+			{	llm.Append("[STATUS]:", Color.Azure);
+				llm.Append(sr, Color.Azure);
+				llm.Append("\n", Color.Azure);
 				llm.pauseLLM = false;
 			}
 
@@ -313,7 +313,8 @@ namespace LLE
 				MyConsole.AddMultiline(result, Color.SeaGreen);
 			}
 			else
-			{	llm.Append($"[GAME CHAT] {player.DisplayName}: {message}\n");
+			{	llm.Append("[GAME CHAT]", Color.Red);
+				llm.Append($" {player.DisplayName}: {message}\n", Color.Magenta);
 				llm.pauseLLM = false;
 			}
 		}

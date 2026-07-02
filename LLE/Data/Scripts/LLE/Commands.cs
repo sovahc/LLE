@@ -313,7 +313,9 @@ drop [quantity|all] 'name'
 
 			var inventoryIP = new List<Vector3I>();
 			var medblockIP = new List<Vector3I>();
-			Collisions.GetInteractionPoints(block, inventoryIP, medblockIP);
+			Collisions.CalculateInteractionPoints(block, inventoryIP, medblockIP);
+			var grindWeldIP = new List<Vector3I>();
+			Collisions.CalculateGrindWeldPoints(block, grindWeldIP);
 
 			sb.Append("Possible interaction points are:\n");
 
@@ -325,8 +327,12 @@ drop [quantity|all] 'name'
 			{	sb.Append("* Recharge: ");
 				AppendList(medblockIP, sb);
 			}
+			if(grindWeldIP.Count != 0)
+			{	sb.Append("* Grind/Weld: ");
+				AppendList(grindWeldIP, sb);
+			}
 
-			if(inventoryIP.Count == 0 && medblockIP.Count == 0)
+			if(inventoryIP.Count == 0 && medblockIP.Count == 0 && grindWeldIP.Count == 0)
 			{	sb.Append("(none)\n");
 			}
 		}

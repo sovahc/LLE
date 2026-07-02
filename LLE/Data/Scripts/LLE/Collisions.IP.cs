@@ -7,7 +7,7 @@ namespace LLE
 {
 	public partial class Collisions
 	{
-		public static void GetInteractionPoints(IMySlimBlock block,
+		public static void CalculateInteractionPoints(IMySlimBlock block,
 			List<Vector3I> inventoryIP,
 			List<Vector3I> medblockIP)
 		{
@@ -108,7 +108,7 @@ namespace LLE
 			}
 		}
 
-		public static void GetGrindWeldPoints(IMySlimBlock block, List<Vector3I> grindWeldIP)
+		public static void CalculateGrindWeldPoints(IMySlimBlock block, List<Vector3I> grindWeldIP)
 		{
 			Debug.linesRed.Clear();
 			Debug.linesGray.Clear();
