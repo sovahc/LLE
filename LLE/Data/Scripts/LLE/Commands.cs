@@ -74,7 +74,7 @@ You operate on a selected grid (ship or station).
 
 ## EXECUTION RULES
 
-1. First, think about your next actions. On the last line, output: Execute `your_command` (e.g., Execute `say 'Hi!'`).
+1. First, think about your next actions. At the end of your response, output all commands on consecutive lines starting with: Execute `command`. All trailing lines starting with Execute will be executed in order.
 2. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
 3. When you complete a task or are stuck, report status using `say 'text'`.
 

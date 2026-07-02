@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 
 using VRageMath;
@@ -20,15 +21,20 @@ namespace LLE
 
 		private Commands commands;
 
+		// Unified command queue state
+		private Queue<string> pendingCommands = new Queue<string>();
+		private StringBuilder batchResults = new StringBuilder();
+		private string currentCommand = null;
+
 		public LLM(Commands commands_)
 		{	commands = commands_;
 		}
 
-		public void CommandResult(string r)
+		public void OnCommandFinished(string result)
 		{
-			Append("\n[COMMAND RESULT]:\n", Color.Yellow);
-			Append(r, Color.Green);
-			Append("\n", Color.White);
+			batchResults.Append($"→ {currentCommand}: {result}\n");
+			currentCommand = null;
+			RunNextPending();
 		}
 
 		public void Append(string text, Color color)
@@ -107,42 +113,75 @@ namespace LLE
 			string trimmed = content.Trim();
 			const string prefix = "Execute `";
 
-			// Find last line starting with 'Execute `' — weak models sometimes
-			// echo context markers after the command.
-			string lastLine = null;
+			// Collect only the trailing block of Execute commands (bottom-up).
+			// This prevents commands embedded in reasoning/examples from being executed.
 			var lines = trimmed.Split('\n');
+			List<string> cmds = new List<string>();
+
 			for (int i = lines.Length - 1; i >= 0; --i)
 			{
 				string l = lines[i].Trim();
-				if (l.StartsWith(prefix)) { lastLine = l; break; }
+				if (!l.StartsWith(prefix)) break;
+
+				int closingBacktick = l.IndexOf('`', prefix.Length);
+				if (closingBacktick < 0)
+				{
+					Log($"ProcessLlmContent ERROR: Missing closing backtick in line: {l}");
+					break;
+				}
+
+				cmds.Add(l.Substring(prefix.Length, closingBacktick - prefix.Length));
 			}
 
-			if (lastLine == null)
+			// Reverse back to original order (first command first)
+			cmds.Reverse();
+
+			if (cmds.Count == 0)
 			{
-				Log($"ProcessLlmContent ERROR dump: contentLength={content.Length} lastLine=[{lastLine}]\n---CONTENT START---\n{content}\n---CONTENT END---");
-				CommandResult("ERROR: Last line must start with 'Execute `command`', e.g.: Execute `fly 1 2 3`");
+				OnCommandFinished("ERROR: No commands found. Use 'Execute `command`' on separate lines.");
 				return;
 			}
 
-			int closingBacktick = lastLine.IndexOf('`', prefix.Length);
-			if (closingBacktick < 0)
+			if (cmds.Count == 1 && cmds[0] == "pause")
 			{
-				CommandResult("ERROR: Missing closing backtick in command.");
+				pauseLLM = true;
 				return;
 			}
 
-			string command = lastLine.Substring(prefix.Length, closingBacktick - prefix.Length);
-
-			if(command == "pause")
-			{	pauseLLM = true;
-				return;
-			}
-
+			// Queue commands and start execution
 			output.Append(content);
-			output.Append($"[LLM COMMAND]: {command}\n");
+			batchResults.Clear();
+			pendingCommands.Clear();
+			foreach (var c in cmds) pendingCommands.Enqueue(c);
 
-			string result = commands.Execute(command);
-			CommandResult(result);
+			RunNextPending();
+		}
+
+		private void RunNextPending()
+		{
+			if (pendingCommands.Count == 0)
+			{
+				// All commands executed. Flush results to output for LLM.
+				if (batchResults.Length > 0)
+					output.Append(batchResults);
+				batchResults.Clear();
+				return;
+			}
+
+			string cmd = pendingCommands.Dequeue();
+			currentCommand = cmd;
+
+			output.Append($"[LLM COMMAND]: {cmd}\n");
+
+			string result = commands.Execute(cmd);
+			if (result != null)
+			{
+				// Synchronous command — continue immediately
+				batchResults.Append($"→ {cmd}: {result}\n");
+				currentCommand = null;
+				RunNextPending();
+			}
+			// If result == null, it's async. LLE.cs will call OnCommandFinished when done.
 		}
 	}
 }

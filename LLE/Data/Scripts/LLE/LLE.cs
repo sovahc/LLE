@@ -172,7 +172,7 @@ namespace LLE
 			string result = commands.Update();
 			if (result != null)
 			{
-				llm.CommandResult(result);
+				llm.OnCommandFinished(result);
 				return;
 			}
 
