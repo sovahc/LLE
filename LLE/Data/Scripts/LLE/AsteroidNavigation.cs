@@ -83,8 +83,8 @@ namespace LLE
 			var nodeMax = node.Min + node.Size - 1;
 
 			if (node.Min.X > queryMax.X || nodeMax.X < queryMin.X ||
-			    node.Min.Y > queryMax.Y || nodeMax.Y < queryMin.Y ||
-			    node.Min.Z > queryMax.Z || nodeMax.Z < queryMin.Z)
+				node.Min.Y > queryMax.Y || nodeMax.Y < queryMin.Y ||
+				node.Min.Z > queryMax.Z || nodeMax.Z < queryMin.Z)
 				return;
 
 			if (node.Type == NodeType.Unknown)
@@ -132,8 +132,8 @@ namespace LLE
 
 				// Skip allocation if child is outside query range
 				if (childMin.X > queryMax.X || childMax.X < queryMin.X ||
-				    childMin.Y > queryMax.Y || childMax.Y < queryMin.Y ||
-				    childMin.Z > queryMax.Z || childMax.Z < queryMin.Z)
+					childMin.Y > queryMax.Y || childMax.Y < queryMin.Y ||
+					childMin.Z > queryMax.Z || childMax.Z < queryMin.Z)
 					continue;
 
 				if (node.Children[i] == null)

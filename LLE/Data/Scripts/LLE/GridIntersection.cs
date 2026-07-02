@@ -16,8 +16,8 @@ namespace LLE
 		static bool IsPointInside(Vector3 p, Vector3I min, Vector3I max)
 		{
 			return (p.X >= min.X && p.X < max.X + 1 &&
-			        p.Y >= min.Y && p.Y < max.Y + 1 &&
-			        p.Z >= min.Z && p.Z < max.Z + 1);
+					p.Y >= min.Y && p.Y < max.Y + 1 &&
+					p.Z >= min.Z && p.Z < max.Z + 1);
 		}
 
 		static bool IntersectionT(double n, double d, ref double tE, ref double tL)
@@ -45,8 +45,8 @@ namespace LLE
 			double tE = 0, tL = 1;
 
 			if (IntersectionT(min.X - start.X, dir.X, ref tE, ref tL) && IntersectionT(start.X - max.X - 1, -dir.X, ref tE, ref tL) &&
-			    IntersectionT(min.Y - start.Y, dir.Y, ref tE, ref tL) && IntersectionT(start.Y - max.Y - 1, -dir.Y, ref tE, ref tL) &&
-			    IntersectionT(min.Z - start.Z, dir.Z, ref tE, ref tL) && IntersectionT(start.Z - max.Z - 1, -dir.Z, ref tE, ref tL))
+				IntersectionT(min.Y - start.Y, dir.Y, ref tE, ref tL) && IntersectionT(start.Y - max.Y - 1, -dir.Y, ref tE, ref tL) &&
+				IntersectionT(min.Z - start.Z, dir.Z, ref tE, ref tL) && IntersectionT(start.Z - max.Z - 1, -dir.Z, ref tE, ref tL))
 			{
 				if (tL < 1) end = start + tL * dir;
 				if (tE > 0) start += tE * dir;

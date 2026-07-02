@@ -8,7 +8,7 @@ namespace LLE
 {
 	public partial class Collisions
 	{	
-        public static void Draw(IMySlimBlock block)
+		public static void Draw(IMySlimBlock block)
 		{
 			IMyCubeGrid grid = block.CubeGrid;
 			CollisionGeometry geometry;
@@ -71,5 +71,5 @@ namespace LLE
 				DrawConvexOutline(vertices, detector.Transform, modelToWorld, 5e-5f, color.ToVector4());
 			}
 		}
-    }
+	}
 }

@@ -8,8 +8,8 @@ namespace LLE
 	public partial class Collisions
 	{
 		public static void GetInteractionPoints(IMySlimBlock block,
-            List<Vector3I> inventoryIP,
-            List<Vector3I> medblockIP)
+			List<Vector3I> inventoryIP,
+			List<Vector3I> medblockIP)
 		{
 			Debug.linesRed.Clear();
 			Debug.linesGray.Clear();

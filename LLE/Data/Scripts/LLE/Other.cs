@@ -29,7 +29,7 @@ namespace LLE
 			new Vector3I(0, -1, 0), new Vector3I(0, 1, 0),
 			new Vector3I(0, 0, -1), new Vector3I(0, 0, 1)
 		};
-    }
+	}
 
 	static class Utilities
 	{

@@ -117,10 +117,10 @@ namespace LLE
 			ts.GetBlocks(terminalBlocks);
 
 			positions.Clear();
-            foreach(var block in terminalBlocks)
-            {	if(block.CubeGrid != selectedGrid) continue;
-                positions.Add(block.SlimBlock.Position);
-            }
+			foreach(var block in terminalBlocks)
+			{	if(block.CubeGrid != selectedGrid) continue;
+				positions.Add(block.SlimBlock.Position);
+			}
 
 			ListDescription(positions, true, md);
 

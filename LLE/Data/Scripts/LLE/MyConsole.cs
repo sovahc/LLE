@@ -7,7 +7,7 @@ using VRage.Utils;
 
 namespace LLE
 {
-    class MyConsole
+	class MyConsole
 	{
 		struct Segment
 		{
