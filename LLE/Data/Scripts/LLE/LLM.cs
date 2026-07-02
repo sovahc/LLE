@@ -199,9 +199,6 @@ namespace LLE
 				return;
 			}
 
-			Append(content, Color.BlueViolet);
-			Append("\n", Color.BlueViolet);
-
 			// Queue commands and start execution
 			foreach (var c in cc) batch.Enqueue(c);
 
