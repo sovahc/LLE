@@ -11,20 +11,16 @@ namespace LLE
 
 		private readonly StringBuilder Reasoning = new StringBuilder(); // input
 		private readonly StringBuilder Content = new StringBuilder(); // input
-		private readonly StringBuilder commandToProcess = new StringBuilder();
+		private readonly StringBuilder contentToProcess = new StringBuilder();
 		private readonly StringBuilder output = new StringBuilder();
-
-		public bool pauseLLM;
 
 		private MessageType lastType = MessageType.Stop;
 		private bool waitingForResponse;
+		public static bool pause;
 
 		private Commands commands;
 
-		// Unified command queue state
-		private Queue<string> pendingCommands = new Queue<string>();
-		private StringBuilder batchResults = new StringBuilder();
-		private string currentCommand = null;
+		private Queue<string> batch = new Queue<string>();
 
 		public LLM(Commands commands_)
 		{	commands = commands_;
@@ -32,50 +28,116 @@ namespace LLE
 
 		public void OnCommandFinished(string result)
 		{
-			batchResults.Append($"→ {currentCommand}: {result}\n");
-			currentCommand = null;
+			var currentCommand = batch.Dequeue();
+			
+			Append($"→ {currentCommand}: {result}\n", Color.Cornsilk);
 			RunNextPending();
 		}
 
-		public void Append(string text, Color color)
-		{	MyConsole.AddMultiline(text, color);
+		private void RunNextPending()
+		{
+			if (batch.Count == 0) return;
+
+			string result = commands.Execute(batch.Peek());
+
+			if (result != null)
+			{
+				// Synchronous command — continue immediately
+				OnCommandFinished(result);
+			}
+		}
+
+		public void Append(string text, Color consoleColor)
+		{	MyConsole.AddMultiline(text, consoleColor);
 			output.Append(text);
 		}
 
 		public void Tick()
 		{
-			// Send accumulated results to LLM
-			if (output.Length != 0 && !pauseLLM && !waitingForResponse)
-			{
-				waitingForResponse = true;
+			PollNewChunksFromLLM();
+				// stores data to contentToProcess
 
-				string m = output.ToString();
-				output.Clear();
+			var ec = commands.GetEngineerCenter();
 
-				Log($"toLLM: {m}");
-				//MyConsole.AddMultiline(m, Color.Green);
-				LLE_Loader.SendMessageToLLM(m);
+			Vision.Tick(ec);
+			string vr = Vision.VisionReport(ec);
+			if(vr != null)
+			{	Append("[VISION]:\n", Color.Yellow);
+				Append(vr, Color.Yellow);
+				pause = false;
+			}
+
+			// Status subsystem reports
+			string sr = commands.Status_ReportChanged();
+			if(sr != null)
+			{	Append("[STATUS]:", Color.Azure);
+				Append(sr, Color.Azure);
+				Append("\n", Color.Azure);
+				pause = false;
+			}
+			
+			if (batch.Count != 0) // We have running commands
+			{	string result = commands.Update();
+				if (result != null)
+					OnCommandFinished(result);
+
 				return;
 			}
 
-			// Poll for new chunks from LLM
+			// batch.Count == 0
 
+			if(commands.InProgress()) // ручная команда из чата
+			{	string result = commands.Update();
+				if (result != null)
+				{	MyConsole.AddMultiline("=", Color.Red);
+					MyConsole.AddMultiline(result, Color.Magenta);
+					MyConsole.AddMultiline("\n", Color.Magenta);
+				}
+				return;
+			}
+
+			if(waitingForResponse) return;
+			if(pause) return;
+
+			if (output.Length != 0) // We have data for LLM
+			{
+				// Send accumulated results to LLM
+				Log($"toLLM: {output}");
+				LLE_Loader.SendMessageToLLM(output.ToString());
+				output.Clear();
+				waitingForResponse = true;
+				return;
+			}
+
+			// Only accept new commands if everything is complete
+
+			var ctp = contentToProcess;
+
+			if(ctp.Length != 0)
+			{	ProcessLlmContent(ctp.ToString());
+				ctp.Clear();
+			}
+		}
+
+		private void PollNewChunksFromLLM()
+		{
 			for (int i = 0; i < 10; ++i)
 			{
 				FromLLM m;
 				if (!LLE_Loader.GetChunkFromLLM(out m)) return;
-				
+
 				// Type changed — log and clear the old buffer
 				if (m.Type != lastType)
 				{
-					switch(lastType)
-					{	case MessageType.Reasoning:
+					switch (lastType)
+					{
+						case MessageType.Reasoning:
 							Log($"llmReasoning:\n{Reasoning}");
 							Reasoning.Clear();
 							break;
 						case MessageType.Content:
-							commandToProcess.Append(Content);
-							commandToProcess.Append("\n");
+							contentToProcess.Append(Content);
+							contentToProcess.Append("\n");
 
 							Log($"llmContent:\n{Content}");
 							Content.Clear();
@@ -96,13 +158,10 @@ namespace LLE
 					Content.Append(m.Payload);
 				}
 				else if (m.Type == MessageType.Stop)
-				{	waitingForResponse = false;
-
+				{
 					MyConsole.AddMultiline("\n", Color.White);
 
-					// LLM stopped sending — try to process accumulated content
-					ProcessLlmContent(commandToProcess.ToString());
-					commandToProcess.Clear();
+					waitingForResponse = false;
 					return;
 				}
 			}
@@ -110,13 +169,11 @@ namespace LLE
 
 		private void ProcessLlmContent(string content)
 		{
-			string trimmed = content.Trim();
+			content = content.Trim();
 			const string prefix = "Execute `";
 
-			// Collect only the trailing block of Execute commands (bottom-up).
-			// This prevents commands embedded in reasoning/examples from being executed.
-			var lines = trimmed.Split('\n');
-			List<string> cmds = new List<string>();
+			var lines = content.Split('\n');
+			List<string> cc = new List<string>();
 
 			for (int i = lines.Length - 1; i >= 0; --i)
 			{
@@ -130,58 +187,25 @@ namespace LLE
 					break;
 				}
 
-				cmds.Add(l.Substring(prefix.Length, closingBacktick - prefix.Length));
+				cc.Add(l.Substring(prefix.Length, closingBacktick - prefix.Length));
 			}
 
 			// Reverse back to original order (first command first)
-			cmds.Reverse();
+			cc.Reverse();
 
-			if (cmds.Count == 0)
+			if (cc.Count == 0)
 			{
-				OnCommandFinished("ERROR: No commands found. Use 'Execute `command`' on separate lines.");
+				Append("ERROR: No commands found. Use 'Execute `command`' on separate lines.", Color.Red);
 				return;
 			}
 
-			if (cmds.Count == 1 && cmds[0] == "pause")
-			{
-				pauseLLM = true;
-				return;
-			}
+			Append(content, Color.BlueViolet);
+			Append("\n", Color.BlueViolet);
 
 			// Queue commands and start execution
-			output.Append(content);
-			batchResults.Clear();
-			pendingCommands.Clear();
-			foreach (var c in cmds) pendingCommands.Enqueue(c);
+			foreach (var c in cc) batch.Enqueue(c);
 
 			RunNextPending();
-		}
-
-		private void RunNextPending()
-		{
-			if (pendingCommands.Count == 0)
-			{
-				// All commands executed. Flush results to output for LLM.
-				if (batchResults.Length > 0)
-					output.Append(batchResults);
-				batchResults.Clear();
-				return;
-			}
-
-			string cmd = pendingCommands.Dequeue();
-			currentCommand = cmd;
-
-			output.Append($"[LLM COMMAND]: {cmd}\n");
-
-			string result = commands.Execute(cmd);
-			if (result != null)
-			{
-				// Synchronous command — continue immediately
-				batchResults.Append($"→ {cmd}: {result}\n");
-				currentCommand = null;
-				RunNextPending();
-			}
-			// If result == null, it's async. LLE.cs will call OnCommandFinished when done.
 		}
 	}
 }

@@ -76,7 +76,7 @@ You operate on a selected grid (ship or station).
 
 1. First, think about your next actions. At the end of your response, output all commands on consecutive lines starting with: Execute `command`. All trailing lines starting with Execute will be executed in order.
 2. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
-3. When you complete a task or are stuck, report status using `say 'text'`.
+3. Only report results after completing a task using `say 'text'`. Do not send progress updates during execution.
 
 ## HINTS
 
@@ -411,7 +411,11 @@ drop [quantity|all] 'name'
 
 			var tp = new TokenParser(command);
 
-			if(tp.Match("Overview"))
+			if(tp.Match("Pause"))
+			{	LLM.pause = true;
+				result = "OK";
+			}
+			else if(tp.Match("Overview"))
 			{	result = Overview();
 			}
 			else if(tp.Match("Integrity"))

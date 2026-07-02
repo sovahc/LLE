@@ -166,36 +166,6 @@ namespace LLE
 				llm = new LLM(commands);
 			}
 
-			Vision.Tick(commands.GetEngineerCenter());
-
-			// Process command result
-			string result = commands.Update();
-			if (result != null)
-			{
-				llm.OnCommandFinished(result);
-				return;
-			}
-
-			// Wait for in-progress command to finish
-			if (commands.InProgress()) return;
-
-			// Vision subsystem reports
-			string vr = Vision.VisionReport(commands.GetEngineerCenter());
-			if(vr != null)
-			{	llm.Append("[VISION]:\n", Color.Yellow);
-				llm.Append(vr, Color.Yellow);
-				llm.pauseLLM = false;
-			}
-
-			// Status subsystem reports
-			string sr = commands.Status_ReportChanged();
-			if(sr != null)
-			{	llm.Append("[STATUS]:", Color.Azure);
-				llm.Append(sr, Color.Azure);
-				llm.Append("\n", Color.Azure);
-				llm.pauseLLM = false;
-			}
-
 			llm.Tick();
 		}
 
@@ -301,8 +271,7 @@ namespace LLE
 				commands = new Commands(bot);
 			}
 			else if(message.StartsWith(">"))
-			{	llm.pauseLLM = true;
-				var command = message.Substring(1).Trim();
+			{	var command = message.Substring(1).Trim();
 
 				MyConsole.AddMultiline(">", Color.Red);
 				MyConsole.AddMultiline(command, Color.Magenta);
@@ -314,7 +283,7 @@ namespace LLE
 			else
 			{	llm.Append("[GAME CHAT]", Color.Red);
 				llm.Append($" {player.DisplayName}: {message}\n", Color.Magenta);
-				llm.pauseLLM = false;
+				LLM.pause = false;
 			}
 		}
 	}
