@@ -3,10 +3,13 @@ using System.Linq;
 using System.Text;
 
 using VRageMath;
+using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
+using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
 
 namespace LLE
 {
@@ -213,6 +216,99 @@ namespace LLE
 			ListDescription(positions, false, md);
 
 			return md.Result();
+		}
+
+		private struct SearchMatch
+		{
+			public double Distance;
+			public string GridName;
+			public string BlockName;
+			public Vector3I Position;
+			public string ItemName;
+			public double Amount;
+		}
+
+		internal string Search(TokenParser tp)
+		{
+			if (!tp.Match("item"))
+				return "Error: expected 'item'. Usage: search item 'substring' [N]";
+
+			string query = tp.NextString();
+			int limit;
+			if (!tp.NextInt(out limit)) limit = 5;
+
+			var engineer = GetEngineerCenter();
+			var S = new BoundingSphereD(engineer, Constants.NearInformationRadius);
+
+			var entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
+
+			List<SearchMatch> matches = new List<SearchMatch>();
+
+			foreach (var e in entities)
+			{
+				var grid = e as IMyCubeGrid;
+				if (grid == null || grid.Closed) continue;
+
+				string gridName = grid.CustomName ?? "Unnamed Grid";
+
+				var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
+				terminalBlocks.Clear();
+				ts.GetBlocks(terminalBlocks);
+
+				foreach (var block in terminalBlocks)
+				{
+					if (block.CubeGrid != grid || !block.HasInventory) continue;
+
+					Vector3D worldPos;
+					block.SlimBlock.ComputeWorldCenter(out worldPos);
+					double dist = (worldPos - engineer).Length();
+
+					string blockName = Name(block.SlimBlock);
+					Vector3I pos = block.Position;
+
+					for (int i = 0; i < block.InventoryCount; ++i)
+					{
+						var richInv = block.GetInventory(i) as WTF_IMyInventory;
+						if (richInv == null) continue;
+
+						foreach (var item in richInv.GetItems())
+						{
+							var contentId = item.Content.GetId();
+							var itemDef = MyDefinitionManager.Static.GetPhysicalItemDefinition(contentId);
+							if (itemDef == null) continue;
+
+							string itemName = itemDef.DisplayNameText;
+							if (!string.IsNullOrEmpty(query) && !itemName.Contains(query))
+								continue;
+
+							matches.Add(new SearchMatch
+							{
+								Distance = dist,
+								GridName = gridName,
+								BlockName = blockName,
+								Position = pos,
+								ItemName = itemName,
+								Amount = (double)item.Amount
+							});
+						}
+					}
+				}
+				terminalBlocks.Clear();
+			}
+
+			matches.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+			
+			StringBuilder sb = new StringBuilder();
+			int count = matches.Count;
+			if (count > limit) matches.RemoveRange(limit, count - limit);
+
+			sb.Append($"Found {count} items matching {Quote(query)}:\n");
+			foreach (var m in matches)
+			{
+				sb.Append($"* {Quote(m.ItemName)} → {m.Amount:F2} block {Quote(m.BlockName)} at {IJK(m.Position)} on [{Quote(m.GridName)}] (distance {Distance(m.Distance)})\n");
+			}
+
+			return sb.ToString();
 		}
 
 		internal string Slice(TokenParser tp)

@@ -73,9 +73,9 @@ namespace LLE
 		{	nextReport = Time.Now + 1;			
 		}
 
-		public static void Tick(Vector3D engineer, float range = 1000)
+		public static void Tick(Vector3D engineer)
 		{
-			BoundingSphereD pruneSphere = new BoundingSphereD(engineer, range);
+			BoundingSphereD pruneSphere = new BoundingSphereD(engineer, Constants.NearInformationRadius);
 
 			var candidates = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref pruneSphere);
 

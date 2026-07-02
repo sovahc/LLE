@@ -21,6 +21,7 @@ namespace LLE
 		public const float EngineerHeight = 1.8f;
 		public const float CollisionProbeRadius = 0.6f;
 		public const float MaxInteractionDistance = 4.5f;
+		public const double NearInformationRadius = 500;
 
 		public static readonly Vector3I[] SixDirections = new Vector3I[]
 		{	

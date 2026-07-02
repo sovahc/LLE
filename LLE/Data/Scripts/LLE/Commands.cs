@@ -133,6 +133,9 @@ You operate on a selected grid (ship or station).
 * transfer count 'item' from I1 J1 K1 to I2 J2 K2
   Transfer an item from one inventory to another.
 
+* search item 'substring' [N]
+  Find items across nearby grids by partial name match. Returns N closest results (default 5).
+
 * status
   Check bot status: Health, Oxygen, Hydrogen, Energy.
 
@@ -211,11 +214,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 		{
 			var what = tp.NextString();
 
-			const int radius = 1000;
-
 			var engineer = GetEngineerCenter();
 			
-			BoundingSphereD S = new BoundingSphereD(engineer, radius);
+			BoundingSphereD S = new BoundingSphereD(engineer, Constants.NearInformationRadius);
 			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
 
 			List<MyEntity> matches = new List<MyEntity>();
@@ -440,6 +441,9 @@ drop 'name' [quantity|all] - Drop a specified object.
 			}
 			else if(tp.Match("Transfer"))
 			{	coroutineStack.Push(Transfer(tp));
+			}
+			else if(tp.Match("Search"))
+			{	result = Search(tp);
 			}
 			else
 			{	result = $"Unknown command '{tp.NextString()}'.";
