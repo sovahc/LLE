@@ -143,25 +143,26 @@ You operate on a selected grid (ship or station).
   Send a message to the in-game chat.
 ";
 }
-
 /*
-* select_asteroid 'name'		- Select an asteroid on which to mine.
-* search 'substring'			- Search block coordinates by name.
-search ['substring']   - Find any objects by partial match. Ex: `search` (searches anything), `search STATION`, `search Steel Plate`
-info 'name'        - Get detailed information about a specific object.
-look at 'name'     - Rotate to face an object
-hack 'block_name'  - Grind a specific block just below the hacking point (weld it back to restore functionality).
-mine 'block_name'  - Mine a specific ore deposit.
-status             - Check bot status: Health, Oxygen, Hydrogen, Energy.
-pickup 'name'      - Pick up a specified object.
-drop 'name' [quantity|all] - Drop a specified object.
+* search block 'substring'
+  Search blocks by name.
+* info 'name'
+  Get detailed information about a specific object.
+look at 'name'
+  Rotate to face an object
+hack 'block_name'
+  Grind a specific block just below the hacking point (weld it back to restore functionality).
+mine 'ore_name'
+  Mine a specific ore deposit.
+pickup 'name'
+  Pick up a specified object.
+drop [quantity|all] 'name'
+  Drop a specified object.
 ? move {forward|backward|left|right|up|down} {distance} - Move in a direction
 ? Recover from being stuck.
 ? Save 'string' to memory.
 ! Pathfinding: safest (default) / shortest / scouting / prefer open space
-
 */
-
 		private MyEntity3DSoundEmitter soundEmitter;
 
 		private void PlaySound(string sound)
