@@ -32,6 +32,13 @@ namespace LLE
 			
 			var tag = result.Ok ? "OK" : "FAILED";
 			Append($"→ {currentCommand}: [{tag}] {result.Message}\n", Color.Cornsilk);
+
+			if(!result.Ok && batch.Count > 0)
+			{	Append($"Remaining {batch.Count} command(s) ignored: {string.Join("; ", batch)}\n", Color.Cornsilk);
+				batch.Clear();
+				return;
+			}
+
 			RunNextPending();
 		}
 
