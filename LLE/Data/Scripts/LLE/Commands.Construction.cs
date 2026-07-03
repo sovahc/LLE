@@ -92,7 +92,10 @@ namespace LLE
 				// CanShoot enforces ToolCooldownMs (250ms) so Grind doesn't fire every tick.
 				MyGunStatusEnum status = MyGunStatusEnum.Cooldown;
 				for(int i = 0; i < 30; ++i)
-				{	if(!grinderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
+				{	grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
+					if(grinderGun == null) yield break; // user interaction
+					
+					if(!grinderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
 						yield return null;
 				}
 
@@ -253,7 +256,10 @@ namespace LLE
 			{
 				MyGunStatusEnum status = MyGunStatusEnum.Cooldown;
 				for(int i = 0; i < 30; ++i)
-				{	if(!welderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
+				{	welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
+					if(welderGun == null) yield break; // user interaction
+					
+					if(!welderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
 						yield return null;
 				}
 
