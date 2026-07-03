@@ -102,6 +102,9 @@ You operate on a selected grid (ship or station).
 * fly I J K
   Fly to specific grid coordinates, e.g. `fly 10 -5 13`
 
+* fly to I J K
+  Fly to block I J K best interaction point.
+
 * grind I J K
   Grind a block at specific coordinates.
 
@@ -115,7 +118,7 @@ You operate on a selected grid (ship or station).
   Return all blocks in 3x3x3 cube around specified coordinates.
 
 * slice Xmin Xmax Ymin Ymax Zmin Zmax
-  Return blocks in a 2D table (one axis must be height 1, max 8x8).
+  Return blocks in a 2D table. One axis must be length 1 (min=max), max slice size 10x10.
 
 * inventory
   Return the items in your inventory.
@@ -140,14 +143,14 @@ You operate on a selected grid (ship or station).
 
 * search item 'substring' [N]
   Find items across nearby grids by partial name match. Returns N closest results (default 5).
-  e.g. search item 'Welder'
+  Example: search item 'Welder'
 
 * search block 'substring' [N]
   Find blocks across nearby grids by partial name match. Returns N closest results (default 5).
-  e.g. search block 'Assembler' 1
+  Example: search block 'Assembler' 1
 
 * status
-  Check bot status: Health, Oxygen, Hydrogen, Energy.
+  Check bot vitals: Health, Oxygen, Hydrogen, Energy.
 
 * say 'message'
   Send a message to the in-game chat.
@@ -253,7 +256,7 @@ drop [quantity|all] 'name'
 			if(grid != null)
 			{	
 				if(grid.GridSizeEnum == MyCubeSize.Small)
-					return $"Operation on small grids is not supported yet.";
+					return $"Operations on small grids is not supported yet.";
 				
 				Debug.Start(grid);
 				selectedGrid = grid;

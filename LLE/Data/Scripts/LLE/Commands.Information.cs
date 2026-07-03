@@ -358,8 +358,8 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 
 			int cols = count[colAxis];
 			int rows = count[rowAxis];
-			if(cols > 8 || rows > 8)
-				return $"Table dimensions ({cols}x{rows}) exceed 8x8 limit.";
+			if(cols > 10 || rows > 10)
+				return $"Table dimensions ({cols}x{rows}) exceed 10x10 limit.";
 
 			string[] axisNames = { "X", "Y", "Z" };
 			var md = new MyMarkdown();
