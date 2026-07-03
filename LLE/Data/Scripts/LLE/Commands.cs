@@ -100,10 +100,11 @@ You operate on a selected grid (ship or station).
   Show damaged blocks on the selected grid.
 
 * fly I J K
-  Fly to specific grid coordinates, e.g. `fly 10 -5 13`
+  Fly to specific grid coordinates. Fails if a block occupies that cell.
 
 * fly to I J K
-  Fly to block I J K best interaction point.
+  Fly to a block at I J K and stop at the best interaction point for it.
+  Always use this form (not `fly`) before weld, grind, get, or put.
 
 * grind I J K
   Grind a block at specific coordinates.
