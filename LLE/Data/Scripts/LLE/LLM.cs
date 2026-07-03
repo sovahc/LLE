@@ -5,6 +5,25 @@ using VRageMath;
 
 namespace LLE
 {
+	class LoopDetector
+	{
+		private string lastBatch;
+
+		// Returns true if the command batch is identical to the previous one.
+		public bool IsLoop(List<string> commands)
+		{
+			var current = string.Join("\n", commands);
+			if (current == lastBatch)
+				return true;
+			lastBatch = current;
+			return false;
+		}
+
+		public void Reset()
+		{	lastBatch = null;
+		}
+	}
+
 	class LLM
 	{
 		private void Log(string s) => LLE.Log(s);
@@ -21,6 +40,12 @@ namespace LLE
 		private Commands commands;
 
 		private Queue<string> batch = new Queue<string>();
+
+		private readonly LoopDetector loopDetector = new LoopDetector();
+
+		public void ResetLoopDetector()
+		{	loopDetector.Reset();
+		}
 
 		public LLM(Commands commands_)
 		{	commands = commands_;
@@ -204,6 +229,14 @@ namespace LLE
 			if (cc.Count == 0)
 			{
 				Append("ERROR: No commands found. Use 'Execute `command`' on separate lines.", Color.Red);
+				return;
+			}
+
+			if (loopDetector.IsLoop(cc))
+			{
+				Append("LOOP DETECTED: this command batch is identical to the previous one. "
+					+ "If the task is complete, use `pause`. Otherwise, try a different approach.\n",
+					Color.Red);
 				return;
 			}
 

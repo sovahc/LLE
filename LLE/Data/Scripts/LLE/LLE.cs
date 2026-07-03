@@ -284,6 +284,7 @@ namespace LLE
 			{	llm.Append("[GAME CHAT]", Color.Red);
 				llm.Append($" {player.DisplayName}: {message}\n", Color.Magenta);
 				LLM.pause = false;
+				llm.ResetLoopDetector();
 			}
 		}
 	}
