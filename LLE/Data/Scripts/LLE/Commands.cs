@@ -283,14 +283,28 @@ drop [quantity|all] 'name'
 			return true;
 		}
 
-		internal void AppendList(List<Vector3I> list, StringBuilder sb)
-		{	
-			Vector3D ec = GetEngineerCenter();
-			
-			sb.Append("(");
-			int added = 0;
+		internal Vector3I NearestToEngineer(List<Vector3I> list)
+		{	Vector3D ec = GetEngineerCenter();
+
 			var minimalDistanceSq = double.MaxValue;
 			var nearest = Vector3I.Zero;
+
+			foreach (var ijk in list)
+			{	var world = selectedGrid.GridIntegerToWorld(ijk);
+				var dsq = (ec - world).LengthSquared();
+
+				if(dsq < minimalDistanceSq)
+				{	minimalDistanceSq = dsq;
+					nearest = ijk;
+				}
+			}
+			return nearest;
+		}
+
+		internal void AppendList(List<Vector3I> list, StringBuilder sb)
+		{	
+			sb.Append("(");
+			int added = 0;
 
 			foreach (var ijk in list)
 			{	var block = selectedGrid.GetCubeBlock(ijk);
@@ -298,20 +312,12 @@ drop [quantity|all] 'name'
 				if(added != 0) sb.Append("; ");
 				sb.Append(IJK(ijk));
 				++added;
-
-				var bp = selectedGrid.GridIntegerToWorld(ijk);
-				var dsq = (ec - bp).LengthSquared();
-
-				if(dsq < minimalDistanceSq)
-				{	minimalDistanceSq = dsq;
-					nearest = ijk;
-				}
 			}
 
 			sb.Append(")");
 
 			if(added >= 2)
-			{	sb.Append($" (Nearest is {IJK(nearest)})");
+			{	sb.Append($" (Nearest is {IJK(NearestToEngineer(list))})");
 			}
 
 			sb.Append("\n");
@@ -345,6 +351,32 @@ drop [quantity|all] 'name'
 			if(inventoryIP.Count == 0 && medblockIP.Count == 0 && grindWeldIP.Count == 0)
 			{	sb.Append("(none)\n");
 			}
+		}
+
+		internal bool GetBestInteractionPoint(Vector3I ijk, out Vector3I bestIP)
+		{	
+			var block = selectedGrid.GetCubeBlock(ijk);
+
+			var inventoryIP = new List<Vector3I>();
+			var medblockIP = new List<Vector3I>();
+			Collisions.CalculateInteractionPoints(block, inventoryIP, medblockIP);
+			var grindWeldIP = new List<Vector3I>();
+			Collisions.CalculateGrindWeldPoints(block, grindWeldIP);
+
+			if(medblockIP.Count != 0)
+			{	bestIP = NearestToEngineer(medblockIP);
+				return true;
+			}
+			if(inventoryIP.Count != 0)
+			{	bestIP = NearestToEngineer(inventoryIP);
+				return true;
+			}
+			if(grindWeldIP.Count != 0)
+			{	bestIP = NearestToEngineer(grindWeldIP);
+				return true;
+			}
+			bestIP = Vector3I.Zero;
+			return false;
 		}
 
 		internal bool IsTooFar(Vector3I ijk, out string message)

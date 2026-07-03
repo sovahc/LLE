@@ -162,8 +162,20 @@ namespace LLE
 
 			if(!GridIsSet(out message)) yield return message;
 
+			bool toInteractionPoint = tp.Match("to");
+
 			Vector3I ijk;
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
+
+			if(toInteractionPoint)
+			{	
+				if(selectedGrid.GetCubeBlock(ijk) == null)
+					yield return $"Error: there are no block at {IJK(ijk)}";
+				
+				if(!GetBestInteractionPoint(ijk, out ijk))
+					yield return $"Error: no interaction points found for the block at {IJK(ijk)}" +
+						" The block is probably blocked from all sides.";
+			}
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(!Collisions.CenterIsFree(block, ijk))
