@@ -104,7 +104,6 @@ You operate on a selected grid (ship or station).
 
 * fly to I J K
   Fly to a block at I J K and stop at the best interaction point for it.
-  Always use this form (not `fly`) before weld, grind, get, or put.
 
 * grind I J K
   Grind a block at specific coordinates.
