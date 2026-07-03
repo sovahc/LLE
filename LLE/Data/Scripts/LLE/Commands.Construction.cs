@@ -150,12 +150,12 @@ namespace LLE
 					
 					if(removed) sb.Append($"Done! {Name(block)} has been removed.");
 
-					if(removed)
-					{	block.SpawnConstructionStockpile();
-						block.CubeGrid.RazeBlock(block.Min);
-					}
+						if(removed)
+						{	block.SpawnConstructionStockpile();
+							block.CubeGrid.RazeBlock(block.Min);
+						}
 
-					yield return sb.ToString();
+						yield return removed ? Success(sb.ToString()) : sb.ToString();
 				}
 
 				yield return null;
@@ -212,7 +212,7 @@ namespace LLE
 			if (IsTooFar(ijk, out message)) yield return message;
 
 			if (block.Integrity >= block.MaxIntegrity)
-				yield return "The block is fully intact; no repairs needed.";
+				yield return Success("The block is fully intact; no repairs needed.");
 
 			if (!EquipTool("Welder"))
 				yield return "Cannot equip handheld welder. Do you have a welder in your inventory?";
@@ -277,16 +277,16 @@ namespace LLE
 
 					StringBuilder sb = new StringBuilder();
 
-					if(full) sb.Append("Done! Block integrity is full.");
-					else
-					{	var p0 = integrity0 / block.MaxIntegrity;
-						var p1 = block.Integrity / block.MaxIntegrity;
-						sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
+						if(full) sb.Append("Done! Block integrity is full.");
+						else
+						{	var p0 = integrity0 / block.MaxIntegrity;
+							var p1 = block.Integrity / block.MaxIntegrity;
+							sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
 
-						if(stale) AddMissingComponentsString(block, sb);
-					}
+							if(stale) AddMissingComponentsString(block, sb);
+						}
 
-					yield return sb.ToString();
+						yield return full ? Success(sb.ToString()) : sb.ToString();
 				}
 
 				yield return null;

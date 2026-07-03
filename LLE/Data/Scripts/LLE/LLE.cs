@@ -260,8 +260,8 @@ namespace LLE
 			if (commands == null) return;
 
 			if(message == ">sp")
-			{	string result = commands.Execute("select Platform");
-				MyConsole.AddMultiline(result, Color.SeaGreen);
+			{	var result = commands.Execute("select Platform");
+				MyConsole.AddMultiline(result?.Message, Color.SeaGreen);
 			}
 			else if(message == ">spawn")
 			{	bot = Bot.Spawn(player);
@@ -277,8 +277,8 @@ namespace LLE
 				MyConsole.AddMultiline(command, Color.Magenta);
 				MyConsole.AddMultiline("\n", Color.Magenta);
 				
-				string result = commands.Execute(command);
-				MyConsole.AddMultiline(result, Color.SeaGreen);
+				var result = commands.Execute(command);
+				MyConsole.AddMultiline(result?.Message, Color.SeaGreen);
 			}
 			else
 			{	llm.Append("[GAME CHAT]", Color.Red);

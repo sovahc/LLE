@@ -12,9 +12,10 @@ using Sandbox.Game;
 using Sandbox.Game.Entities;
 
 // Stack-based coroutine runner:
-//   yield return null;        = wait one tick
-//   yield return string;      = final response to LLM (terminates whole command)
-//   yield return IEnumerator; = run nested coroutine to completion, then resume parent
+//   yield return null;         = wait one tick
+//   yield return Success(msg)  = final success response to LLM (terminates whole command)
+//   yield return "error msg"   = final error response to LLM (terminates whole command)
+//   yield return IEnumerator;  = run nested coroutine to completion, then resume parent
 //   yield break;              = done at this level (parent resumes, or command ends)
 // ! Re-query engine objects after `yield return null;` don't cache references.
 
@@ -23,6 +24,8 @@ namespace LLE
 	public partial class Commands
 	{
 		private const string IE_NO_INVENTORY = "Internal error: character.GetInventory() is null";
+
+		internal static CommandResult Success(string message) => CommandResult.Success(message);
 
 		private IMyCubeGrid selectedGrid;
 		private MyVoxelBase selectedAsteroid;
@@ -207,7 +210,7 @@ drop [quantity|all] 'name'
 			return sb.ToString();
 		}
 
-		internal string Say(TokenParser tp)
+		internal CommandResult Say(TokenParser tp)
 		{
 			var message = tp.NextString();
 			if (string.IsNullOrEmpty(message))
@@ -215,10 +218,10 @@ drop [quantity|all] 'name'
 
 			MyVisualScriptLogicProvider.SendChatMessage(
 				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
-			return "Done";
+			return Success("Done");
 		}
 
-		internal string Select(TokenParser tp)
+		internal CommandResult Select(TokenParser tp)
 		{
 			var what = tp.NextString();
 
@@ -255,14 +258,14 @@ drop [quantity|all] 'name'
 				Debug.Start(grid);
 				selectedGrid = grid;
 				selectedAsteroid = null;
-				return $"Selected {category} {Quote(name)}";
+				return Success($"Selected {category} {Quote(name)}");
 			}
 
 			var asteroid = select as MyVoxelBase;
 			if(asteroid != null)
 			{	selectedGrid = null;
 				selectedAsteroid = asteroid;
-				return $"Selected {category} {Quote(name)}";
+				return Success($"Selected {category} {Quote(name)}");
 			}
 			
 			return $"Error: can't select {category} '{name}'";
@@ -364,7 +367,7 @@ drop [quantity|all] 'name'
 		{	return coroutineStack.Count > 0;
 		}
 
-		internal string Update()
+		internal CommandResult Update()
 		{
 			status.Tick();
 
@@ -374,11 +377,17 @@ drop [quantity|all] 'name'
 
 			if (top.MoveNext())
 			{
-				var result = top.Current as string;
+				var current = top.Current;
 
-				// String at any level = final response to LLM.
+				// Final response to LLM: explicit CommandResult, or plain string (= error).
+				var result = current as CommandResult;
+				if(result == null)
+				{	var s = current as string;
+					if(s != null) result = s; // implicit: string → error
+				}
+
 				if(result != null)
-				{	
+				{ 
 					// Dispose all
 					foreach(var c in coroutineStack) (c as IDisposable)?.Dispose();
 					coroutineStack.Clear();
@@ -387,7 +396,7 @@ drop [quantity|all] 'name'
 				}
 
 				// Nested coroutine — push onto stack, run next tick.
-				var nested = top.Current as IEnumerator;
+				var nested = current as IEnumerator;
 				if(nested != null)
 					coroutineStack.Push(nested);
 			}
@@ -403,17 +412,17 @@ drop [quantity|all] 'name'
 			return null;
 		}
 
-		internal string Execute(string command)
+		internal CommandResult Execute(string command)
 		{
 			//Utilities.Log($"Execute `{command}`");
 
-			string result = null;
+			CommandResult result = null;
 
 			var tp = new TokenParser(command);
 
 			if(tp.Match("Pause"))
 			{	LLM.pause = true;
-				result = "OK";
+				result = Success("OK");
 			}
 			else if(tp.Match("Overview"))
 			{	result = Overview();
@@ -452,7 +461,7 @@ drop [quantity|all] 'name'
 			{	coroutineStack.Push(Put(tp));
 			}
 			else if(tp.Match("Status"))
-			{	result = status.ReportAll();
+			{	result = Success(status.ReportAll());
 			}
 			else if(tp.Match("Say"))
 			{	result = Say(tp);

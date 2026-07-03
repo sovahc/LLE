@@ -253,7 +253,7 @@ namespace LLE
 				if(exitGrid != null && !IsEngineerInsideGrid(ec, exitGrid))
 					yield break; // no answer to LLM, continue
 
-				if(micro.Arrived()) { yield return $"Arrived. Position: {CharacterCellText()}"; }
+				if(micro.Arrived()) { yield return Success($"Arrived. Position: {CharacterCellText()}"); }
 
 				if(micro.Stuck)
 				{	micro.Stop();

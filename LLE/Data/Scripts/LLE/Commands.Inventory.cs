@@ -19,7 +19,7 @@ namespace LLE
 {
 	public partial class Commands
 	{
-		internal string Inventory(TokenParser tp)
+		internal CommandResult Inventory(TokenParser tp)
 		{
 			if(tp.End)
 			{
@@ -30,7 +30,7 @@ namespace LLE
 				sb.Append($"Your inventory:\n");
 				InventoryToText(inv, sb);
 
-				return sb.ToString();
+				return Success(sb.ToString());
 			}
 			else
 			{	string message;
@@ -60,11 +60,11 @@ namespace LLE
 
 				AppendGasTankInfo(block, sb);
 
-				return sb.ToString();
+				return Success(sb.ToString());
 			}
 		}
 
-		internal string Inventories()
+		internal CommandResult Inventories()
 		{
 			string message;
 			if (!GridIsSet(out message)) return message;
@@ -91,8 +91,8 @@ namespace LLE
 
 			terminalBlocks.Clear();
 
-			if (count == 0) return "No blocks with inventories on this grid.";
-			return sb.ToString();
+			if (count == 0) return Success("No blocks with inventories on this grid.");
+			return Success(sb.ToString());
 		}
 
 		private static void InventoryToText(IMyInventory inv, StringBuilder output)
@@ -199,7 +199,7 @@ namespace LLE
 
 			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
 
-			yield return sb.ToString();
+			yield return Success(sb.ToString());
 		}
 
 		internal IEnumerator Put(TokenParser tp)
@@ -268,12 +268,12 @@ namespace LLE
 			{
 				InventoryTransfer(fromList, toList, ALL_COMPONENTS, MyFixedPoint.MaxValue, sb);
 
-				yield return sb.ToString();
+				yield return Success(sb.ToString());
 			}
 			else
 			{	List<string> items = new List<string>() { item };
 				InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
-				yield return sb.ToString();
+				yield return Success(sb.ToString());
 			}
 		}
 
@@ -334,7 +334,7 @@ namespace LLE
 
 			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
 
-			yield return sb.ToString();
+			yield return Success(sb.ToString());
 		}
 
 		private static bool Include(MyPhysicalItemDefinition def, List<string> itemNames)

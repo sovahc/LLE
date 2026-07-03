@@ -26,11 +26,12 @@ namespace LLE
 		{	commands = commands_;
 		}
 
-		public void OnCommandFinished(string result)
+		public void OnCommandFinished(CommandResult result)
 		{
 			var currentCommand = batch.Dequeue();
 			
-			Append($"→ {currentCommand}: {result}\n", Color.Cornsilk);
+			var tag = result.Ok ? "OK" : "FAILED";
+			Append($"→ {currentCommand}: [{tag}] {result.Message}\n", Color.Cornsilk);
 			RunNextPending();
 		}
 
@@ -38,7 +39,7 @@ namespace LLE
 		{
 			if (batch.Count == 0) return;
 
-			string result = commands.Execute(batch.Peek());
+			var result = commands.Execute(batch.Peek());
 
 			if (result != null)
 			{
@@ -77,7 +78,7 @@ namespace LLE
 			}
 			
 			if (batch.Count != 0) // We have running commands
-			{	string result = commands.Update();
+			{	var result = commands.Update();
 				if (result != null)
 					OnCommandFinished(result);
 
@@ -87,10 +88,10 @@ namespace LLE
 			// batch.Count == 0
 
 			if(commands.InProgress()) // ручная команда из чата
-			{	string result = commands.Update();
+			{	var result = commands.Update();
 				if (result != null)
 				{	MyConsole.AddMultiline("=", Color.Red);
-					MyConsole.AddMultiline(result, Color.Magenta);
+					MyConsole.AddMultiline(result.Message, Color.Magenta);
 					MyConsole.AddMultiline("\n", Color.Magenta);
 				}
 				return;

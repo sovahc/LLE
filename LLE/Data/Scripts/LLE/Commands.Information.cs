@@ -101,7 +101,7 @@ namespace LLE
 			describer.Clear();
 		}
 
-		internal string Overview()
+		internal CommandResult Overview()
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
@@ -127,10 +127,10 @@ namespace LLE
 			terminalBlocks.Clear();
 			positions.Clear();
 
-			return md.Result();
+			return Success(md.Result());
 		}
 
-		internal string Integrity()
+		internal CommandResult Integrity()
 		{
 			string message;
 			if (!GridIsSet(out message)) return message;
@@ -151,7 +151,7 @@ namespace LLE
 			if (damaged.Count == 0)
 			{
 				md.Append("All blocks are intact.");
-				return md.Result();
+				return Success(md.Result());
 			}
 
 			var byCategory = new Dictionary<string, List<IMySlimBlock>>();
@@ -178,10 +178,10 @@ namespace LLE
 				md.Add($"## {kv.Key}", sb.ToString());
 			}
 
-			return md.Result();
+			return Success(md.Result());
 		}
 
-		internal string Near(TokenParser tp)
+		internal CommandResult Near(TokenParser tp)
 		{	
 			string message;
 			if(!GridIsSet(out message)) return message;
@@ -215,7 +215,7 @@ namespace LLE
 
 			ListDescription(positions, false, md);
 
-			return md.Result();
+			return Success(md.Result());
 		}
 
 		private struct SearchMatch
@@ -224,7 +224,7 @@ namespace LLE
 			public string Text;
 		}
 
-		internal string Search(TokenParser tp)
+		internal CommandResult Search(TokenParser tp)
 		{
 			bool searchItems = false;
 			bool searchBlocks = false;
@@ -318,10 +318,10 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 			sb.Append($"Found {count} items matching {Quote(query)}:\n");
 			foreach (var m in matches) sb.Append(m.Text);
 
-			return sb.ToString();
+			return Success(sb.ToString());
 		}
 
-		internal string Slice(TokenParser tp)
+		internal CommandResult Slice(TokenParser tp)
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
@@ -398,7 +398,7 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 				md.Append(row.ToString());
 			}
 
-			return md.Result();
+			return Success(md.Result());
 		}
 	}
 }
