@@ -232,7 +232,9 @@ namespace LLE
 				return;
 			}
 
-			if (loopDetector.IsLoop(cc))
+			if(cc.Count == 1 && 0 == string.Compare(cc[0], "pause", true))
+			{}
+			else if (loopDetector.IsLoop(cc))
 			{
 				Append("LOOP DETECTED: this command batch is identical to the previous one. "
 					+ "If the task is complete, use `pause`. Otherwise, try a different approach.\n",

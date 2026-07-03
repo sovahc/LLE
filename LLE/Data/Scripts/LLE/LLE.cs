@@ -269,6 +269,7 @@ namespace LLE
 				if(bot == null) return;				
 
 				commands = new Commands(bot);
+				llm = new LLM(commands);
 			}
 			else if(message.StartsWith(">"))
 			{	var command = message.Substring(1).Trim();
