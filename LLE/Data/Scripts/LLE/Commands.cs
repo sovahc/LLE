@@ -100,10 +100,7 @@ You operate on a selected grid (ship or station).
   Show damaged blocks on the selected grid.
 
 * fly I J K
-  Fly to specific grid coordinates. Fails if a block occupies that cell.
-
-* fly to I J K
-  Fly to a block at I J K and stop at the best interaction point for it.
+  Fly to specific grid coordinates. If block coordinates are specified instead of free space, the bot flies to the interaction point with the block.
 
 * grind I J K
   Grind a block at specific coordinates.
