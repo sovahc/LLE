@@ -5,10 +5,6 @@ namespace LLE
 {
 	public partial class Commands
 	{
-		/// <summary>
-		/// seat I J K — sit the character into the cockpit/seat at the given grid coordinates.
-		/// The character must already be close enough to interact (use `fly I J K` first).
-		/// </summary>
 		internal CommandResult Seat(TokenParser tp)
 		{
 			string message;
@@ -48,9 +44,6 @@ namespace LLE
 			return Success($"Seated in {Name(block)} at {IJK(ijk)}.");
 		}
 
-		/// <summary>
-		/// exit — leave the current cockpit/seat. No arguments.
-		/// </summary>
 		internal CommandResult Exit(TokenParser tp)
 		{
 			var seat = character.Parent as IMyCockpit;
