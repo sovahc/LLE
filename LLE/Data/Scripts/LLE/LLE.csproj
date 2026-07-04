@@ -54,6 +54,9 @@
     <Reference Include="VRage.Scripting">
       <HintPath>$(SeBinDir)/VRage.Scripting.dll</HintPath>
     </Reference>
+    <Reference Include="SpaceEngineers.Game">
+      <HintPath>$(SeBinDir)/SpaceEngineers.Game.dll</HintPath>
+    </Reference>
     <Reference Include="SpaceEngineers.ObjectBuilders">
       <HintPath>$(SeBinDir)/SpaceEngineers.ObjectBuilders.dll</HintPath>
     </Reference>

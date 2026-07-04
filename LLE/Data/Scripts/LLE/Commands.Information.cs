@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 using VRageMath;
@@ -9,7 +8,9 @@ using VRage.Game.ModAPI;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
+using SpaceEngineers.Game.ModAPI;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
+using IMyTerminalBlock = Sandbox.ModAPI.IMyTerminalBlock;
 
 namespace LLE
 {
@@ -19,37 +20,45 @@ namespace LLE
 		
 		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
 		private static readonly Dictionary<string, List<Vector3I>> describer = new Dictionary<string, List<Vector3I>>();
+		private static readonly Dictionary<string, IMyTerminalBlock> nameToSample = new Dictionary<string, IMyTerminalBlock>();
 		private static readonly List<Vector3I> positions = new List<Vector3I>();
 
-		private static readonly Dictionary<string, string[]> TerminalBCategories = new Dictionary<string, string[]>
+		private static string Categorize(IMyTerminalBlock block)
 		{
-			{ "Control", new[] { "Cockpit" } },
-			{ "Energy", new[] { "Reactor", "Battery", "SolarPanel" } },
-			{ "Defense", new[] { "Turret", "Warhead", "Decoy" } },
-			{ "Construction", new[] { "ShipGrinder", "ShipWelder" } },
-			{ "Mining", new[] { "OreDetector", "ShipDrill" } },
-			{ "Communication", new[] { "Antenna", "Transponder" } }, // << ?
-			{ "Production", new[] { "Refinery", "Assembler", "UpgradeModule" } },
-			{ "Docking", new[] { "Connector", "Collector" } },
-			{ "Gas", new[] { "OxygenGenerator", "OxygenTank", "AirVent" } },
-			{ "Life Support", new[] { "CryoChamber", "MedicalRoom" } },
-			{ "Computers", new[] { "EventController", "Timer", "BroadcastController", "TurretControl", "Sensor" } },
-			{ "Doors", new[] { "Door" } },
-			{ "Gravity", new[] { "GravityGenerator", "VirtualMass", "SpaceBall" } },
-			{ "Rotors", new[] { "MotorAdvancedStator", "MotorStator", "Hinge" } },
-			{ "Movement", new[] { "Thrust" } },
-			{ "Storage", new[] { "CargoContainer" } },
-			{ "Decoration", new[] { "HeatVent", "LCDPanel", "Terminal" } }
-		};
-
-		internal static string NameToCategory(string name)
-		{	foreach (var cat in TerminalBCategories)
-			{
-				if (cat.Value.Any(keyword => name.Contains(keyword)))
-				{
-					return cat.Key;
-				}
-			}
+			if (block is IMyCockpit || block is IMyRemoteControl)
+				return "Control";
+			if (block is IMyReactor || block is IMyBatteryBlock || block is IMySolarPanel)
+				return "Energy";
+			if (block is IMyOffensiveCombatBlock || block is IMyWarhead || block is IMyDecoy)
+				return "Defense";
+			if (block is IMyShipGrinder || block is IMyShipWelder || block is IMyProjector)
+				return "Construction";
+			if (block is IMyShipDrill || block is IMyOreDetector)
+				return "Mining";
+			if (block is IMyRadioAntenna || block is IMyLaserAntenna || block is IMyBeacon)
+				return "Communication";
+			if (block is IMyProductionBlock || block is IMyUpgradeModule)
+				return "Production";
+			if (block is IMyShipConnector || block is IMyCollector)
+				return "Docking";
+			if (block is IMyGasTank || block is IMyGasGenerator || block is IMyOxygenFarm || block is IMyAirVent)
+				return "Gas";
+			if (block is IMyCryoChamber || block is IMyMedicalRoom)
+				return "Life Support";
+			if (block is IMyProgrammableBlock || block is IMyTimerBlock || block is IMySensorBlock || block is IMyButtonPanel)
+				return "Computers";
+			if (block is IMyDoor)
+				return "Doors";
+			if (block is IMyGravityGeneratorBase || block is IMyVirtualMass || block is IMySpaceBall)
+				return "Gravity";
+			if (block is IMyMotorStator || block is IMyGyro || block is IMyPistonBase || block is IMyPistonTop || block is IMyMotorSuspension || block is IMyWheel)
+				return "Rotors";
+			if (block is IMyThrust || block is IMyLandingGear || block is IMyJumpDrive)
+				return "Movement";
+			if (block is IMyCargoContainer || block is IMyStoreBlock || block is IMyConveyorSorter)
+				return "Storage";
+			if (block is IMyLightingBlock || block is IMyTextPanel || block is IMyCameraBlock || block is IMyHeatVent || block is IMySoundBlock)
+				return "Decoration";
 			return "Other";
 		}
 
@@ -63,15 +72,19 @@ namespace LLE
 		{	md.Append($"Legend: Name → count (positions on the grid)");
 
 			describer.Clear();
+			nameToSample.Clear();
 
 			foreach (var position in coordinates)
 			{	
-				var name = Name(selectedGrid.GetCubeBlock(position));
+				var cubeBlock = selectedGrid.GetCubeBlock(position);
+				var name = Name(cubeBlock);
 
 				List<Vector3I> pp;
 				if(!describer.TryGetValue(name, out pp))
 				{	pp = new List<Vector3I>();
 					describer[name] = pp;
+					if (cubeBlock != null && cubeBlock.FatBlock != null)
+						nameToSample[name] = cubeBlock.FatBlock as IMyTerminalBlock;
 				}
 				pp.Add(position);
 			}
@@ -79,7 +92,8 @@ namespace LLE
 			foreach (var kv in describer)
 			{	
 				var name = kv.Key;
-				var category = byCategory ? NameToCategory(name) : null;
+				IMyTerminalBlock sample;
+				var category = byCategory && nameToSample.TryGetValue(name, out sample) ? Categorize(sample) : null;
 
 				StringBuilder sb = new StringBuilder();
 				sb.Append($"* {Quote(kv.Key)} → {kv.Value.Count} (");
@@ -99,6 +113,7 @@ namespace LLE
 			}
 
 			describer.Clear();
+			nameToSample.Clear();
 		}
 
 		internal CommandResult Overview()
@@ -157,7 +172,7 @@ namespace LLE
 			var byCategory = new Dictionary<string, List<IMySlimBlock>>();
 			foreach (var block in damaged)
 			{
-				var cat = NameToCategory(Name(block));
+				var cat = Categorize(block.FatBlock as IMyTerminalBlock);
 				List<IMySlimBlock> list;
 				if (!byCategory.TryGetValue(cat, out list))
 				{
