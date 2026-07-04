@@ -30,8 +30,14 @@ namespace LLE
 			if (def is MySurvivalKitDefinition)
 				return "Life Support & Production";
 
-			if (block is IMyCockpit)
-				return "Control";
+			var cockpit = block as IMyCockpit;
+			if (cockpit != null)
+			{	var cDef = (MyCockpitDefinition)def;
+				//bool hasOxygen = cockpit.OxygenCapacity > 0;
+				//if(hasOxygen) return "Enclosed Cockpit";
+				return cDef.EnableShipControl ? "Cockpit" : "Seats";
+			}
+
 			if (block is IMyRemoteControl)
 				return "Remote Control";
 			if (block is IMyReactor || block is IMyBatteryBlock || block is IMySolarPanel)
