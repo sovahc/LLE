@@ -29,6 +29,13 @@ namespace LLE
 
 			if (def is MySurvivalKitDefinition)
 				return "Life Support & Production";
+			if (block is IMyProductionBlock || block is IMyUpgradeModule)
+				return "Production";
+			if (block is IMyMedicalRoom)
+				return "Life Support";
+
+			if (block is IMyCryoChamber)
+				return "Rest & Sleep";
 
 			var cockpit = block as IMyCockpit;
 			if (cockpit != null)
@@ -52,14 +59,11 @@ namespace LLE
 				return "Mining";
 			if (block is IMyRadioAntenna || block is IMyLaserAntenna || block is IMyBeacon)
 				return "Communication";
-			if (block is IMyProductionBlock || block is IMyUpgradeModule)
-				return "Production";
+			
 			if (block is IMyShipConnector || block is IMyCollector || block is IMyLandingGear)
 				return "Docking";
 			if (block is IMyGasTank || block is IMyGasGenerator || block is IMyAirVent || block is IMyOxygenFarm)
 				return "Gas";
-			if (block is IMyMedicalRoom || block is IMyCryoChamber)
-				return "Life Support";
 			if (block is IMyProgrammableBlock || block is IMyTimerBlock || block is IMySensorBlock || block is IMyButtonPanel || block is IMyEventControllerBlock || block is IMyBroadcastController)
 				return "Computers";
 			if (block is IMyDoor)
@@ -74,10 +78,10 @@ namespace LLE
 				return "Wheels";
 			if (block is IMyThrust || block is IMyGyro || block is IMyJumpDrive)
 				return "Movement";
-			if (block is IMyCargoContainer || block is IMyStoreBlock)
+			if (block is IMyCargoContainer)
 				return "Storage";
-			if (block is IMyConveyorSorter)
-				return "Conveyor Sorter";
+			//if (block is IMyConveyorSorter)
+			//	return "Conveyor Sorter";
 			if (block is IMyCameraBlock)
 				return "Cameras";
 			if (block is IMyLightingBlock)
