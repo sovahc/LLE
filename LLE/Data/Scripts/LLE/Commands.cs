@@ -151,6 +151,12 @@ You operate on a selected grid (ship or station).
 
 * say 'message'
   Send a message to the in-game chat.
+
+* seat I J K
+  Sit into the cockpit or seat at the given grid coordinates. Use `fly I J K` first to get close enough.
+
+* exit
+  Leave the current cockpit or seat.
 ";
 }
 /*
@@ -503,6 +509,12 @@ drop [quantity|all] 'name'
 			}
 			else if(tp.Match("Search"))
 			{	result = Search(tp);
+			}
+			else if(tp.Match("Seat"))
+			{	result = Seat(tp);
+			}
+			else if(tp.Match("Exit"))
+			{	result = Exit(tp);
 			}
 			else
 			{	result = $"Unknown command '{tp.NextString()}'.";
