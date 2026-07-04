@@ -25,6 +25,11 @@ namespace LLE
 
 		private static string Categorize(IMyTerminalBlock block)
 		{
+			var def = block.SlimBlock.BlockDefinition;
+
+			if (def is MySurvivalKitDefinition)
+				return "Life Support & Production";
+
 			if (block is IMyCockpit)
 				return "Control";
 			if (block is IMyRemoteControl)

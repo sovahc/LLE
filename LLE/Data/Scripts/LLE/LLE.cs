@@ -280,6 +280,7 @@ namespace LLE
 				
 				var result = commands.Execute(command);
 				MyConsole.AddMultiline(result?.Message, Color.SeaGreen);
+				Log(">" + command + ": " + result?.Message);
 			}
 			else
 			{	llm.Append("[GAME CHAT]", Color.Red);
