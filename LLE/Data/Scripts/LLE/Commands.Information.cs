@@ -11,6 +11,9 @@ using Sandbox.ModAPI;
 using SpaceEngineers.Game.ModAPI;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
 using IMyTerminalBlock = Sandbox.ModAPI.IMyTerminalBlock;
+using Sandbox.Game;
+using Sandbox.Game.EntityComponents;
+using Sandbox.Game.Entities.Character.Components;
 
 namespace LLE
 {
@@ -34,8 +37,6 @@ namespace LLE
 			// IMySmallGatlingGun IMySmallMissileLauncher IMySmallMissileLauncherReload
 			// IMySolarFoodGenerator
 			// IMyTargetDummyBlock
-
-			// IMyTerminalBlock.GetDetailedInfo()
 
 			if (def is MySurvivalKitDefinition)
 				return "Life Support & Production";
@@ -471,6 +472,94 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 			}
 
 			return Success(md.Result());
+		}
+
+		bool CheckConveyorConnection(IMyCubeBlock from, IMyCubeBlock to)
+		{
+			string tempFrom = $"HACK{from.EntityId}";
+			string tempTo = $"HACK{to.EntityId}";
+
+			string oldFromName = from.Name;
+			string oldToName = to.Name;
+
+			try
+			{
+				from.Name = tempFrom;
+				to.Name = tempTo;
+				return MyVisualScriptLogicProvider.IsConveyorConnected(tempFrom, tempTo);
+			}
+			finally
+			{	from.Name = oldFromName;
+				to.Name = oldToName;
+			}
+		}
+
+		public bool IsHydrogenReachable(IMyCubeBlock block)
+		{
+			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(block.CubeGrid);
+			var blocks = new List<IMyTerminalBlock>();
+			ts.GetBlocks(blocks);
+
+			foreach (var b in blocks)
+			{
+				if (b.CubeGrid != block.CubeGrid) continue;
+
+				var tank = b as IMyGasTank;
+				if (tank != null)
+				{
+					var tankDef = b.SlimBlock.BlockDefinition as MyGasTankDefinition;
+					if (tankDef == null || tankDef.StoredGasId != hydrogenId) continue;
+					if (tank.FilledRatio <= 0f) continue;
+					if (CheckConveyorConnection(block, b)) return true;
+					continue;
+				}
+
+				var gen = b as IMyGasGenerator;
+				if (gen != null && b.IsWorking)
+				{
+					var src = b.Components.Get<MyResourceSourceComponent>();
+					if (src == null) continue;
+					if (src.DefinedOutputByType(hydrogenId) <= 0f) continue;
+					if (CheckConveyorConnection(block, b)) return true;
+				}
+			}
+			return false;
+		}
+
+		internal CommandResult RechargePoints(TokenParser tp)
+		{
+			string message;
+			if(!GridIsSet(out message)) return message;
+
+			var grid = selectedGrid;
+
+			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
+			terminalBlocks.Clear();
+			ts.GetBlocks(terminalBlocks);
+
+			StringBuilder result = new StringBuilder();
+
+			foreach (var block in terminalBlocks)
+			{
+				if (block.CubeGrid != grid) continue;
+
+				var cockpit = block as IMyCockpit;
+				if (cockpit != null)
+				{	
+					var sink = cockpit.Components.Get<MyResourceSinkComponent>();
+					bool hasPower = sink.IsPoweredByType(MyResourceDistributorComponent.ElectricityId);
+					bool hasOxygen = sink.IsPoweredByType(MyResourceDistributorComponent.OxygenId);
+					bool hasHydrogen = sink.IsPoweredByType(MyResourceDistributorComponent.HydrogenId);
+					
+					var oxygen = cockpit.OxygenFilledRatio * cockpit.OxygenCapacity;
+
+					result.Append($"{Name(block.SlimBlock)} at {block.Position}: E {hasPower} O2 {hasOxygen} H2 {hasHydrogen}");
+				}
+			}
+
+			terminalBlocks.Clear();
+
+			return "Not implemented";
 		}
 	}
 }

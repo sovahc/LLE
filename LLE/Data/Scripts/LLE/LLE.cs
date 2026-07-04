@@ -8,6 +8,7 @@ using VRage.ModAPI;
 using VRage.Utils;
 using Sandbox.ModAPI;
 using Sandbox.Game.Entities;
+using Sandbox.Game.EntityComponents;
 
 namespace LLE
 {
@@ -70,7 +71,7 @@ namespace LLE
 			}
 		}
 
-		internal static void Draw(MatrixD hm)
+		internal static void Draw(MatrixD hm, Commands commands)
 		{
 			if(grid == null) return;
 
@@ -84,11 +85,10 @@ namespace LLE
 					Collisions.Draw(block);
 					Collisions.DrawTraversability(grid, astarStart.Value);
 
-					var ip = new List<Vector3I>();
-					Collisions.CalculateGrindWeldPoints(block, ip);
-
-					foreach(var p in ip)
-						Utilities.HighlightCell(grid, p, Color.Cornsilk);
+					if(block.FatBlock != null)
+					{	bool h = commands.IsHydrogenReachable(block.FatBlock);
+						MyConsole.Add($"Hydrogen {h}");
+					}
 				}
 			}
 
@@ -188,7 +188,7 @@ namespace LLE
 			{
 				var hm = ch.GetHeadMatrix(false, false);
 				Debug.Pathfinding(hm);
-				Debug.Draw(hm);
+				Debug.Draw(hm, commands);
 			}
 
 			MyConsole.Render(font);

@@ -7,6 +7,7 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
+using VRage.Game.ObjectBuilders.Definitions;
 using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
@@ -28,6 +29,9 @@ namespace LLE
 		internal static CommandResult Success(string message) => CommandResult.Success(message);
 
 		private IMyCubeGrid selectedGrid;
+
+		private static readonly MyDefinitionId hydrogenId =
+			new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
 		private MyVoxelBase selectedAsteroid;
 
 		private readonly IMyCharacter character;
