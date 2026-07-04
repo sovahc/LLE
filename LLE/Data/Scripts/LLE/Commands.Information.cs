@@ -27,14 +27,25 @@ namespace LLE
 		{
 			var def = block.SlimBlock.BlockDefinition;
 
+			// IMyShipController (cockpit/remote control/cryopod)
+
+			// IMyBasicMissionBlock IMyStoreBlock IMyVendingMachine
+			// IMyMechanicalConnectionBlock
+			// IMySmallGatlingGun IMySmallMissileLauncher IMySmallMissileLauncherReload
+			// IMySolarFoodGenerator
+			// IMyTargetDummyBlock
+
+			// IMyTerminalBlock.GetDetailedInfo()
+
 			if (def is MySurvivalKitDefinition)
 				return "Life Support & Production";
-			if (block is IMyProductionBlock || block is IMyUpgradeModule)
+			if (block is IMyProductionBlock || // IMyAssembler IMyRefinery
+				block is IMyUpgradeModule)
 				return "Production";
-			if (block is IMyMedicalRoom)
+			if (block is IMyMedicalRoom) // IMyGasBlock
 				return "Life Support";
 
-			if (block is IMyCryoChamber)
+			if (block is IMyCryoChamber) // IMyCryoChamber is IMyCockpit
 				return "Rest & Sleep";
 
 			var cockpit = block as IMyCockpit;
@@ -47,9 +58,9 @@ namespace LLE
 
 			if (block is IMyRemoteControl)
 				return "Remote Control";
-			if (block is IMyReactor || block is IMyBatteryBlock || block is IMySolarPanel)
+			if (block is IMyPowerProducer || block is IMySolarPanel) // IMyBatteryBlock, IMyReactor, IMyWindTurbine
 				return "Energy";
-			if (block is IMyLargeTurretBase || block is IMyDecoy || block is IMyOffensiveCombatBlock)
+			if (block is IMyLargeTurretBase || block is IMyDecoy)
 				return "Defense";
 			if (block is IMyWarhead)
 				return "Explosives";
@@ -57,20 +68,35 @@ namespace LLE
 				return "Construction";
 			if (block is IMyShipDrill || block is IMyOreDetector)
 				return "Mining";
-			if (block is IMyRadioAntenna || block is IMyLaserAntenna || block is IMyBeacon)
+			if (block is IMyBeacon || block is IMyRadioAntenna || block is IMyLaserAntenna)
 				return "Communication";
-			
 			if (block is IMyShipConnector || block is IMyCollector || block is IMyLandingGear)
 				return "Docking";
 			if (block is IMyGasTank || block is IMyGasGenerator || block is IMyAirVent || block is IMyOxygenFarm)
 				return "Gas";
-			if (block is IMyProgrammableBlock || block is IMyTimerBlock || block is IMySensorBlock || block is IMyButtonPanel || block is IMyEventControllerBlock || block is IMyBroadcastController)
+			if (block is IMyButtonPanel)
+				return "Buttons";
+			if (block is IMyTimerBlock)
+				return "Timers";
+			if (block is IMySensorBlock)
+				return "Sensors";
+			if (block is IMyProgrammableBlock)
+				return "Programmable Blocks";
+			if (block is IMyBroadcastController ||
+				block is IMyEventControllerBlock || block is IMyEventComponentWithGui ||
+				block is IMyEmotionControllerBlock ||
+				block is IMyFlightMovementBlock ||
+				block is IMyOffensiveCombatBlock || block is IMyDefensiveCombatBlock ||
+				block is IMyTurretControlBlock ||
+				block is IMyPathRecorderBlock)
 				return "Computers";
+			if (block is IMyAirtightHangarDoor)
+				return "Hangar Doors";
 			if (block is IMyDoor)
 				return "Doors";
 			if (block is IMyGravityGeneratorBase || block is IMyVirtualMass || block is IMySpaceBall)
 				return "Gravity";
-			if (block is IMyMotorStator)
+			if (block is IMyMotorStator || block is IMyMotorRotor) // IMyMotorBase?
 				return "Rotors";
 			if (block is IMyPistonBase || block is IMyPistonTop)
 				return "Pistons";
@@ -80,15 +106,15 @@ namespace LLE
 				return "Movement";
 			if (block is IMyCargoContainer)
 				return "Storage";
-			//if (block is IMyConveyorSorter)
-			//	return "Conveyor Sorter";
+			if (block is IMyConveyorSorter) // (IMyConveyor, IMyConveyorTube) -> IMyCubeBlock
+				return "Conveyor";
 			if (block is IMyCameraBlock)
 				return "Cameras";
-			if (block is IMyLightingBlock)
+			if (block is IMyLightingBlock || block is IMySearchlight)
 				return "Lights";
 			if (block is IMyTextPanel)
 				return "Displays";
-			if (block is IMyHeatVent || block is IMySoundBlock)
+			if (block is IMyExhaustBlock || block is IMyHeatVent || block is IMySoundBlock)
 				return "Decoration";
 			return "Other";
 		}
