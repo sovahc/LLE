@@ -84,11 +84,6 @@ namespace LLE
 				{
 					Collisions.Draw(block);
 					Collisions.DrawTraversability(grid, astarStart.Value);
-
-					if(block.FatBlock != null)
-					{	bool h = commands.IsHydrogenReachable(block.FatBlock);
-						MyConsole.Add($"Hydrogen {h}");
-					}
 				}
 			}
 

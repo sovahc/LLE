@@ -520,6 +520,9 @@ drop [quantity|all] 'name'
 			else if(tp.Match("Exit"))
 			{	result = Exit(tp);
 			}
+			else if(tp.Match("Recharge"))
+			{	result = Recharge(tp);
+			}
 			else
 			{	result = $"Unknown command '{tp.NextString()}'.";
 			}

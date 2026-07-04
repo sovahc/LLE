@@ -494,13 +494,9 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 			}
 		}
 
-		public bool IsHydrogenReachable(IMyCubeBlock block)
+		public bool IsHydrogenReachable(IMyCubeBlock block, List<IMyTerminalBlock> terminalBlocks)
 		{
-			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(block.CubeGrid);
-			var blocks = new List<IMyTerminalBlock>();
-			ts.GetBlocks(blocks);
-
-			foreach (var b in blocks)
+			foreach (var b in terminalBlocks)
 			{
 				if (b.CubeGrid != block.CubeGrid) continue;
 
@@ -526,7 +522,7 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 			return false;
 		}
 
-		internal CommandResult RechargePoints(TokenParser tp)
+		internal CommandResult Recharge(TokenParser tp)
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
@@ -548,18 +544,18 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 				{	
 					var sink = cockpit.Components.Get<MyResourceSinkComponent>();
 					bool hasPower = sink.IsPoweredByType(MyResourceDistributorComponent.ElectricityId);
-					bool hasOxygen = sink.IsPoweredByType(MyResourceDistributorComponent.OxygenId);
-					bool hasHydrogen = sink.IsPoweredByType(MyResourceDistributorComponent.HydrogenId);
+
+					bool hasHydrogen = IsHydrogenReachable(block, terminalBlocks);
 					
 					var oxygen = cockpit.OxygenFilledRatio * cockpit.OxygenCapacity;
 
-					result.Append($"{Name(block.SlimBlock)} at {block.Position}: E {hasPower} O2 {hasOxygen} H2 {hasHydrogen}");
+					result.Append($"{Name(block.SlimBlock)} at {IJK(block.Position)}: E {hasPower} H2 {hasHydrogen}\n");
 				}
 			}
 
 			terminalBlocks.Clear();
 
-			return "Not implemented";
+			return Success(result.ToString());
 		}
 	}
 }
