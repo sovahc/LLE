@@ -25,12 +25,16 @@ namespace LLE
 
 		private static string Categorize(IMyTerminalBlock block)
 		{
-			if (block is IMyCockpit || block is IMyRemoteControl)
+			if (block is IMyCockpit)
 				return "Control";
+			if (block is IMyRemoteControl)
+				return "Remote Control";
 			if (block is IMyReactor || block is IMyBatteryBlock || block is IMySolarPanel)
 				return "Energy";
-			if (block is IMyOffensiveCombatBlock || block is IMyWarhead || block is IMyDecoy)
+			if (block is IMyLargeTurretBase || block is IMyDecoy || block is IMyOffensiveCombatBlock)
 				return "Defense";
+			if (block is IMyWarhead)
+				return "Explosives";
 			if (block is IMyShipGrinder || block is IMyShipWelder || block is IMyProjector)
 				return "Construction";
 			if (block is IMyShipDrill || block is IMyOreDetector)
@@ -39,25 +43,37 @@ namespace LLE
 				return "Communication";
 			if (block is IMyProductionBlock || block is IMyUpgradeModule)
 				return "Production";
-			if (block is IMyShipConnector || block is IMyCollector)
+			if (block is IMyShipConnector || block is IMyCollector || block is IMyLandingGear)
 				return "Docking";
-			if (block is IMyGasTank || block is IMyGasGenerator || block is IMyOxygenFarm || block is IMyAirVent)
+			if (block is IMyGasTank || block is IMyGasGenerator || block is IMyAirVent || block is IMyOxygenFarm)
 				return "Gas";
-			if (block is IMyCryoChamber || block is IMyMedicalRoom)
+			if (block is IMyMedicalRoom || block is IMyCryoChamber)
 				return "Life Support";
-			if (block is IMyProgrammableBlock || block is IMyTimerBlock || block is IMySensorBlock || block is IMyButtonPanel)
+			if (block is IMyProgrammableBlock || block is IMyTimerBlock || block is IMySensorBlock || block is IMyButtonPanel || block is IMyEventControllerBlock || block is IMyBroadcastController)
 				return "Computers";
 			if (block is IMyDoor)
 				return "Doors";
 			if (block is IMyGravityGeneratorBase || block is IMyVirtualMass || block is IMySpaceBall)
 				return "Gravity";
-			if (block is IMyMotorStator || block is IMyGyro || block is IMyPistonBase || block is IMyPistonTop || block is IMyMotorSuspension || block is IMyWheel)
+			if (block is IMyMotorStator)
 				return "Rotors";
-			if (block is IMyThrust || block is IMyLandingGear || block is IMyJumpDrive)
+			if (block is IMyPistonBase || block is IMyPistonTop)
+				return "Pistons";
+			if(block is IMyWheel || block is IMyMotorSuspension)
+				return "Wheels";
+			if (block is IMyThrust || block is IMyGyro || block is IMyJumpDrive)
 				return "Movement";
-			if (block is IMyCargoContainer || block is IMyStoreBlock || block is IMyConveyorSorter)
+			if (block is IMyCargoContainer || block is IMyStoreBlock)
 				return "Storage";
-			if (block is IMyLightingBlock || block is IMyTextPanel || block is IMyCameraBlock || block is IMyHeatVent || block is IMySoundBlock)
+			if (block is IMyConveyorSorter)
+				return "Conveyor Sorter";
+			if (block is IMyCameraBlock)
+				return "Cameras";
+			if (block is IMyLightingBlock)
+				return "Lights";
+			if (block is IMyTextPanel)
+				return "Displays";
+			if (block is IMyHeatVent || block is IMySoundBlock)
 				return "Decoration";
 			return "Other";
 		}
@@ -309,7 +325,7 @@ $"* block {Quote(blockName)} at {IJK(block.Position)} on {Quote(gridName)} (dist
 								if (itemDef == null) continue;
 
 								string itemName = itemDef.DisplayNameText;
-								if(Include(query, blockName))
+								if(Include(query, itemName))
 								{	matches.Add(new SearchMatch
 									{
 										Distance = distance,
