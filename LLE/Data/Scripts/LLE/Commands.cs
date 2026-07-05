@@ -164,30 +164,30 @@ You operate on a selected grid (ship or station).
 ";
 }
 /*
-XX доделать recharge / refill
-* power — состояние энергосистемы грида: реакторы/батареи/солнечные/ветряки, суммарная выработка, заряд батарей
+XX finish recharge / refill
+* power — state of the grid's power system: reactors/batteries/solar/wind, total output, battery charge
 
 * distance I J K
-* distance I J K I2 J2 K2 -> измерительная рулетка
-* where — где я сейчас: позиция в мире, на каком гриде (или «в открытом космосе»), текущая клетка грида.
+* distance I J K I2 J2 K2 -> measuring tape
+* where — where I am now: position in the world, which grid (or "in open space"), current grid cell.
 Radio subsystem (vision like)
-* approach I J K — подлететь близко к координате, но без A* внутрь грида
-? help recharge  -> Более подробная справка по конкретной команде.
-? wait N  -> Подождать N секунд.
+* approach I J K — fly close to coordinates, but without A* into the grid
+? help recharge  -> More detailed help for a specific command.
+? wait N  -> Wait N seconds.
 ? sound 'name'  -> play sound
 
-? scan Просканировать видимый сектор и вернуть содержимое?
+? scan Scan the visible sector and return contents?
 ? select nearest grid
 
-? missing I J K — показать недостающие компоненты для конкретного блока
-* craft - управление ассемблером
-. produce N 'item' at I J K — поставить в очередь ассемблера
-* для рефайнери нужно управление порядком предметов в инвентаре.
+? missing I J K — show missing components for a specific block
+* craft - assembler management
+. produce N 'item' at I J K — enqueue in assembler
+* refiner needs control over item order in inventory.
 * rename I J K 'name'
 * on I J K
 * off I J K
 ? toggle I J K
-? set I J K 'property' 'value' — установить TerminalProperty (угол ротора, цвет света, лимит)
+? set I J K 'property' 'value' — set TerminalProperty (rotor angle, light color, limit)
 ? mark I J K 'label'  -> e.g. mark 10 0 -2 'main cargo'
 
 ? take all 'item' from I J K
@@ -202,13 +202,13 @@ Radio subsystem (vision like)
 * open I J K  -> Open door
 * close I J K  -> Close door
 
-* press I J K [buttonIndex] - Нажать кнопку на Button Panel.
+* press I J K [buttonIndex] - Press a button on a Button Panel.
 
 * info 'name'
   Get detailed information about a specific object.
 look at 'name'
   Rotate to face an object
-симметричная комманда возвращающая - "на что я смотрю"
+symmetric command returning - "what am I looking at"
 
 hack 'block_name'
   Grind a specific block just below the hacking point (weld it back to restore functionality).
@@ -221,13 +221,13 @@ drop [quantity|all] 'name'
 ? move {forward|backward|left|right|up|down} {distance} - Move in a direction
 ? unstuck / recover - Recover from being stuck.
 
-remember 'key' 'value' — записать пару ключ-значение (в статический Dictionary<string,string> мода).
-recall 'key' — прочитать.
-forget 'key' — удалить.
-notes — вывести все ключи.
+remember 'key' 'value' — store a key-value pair (in the mod's static Dictionary<string,string>).
+recall 'key' — read.
+forget 'key' — delete.
+notes — print all keys.
 
 ! Pathfinding: safest (default) / shortest / scouting / prefer open space
-? log - Вернуть историю выполнённых команд и их результаты
+? log - Return history of executed commands and their results
 ? place 'block_type' I J K [orientation]
 */
 		private MyEntity3DSoundEmitter soundEmitter;
