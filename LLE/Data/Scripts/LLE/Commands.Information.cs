@@ -13,6 +13,7 @@ using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
 using IMyTerminalBlock = Sandbox.ModAPI.IMyTerminalBlock;
 using Sandbox.Game;
 using Sandbox.Game.EntityComponents;
+using VRage;
 
 namespace LLE
 {
@@ -521,11 +522,9 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 			return false;
 		}
 
-		internal bool HasPower(IMyCubeBlock block)
-		{	if (block.Components == null) return false;
-			var sink = block.Components.Get<MyResourceSinkComponent>();
-			if (sink == null) return false;
-			return sink.IsPoweredByType(MyResourceDistributorComponent.ElectricityId);
+		internal bool GridHasPower(IMyCubeGrid grid)
+		{	var dist = grid.ResourceDistributor;
+			return dist != null && dist.ResourceState != MyResourceStateEnum.NoPower;
 		}
 
 		internal CommandResult Recharge(TokenParser tp)
@@ -535,15 +534,19 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 
 			var grid = selectedGrid;
 
-			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
-			terminalBlocks.Clear();
-			ts.GetBlocks(terminalBlocks);
-
 			string category, name;
 			Description(grid as MyEntity, out category, out name);
 
+			bool hasPower = GridHasPower(grid);
+
+			if(!hasPower) return Success("Grid has no power. Cannot recharge from unpowered grid.");
+
 			var md = new MyMarkdown();
 			md.Append($"# Recharge points of {Quote(name)}");
+
+			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
+			terminalBlocks.Clear();
+			ts.GetBlocks(terminalBlocks);
 
 			foreach (var block in terminalBlocks)
 			{
@@ -554,20 +557,19 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 					block is IMyCockpit ||
 					block is IMyMedicalRoom)
 				{	
-					bool hasPower = HasPower(block);
 					bool hasHydrogen = IsHydrogenReachable(block, terminalBlocks);
 
 					string ecat;
 
 					if(hasPower && hasHydrogen)
-						ecat = "# Energy and Hydrogen";
+						ecat = "## Energy and Hydrogen";
 					else if (hasPower)
-						ecat = "# Energy";
+						ecat = "## Energy";
 					else if (hasHydrogen)
-						ecat = "# Hydrogen";
+						ecat = "## Hydrogen";
 					else ecat = null;
 
-					if(ecat != null) md.Add(ecat, $"{Name(block.SlimBlock)} at {IJK(block.Position)}");
+					if(ecat != null) md.Add(ecat, $"* {Name(block.SlimBlock)} at {IJK(block.Position)}");
 				}
 			}
 			terminalBlocks.Clear();
