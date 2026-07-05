@@ -164,32 +164,34 @@ namespace LLE
 				var sc = character.Components?.Get<MyCharacterStatComponent>();
 				if(sc == null) yield return "Internal error: Character has no MyCharacterStatComponent.";
 
-				const float ChargeFillSeconds = 1.666f;
+				const float HealthFillSeconds = 8.0f;
+				const float EnergyFillSeconds = 5.6f;
+				const float HydrogenFillSeconds = 1.7f;
 
 				for(;;)
 				{	double t0 = Time.Now;
 					yield return null;
 					
 					float dt = (float)(Time.Now - t0);
-					float rate = dt / ChargeFillSeconds;
 
 					bool needMoreHealth = true;
 					bool needMoreEnergy = true;
 					bool needMoreHydrogen = true;
 
-					if(true)
-					{	
+					{
 						float max = sc.Health.MaxValue;
 						float current = sc.Health.Value;
+						float rate = dt / HealthFillSeconds;
 						float target = current + max * rate;
 						if(target > max) { target = max; needMoreHealth = false; }
 						sc.Health.Value = target;
 					}
 
     				if(hasEnergy)
-    				{	
+    				{
 						float max = Constants.CharacterBatteryMWh;
 						float current = oc.CharacterGasSource.RemainingCapacityByType(electricityId);
+						float rate = dt / EnergyFillSeconds;
 						float target = current + max * rate;
         				if(target > max) { target = max; needMoreEnergy = false; }
         				oc.CharacterGasSource.SetRemainingCapacityByType(electricityId, target);
@@ -199,7 +201,8 @@ namespace LLE
 					{
 						float max = 1.0f;
 						float current = oc.GetGasFillLevel(hydrogenId);
-						float target = current + max* rate;
+						float rate = dt / HydrogenFillSeconds;
+						float target = current + max * rate;
 						if(target > 1f) { target = max; needMoreHydrogen = false; }
 						var hId = hydrogenId;
 						oc.UpdateStoredGasLevel(ref hId, target);
