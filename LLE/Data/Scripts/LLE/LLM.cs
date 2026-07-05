@@ -119,7 +119,7 @@ namespace LLE
 
 			// batch.Count == 0
 
-			if(commands.InProgress()) // ручная команда из чата
+			if(commands.InProgress()) // manual command from chat
 			{	var result = commands.Update();
 				if (result != null)
 				{	MyConsole.AddMultiline("=", Color.Red);
