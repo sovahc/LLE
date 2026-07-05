@@ -20,6 +20,11 @@ namespace LLE
 		public const float CollisionProbeRadius = 0.6f;
 		public const float MaxInteractionDistance = 4.5f;
 		public const double NearInformationRadius = 500;
+		// Sandbox.Game.MyEnergyConstants.BATTERY_MAX_CAPACITY.
+		// Upper energy limit is hardcoded in the engine (MyBattery.UpdateOnServer100 clamps capacity).
+		public const float CharacterBatteryWh = 10f;
+
+		public const double DelayForRotation = 1.5;
 
 		public static readonly Vector3I[] SixDirections = new Vector3I[]
 		{	

@@ -38,7 +38,7 @@ namespace LLE
 			// IMySolarFoodGenerator
 			// IMyTargetDummyBlock
 
-			if (def is MySurvivalKitDefinition)
+			if (IsSurvivalKit(block))
 				return "Life Support & Production";
 			if (block is IMyProductionBlock || // IMyAssembler IMyRefinery
 				block is IMyUpgradeModule)

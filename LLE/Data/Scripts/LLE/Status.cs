@@ -15,10 +15,6 @@ namespace LLE
 		private static readonly MyDefinitionId hydrogenId =
 			new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
 
-		// Sandbox.Game.MyEnergyConstants.BATTERY_MAX_CAPACITY.
-		// Upper energy limit is hardcoded in the engine (MyBattery.UpdateOnServer100 clamps capacity).
-		private const float CharacterBatteryWh = 10f;
-
 		private readonly IMyCharacter character;
 		private double nextReport;
 		private readonly StringBuilder report = new StringBuilder();
@@ -97,7 +93,7 @@ namespace LLE
 
 			return new Charge()
 			{	Health = healthMax,
-				Energy = CharacterBatteryWh,
+				Energy = Constants.CharacterBatteryWh,
 				Hydrogen = hydrogenMax,
 			};
 		}

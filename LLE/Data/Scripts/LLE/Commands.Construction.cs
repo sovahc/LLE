@@ -70,7 +70,7 @@ namespace LLE
 			Vector3D bp = Collisions.GetGrindWeldTarget(block, GetEngineerCenter());
 			// XX additionally verify that the block is actually raycastable
 
-			SetPause(1.5);
+			SetPause(Constants.DelayForRotation);
 			while(IsPaused())
 			{
 				CharacterRotateTo(bp);
@@ -229,7 +229,7 @@ namespace LLE
 			Vector3D bp = Collisions.GetGrindWeldTarget(block, GetEngineerCenter());
 			// XX additionally verify that the block is actually raycastable
 
-			SetPause(1.5);
+			SetPause(Constants.DelayForRotation);
 			while(IsPaused())
 			{
 				CharacterRotateTo(bp);

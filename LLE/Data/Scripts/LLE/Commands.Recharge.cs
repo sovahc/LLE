@@ -5,11 +5,22 @@ using VRage.Game.Entity;
 using Sandbox.Definitions;
 using Sandbox.ModAPI;
 using SpaceEngineers.Game.ModAPI;
+using Sandbox.Game.Entities.Character.Components;
+using VRage.Game;
+using VRage.Game.ObjectBuilders.Definitions;
 
 namespace LLE
 {
 	public partial class Commands
 	{	
+		private static readonly MyDefinitionId electricityId =
+    		new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Electricity");
+
+		internal static bool IsSurvivalKit(IMyTerminalBlock tb)
+		{
+			return tb.SlimBlock.BlockDefinition is MySurvivalKitDefinition;
+		}
+
 		internal CommandResult GetRechargePoints(TokenParser tp)
 		{
 			string message;
@@ -35,10 +46,7 @@ namespace LLE
 			{
 				if (block.CubeGrid != grid) continue;
 
-				var def = block.SlimBlock.BlockDefinition;
-				if (def is MySurvivalKitDefinition ||
-					block is IMyCockpit ||
-					block is IMyMedicalRoom)
+				if (IsSurvivalKit(block) || block is IMyCockpit || block is IMyMedicalRoom)
 				{	
 					bool hasHydrogen = IsHydrogenReachable(block, terminalBlocks);
 
@@ -77,7 +85,7 @@ namespace LLE
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if (block == null) yield return $"Error: no block at {IJK(ijk)}";
 
-			if(block.FatBlock == null) yield return $"There is no way to recharge from {IJK(ijk)}";
+			if(block.FatBlock == null) yield return $"There is no way to recharge from {Name(block)}";
 
 			var cockpit = block.FatBlock as IMyCockpit;
 			if(cockpit != null)
@@ -121,6 +129,77 @@ namespace LLE
 
 				cockpit.RemovePilot();
 				yield return $"Timeout! Recharge may be too slow.";
+			}
+
+			var tb = block.FatBlock as IMyTerminalBlock;
+			if(IsSurvivalKit(tb) || tb is IMyMedicalRoom)
+			{
+				if(IsTooFar(ijk, out message)) yield return message;
+
+				var ec = GetEngineerCenter();
+				Vector3D rechargeButton;
+				if(!Collisions.GetNearestDetectorCenterByPrefix(block, ec, "block_", out rechargeButton))
+					yield return $"Recharge button not found on {Name(block)}";
+
+				bool hasPower = GridHasPower(selectedGrid);
+
+				var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
+				terminalBlocks.Clear();
+				ts.GetBlocks(terminalBlocks);
+				
+				bool hasHydrogen = IsHydrogenReachable(block.FatBlock, terminalBlocks);
+				terminalBlocks.Clear();
+
+				if(!hasPower && !hasHydrogen)
+    				yield return "No power or hydrogen available for recharging.";
+
+				// симуляция процесса, так как игра в очередной раз зажала нужный API
+
+				SetPause(Constants.DelayForRotation);
+				while(IsPaused())
+				{	CharacterRotateTo(rechargeButton);
+					yield return null;
+				}
+
+				var oc = character.Components?.Get<MyCharacterOxygenComponent>();
+    			if(oc == null) yield return "Internal error: Нет MyCharacterOxygenComponent у персонажа.";
+
+				const float ChargeFillSeconds = 1.666f;
+
+				for(;;)
+				{	double t0 = Time.Now;
+					yield return null;
+					
+					float dt = (float)(Time.Now - t0);
+					float rate = dt / ChargeFillSeconds;
+
+					bool needMorePower = true;
+					bool needMoreHydrogen = true;
+
+    				if(hasPower)
+    				{	
+						float max = Constants.CharacterBatteryWh;
+						
+						float current = oc.CharacterGasSource.RemainingCapacityByType(electricityId);
+						float target = current + (max - current) * rate;
+        				if(target > max) { target = max; needMorePower = false; }
+        				oc.CharacterGasSource.SetRemainingCapacityByType(electricityId, target);
+    				}
+
+    				if(hasHydrogen)
+    				{
+        				float current = oc.GetGasFillLevel(hydrogenId);
+        				float target = current + (1f - current) * rate;
+        				if(target > 1f) { target = 1f; needMoreHydrogen = false; }
+        				var hId = hydrogenId;
+        				oc.UpdateStoredGasLevel(ref hId, target);
+    				}
+
+					if(hasPower && needMorePower) continue;
+					if(hasHydrogen && needMoreHydrogen) continue;
+
+					yield return Success(status.ReportAll());
+				}
 			}
 		}
 	}
