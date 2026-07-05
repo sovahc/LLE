@@ -164,12 +164,52 @@ You operate on a selected grid (ship or station).
 ";
 }
 /*
-* search block 'substring'
-  Search blocks by name.
+XX доделать recharge / refill
+* power — состояние энергосистемы грида: реакторы/батареи/солнечные/ветряки, суммарная выработка, заряд батарей
+
+* distance I J K
+* distance I J K I2 J2 K2 -> измерительная рулетка
+* where — где я сейчас: позиция в мире, на каком гриде (или «в открытом космосе»), текущая клетка грида.
+Radio subsystem (vision like)
+* approach I J K — подлететь близко к координате, но без A* внутрь грида
+? help recharge  -> Более подробная справка по конкретной команде.
+? wait N  -> Подождать N секунд.
+? sound 'name'  -> play sound
+
+? scan Просканировать видимый сектор и вернуть содержимое?
+? select nearest grid
+
+? missing I J K — показать недостающие компоненты для конкретного блока
+* craft - управление ассемблером
+. produce N 'item' at I J K — поставить в очередь ассемблера
+* для рефайнери нужно управление порядком предметов в инвентаре.
+* rename I J K 'name'
+* on I J K
+* off I J K
+? toggle I J K
+? set I J K 'property' 'value' — установить TerminalProperty (угол ротора, цвет света, лимит)
+? mark I J K 'label'  -> e.g. mark 10 0 -2 'main cargo'
+
+? take all 'item' from I J K
+? put all 'item' into I J K
+
+? dump components into I J K
+? dump ores into I J K
+? dump ingots into I J K
+
+* move forward 5
+* go 'Assembler' && go 'Cargo' = search block 'Assembler' 1 && fly I J K
+* open I J K  -> Open door
+* close I J K  -> Close door
+
+* press I J K [buttonIndex] - Нажать кнопку на Button Panel.
+
 * info 'name'
   Get detailed information about a specific object.
 look at 'name'
   Rotate to face an object
+симметричная комманда возвращающая - "на что я смотрю"
+
 hack 'block_name'
   Grind a specific block just below the hacking point (weld it back to restore functionality).
 mine 'ore_name'
@@ -179,9 +219,16 @@ pickup 'name'
 drop [quantity|all] 'name'
   Drop a specified object.
 ? move {forward|backward|left|right|up|down} {distance} - Move in a direction
-? Recover from being stuck.
-? Save 'string' to memory.
+? unstuck / recover - Recover from being stuck.
+
+remember 'key' 'value' — записать пару ключ-значение (в статический Dictionary<string,string> мода).
+recall 'key' — прочитать.
+forget 'key' — удалить.
+notes — вывести все ключи.
+
 ! Pathfinding: safest (default) / shortest / scouting / prefer open space
+? log - Вернуть историю выполнённых команд и их результаты
+? place 'block_type' I J K [orientation]
 */
 		private MyEntity3DSoundEmitter soundEmitter;
 
