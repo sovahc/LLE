@@ -131,6 +131,9 @@ namespace LLE
 
 		public string Result()
 		{
+			if(data.Count == 0)
+				return " -- none --";
+
 			foreach(var kv in data)
 			{	
 				if(kv.Value.Length > 0)

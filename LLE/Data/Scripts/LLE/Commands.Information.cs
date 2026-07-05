@@ -13,7 +13,6 @@ using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
 using IMyTerminalBlock = Sandbox.ModAPI.IMyTerminalBlock;
 using Sandbox.Game;
 using Sandbox.Game.EntityComponents;
-using Sandbox.Game.Entities.Character.Components;
 
 namespace LLE
 {
@@ -522,6 +521,13 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 			return false;
 		}
 
+		internal bool HasPower(IMyCubeBlock block)
+		{	if (block.Components == null) return false;
+			var sink = block.Components.Get<MyResourceSinkComponent>();
+			if (sink == null) return false;
+			return sink.IsPoweredByType(MyResourceDistributorComponent.ElectricityId);
+		}
+
 		internal CommandResult Recharge(TokenParser tp)
 		{
 			string message;
@@ -533,29 +539,40 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 			terminalBlocks.Clear();
 			ts.GetBlocks(terminalBlocks);
 
-			StringBuilder result = new StringBuilder();
+			string category, name;
+			Description(grid as MyEntity, out category, out name);
+
+			var md = new MyMarkdown();
+			md.Append($"# Recharge points of {Quote(name)}");
 
 			foreach (var block in terminalBlocks)
 			{
 				if (block.CubeGrid != grid) continue;
 
-				var cockpit = block as IMyCockpit;
-				if (cockpit != null)
+				var def = block.SlimBlock.BlockDefinition;
+				if (def is MySurvivalKitDefinition ||
+					block is IMyCockpit ||
+					block is IMyMedicalRoom)
 				{	
-					var sink = cockpit.Components.Get<MyResourceSinkComponent>();
-					bool hasPower = sink.IsPoweredByType(MyResourceDistributorComponent.ElectricityId);
-
+					bool hasPower = HasPower(block);
 					bool hasHydrogen = IsHydrogenReachable(block, terminalBlocks);
-					
-					var oxygen = cockpit.OxygenFilledRatio * cockpit.OxygenCapacity;
 
-					result.Append($"{Name(block.SlimBlock)} at {IJK(block.Position)}: E {hasPower} H2 {hasHydrogen}\n");
+					string ecat;
+
+					if(hasPower && hasHydrogen)
+						ecat = "# Energy and Hydrogen";
+					else if (hasPower)
+						ecat = "# Energy";
+					else if (hasHydrogen)
+						ecat = "# Hydrogen";
+					else ecat = null;
+
+					if(ecat != null) md.Add(ecat, $"{Name(block.SlimBlock)} at {IJK(block.Position)}");
 				}
 			}
-
 			terminalBlocks.Clear();
 
-			return Success(result.ToString());
+			return Success(md.Result());
 		}
 	}
 }
