@@ -559,6 +559,11 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 				{	
 					bool hasHydrogen = IsHydrogenReachable(block, terminalBlocks);
 
+					string occupiedBy = "";
+					var cockpit = block as IMyCockpit;
+					if (cockpit != null && cockpit.Pilot != null)
+						occupiedBy = $" (occupied by {cockpit.Pilot.DisplayName})";
+
 					string ecat;
 
 					if(hasPower && hasHydrogen)
@@ -569,7 +574,8 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} block {Quote(blockName)} at {
 						ecat = "## Hydrogen";
 					else ecat = null;
 
-					if(ecat != null) md.Add(ecat, $"* {Name(block.SlimBlock)} at {IJK(block.Position)}");
+					if(ecat != null)
+						md.Add(ecat, $"* {Name(block.SlimBlock)} at {IJK(block.Position)}{occupiedBy}");
 				}
 			}
 			terminalBlocks.Clear();
