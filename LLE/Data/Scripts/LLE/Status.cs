@@ -17,7 +17,7 @@ namespace LLE
 
 		// Sandbox.Game.MyEnergyConstants.BATTERY_MAX_CAPACITY.
 		// Upper energy limit is hardcoded in the engine (MyBattery.UpdateOnServer100 clamps capacity).
-		private const float BatteryMaxCapacityWh = 10f;
+		private const float CharacterBatteryWh = 10f;
 
 		private readonly IMyCharacter character;
 		private double nextReport;
@@ -29,17 +29,17 @@ namespace LLE
 			nextReport = Time.Now + 1;
 		}
 
-		private struct All
+		public struct Charge
 		{	public float Health;
 			public float Energy;
 			public float Hydrogen;
 		}
 
-		private static All Undefined()
-		{	return new All() { Health = -1, Energy = -1, Hydrogen = -1  };
+		private static Charge Undefined()
+		{	return new Charge() { Health = -1, Energy = -1, Hydrogen = -1  };
 		}
 
-		private All previous = Undefined();
+		private Charge previous = Undefined();
 
 		private int Bucket(float f)
 		{	if(f < 0) return int.MinValue;
@@ -73,29 +73,52 @@ namespace LLE
 			if (oc != null) oc.SuitOxygenLevel = 1f;
 		}
 
-		private void MakeReport()
+		public Charge Current()
 		{
 			var sc = character.Components?.Get<MyCharacterStatComponent>();
 			var healthMax = sc.Health.MaxValue;
 			float health = sc.Health.Value / healthMax;
-			
-			var hydrogenMax = (character.Definition as MyCharacterDefinition)?.SuitResourceStorage?
-				.FirstOrDefault(g => g.Id.SubtypeName == hydrogenId.SubtypeName)?
-				.MaxCapacity ?? 0f;
 
-			var current = new All()
+			return new Charge()
 			{
 				Health = health,
 				Energy = character.SuitEnergyLevel,
 				Hydrogen = character.GetSuitGasFillLevel(hydrogenId)
 			};
+		}
+
+		public Charge Maximal()
+		{
+			var sc = character.Components?.Get<MyCharacterStatComponent>();
+			var healthMax = sc.Health.MaxValue;
+			var hydrogenMax = (character.Definition as MyCharacterDefinition)?.SuitResourceStorage?
+				.FirstOrDefault(g => g.Id.SubtypeName == hydrogenId.SubtypeName)?
+				.MaxCapacity ?? 0f;
+
+			return new Charge()
+			{	Health = healthMax,
+				Energy = CharacterBatteryWh,
+				Hydrogen = hydrogenMax,
+			};
+		}
+
+		public static bool IsCharging(Charge previous, Charge current)
+		{	return current.Health > previous.Health ||
+					current.Energy > previous.Energy ||
+					current.Hydrogen > previous.Hydrogen;
+		}
+
+		private void MakeReport()
+		{
+			var current = Current();
+			var m = Maximal();
 
 			var c = current;
 			var p = previous;
 
-			if (Bucket(c.Health) != Bucket(p.Health)) report.Append($" Health {c.Health * 100:F0}% ({c.Health * healthMax:F0})");
-			if (Bucket(c.Energy) != Bucket(p.Energy)) report.Append($" Energy {c.Energy * 100:F0}% ({c.Energy * BatteryMaxCapacityWh:F1}Wh)");
-			if (Bucket(c.Hydrogen) != Bucket(p.Hydrogen)) report.Append($" Hydrogen {c.Hydrogen * 100:F0}% ({c.Hydrogen * hydrogenMax:F0}L)");
+			if (Bucket(c.Health) != Bucket(p.Health)) report.Append($" Health {c.Health * 100:F0}% ({c.Health * m.Health:F0})");
+			if (Bucket(c.Energy) != Bucket(p.Energy)) report.Append($" Energy {c.Energy * 100:F0}% ({c.Energy * m.Energy:F1}Wh)");
+			if (Bucket(c.Hydrogen) != Bucket(p.Hydrogen)) report.Append($" Hydrogen {c.Hydrogen * 100:F0}% ({c.Hydrogen * m.Hydrogen:F0}L)");
 
 			previous = current;
 		}

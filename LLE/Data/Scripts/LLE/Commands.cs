@@ -568,7 +568,11 @@ notes — print all keys.
 			{	result = Exit(tp);
 			}
 			else if(tp.Match("Recharge"))
-			{	result = Recharge(tp);
+			{	
+				if(tp.End)
+					result = GetRechargePoints(tp);
+				else
+					coroutineStack.Push(Recharge(tp));
 			}
 			else
 			{	result = $"Unknown command '{tp.NextString()}'.";

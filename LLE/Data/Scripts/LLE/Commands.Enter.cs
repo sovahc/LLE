@@ -5,6 +5,40 @@ namespace LLE
 {
 	public partial class Commands
 	{
+		private bool EnterCockpit(IMyCockpit cockpit, out string message)
+		{	
+			var block = cockpit.SlimBlock;
+			var ijk = cockpit.Position;
+			
+			// Already seated somewhere — get out first.
+			var currentSeat = character.Parent as IMyCockpit;
+			if(currentSeat != null && currentSeat.EntityId != cockpit.EntityId)
+				currentSeat.RemovePilot();
+
+			// Already in this seat — nothing to do.
+			if(cockpit.Pilot != null && cockpit.Pilot.EntityId == character.EntityId)
+			{	message = $"Already in {Name(block)} at {IJK(ijk)}.";
+				return true;
+			}
+
+			if(cockpit.Pilot != null)
+			{	message = $"Error: {Name(block)} at {IJK(ijk)} is already occupied.";
+				return false;
+			}
+
+			cockpit.AttachPilot(character, 0);
+
+			// AttachPilot silently no-ops if it fails; verify by re-checking Pilot.
+			if(cockpit.Pilot != null && cockpit.Pilot.EntityId == character.EntityId)
+			{	message = $"Entered {Name(block)} at {IJK(ijk)}.";
+				return true;
+			}
+			else
+			{	message = $"Error: failed to enter {Name(block)} at {IJK(ijk)}.";
+				return false;
+			}
+		}
+
 		internal CommandResult Enter(TokenParser tp)
 		{
 			string message;
@@ -23,25 +57,8 @@ namespace LLE
 
 			if(IsTooFar(ijk, out message)) return message;
 
-			// Already seated somewhere — get out first.
-			var currentSeat = character.Parent as IMyCockpit;
-			if(currentSeat != null && currentSeat.EntityId != cockpit.EntityId)
-				currentSeat.RemovePilot();
-
-			// Already in this seat — nothing to do.
-			if(cockpit.Pilot != null && cockpit.Pilot.EntityId == character.EntityId)
-				return Success($"Already in {Name(block)} at {IJK(ijk)}.");
-
-			if(cockpit.Pilot != null)
-				return $"Error: {Name(block)} at {IJK(ijk)} is already occupied.";
-
-			cockpit.AttachPilot(character, 0);
-
-			// AttachPilot silently no-ops if it fails; verify by re-checking Pilot.
-			if(cockpit.Pilot == null || cockpit.Pilot.EntityId != character.EntityId)
-				return $"Error: failed to enter {Name(block)} at {IJK(ijk)}.";
-
-			return Success($"Entered {Name(block)} at {IJK(ijk)}.");
+			EnterCockpit(cockpit, out message);
+			return message;
 		}
 
 		internal CommandResult Exit(TokenParser tp)
