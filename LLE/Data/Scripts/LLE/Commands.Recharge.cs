@@ -6,17 +6,14 @@ using Sandbox.Definitions;
 using Sandbox.ModAPI;
 using SpaceEngineers.Game.ModAPI;
 using Sandbox.Game.Entities.Character.Components;
+using Sandbox.Game.Components;
 using VRage.Game;
-using VRage.Game.ObjectBuilders.Definitions;
 
 namespace LLE
 {
 	public partial class Commands
 	{	
-		private static readonly MyDefinitionId electricityId =
-    		new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Electricity");
-
-		internal static bool IsSurvivalKit(IMyTerminalBlock tb)
+	internal static bool IsSurvivalKit(IMyTerminalBlock tb)
 		{
 			return tb.SlimBlock.BlockDefinition is MySurvivalKitDefinition;
 		}
@@ -141,7 +138,7 @@ namespace LLE
 				if(!Collisions.GetNearestDetectorCenterByPrefix(block, ec, "block_", out rechargeButton))
 					yield return $"Recharge button not found on {Name(block)}";
 
-				bool hasPower = GridHasPower(selectedGrid);
+				bool hasEnergy = GridHasPower(selectedGrid);
 
 				var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 				terminalBlocks.Clear();
@@ -150,10 +147,10 @@ namespace LLE
 				bool hasHydrogen = IsHydrogenReachable(block.FatBlock, terminalBlocks);
 				terminalBlocks.Clear();
 
-				if(!hasPower && !hasHydrogen)
+				if(!hasEnergy && !hasHydrogen)
     				yield return "No power or hydrogen available for recharging.";
 
-				// симуляция процесса, так как игра в очередной раз зажала нужный API
+				// Simulating the process since the game once again locked the necessary API
 
 				SetPause(Constants.DelayForRotation);
 				while(IsPaused())
@@ -162,7 +159,10 @@ namespace LLE
 				}
 
 				var oc = character.Components?.Get<MyCharacterOxygenComponent>();
-    			if(oc == null) yield return "Internal error: Нет MyCharacterOxygenComponent у персонажа.";
+				if(oc == null) yield return "Internal error: Character has no MyCharacterOxygenComponent.";
+
+				var sc = character.Components?.Get<MyCharacterStatComponent>();
+				if(sc == null) yield return "Internal error: Character has no MyCharacterStatComponent.";
 
 				const float ChargeFillSeconds = 1.666f;
 
@@ -173,29 +173,40 @@ namespace LLE
 					float dt = (float)(Time.Now - t0);
 					float rate = dt / ChargeFillSeconds;
 
-					bool needMorePower = true;
+					bool needMoreHealth = true;
+					bool needMoreEnergy = true;
 					bool needMoreHydrogen = true;
 
-    				if(hasPower)
+					if(true)
+					{	
+						float max = sc.Health.MaxValue;
+						float current = sc.Health.Value;
+						float target = current + max * rate;
+						if(target > max) { target = max; needMoreHealth = false; }
+						sc.Health.Value = target;
+					}
+
+    				if(hasEnergy)
     				{	
-						float max = Constants.CharacterBatteryWh;
-						
+						float max = Constants.CharacterBatteryMWh;
 						float current = oc.CharacterGasSource.RemainingCapacityByType(electricityId);
-						float target = current + (max - current) * rate;
-        				if(target > max) { target = max; needMorePower = false; }
+						float target = current + max * rate;
+        				if(target > max) { target = max; needMoreEnergy = false; }
         				oc.CharacterGasSource.SetRemainingCapacityByType(electricityId, target);
     				}
 
-    				if(hasHydrogen)
-    				{
-        				float current = oc.GetGasFillLevel(hydrogenId);
-        				float target = current + (1f - current) * rate;
-        				if(target > 1f) { target = 1f; needMoreHydrogen = false; }
-        				var hId = hydrogenId;
-        				oc.UpdateStoredGasLevel(ref hId, target);
-    				}
+					if(hasHydrogen)
+					{
+						float max = 1.0f;
+						float current = oc.GetGasFillLevel(hydrogenId);
+						float target = current + max* rate;
+						if(target > 1f) { target = max; needMoreHydrogen = false; }
+						var hId = hydrogenId;
+						oc.UpdateStoredGasLevel(ref hId, target);
+					}
 
-					if(hasPower && needMorePower) continue;
+					if(needMoreHealth) continue;
+					if(hasEnergy && needMoreEnergy) continue;
 					if(hasHydrogen && needMoreHydrogen) continue;
 
 					yield return Success(status.ReportAll());

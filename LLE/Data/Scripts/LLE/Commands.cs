@@ -30,8 +30,10 @@ namespace LLE
 
 		private IMyCubeGrid selectedGrid;
 
-		private static readonly MyDefinitionId hydrogenId =
-			new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
+	private static readonly MyDefinitionId hydrogenId =
+		new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
+	private static readonly MyDefinitionId electricityId =
+		new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Electricity");
 		private MyVoxelBase selectedAsteroid;
 
 		private readonly IMyCharacter character;

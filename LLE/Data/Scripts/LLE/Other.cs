@@ -23,6 +23,7 @@ namespace LLE
 		// Sandbox.Game.MyEnergyConstants.BATTERY_MAX_CAPACITY.
 		// Upper energy limit is hardcoded in the engine (MyBattery.UpdateOnServer100 clamps capacity).
 		public const float CharacterBatteryWh = 10f;
+		public const float CharacterBatteryMWh = 0.00001f; // 10 Wh = Sandbox.Game.MyEnergyConstants.BATTERY_MAX_CAPACITY
 
 		public const double DelayForRotation = 1.5;
 
