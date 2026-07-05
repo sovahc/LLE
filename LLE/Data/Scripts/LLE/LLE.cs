@@ -109,7 +109,6 @@ namespace LLE
 		private Commands commands;
 
 		private bool initialized;
-		private IMyCharacter bot;
 		private LLM llm;		
 
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
@@ -259,7 +258,7 @@ namespace LLE
 				MyConsole.AddMultiline(result?.Message, Color.SeaGreen);
 			}
 			else if(message == ">spawn")
-			{	bot = Bot.Spawn(player);
+			{	var bot = Bot.Spawn(player);
 				MyConsole.Add($"bot={bot}");
 				if(bot == null) return;				
 

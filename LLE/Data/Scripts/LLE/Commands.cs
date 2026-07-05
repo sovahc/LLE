@@ -19,6 +19,11 @@ using Sandbox.Game.Entities;
 //   yield return IEnumerator;  = run nested coroutine to completion, then resume parent
 //   yield break;              = done at this level (parent resumes, or command ends)
 // ! Re-query engine objects after `yield return null;` don't cache references.
+//
+// Design note: `yield return "error msg"` without a trailing `yield break;` works because
+// Commands.Update() disposes the entire coroutine stack the moment it receives a string.
+// The code after such a yield never executes — this is intentional: it avoids a redundant
+// `yield break;` after every error path, keeping the coroutine bodies compact.
 
 namespace LLE
 {

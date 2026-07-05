@@ -7,7 +7,6 @@ using Sandbox.ModAPI;
 using SpaceEngineers.Game.ModAPI;
 using Sandbox.Game.Entities.Character.Components;
 using Sandbox.Game.Components;
-using VRage.Game;
 
 namespace LLE
 {

@@ -428,6 +428,7 @@ namespace LLE
 			{
 				var def = (MyDefinitionId)item.Type;
 				var itemDef = MyDefinitionManager.Static.GetDefinition(def) as MyPhysicalItemDefinition;
+				if(itemDef == null) continue;
 
 				var name = itemDef.DisplayNameText;
 				double amount = (double)item.Amount;

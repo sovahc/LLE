@@ -93,7 +93,7 @@ namespace LLE
 				MyGunStatusEnum status = MyGunStatusEnum.Cooldown;
 				for(int i = 0; i < 30; ++i)
 				{	grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-					if(grinderGun == null) yield break; // user interaction
+					if(grinderGun == null) yield break; // intentional stop on user interaction
 					
 					if(!grinderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
 						yield return null;
@@ -105,7 +105,7 @@ namespace LLE
 				}
 
 				var myInv = inventory as MyInventory;
-				if(myInv == null) yield break;
+				if(myInv == null) yield return "Internal error: inventory is not MyInventory";
 
 				bool inventoryFull = false;
 
@@ -257,7 +257,7 @@ namespace LLE
 				MyGunStatusEnum status = MyGunStatusEnum.Cooldown;
 				for(int i = 0; i < 30; ++i)
 				{	welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-					if(welderGun == null) yield break; // user interaction
+					if(welderGun == null) yield break; // intentional stop on user interaction
 					
 					if(!welderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
 						yield return null;

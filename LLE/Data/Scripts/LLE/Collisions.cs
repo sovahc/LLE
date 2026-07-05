@@ -219,6 +219,7 @@ namespace LLE
 				{	if(returnOnFirstFound) return true; // For unknown block
 
 					outIntersected.Add(slim);
+					continue;
 				}
 
 				var modelFrom = Transform.WorldToModel(slim, worldLine.From); // XX double inverse matrix calculatuion

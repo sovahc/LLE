@@ -57,8 +57,8 @@ namespace LLE
 
 			if(IsTooFar(ijk, out message)) return message;
 
-			EnterCockpit(cockpit, out message);
-			return message;
+			if(!EnterCockpit(cockpit, out message)) return message;
+			return Success(message);
 		}
 
 		internal CommandResult Exit(TokenParser tp)
