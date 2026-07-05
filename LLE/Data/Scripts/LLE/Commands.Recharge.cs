@@ -13,7 +13,7 @@ namespace LLE
 {
 	public partial class Commands
 	{	
-	internal static bool IsSurvivalKit(IMyTerminalBlock tb)
+		internal static bool IsSurvivalKit(IMyTerminalBlock tb)
 		{
 			return tb.SlimBlock.BlockDefinition is MySurvivalKitDefinition;
 		}
