@@ -41,10 +41,10 @@ namespace LLE
 		{	if(f < 0) return int.MinValue;
 			if(f > 1) return int.MaxValue;
 			if(f < 0.05) return 1;
-			if(f < 0.10) return 2;
+			if(f < 0.10) return 2; // critical
 			if(f < 0.15) return 3;
 			if(f < 0.20) return 4;
-			if(f < 0.25) return 5;
+			if(f < 0.25) return 5; // low
 			if(f < 0.50) return 6;
 			if(f < 0.75) return 7;
 			return 10;
@@ -104,6 +104,12 @@ namespace LLE
 					current.Hydrogen > previous.Hydrogen;
 		}
 
+		private void EmitWarning(int bucket, string parameter)
+		{
+			if(bucket <= 2) report.Append($"\nWARNING: {parameter} is critical!");
+			else if(bucket <= 5) report.Append($"\nWarning: {parameter} is low!");
+		}
+
 		private void MakeReport()
 		{
 			var current = Current();
@@ -112,9 +118,17 @@ namespace LLE
 			var c = current;
 			var p = previous;
 
-			if (Bucket(c.Health) != Bucket(p.Health)) report.Append($" Health {c.Health * 100:F0}% ({c.Health * m.Health:F0})");
-			if (Bucket(c.Energy) != Bucket(p.Energy)) report.Append($" Energy {c.Energy * 100:F0}% ({c.Energy * m.Energy:F1}Wh)");
-			if (Bucket(c.Hydrogen) != Bucket(p.Hydrogen)) report.Append($" Hydrogen {c.Hydrogen * 100:F0}% ({c.Hydrogen * m.Hydrogen:F0}L)");
+			var healthBucket = Bucket(c.Health);
+			var energyBucket = Bucket(c.Energy);
+			var hydrogenBucket = Bucket(c.Hydrogen);
+
+			if (healthBucket != Bucket(p.Health)) report.Append($" Health {c.Health * 100:F0}% ({c.Health * m.Health:F0})");
+			if (energyBucket != Bucket(p.Energy)) report.Append($" Energy {c.Energy * 100:F0}% ({c.Energy * m.Energy:F1}Wh)");
+			if (hydrogenBucket != Bucket(p.Hydrogen)) report.Append($" Hydrogen {c.Hydrogen * 100:F0}% ({c.Hydrogen * m.Hydrogen:F0}L)");
+
+			EmitWarning(healthBucket, "Health");
+			EmitWarning(energyBucket, "Energy");
+			EmitWarning(hydrogenBucket, "Hydrogen");
 
 			previous = current;
 		}

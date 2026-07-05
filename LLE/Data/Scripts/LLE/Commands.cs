@@ -163,10 +163,17 @@ You operate on a selected grid (ship or station).
 
 * exit
   Leave the current cockpit or seat.
+
+* recharge
+  List blocks on the selected grid that can recharge you.
+
+* recharge I J K
+  Recharge at the block at the given grid coordinates. Use `fly I J K` first to get close enough.
+  For cockpits, cryo-chambers and seats: sits in it, exits automatically when done.
+  For medblocks and survival kits: collects energy near the block through a port.
 ";
 }
 /*
-XX finish recharge / refill
 * power — state of the grid's power system: reactors/batteries/solar/wind, total output, battery charge
 
 * distance I J K
