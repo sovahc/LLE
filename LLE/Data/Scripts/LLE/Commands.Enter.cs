@@ -5,7 +5,7 @@ namespace LLE
 {
 	public partial class Commands
 	{
-		internal CommandResult Seat(TokenParser tp)
+		internal CommandResult Enter(TokenParser tp)
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
@@ -30,7 +30,7 @@ namespace LLE
 
 			// Already in this seat — nothing to do.
 			if(cockpit.Pilot != null && cockpit.Pilot.EntityId == character.EntityId)
-				return Success($"Already seated in {Name(block)} at {IJK(ijk)}.");
+				return Success($"Already in {Name(block)} at {IJK(ijk)}.");
 
 			if(cockpit.Pilot != null)
 				return $"Error: {Name(block)} at {IJK(ijk)} is already occupied.";
@@ -39,9 +39,9 @@ namespace LLE
 
 			// AttachPilot silently no-ops if it fails; verify by re-checking Pilot.
 			if(cockpit.Pilot == null || cockpit.Pilot.EntityId != character.EntityId)
-				return $"Error: failed to seat into {Name(block)} at {IJK(ijk)}.";
+				return $"Error: failed to enter {Name(block)} at {IJK(ijk)}.";
 
-			return Success($"Seated in {Name(block)} at {IJK(ijk)}.");
+			return Success($"Entered {Name(block)} at {IJK(ijk)}.");
 		}
 
 		internal CommandResult Exit(TokenParser tp)
