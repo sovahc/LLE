@@ -80,11 +80,23 @@ namespace LLELoader
 			try
 			{
 				int contextId = _contextId;
-				var safeContext = System.Text.Json.JsonSerializer.Serialize(chatContext);
-				var safeSystem = System.Text.Json.JsonSerializer.Serialize(_systemPrompt);
-				var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": {max_tokens}, \"stream\": true, \"chat_template_kwargs\": {{ \"enable_thinking\": false }} }}";
+				var payload = new
+				{
+					model = "qwen",
+					messages = new[]
+					{
+						new { role = "system", content = _systemPrompt },
+						new { role = "user",   content = chatContext }
+					},
+					max_tokens = max_tokens,
+					stream = true,
+					chat_template_kwargs = new { enable_thinking = false }
+				};
+				var body = System.Text.Json.JsonSerializer.Serialize(payload);
 
-				var request = new HttpRequestMessage(HttpMethod.Post, LlmUrl) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+				var request = new HttpRequestMessage(HttpMethod.Post, LlmUrl)
+				{	Content = new StringContent(body, Encoding.UTF8, "application/json")
+				};
 				var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
 				var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
 
@@ -93,7 +105,10 @@ namespace LLELoader
 				using var reader = new StreamReader(stream);
 				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
 				{
-					if (_contextId != contextId) return; // Context was restarted while this request was in-flight — discard stale chunks
+					if (_contextId != contextId) return;
+						// Context was restarted while this request was in-flight
+						// — discard stale chunks
+					
 					if (!line.StartsWith("data:")) continue;
 					var data = line.Substring(5).Trim();
 					if (data == "[DONE]") break;
@@ -158,7 +173,8 @@ namespace LLELoader
 		[HarmonyPatchCategory("Late")]
 		static class Patch_ScriptManagerLoadData
 		{
-			private static readonly string[] BridgeMethods = ["IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetHelp", "GetContextStatus", "RestartContext"];
+			private static readonly string[] BridgeMethods =
+				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetHelp", "GetContextStatus", "RestartContext" ];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
