@@ -291,5 +291,7 @@ namespace LLE
 		public static bool GetChunkFromLLM(out FromLLM m) { m = null; return false; }
 		public static void SendMessageToLLM(string text) { }
 		public static void SetHelp(string text) { }
+		public static void GetContextStatus(out int usedChars, out int totalChars) { usedChars = 0; totalChars = 0; }
+		public static void RestartContext() { }
 	}
 }

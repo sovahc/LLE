@@ -152,6 +152,16 @@ namespace LLE
 			}
 		}
 
+		private void ContextStatisitic()
+		{
+			int used, total;
+			LLE_Loader.GetContextStatus(out used, out total);
+			if (total > 0)
+			{	int percent = used * 100 / total;
+				MyConsole.Add($"[CONTEXT] {used}/{total} chars ({percent}%)", Color.LightPink);
+			}
+		}
+
 		private void PollNewChunksFromLLM()
 		{
 			for (int i = 0; i < 10; ++i)
@@ -195,6 +205,8 @@ namespace LLE
 					MyConsole.AddMultiline("\n", Color.White);
 
 					waitingForResponse = false;
+
+					ContextStatisitic();
 					return;
 				}
 			}

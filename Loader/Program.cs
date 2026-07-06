@@ -42,7 +42,9 @@ namespace LLELoader
 
 	static class MessageBroker
 	{
+		private const int MaxContextChars = 100000;
 		private static readonly Queue<string> _chatContext = new Queue<string>();
+		private static int _contextId;
 
 		private static readonly ConcurrentQueue<LLE.FromLLM> _commandQueue = new ConcurrentQueue<LLE.FromLLM>();
 
@@ -100,6 +102,7 @@ namespace LLELoader
 		{
 			try
 			{
+				int contextId = _contextId;
 				var safeContext = System.Text.Json.JsonSerializer.Serialize(chatContext);
 				var safeSystem = System.Text.Json.JsonSerializer.Serialize(_systemPrompt);
 				var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 10000, \"stream\": true, \"chat_template_kwargs\": {{ \"enable_thinking\": false }} }}";
@@ -113,6 +116,7 @@ namespace LLELoader
 				using var reader = new StreamReader(stream);
 				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
 				{
+					if (_contextId != contextId) return; // Context was restarted while this request was in-flight — discard stale chunks
 					if (!line.StartsWith("data:")) continue;
 					var data = line.Substring(5).Trim();
 					if (data == "[DONE]") break;
@@ -179,7 +183,7 @@ namespace LLELoader
 		[HarmonyPatchCategory("Late")]
 		static class Patch_ScriptManagerLoadData
 		{
-			private static readonly string[] BridgeMethods = ["IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetHelp"];
+			private static readonly string[] BridgeMethods = ["IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetHelp", "GetContextStatus", "RestartContext"];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -215,6 +219,8 @@ namespace LLELoader
 									case "GetChunkFromLLM": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_GetChunkFromLLM)); break;
 									case "SendMessageToLLM": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SendMessageToLLM)); break;
 									case "SetHelp": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SetHelp)); break;
+									case "GetContextStatus": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_GetContextStatus)); break;
+									case "RestartContext": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_RestartContext)); break;
 									default: continue;
 								}
 
@@ -258,6 +264,23 @@ namespace LLELoader
 			static void Prefix_SetHelp(string text)
 			{
 				SetHelp(text);
+			}
+
+			static bool Prefix_GetContextStatus(out int usedChars, out int totalChars)
+			{
+				int chars = _systemPrompt.Length;
+				foreach (var s in _chatContext) chars += s.Length;
+				usedChars = chars;
+				totalChars = MaxContextChars;
+				return false;
+			}
+
+			static bool Prefix_RestartContext()
+			{
+				++_contextId;
+				_chatContext.Clear();
+				Logger.Write("[LLELoader] Context restarted: contextId=" + _contextId);
+				return false;
 			}
 
 		}  // Patch_ScriptManagerLoadData class ends here
