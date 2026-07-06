@@ -49,7 +49,6 @@ namespace LLELoader
 		private static string _systemPrompt = "";
 
 		private static readonly Queue<string> _chatContext = new Queue<string>();
-		private static int _contextId;
 
 		private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(300) };
 		
@@ -79,7 +78,6 @@ namespace LLELoader
 		{
 			try
 			{
-				int contextId = _contextId;
 				var payload = new
 				{
 					model = "qwen",
@@ -105,10 +103,6 @@ namespace LLELoader
 				using var reader = new StreamReader(stream);
 				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
 				{
-					if (_contextId != contextId) return;
-						// Context was restarted while this request was in-flight
-						// — discard stale chunks
-					
 					if (!line.StartsWith("data:")) continue;
 					var data = line.Substring(5).Trim();
 					if (data == "[DONE]") break;
@@ -274,9 +268,7 @@ namespace LLELoader
 
 			static bool Prefix_RestartContext()
 			{
-				++_contextId;
 				_chatContext.Clear();
-				Logger.Write("[LLELoader] Context restarted: contextId=" + _contextId);
 				return false;
 			}
 
