@@ -91,7 +91,9 @@ namespace LLE
 
 				if(!EnterCockpit(cockpit, out message)) yield return message;
 
-				var t1 = Time.Now + 1;
+				const double wait = 2.5;
+
+				var t1 = Time.Now + wait;
 
 				bool anyProgress = false;
 
@@ -102,7 +104,7 @@ namespace LLE
 				for(int i = 0; i < 20; ++i)
 				{
 					while(Time.Now < t1) yield return null;
-					t1 += 2.5;
+					t1 += wait;
 
 					var current = status.Current();
 
