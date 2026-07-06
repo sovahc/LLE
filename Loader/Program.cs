@@ -188,41 +188,15 @@ namespace LLELoader
 					var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
 					bool foundBridge = false;
-					foreach (var asm in assemblies)
+					foreach (var a in assemblies)
 					{
-						var type = asm.GetType("LLE.LLE_Loader", false);
+						var type = a.GetType("LLE.LLE_Loader", false);
 						if (type != null)
 						{
-							Logger.Write("[LLELoader] Found LLE.LLE_Loader in assembly: " + asm.GetName().Name);
+							Logger.Write("[LLELoader] Found LLE.LLE_Loader in assembly: " + a.GetName().Name);
 							foundBridge = true;
 
-							for (int i = 0; i < BridgeMethods.Length; i++)
-							{
-								string methodName = BridgeMethods[i];
-								MethodInfo original = AccessTools.Method(type, methodName);
-								if (original == null) continue;
-								if (_patchedMethods.Contains(original)) continue;
-
-								HarmonyMethod prefix;
-								switch (methodName)
-								{
-									case "IsPresent": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_IsPresent)); break;
-									case "GetChunkFromLLM": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_GetChunkFromLLM)); break;
-									case "SendMessageToLLM": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SendMessageToLLM)); break;
-									case "SetHelp": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_SetHelp)); break;
-									case "GetContextStatus": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_GetContextStatus)); break;
-									case "RestartContext": prefix = new HarmonyMethod(typeof(Patch_ScriptManagerLoadData), nameof(Prefix_RestartContext)); break;
-									default: continue;
-								}
-
-								new Harmony("lle.loader.bridge." + methodName).Patch(
-									original: original,
-									prefix: prefix
-								);
-
-								_patchedMethods.Add(original);
-								Logger.Write("[LLELoader] Patched LLE.LLE_Loader." + methodName);
-							}
+							ApplyPatch(type);
 						}
 					}
 
@@ -232,6 +206,38 @@ namespace LLELoader
 				catch (Exception ex)
 				{
 					Logger.Write("[LLELoader] Patching failed with exception: " + ex.ToString());
+				}
+			}
+
+			private static void ApplyPatch(Type type)
+			{
+				for (int i = 0; i < BridgeMethods.Length; i++)
+				{
+					string methodName = BridgeMethods[i];
+					MethodInfo original = AccessTools.Method(type, methodName);
+					if (original == null) continue;
+					if (_patchedMethods.Contains(original)) continue;
+
+					var smld = typeof(Patch_ScriptManagerLoadData);
+					HarmonyMethod prefix;
+					switch (methodName)
+					{
+						case "IsPresent": prefix = new HarmonyMethod(smld, nameof(Prefix_IsPresent)); break;
+						case "GetChunkFromLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_GetChunkFromLLM)); break;
+						case "SendMessageToLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_SendMessageToLLM)); break;
+						case "SetHelp": prefix = new HarmonyMethod(smld, nameof(Prefix_SetHelp)); break;
+						case "GetContextStatus": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextStatus)); break;
+						case "RestartContext": prefix = new HarmonyMethod(smld, nameof(Prefix_RestartContext)); break;
+						default: continue;
+					}
+
+					new Harmony("lle.loader.bridge." + methodName).Patch(
+						original: original,
+						prefix: prefix
+					);
+
+					_patchedMethods.Add(original);
+					Logger.Write("[LLELoader] Patched LLE.LLE_Loader." + methodName);
 				}
 			}
 
