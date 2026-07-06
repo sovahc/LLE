@@ -46,6 +46,7 @@ namespace LLE
 		private Status status;
 
 		internal string Status_ReportChanged() => status.ReportChanged();
+		internal void Status_Tick() => status.Tick();
 		
 		private readonly Stack<IEnumerator> coroutineStack = new Stack<IEnumerator>();
 
@@ -491,8 +492,6 @@ notes — print all keys.
 
 		internal CommandResult Update()
 		{
-			status.Tick();
-
 			if (coroutineStack.Count == 0) return null;
 
 			var top = coroutineStack.Peek();

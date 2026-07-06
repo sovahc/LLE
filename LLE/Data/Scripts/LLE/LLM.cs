@@ -101,6 +101,7 @@ namespace LLE
 			}
 
 			// Status subsystem reports
+			commands.Status_Tick();
 			string sr = commands.Status_ReportChanged();
 			if(sr != null)
 			{	Append("[STATUS]:", Color.Azure);
