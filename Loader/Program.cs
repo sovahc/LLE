@@ -50,24 +50,17 @@ namespace LLELoader
 
 		private static string _systemPrompt = "";
 
-		static MessageBroker()
-		{
-			//string loaderDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-		}
+		static MessageBroker() {}
 
 		public static bool GetChunkFromLLM(out LLE.FromLLM cmd)
 		{
 			bool r = _commandQueue.TryDequeue(out cmd);
-			//if (r) Logger.Write("[GetChunkFromLLM] " + cmd.Payload);
 			return r;
 		}
 
 		public static void SendMessageToLLM(string text)
 		{
-			//Logger.Write("[SendMessageToLLM] " + text);
-
 			_chatContext.Enqueue(text);
-			//if (_chatContext.Count > 1000) _chatContext.Dequeue();
 
 			var _ = RespondToChatAsync();
 		}
@@ -131,7 +124,6 @@ namespace LLELoader
 							var reasoning = reasoningProp.GetString();
 							if (!string.IsNullOrEmpty(reasoning))
 							{
-								//Logger.Write("[LLM chunk IN] Reasoning: " + reasoning);
 								_commandQueue.Enqueue(new LLE.FromLLM
 								{
 									Type = LLE.MessageType.Reasoning,
@@ -144,7 +136,6 @@ namespace LLELoader
 							var content = contentProp.GetString();
 							if (!string.IsNullOrEmpty(content))
 							{
-								//Logger.Write("[LLM chunk IN] Content: " + content);
 								_commandQueue.Enqueue(new LLE.FromLLM
 								{
 									Type = LLE.MessageType.Content,
