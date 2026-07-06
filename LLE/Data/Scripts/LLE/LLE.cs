@@ -4,6 +4,7 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.ModAPI;
+using VRage.Input;
 using VRage.ModAPI;
 using VRage.Utils;
 using Sandbox.ModAPI;
@@ -109,7 +110,9 @@ namespace LLE
 		private Commands commands;
 
 		private bool initialized;
-		private LLM llm;		
+		private LLM llm;
+
+		private IMyControl signalsControl;		
 
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
@@ -137,6 +140,8 @@ namespace LLE
 
 		protected override void UnloadData()
 		{
+			if (signalsControl != null) signalsControl.IsEnabled = true;
+
 			MyEntities.OnEntityAdd -= OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
@@ -148,10 +153,12 @@ namespace LLE
 			var ch = player.Character;
 			if (ch == null) return;
 
+			HandleConsoleToggle();
+
 			// Lazy initialization
 
-			if(!initialized)
-			{	
+			if (!initialized)
+			{
 				initialized = true;
 
 				LLE_Loader.SetHelp(Commands.Help());
@@ -161,6 +168,33 @@ namespace LLE
 			}
 
 			llm.Tick();
+		}
+
+		// HACK: While Shift is held, the game's TOGGLE_SIGNALS control is disabled via IsEnabled=false,
+		// so Shift+H belongs to the mod (toggles console) instead of the game (toggles signals).
+		// IsNewKeyPressed reads the raw key state and is not affected by IsEnabled, so H is still detected.
+		private void HandleConsoleToggle()
+		{
+			if (signalsControl == null)
+				signalsControl = MyAPIGateway.Input.GetGameControl(MyStringId.GetOrCompute("TOGGLE_SIGNALS"));
+
+			if (MyAPIGateway.Gui.ChatEntryVisible || MyAPIGateway.Gui.IsCursorVisible)
+			{
+				if (signalsControl != null) signalsControl.IsEnabled = true;
+				return;
+			}
+
+			if (MyAPIGateway.Input.IsKeyPress(MyKeys.Shift))
+			{
+				if (signalsControl != null) signalsControl.IsEnabled = false;
+
+				if (MyAPIGateway.Input.IsNewKeyPressed(MyKeys.H))
+					MyConsole.Visible = !MyConsole.Visible;
+			}
+			else
+			{
+				if (signalsControl != null) signalsControl.IsEnabled = true;
+			}
 		}
 
 		public override void Draw()

@@ -27,6 +27,8 @@ namespace LLE
 
 		private static readonly Color textBackground = new Color(0, 0, 0, 200);
 
+		public static bool Visible = true;
+
 		public static void Clear()
 		{
 			_lines.Clear();
@@ -78,6 +80,7 @@ namespace LLE
 
 		public static void Render(Font font)
 		{
+			if (!Visible) return;
 			if (_lines.Count == 0) return;
 
 			float border = 0.01f;
