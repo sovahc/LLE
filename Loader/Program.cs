@@ -42,13 +42,18 @@ namespace LLELoader
 
 	static class MessageBroker
 	{
-		private const int MaxContextChars = 100000;
+		const string LlmUrl = "http://localhost:8080/v1/chat/completions";
+		private const int ContextWindow = 100000;
+		private const int max_tokens = 1000;
+
+		private static string _systemPrompt = "";
+
 		private static readonly Queue<string> _chatContext = new Queue<string>();
 		private static int _contextId;
 
+		private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(300) };
+		
 		private static readonly ConcurrentQueue<LLE.FromLLM> _commandQueue = new ConcurrentQueue<LLE.FromLLM>();
-
-		private static string _systemPrompt = "";
 
 		static MessageBroker() {}
 
@@ -83,9 +88,6 @@ namespace LLELoader
 			catch (Exception ex) { Logger.Write("[LLM] error: " + ex.Message); }
 		}
 
-		private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(300) };
-		const string LlmUrl = "http://localhost:8080/v1/chat/completions";
-
 		public static void StartStreaming(string chatContext)
 		{
 			var _ = AskLlmStreaming(chatContext);
@@ -98,7 +100,7 @@ namespace LLELoader
 				int contextId = _contextId;
 				var safeContext = System.Text.Json.JsonSerializer.Serialize(chatContext);
 				var safeSystem = System.Text.Json.JsonSerializer.Serialize(_systemPrompt);
-				var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": 10000, \"stream\": true, \"chat_template_kwargs\": {{ \"enable_thinking\": false }} }}";
+				var body = $"{{ \"model\": \"qwen\", \"messages\": [ {{ \"role\": \"system\", \"content\": {safeSystem} }}, {{ \"role\": \"user\", \"content\": {safeContext} }} ], \"max_tokens\": {max_tokens}, \"stream\": true, \"chat_template_kwargs\": {{ \"enable_thinking\": false }} }}";
 
 				var request = new HttpRequestMessage(HttpMethod.Post, LlmUrl) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 				var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
@@ -268,7 +270,7 @@ namespace LLELoader
 				int chars = _systemPrompt.Length;
 				foreach (var s in _chatContext) chars += s.Length;
 				usedChars = chars;
-				totalChars = MaxContextChars;
+				totalChars = ContextWindow;
 				return false;
 			}
 
