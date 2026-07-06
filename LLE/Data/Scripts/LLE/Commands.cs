@@ -90,10 +90,11 @@ You operate on a selected grid (ship or station).
 
 ## EXECUTION RULES
 
-1. First, think about your next actions. At the end of your response, output all commands on consecutive lines starting with: Execute `command`. All trailing lines starting with Execute will be executed in order.
+1. First, think about your next actions. At the end of your response, output commands on consecutive lines starting with: Execute `command`. All trailing lines starting with Execute will be executed in order.
 2. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
 3. Only report results after completing a task using `say 'text'`. Do not send progress updates during execution.
 4. If a task is complex or you hit an obstacle, use `note 'text'` to record your intent or how you'll adapt — it carries forward to your next step.
+5. Do not execute more than three commands per turn.
 
 ## HINTS
 
@@ -185,6 +186,8 @@ You operate on a selected grid (ship or station).
   For medblocks and survival kits: collects energy near the block through a port.
 ";
 }
+// 5. Do not work with multiple objects at once; the character's inventory is limited, so it is better to perform tasks sequentially.
+
 /*
 * power — state of the grid's power system: reactors/batteries/solar/wind, total output, battery charge
 

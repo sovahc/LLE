@@ -153,12 +153,12 @@ namespace LLE
 					
 					if(removed) sb.Append($"Done! {Name(block)} has been removed.");
 
-						if(removed)
-						{	block.SpawnConstructionStockpile();
-							block.CubeGrid.RazeBlock(block.Min);
-						}
+					if(removed)
+					{	block.SpawnConstructionStockpile();
+						block.CubeGrid.RazeBlock(block.Min);
+					}
 
-						yield return removed ? Success(sb.ToString()) : sb.ToString();
+					yield return removed ? Success(sb.ToString()) : sb.ToString();
 				}
 
 				yield return null;
@@ -283,16 +283,16 @@ namespace LLE
 
 					StringBuilder sb = new StringBuilder();
 
-						if(full) sb.Append("Done! Block integrity is full.");
-						else
-						{	var p0 = integrity0 / block.MaxIntegrity;
-							var p1 = block.Integrity / block.MaxIntegrity;
-							sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
+					if(full) sb.Append("Done! Block integrity is full.");
+					else
+					{	var p0 = integrity0 / block.MaxIntegrity;
+						var p1 = block.Integrity / block.MaxIntegrity;
+						sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
 
-							if(stale) AddMissingComponentsString(block, sb);
-						}
+						if(stale) AddMissingComponentsString(block, sb);
+					}
 
-						yield return full ? Success(sb.ToString()) : sb.ToString();
+					yield return full ? Success(sb.ToString()) : sb.ToString();
 				}
 
 				yield return null;
