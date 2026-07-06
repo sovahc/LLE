@@ -59,7 +59,7 @@ namespace LLE
 			if(IsTooFar(ijk, out message)) yield return message;
 
 			if(!EquipTool("Grinder"))
-				yield return  "Cannot equip grinder. Do you have a handheld angle grinder in your inventory?";
+				yield return "Cannot equip grinder. Do you have a Grinder in your inventory?";
 
 			var inventory = character.GetInventory();
 			if(inventory == null) yield return IE_NO_INVENTORY;
