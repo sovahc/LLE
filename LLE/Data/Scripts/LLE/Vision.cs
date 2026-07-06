@@ -195,7 +195,9 @@ namespace LLE
 		}
 
 		internal static void OnBlockRemoved(IMySlimBlock block)
-		{	var gn = block.CubeGrid.DisplayName;
+		{	// TODO: check IsBlockTrasferInProgress
+			
+			var gn = block.CubeGrid.DisplayName;
 			visionReport.Append($"* BLOCK {Commands.BlockName(block)} REMOVED FROM '{gn}' AT {Commands.IJK(block.Min)}\n");
 		}
 

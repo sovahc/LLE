@@ -58,6 +58,8 @@ namespace LLE
 
 			if(!IsAtGrindWeldPoint(block, out message)) yield return message;
 
+			// TODO: warning on WillRemoveBlockSplitGrid
+
 			if(!EquipTool("Grinder"))
 				yield return "Cannot equip grinder. Do you have a Grinder in your inventory?";
 
