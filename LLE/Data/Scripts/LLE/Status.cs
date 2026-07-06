@@ -126,9 +126,11 @@ namespace LLE
 			if (energyBucket != Bucket(p.Energy)) report.Append($" Energy {c.Energy * 100:F0}% ({c.Energy * m.Energy:F1}Wh)");
 			if (hydrogenBucket != Bucket(p.Hydrogen)) report.Append($" Hydrogen {c.Hydrogen * 100:F0}% ({c.Hydrogen * m.Hydrogen:F0}L)");
 
-			EmitWarning(healthBucket, "Health");
-			EmitWarning(energyBucket, "Energy");
-			EmitWarning(hydrogenBucket, "Hydrogen");
+			if(report.Length != 0)
+			{	EmitWarning(healthBucket, "Health");
+				EmitWarning(energyBucket, "Energy");
+				EmitWarning(hydrogenBucket, "Hydrogen");
+			}
 
 			previous = current;
 		}
