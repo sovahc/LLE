@@ -91,6 +91,7 @@ You operate on a selected grid (ship or station).
 1. First, think about your next actions. At the end of your response, output all commands on consecutive lines starting with: Execute `command`. All trailing lines starting with Execute will be executed in order.
 2. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
 3. Only report results after completing a task using `say 'text'`. Do not send progress updates during execution.
+4. If a task is complex or you hit an obstacle, use `note 'text'` to record your intent or how you'll adapt — it carries forward to your next step.
 
 ## HINTS
 
@@ -162,6 +163,10 @@ You operate on a selected grid (ship or station).
 
 * say 'message'
   Send a message to the in-game chat.
+
+* note 'text'
+  Leave a note to yourself in the conversation. Carries forward your plan across multiple steps.
+  Example: note 'base has no iron — grind 'old rover', then build reactor'
 
 * enter I J K
   Enter the cockpit or seat at the given grid coordinates. Use `fly I J K` first to get close enough.
@@ -290,6 +295,14 @@ notes — print all keys.
 			MyVisualScriptLogicProvider.SendChatMessage(
 				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
 			return Success("Done");
+		}
+
+		internal CommandResult Note(TokenParser tp)
+		{
+			var text = tp.NextString();
+			if (string.IsNullOrEmpty(text))
+				return "Error: provide a note. Usage: note 'weld 3 0 2, then check integrity'";
+			return Success("Noted.");
 		}
 
 		internal CommandResult Select(TokenParser tp)
@@ -568,6 +581,9 @@ notes — print all keys.
 			}
 			else if(tp.Match("Say"))
 			{	result = Say(tp);
+			}
+			else if(tp.Match("Note"))
+			{	result = Note(tp);
 			}
 			else if(tp.Match("Transfer"))
 			{	coroutineStack.Push(Transfer(tp));

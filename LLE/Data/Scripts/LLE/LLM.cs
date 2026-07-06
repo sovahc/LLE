@@ -240,7 +240,7 @@ namespace LLE
 
 			if (cc.Count == 0)
 			{
-				Append("ERROR: No commands found. Use 'Execute `command`' on separate lines.", Color.Red);
+				Append($"!ERROR: No commands found in your last message:\n---\n{content}\n---\nUse 'Execute `command`' on separate lines.\n", Color.Red);
 				return;
 			}
 
@@ -248,9 +248,7 @@ namespace LLE
 			{}
 			else if (loopDetector.IsLoop(cc))
 			{
-				Append("LOOP DETECTED: this command batch is identical to the previous one. "
-					+ "If the task is complete, use `pause`. Otherwise, try a different approach.\n",
-					Color.Red);
+				Append($"!ERROR: LOOP DETECTED. Your last message was:\n---\n{content}\n---\nThis is identical to the previous command batch. If the task is complete, use `pause`. Otherwise, try a different approach.\n", Color.Red);
 				return;
 			}
 
