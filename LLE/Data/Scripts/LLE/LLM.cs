@@ -191,31 +191,30 @@ namespace LLE
 				}
 				lastType = m.Type;
 
-				if (m.Type == MessageType.Reasoning)
-				{
-					MyConsole.AddMultiline(m.Payload, Color.LightGray);
-					Reasoning.Append(m.Payload);
-				}
-				else if (m.Type == MessageType.Content)
-				{
-					MyConsole.AddMultiline(m.Payload, Color.Cyan);
-					Content.Append(m.Payload);
-				}
-				else if (m.Type == MessageType.Stop)
-				{
-					MyConsole.AddMultiline("\n", Color.White);
+				switch(m.Type)
+				{	case MessageType.Reasoning:
+						MyConsole.AddMultiline(m.Payload, Color.LightGray);
+						Reasoning.Append(m.Payload);
+						break;
+					case MessageType.Content:
+						MyConsole.AddMultiline(m.Payload, Color.Cyan);
+						Content.Append(m.Payload);
+						break;
+					case MessageType.Stop:
+						MyConsole.AddMultiline("\n", Color.White);
+						
+						waitingForResponse = false;
+						ContextStatisitic();
 
-					waitingForResponse = false;
+						return;
+				
+					case MessageType.Error:
+						MyConsole.AddMultiline("\n[LLM ERROR] " + m.Payload + "\n", Color.Red);
+						
+						waitingForResponse = false;
+						pause = true;
 
-					ContextStatisitic();
-					return;
-				}
-				else if (m.Type == MessageType.Error)
-				{
-					MyConsole.AddMultiline("\n[LLM ERROR] " + m.Payload + "\n", Color.Red);
-					waitingForResponse = false;
-					pause = true;
-					return;
+						return;
 				}
 			}
 		}
