@@ -87,7 +87,7 @@ namespace LLE
 			if(cockpit != null)
 			{	if(!cockpit.IsFunctional) yield return $"Error: {Name(block)} at {IJK(ijk)} is not functional.";
 
-				if(IsTooFar(ijk, out message)) yield return message;
+				if(!IsAtInventoryPoint(block, out message)) yield return message;
 
 				if(!EnterCockpit(cockpit, out message)) yield return message;
 
@@ -132,7 +132,7 @@ namespace LLE
 			var tb = block.FatBlock as IMyTerminalBlock;
 			if(IsSurvivalKit(tb) || tb is IMyMedicalRoom)
 			{
-				if(IsTooFar(ijk, out message)) yield return message;
+				if(!IsAtMedblockPoint(block, out message)) yield return message;
 
 				var ec = GetEngineerCenter();
 				Vector3D rechargeButton;

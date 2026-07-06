@@ -477,21 +477,39 @@ notes — print all keys.
 			return false;
 		}
 
-		internal bool IsTooFar(Vector3I ijk, out string message)
+		internal bool IsAtInventoryPoint(IMySlimBlock block, out string message)
 		{
-			var block = selectedGrid.GetCubeBlock(ijk);
+			var ip = new List<Vector3I>();
+			var dummy = new List<Vector3I>();
+			Collisions.CalculateInteractionPoints(block, ip, dummy);
+			return IsAtPoint(block, ip, out message);
+		}
 
-			Vector3D world;
-			block.ComputeWorldCenter(out world);
-			var distance = (world - GetEngineerCenter()).Length();
-			if(distance > 6) // XX 5->6 for Large container
-			{	
-				StringBuilder sb = new StringBuilder();
-				sb.Append($"You are too far from {Name(block)} to interact ({Distance(distance)})");
-				message = sb.ToString();
+		internal bool IsAtMedblockPoint(IMySlimBlock block, out string message)
+		{
+			var ip = new List<Vector3I>();
+			var dummy = new List<Vector3I>();
+			Collisions.CalculateInteractionPoints(block, dummy, ip);
+			return IsAtPoint(block, ip, out message);
+		}
+
+		internal bool IsAtGrindWeldPoint(IMySlimBlock block, out string message)
+		{
+			var ip = new List<Vector3I>();
+			Collisions.CalculateGrindWeldPoints(block, ip);
+			return IsAtPoint(block, ip, out message);
+		}
+
+		internal bool IsAtPoint(IMySlimBlock block, List<Vector3I> ip, out string message)
+		{
+			var engineerCell = selectedGrid.WorldToGridInteger(GetEngineerCenter());
+
+			if(ip.Contains(engineerCell))
+			{	message = null;
 				return true;
 			}
-			message = null;
+
+			message = "Error: You are not at the correct interaction point with the block.";
 			return false;
 		}
 

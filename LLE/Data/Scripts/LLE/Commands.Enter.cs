@@ -55,7 +55,7 @@ namespace LLE
 
 			if(!cockpit.IsFunctional) return $"Error: {Name(block)} at {IJK(ijk)} is not functional.";
 
-			if(IsTooFar(ijk, out message)) return message;
+			if(!IsAtInventoryPoint(block, out message)) return message;
 
 			if(!EnterCockpit(cockpit, out message)) return message;
 			return Success(message);

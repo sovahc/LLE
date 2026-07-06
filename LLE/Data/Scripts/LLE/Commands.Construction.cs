@@ -56,7 +56,7 @@ namespace LLE
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
-			if(IsTooFar(ijk, out message)) yield return message;
+			if(!IsAtGrindWeldPoint(block, out message)) yield return message;
 
 			if(!EquipTool("Grinder"))
 				yield return "Cannot equip grinder. Do you have a Grinder in your inventory?";
@@ -212,7 +212,7 @@ namespace LLE
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if (block == null) yield return $"Error: no block at {IJK(ijk)}";
 
-			if (IsTooFar(ijk, out message)) yield return message;
+			if (!IsAtGrindWeldPoint(block, out message)) yield return message;
 
 			if (block.Integrity >= block.MaxIntegrity)
 				yield return Success("The block is fully intact; no repairs needed.");
