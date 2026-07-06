@@ -63,6 +63,7 @@ namespace LLE
 			character = character_;
 			status = new Status(character);
 
+			ALL_COMPONENTS.Clear();
 			foreach (var def in MyDefinitionManager.Static.GetDefinitionsOfType<MyPhysicalItemDefinition>())
 			{
 				if (def.Id.TypeId == typeof(MyObjectBuilder_Component))
