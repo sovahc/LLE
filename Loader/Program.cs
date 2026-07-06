@@ -55,42 +55,24 @@ namespace LLELoader
 		
 		private static readonly ConcurrentQueue<LLE.FromLLM> _commandQueue = new ConcurrentQueue<LLE.FromLLM>();
 
-		static MessageBroker() {}
-
 		public static bool GetChunkFromLLM(out LLE.FromLLM cmd)
 		{
-			bool r = _commandQueue.TryDequeue(out cmd);
-			return r;
+			return _commandQueue.TryDequeue(out cmd);
 		}
 
 		public static void SendMessageToLLM(string text)
 		{
 			_chatContext.Enqueue(text);
 
-			var _ = RespondToChatAsync();
+			var context = "\n" + string.Join("\n", _chatContext);
+			var _ = AskLlmStreaming(context);
 		}
 
 		public static void SetHelp(string text)
 		{
 			Logger.Write("[SetHelp] " + text);
 
-			_systemPrompt += "\n";
-			_systemPrompt += text;
-		}
-
-		private static async Task RespondToChatAsync()
-		{
-			try
-			{
-				string context = "\n" + string.Join("\n", _chatContext);
-				StartStreaming(context);
-			}
-			catch (Exception ex) { Logger.Write("[LLM] error: " + ex.Message); }
-		}
-
-		public static void StartStreaming(string chatContext)
-		{
-			var _ = AskLlmStreaming(chatContext);
+			_systemPrompt += "\n" + text;
 		}
 
 		private static async Task AskLlmStreaming(string chatContext)
