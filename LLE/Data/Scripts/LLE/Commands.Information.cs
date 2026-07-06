@@ -544,25 +544,33 @@ $"* {Quote(itemName)} → {(double)item.Amount:F2} in block {Quote(blockName)} a
 			string message;
 			if(!GridIsSet(out message)) return message;
 
+			var grid = selectedGrid;
+
 			Vector3I a;
 			if(!tp.NextVector3I(out a)) return "Error: expected I J K";
 
 			Vector3I b;
 			if(tp.NextVector3I(out b))
 			{
-				var wa = selectedGrid.GridIntegerToWorld(a);
-				var wb = selectedGrid.GridIntegerToWorld(b);
+				var wa = grid.GridIntegerToWorld(a);
+				var wb = grid.GridIntegerToWorld(b);
+				
 				var d = (wa - wb).Length();
-				var blockA = selectedGrid.GetCubeBlock(a);
-				var blockB = selectedGrid.GetCubeBlock(b);
-				return Success($"Distance from {Quote(Name(blockA))} at {IJK(a)} to {Quote(Name(blockB))} at {IJK(b)}: {Distance(d)}");
+				
+				var blockA = grid.GetCubeBlock(a);
+				var blockB = grid.GetCubeBlock(b);
+				
+				return Success($"Distance from"
+					+ $" {Quote(Name(blockA))} at {IJK(a)} to"
+					+ $" {Quote(Name(blockB))} at {IJK(b)}: {Distance(d)}");
 			}
 			else
 			{
-				var wa = selectedGrid.GridIntegerToWorld(a);
 				var we = GetEngineerCenter();
+				var wa = grid.GridIntegerToWorld(a);
+				
 				var d = (wa - we).Length();
-				var block = selectedGrid.GetCubeBlock(a);
+				var block = grid.GetCubeBlock(a);
 				return Success($"Distance from you to {Quote(Name(block))} at {IJK(a)}: {Distance(d)}");
 			}
 		}
