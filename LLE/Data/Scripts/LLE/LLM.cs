@@ -210,6 +210,13 @@ namespace LLE
 					ContextStatisitic();
 					return;
 				}
+				else if (m.Type == MessageType.Error)
+				{
+					MyConsole.AddMultiline("\n[LLM ERROR] " + m.Payload + "\n", Color.Red);
+					waitingForResponse = false;
+					pause = true;
+					return;
+				}
 			}
 		}
 

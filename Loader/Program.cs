@@ -35,11 +35,6 @@ namespace LLELoader
 		}
 	}
 
-	static class LoaderImpl
-	{
-		public static bool IsPresent() => true;
-	}
-
 	static class MessageBroker
 	{
 		const string LlmUrl = "http://localhost:8080/v1/chat/completions";
@@ -141,7 +136,11 @@ namespace LLELoader
 
 				_commandQueue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Stop, Payload = null });
 			}
-			catch (Exception ex) { Logger.Write("[LLM] streaming error: " + ex.Message); }
+			catch (Exception ex)
+			{
+				Logger.Write("[LLM] streaming error: " + ex.Message);
+				_commandQueue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = ex.Message });
+			}
 		}
 
 		[HarmonyPatchCategory("Early")]
@@ -237,7 +236,7 @@ namespace LLELoader
 
 			static bool Prefix_IsPresent(ref bool __result)
 			{
-				__result = LoaderImpl.IsPresent();
+				__result = true;
 				return false;
 			}
 

@@ -21,7 +21,7 @@ namespace LLE
 
 	//
 
-	public enum MessageType { Reasoning, Content, Stop }
+	public enum MessageType { Reasoning, Content, Stop, Error }
 
 	public class FromLLM
 	{
