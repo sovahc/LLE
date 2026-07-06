@@ -264,6 +264,11 @@ notes — print all keys.
 			}
 		}
 
+		private void StopSound()
+		{	if (soundEmitter == null) return;
+			soundEmitter.StopSound(false);
+		}
+
 		private static bool Include(string searchTerm, string text)
 		{	if(searchTerm == "" || searchTerm == "*") return true;
 			return text.Contains(searchTerm);
