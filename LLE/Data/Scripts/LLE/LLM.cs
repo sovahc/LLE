@@ -219,10 +219,17 @@ namespace LLE
 			}
 		}
 
+		private string MyTrim(string s)
+		{	if(s.Length < 2) return s;
+			char fc = s[0];
+			if ((fc == '`' || fc == '\'' || fc == '\"') && s[s.Length - 1] == fc) return s.Substring(1, s.Length - 2);
+			return s;
+		}
+
 		private void ProcessLlmContent(string content)
 		{
 			content = content.Trim();
-			const string prefix = "Execute `";
+			const string prefix = "Execute ";
 
 			var lines = content.Split('\n');
 			List<string> cc = new List<string>();
@@ -232,14 +239,9 @@ namespace LLE
 				string l = lines[i].Trim();
 				if (!l.StartsWith(prefix)) break;
 
-				int closingBacktick = l.IndexOf('`', prefix.Length);
-				if (closingBacktick < 0)
-				{
-					Log($"ProcessLlmContent ERROR: Missing closing backtick in line: {l}");
-					break;
-				}
+				var command = MyTrim(l.Substring(prefix.Length));
 
-				cc.Add(l.Substring(prefix.Length, closingBacktick - prefix.Length));
+				cc.Add(command);
 			}
 
 			// Reverse back to original order (first command first)
