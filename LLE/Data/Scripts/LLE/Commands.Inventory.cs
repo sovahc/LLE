@@ -14,6 +14,8 @@ using Sandbox.ModAPI;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
+using Sandbox.Game.Entities;
+using System.Linq;
 
 namespace LLE
 {
@@ -69,19 +71,15 @@ namespace LLE
 			string message;
 			if (!GridIsSet(out message)) return message;
 
-			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
-			terminalBlocks.Clear();
-			ts.GetBlocks(terminalBlocks);
-
 			StringBuilder sb = new StringBuilder();
 			sb.Append($"# Inventories on {Quote(selectedGrid.CustomName)}\n");
 
-			int count = 0;
-			foreach (var block in terminalBlocks)
+			var Inventories = (selectedGrid as MyCubeGrid).Inventories;
+			if (Inventories.Count == 0) return Success("No blocks with inventories on this grid.");
+
+			foreach (MyCubeBlock block in Inventories)
 			{
 				if (block.CubeGrid != selectedGrid) continue;
-				if (!block.HasInventory) continue;
-				++count;
 
 				sb.Append($"## {Quote(Name(block.SlimBlock))} at {IJK(block.Position)}\n");
 				for (int i = 0; i < block.InventoryCount; ++i)
@@ -89,9 +87,6 @@ namespace LLE
 				AppendGasTankInfo(block.SlimBlock, sb);
 			}
 
-			terminalBlocks.Clear();
-
-			if (count == 0) return Success("No blocks with inventories on this grid.");
 			return Success(sb.ToString());
 		}
 
