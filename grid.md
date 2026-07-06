@@ -70,12 +70,5 @@
     //     Not called on grid split, or when closing grid
     public static event Action<MySlimBlock> OnBlockRemovedGlobally;
 
-
-    public List<HkShape> GetShapesFromPosition(Vector3I pos) // ?????????
-    {
-        return Physics.GetShapesFromPosition(pos);
-    }
-
-
     public static bool TryRayCastGrid(ref LineD worldRay, out MyCubeGrid hitGrid, out Vector3D worldHitPos)
 
