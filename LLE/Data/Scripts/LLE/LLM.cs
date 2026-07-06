@@ -248,7 +248,7 @@ namespace LLE
 			if (cc.Count == 0)
 			{
 				Append($"!ERROR: No commands found in your last message:\n---\n{content}\n---\n"
-					+ "Use 'Execute `command`' on separate lines.\n", Color.Red);
+					+ "Use 'Execute `command`' (in backticks) on separate lines.\n", Color.Red);
 				return;
 			}
 

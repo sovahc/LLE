@@ -150,7 +150,7 @@ You operate on a selected grid (ship or station).
 * put all components into I J K
   Transfer all block components from your inventory to a container (very useful shortcut).
 
-* transfer N 'item' from I1 J1 K1 to I2 J2 K2
+* transfer N 'item' from I J K to I₂ J₂ K₂
   Transfer N items from one inventory to another.
 
 * search item 'substring' [N]
@@ -160,6 +160,12 @@ You operate on a selected grid (ship or station).
 * search block 'substring' [N]
   Find blocks across nearby grids by partial name match. Returns N closest results (default 5).
   Example: search block 'Assembler' 1
+
+* distance I J K
+  Distance from you to the block at the given grid coordinates.
+
+* distance I J K I₂ J₂ K₂
+  Distance between two grid coordinates (measuring tape).
 
 * status
   Check bot vitals: Health, Oxygen, Hydrogen, Energy.
@@ -191,8 +197,6 @@ You operate on a selected grid (ship or station).
 /*
 * power — state of the grid's power system: reactors/batteries/solar/wind, total output, battery charge
 
-* distance I J K
-* distance I J K I2 J2 K2 -> measuring tape
 * where — where I am now: position in the world, which grid (or "in open space"), current grid cell.
 Radio subsystem (vision like)
 * approach I J K — fly close to coordinates, but without A* into the grid
@@ -598,6 +602,9 @@ notes — print all keys.
 			}
 			else if(tp.Match("Search"))
 			{	result = Search(tp);
+			}
+			else if(tp.Match("Distance"))
+			{	result = Distance(tp);
 			}
 			else if(tp.Match("Enter"))
 			{	result = Enter(tp);
