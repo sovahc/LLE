@@ -112,7 +112,7 @@ namespace LLE
 		private bool initialized;
 		private LLM llm;
 
-		private IMyControl signalsControl;		
+		private IMyControl toggle_signals;		
 
 		public static void Log(string s) { MyLog.Default.WriteLine("LLE " + s); }
 
@@ -140,7 +140,7 @@ namespace LLE
 
 		protected override void UnloadData()
 		{
-			if (signalsControl != null) signalsControl.IsEnabled = true;
+			if (toggle_signals != null) toggle_signals.IsEnabled = true;
 
 			MyEntities.OnEntityAdd -= OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
@@ -170,30 +170,27 @@ namespace LLE
 			llm.Tick();
 		}
 
-		// HACK: While Shift is held, the game's TOGGLE_SIGNALS control is disabled via IsEnabled=false,
-		// so Shift+H belongs to the mod (toggles console) instead of the game (toggles signals).
-		// IsNewKeyPressed reads the raw key state and is not affected by IsEnabled, so H is still detected.
+		// HACK: Intercept Shift+H by temporarily disabling 'H'
 		private void HandleConsoleToggle()
 		{
-			if (signalsControl == null)
-				signalsControl = MyAPIGateway.Input.GetGameControl(MyStringId.GetOrCompute("TOGGLE_SIGNALS"));
+			if (toggle_signals == null)
+				toggle_signals = MyAPIGateway.Input.GetGameControl(MyStringId.GetOrCompute("TOGGLE_SIGNALS"));
+			if (toggle_signals == null) return;
 
 			if (MyAPIGateway.Gui.ChatEntryVisible || MyAPIGateway.Gui.IsCursorVisible)
 			{
-				if (signalsControl != null) signalsControl.IsEnabled = true;
+				toggle_signals.IsEnabled = true;
 				return;
 			}
 
 			if (MyAPIGateway.Input.IsKeyPress(MyKeys.Shift))
 			{
-				if (signalsControl != null) signalsControl.IsEnabled = false;
+				toggle_signals.IsEnabled = false;
 
-				if (MyAPIGateway.Input.IsNewKeyPressed(MyKeys.H))
-					MyConsole.Visible = !MyConsole.Visible;
+				if (MyAPIGateway.Input.IsNewKeyPressed(MyKeys.H)) MyConsole.Visible = !MyConsole.Visible;
 			}
 			else
-			{
-				if (signalsControl != null) signalsControl.IsEnabled = true;
+			{	toggle_signals.IsEnabled = true;
 			}
 		}
 
