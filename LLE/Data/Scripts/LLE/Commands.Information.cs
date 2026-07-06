@@ -254,6 +254,23 @@ namespace LLE
 			return Success(md.Result());
 		}
 
+		internal CommandResult Points(TokenParser tp)
+		{
+			string message;
+			if(!GridIsSet(out message)) return message;
+
+			Vector3I ijk;
+			if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";
+
+			var block = selectedGrid.GetCubeBlock(ijk);
+			if(block == null) return $"Error: no block at {IJK(ijk)}";
+
+			var sb = new StringBuilder();
+			sb.Append($"Interaction points for {Name(block)} at {IJK(ijk)}:\n");
+			AppendInteractionPoints(ijk, sb);
+			return Success(sb.ToString());
+		}
+
 		internal CommandResult Near(TokenParser tp)
 		{	
 			string message;

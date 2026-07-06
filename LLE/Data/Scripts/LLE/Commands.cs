@@ -164,6 +164,9 @@ You operate on a selected grid (ship or station).
 * distance I J K
   Distance from you to the block at the given grid coordinates.
 
+* points I J K
+  List all interaction points for the block at the given grid coordinates.
+
 * distance I J K I₂ J₂ K₂
   Distance between two grid coordinates (measuring tape).
 
@@ -484,8 +487,7 @@ notes — print all keys.
 			if(distance > 6) // XX 5->6 for Large container
 			{	
 				StringBuilder sb = new StringBuilder();
-				sb.Append($"You are too far from {Name(block)} to interact ({Distance(distance)})\n");
-				AppendInteractionPoints(ijk, sb);
+				sb.Append($"You are too far from {Name(block)} to interact ({Distance(distance)})");
 				message = sb.ToString();
 				return true;
 			}
@@ -605,6 +607,9 @@ notes — print all keys.
 			}
 			else if(tp.Match("Distance"))
 			{	result = Distance(tp);
+			}
+			else if(tp.Match("Points"))
+			{	result = Points(tp);
 			}
 			else if(tp.Match("Enter"))
 			{	result = Enter(tp);
