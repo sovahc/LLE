@@ -353,7 +353,7 @@ namespace LLE
 		{	
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 
-			bool somethingTransfered = false;
+			bool somethingTransferred = false;
 			bool nesWarning = false;
 
 			foreach(IMyInventory from in fromList)
@@ -374,7 +374,7 @@ namespace LLE
 					MyFixedPoint transferred = InventoryTransfer(from, i, toList, transfer);
 					if(transferred > 0)
 					{
-						somethingTransfered = true;
+						somethingTransferred = true;
 						result.Append($"Transferred {transferred} {Quote(itemDef.DisplayNameText)}\n");
 						if(transferred < transfer) nesWarning = true;
 					}
@@ -385,7 +385,7 @@ namespace LLE
 			{	result.Append($"Warning: Not all items were transferred due to insufficient inventory space.\n");
 			}
 
-			if(somethingTransfered)
+			if(somethingTransferred)
 			{
 				PlaySound("PlayDropItem");
 			}
