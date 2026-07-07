@@ -362,7 +362,8 @@ namespace LLE
 							{
 								Distance = distance,
 								Text =
-$"* block {Quote(blockName)} at {IJK(block.Position)} on {Quote(gridName)} (distance {Distance(distance)})\n"
+									$"* block {Quote(blockName)} at {IJK(block.Position)}" +
+									$" on {Quote(gridName)} (distance {Distance(distance)})\n"
 							});					
 						}
 					}
@@ -389,7 +390,9 @@ $"* block {Quote(blockName)} at {IJK(block.Position)} on {Quote(gridName)} (dist
 									{
 										Distance = distance,
 										Text =
-$"* {Quote(itemName)} → {(double)item.Amount:F2} in block {Quote(blockName)} at {IJK(block.Position)} on {Quote(gridName)} (distance {Distance(distance)})\n"
+											$"* {Quote(itemName)} → {(double)item.Amount:F2}" +
+											$" in block {Quote(blockName)} at {IJK(block.Position)}" +
+											$" on {Quote(gridName)} (distance {Distance(distance)})\n"
 									});
 								}
 							}
