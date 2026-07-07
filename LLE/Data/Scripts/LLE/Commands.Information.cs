@@ -178,8 +178,9 @@ namespace LLE
 
 			var md = new MyMarkdown();
 			md.Append($"# {category} '{name}'");
+			md.Append($"## Information");
 
-			md.Append($"Has energy: {GridHasPower(selectedGrid)}");
+			md.Append($"Powered: {GridHasPower(selectedGrid)}");
 			var cg = selectedGrid as MyCubeGrid;
 
 			Vector3D size = cg.Max - cg.Min;
@@ -190,8 +191,8 @@ namespace LLE
 			md.Append($"Natural gravity: {cg.NaturalGravity.Length():F1}");
 
 			if(!cg.IsStatic)
-			{	md.Append($"Mass: {cg.Mass}Kg");
-				md.Append($"DampenersEnabled {cg.DampenersEnabled}");
+			{	md.Append($"Mass: {cg.Mass} kg");
+				md.Append($"Dampeners enabled {cg.DampenersEnabled}");
 
 				md.Append($"Linear velocity: {cg.LinearVelocity.Length():F1}");
 
@@ -431,7 +432,12 @@ namespace LLE
 			int count = matches.Count;
 			if (count > limit) matches.RemoveRange(limit, count - limit);
 
-			sb.Append($"Found {count} items matching {Quote(query)}:\n");
+			string what = "";
+			if(searchItems && searchBlocks) what = "items and blocks";
+			else if(searchItems) what = "items";
+			else if(searchBlocks) what = "blocks";
+
+			sb.Append($"Found {count} {what} matching {Quote(query)}:\n");
 			foreach (var m in matches) sb.Append(m.Text);
 
 			return Success(sb.ToString());
