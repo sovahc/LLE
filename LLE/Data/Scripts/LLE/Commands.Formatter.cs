@@ -30,8 +30,7 @@ namespace LLE
 		}
 
 		public static string Percent(float f)
-		{	var ff = (int)Math.Round(f * 100, 0, MidpointRounding.AwayFromZero);
-			return $"{ff}%";
+		{	return $"{f * 100:F1}%";
 		}
 
 		public static string Volume(double d)
