@@ -14,6 +14,8 @@ namespace LLE
 {
 	class Vision
 	{
+		public static bool DebugVision = false;
+
 		private static Random random = new Random();
 		private const int RAYCAST_SKIP_INTERVAL = 10;
 		private static int _frameSkipOffset;
@@ -101,7 +103,7 @@ namespace LLE
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					if (Debug.DebugVision) Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
+					if (DebugVision) Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
 					if (isBlocked) continue;
 
 					SetLKS(entity, true);
@@ -119,7 +121,7 @@ namespace LLE
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					if (Debug.DebugVision) Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
+					if (DebugVision) Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
 					if (isBlocked) continue;
 
 					SetLKS(entity, true);
@@ -136,7 +138,7 @@ namespace LLE
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 
-					if (Debug.DebugVision) Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
+					if (DebugVision) Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
 					if (isBlocked) continue;
 
 					SetLKS(entity, true);
