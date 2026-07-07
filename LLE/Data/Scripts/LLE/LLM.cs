@@ -8,19 +8,42 @@ namespace LLE
 	class LoopDetector
 	{
 		private string lastBatch;
+		private int repeats;            // consecutive times lastBatch was seen
 
-		// Returns true if the command batch is identical to the previous one.
-		public bool IsLoop(List<string> commands)
+		// Returns true to BLOCK execution. On a non-blocking detection, 'message' carries a warning to append.
+		public bool IsLoop(List<string> commands, out string message)
 		{
 			var current = string.Join("\n", commands);
 			if (current == lastBatch)
+				repeats++;
+			else
+			{	lastBatch = current;
+				repeats = 1;
+			}
+
+			if (repeats == 1)
+			{	message = null;
+				return false;
+			}
+			if (repeats == 2)
+			{	message = "!Warning: This command batch is identical to the previous one. "
+					+ "If the task is complete, use `pause`.\n";
+				return false;
+			}
+			if (repeats == 3)
+			{	message = "!WARNING: Identical batch repeated again."
+					+ "Output \"Execute `pause`\" to stop.\n";
+				return false;
+			}
+			//if (repeats >= 4)
+			{	message = "!ERROR: LOOP DETECTED. This command batch has been repeated too many times and is blocked.\n";
 				return true;
-			lastBatch = current;
-			return false;
+			}
 		}
 
 		public void Reset()
 		{	lastBatch = null;
+			repeats = 0;
 		}
 	}
 
@@ -250,18 +273,22 @@ namespace LLE
 			if (cc.Count == 0)
 			{
 				Append($"!ERROR: No commands found in your last message:\n---\n{content}\n---\n"
-					+ "Use 'Execute `command`' (in backticks) on separate lines.\n", Color.Red);
+					+ "Use 'Execute `command`' on separate lines.\n", Color.Red);
 				return;
 			}
 
 			if(cc.Count == 1 && 0 == string.Compare(cc[0], "pause", true))
 			{}
-			else if (loopDetector.IsLoop(cc))
+			else
 			{
-				Append($"!ERROR: LOOP DETECTED. Your last message was:\n---\n{content}\n---\n"
-					+ "This is identical to the previous command batch. If the task is complete, use `pause`.\n"
-					+ "Otherwise, try a different approach.\n", Color.Red);
-				return;
+				string loopMsg;
+				bool blocked = loopDetector.IsLoop(cc, out loopMsg);
+				if (loopMsg != null)
+					Append(loopMsg, blocked ? Color.Red : Color.Yellow);
+				if (blocked)
+				{	Append($"Your last message was:\n---\n{content}\n---\n", Color.Red);
+					return;
+				}
 			}
 
 			// Queue commands and start execution
