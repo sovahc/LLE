@@ -192,9 +192,9 @@ namespace LLE
 			StringBuilder sb = new StringBuilder();
 			sb.Append($"Transferring from {fromName} into your inventory\n");
 
-			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
+			var full = InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
 
-			yield return Success(sb.ToString());
+			yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
 		}
 
 		internal IEnumerator Put(TokenParser tp)
@@ -261,14 +261,14 @@ namespace LLE
 
 			if(allComponents)
 			{
-				InventoryTransfer(fromList, toList, ALL_COMPONENTS, MyFixedPoint.MaxValue, sb);
+				var full = InventoryTransfer(fromList, toList, ALL_COMPONENTS, MyFixedPoint.MaxValue, sb);
 
-				yield return Success(sb.ToString());
+				yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
 			}
 			else
 			{	List<string> items = new List<string>() { item };
-				InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
-				yield return Success(sb.ToString());
+				var full2 = InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
+				yield return full2 ? Success(sb.ToString()) : Incomplete(sb.ToString());
 			}
 		}
 
@@ -327,9 +327,9 @@ namespace LLE
 			StringBuilder sb = new StringBuilder();
 			sb.Append($"Transferring from {fromName} into {toName}\n");
 
-			InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
+			var full = InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
 
-			yield return Success(sb.ToString());
+			yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
 		}
 
 		private static bool Include(MyPhysicalItemDefinition def, List<string> itemNames)
@@ -343,13 +343,13 @@ namespace LLE
 			return false;
 		}
 
-		internal void InventoryTransfer(List<IMyInventory> fromList, List<WTF_IMyInventory> toList,
+		internal bool InventoryTransfer(List<IMyInventory> fromList, List<WTF_IMyInventory> toList,
 			List<string> itemNames, MyFixedPoint amount, StringBuilder result)
 		{	
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 
 			bool somethingTransferred = false;
-			bool nesWarning = false;
+			bool noSpaceWarning = false;
 
 			foreach(IMyInventory from in fromList)
 			{	
@@ -371,12 +371,12 @@ namespace LLE
 					{
 						somethingTransferred = true;
 						result.Append($"Transferred {transferred} {Quote(itemDef.DisplayNameText)}\n");
-						if(transferred < transfer) nesWarning = true;
+						if(transferred < transfer) noSpaceWarning = true;
 					}
 				}
 			}
 
-			if(nesWarning)
+			if(noSpaceWarning)
 			{	result.Append($"Warning: Not all items were transferred due to insufficient inventory space.\n");
 			}
 
@@ -387,6 +387,8 @@ namespace LLE
 			else
 			{	result.Append($"No items transfered!\n");
 			}
+
+			return somethingTransferred && !noSpaceWarning;
 		}
 
 		internal static MyFixedPoint InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount)

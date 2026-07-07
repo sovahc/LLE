@@ -32,6 +32,7 @@ namespace LLE
 		private const string IE_NO_INVENTORY = "Internal error: character.GetInventory() is null";
 
 		internal static CommandResult Success(string message) => CommandResult.Success(message);
+		internal static CommandResult Incomplete(string message) => CommandResult.Incomplete(message);
 
 		private static readonly MyDefinitionId hydrogenId =
 			new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");

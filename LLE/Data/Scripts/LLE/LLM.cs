@@ -77,11 +77,17 @@ namespace LLE
 		public void OnCommandFinished(CommandResult result)
 		{
 			var currentCommand = batch.Dequeue();
-			
-			var tag = result.Ok ? "OK" : "FAILED";
+
+			string tag;
+			switch(result.Status)
+			{	case CommandStatus.Success: tag = "OK"; break;
+				case CommandStatus.Incomplete: tag = "INCOMPLETE"; break;
+				case CommandStatus.Error: tag = "FAILED"; break;
+				default: tag = "???"; break;
+			}
 			Append($"→ {currentCommand}: [{tag}] {result.Message}\n", Color.Cornsilk);
 
-			if(!result.Ok && batch.Count > 0)
+			if(result.Status != CommandStatus.Success && batch.Count > 0)
 			{	Append($"Remaining {batch.Count} command(s) ignored: {string.Join("; ", batch)}\n", Color.Cornsilk);
 				batch.Clear();
 				return;

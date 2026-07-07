@@ -160,7 +160,9 @@ namespace LLE
 						block.CubeGrid.RazeBlock(block.Min);
 					}
 
-					yield return removed ? Success(sb.ToString()) : sb.ToString();
+					yield return removed ? Success(sb.ToString())
+						: inventoryFull ? Incomplete(sb.ToString())
+						: sb.ToString(); // stale — no progress, genuine error
 				}
 
 				yield return null;
@@ -246,7 +248,7 @@ namespace LLE
 				sb.Append("You don't have the required components in your inventory\n");
 				AddMissingComponentsString(block, sb);
 				
-				yield return sb.ToString();
+				yield return Incomplete(sb.ToString());
 			}
 
 			var current = new Dictionary<string, double>();
@@ -294,7 +296,7 @@ namespace LLE
 						if(stale) AddMissingComponentsString(block, sb);
 					}
 
-					yield return full ? Success(sb.ToString()) : sb.ToString();
+					yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
 				}
 
 				yield return null;
