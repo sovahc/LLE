@@ -85,6 +85,8 @@ namespace LLE
 				{
 					Collisions.Draw(block);
 					Collisions.DrawTraversability(grid, astarStart.Value);
+					List<Vector3I> unused = new List<Vector3I>();
+					Collisions.CalculateGrindWeldPoints(block, unused);
 				}
 			}
 

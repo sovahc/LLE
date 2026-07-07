@@ -145,12 +145,17 @@ namespace LLE
 
 					intersected.Clear();
 
-					LineIntersectsGridGeometry(grid, new LineD(worldFrom, worldTo), min, max, intersected);
+					var worldLine = new LineD(worldFrom, worldTo);
+					LineIntersectsGridGeometry(grid, worldLine, min, max, intersected);
 					
 					if(intersected.Count == 1 && intersected[0] == block)
 					{
 						grindWeldIP.Add(ijk);
+						Debug.linesRed.Add(worldLine);
 						break;
+					}
+					else
+					{	Debug.linesGray.Add(worldLine);
 					}
 				}
 			}
