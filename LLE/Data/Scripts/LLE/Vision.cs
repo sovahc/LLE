@@ -101,7 +101,7 @@ namespace LLE
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					if (Debug.Vision) Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
+					if (Debug.DebugVision) Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
 					if (isBlocked) continue;
 
 					SetLKS(entity, true);
@@ -119,7 +119,7 @@ namespace LLE
 					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
-					if (Debug.Vision) Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
+					if (Debug.DebugVision) Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
 					if (isBlocked) continue;
 
 					SetLKS(entity, true);
@@ -136,7 +136,7 @@ namespace LLE
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 
-					if (Debug.Vision) Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
+					if (Debug.DebugVision) Drawing.RoundMarker(entity.GetPosition(), isBlocked ? Color.DimGray : Color.Green);
 					if (isBlocked) continue;
 
 					SetLKS(entity, true);
