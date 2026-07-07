@@ -25,7 +25,7 @@ namespace LLE
 
 		public static string Distance(double d)
 		{	if (d < 1000)
-				return $"{(int)Math.Round(d, 0, MidpointRounding.AwayFromZero)}m";
+				return $"{d:F1}m";
 			return $"{d / 1000.0:F1}km";
 		}
 
