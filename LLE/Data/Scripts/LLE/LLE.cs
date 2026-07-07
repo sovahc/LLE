@@ -22,6 +22,10 @@ namespace LLE
 		public static Vector3I? astarStart;
 		public static Vector3I? astarGoal;
 
+		public static Vector3D? headPoint;
+		public static Vector3D? headForward;
+		public static Vector3D? headUp;
+
 		private static AStarHelper aStarHelper;
 
 		public static List<LineD> linesRed = new List<LineD>();
@@ -54,6 +58,10 @@ namespace LLE
 			if (rm)
 			{	astarGoal = cell;
 				MyConsole.Add($"A* goal: {cell}", Color.Red);
+
+				headPoint = hm.Translation + hm.Forward;
+				headForward = hm.Forward;
+				headUp = hm.Up;
 			}
 
 			if (lm || rm)
@@ -72,6 +80,62 @@ namespace LLE
 
 		internal static void Draw(MatrixD hm, Commands commands)
 		{
+			var material = MyStringId.GetOrCompute("Square");
+
+			if (headPoint != null && headForward != null && headUp != null)
+			{
+				var p = headPoint.Value;
+
+				var fwdColor = Color.Blue.ToVector4();
+				var upColor = Color.Yellow.ToVector4();
+				MySimpleObjectDraw.DrawLine(p, p + headForward.Value, material, ref fwdColor, 0.01f);
+				MySimpleObjectDraw.DrawLine(p, p + headUp.Value, material, ref upColor, 0.01f);
+
+				var up = headUp.Value;
+				var capA = (Vector3)(p - up * Constants.EngineerCapsuleHeight);
+				var capB = (Vector3)p;
+				var capVerts = new List<Vector3>();
+				
+				var cylA = (Vector3)p;
+				var cylB = (Vector3)(p + headForward.Value * Constants.MaxInteractionDistance);
+				var cylVerts = new List<Vector3>();
+				
+				Geometry.CapsuleToConvex(capA, capB, Constants.EngineerCapsuleRadius, capVerts);
+				DrawConvexOutline(capVerts, Color.Green);
+				Geometry.CylinderToConvex(cylA, cylB, 0.05f, cylVerts);
+				DrawConvexOutline(cylVerts, Color.Cyan);
+
+				if (grid != null && astarStart != null)
+				{
+					var targetBlock = grid.GetCubeBlock(astarStart.Value);
+					if (targetBlock != null)
+					{
+						var capMin = grid.WorldToGridInteger((Vector3D)capVerts[0]);
+						var capMax = capMin;
+						for (int v = 1; v < capVerts.Count; v++)
+						{	var vp = grid.WorldToGridInteger((Vector3D)capVerts[v]);
+							capMin = Vector3I.Min(capMin, vp);
+							capMax = Vector3I.Max(capMax, vp);
+						}
+						bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capVerts, capMin, capMax, null);
+
+						var cylIntersected = new List<IMySlimBlock>();
+						var cylMin = grid.WorldToGridInteger((Vector3D)cylVerts[0]);
+						var cylMax = cylMin;
+						for (int v = 1; v < cylVerts.Count; v++)
+						{	var vp = grid.WorldToGridInteger((Vector3D)cylVerts[v]);
+							cylMin = Vector3I.Min(cylMin, vp);
+							cylMax = Vector3I.Max(cylMax, vp);
+						}
+						Collisions.ConvexVsGridGeometry(grid, cylVerts, cylMin, cylMax, cylIntersected);
+
+						bool cylinderGood = cylIntersected.Count == 1 && cylIntersected[0] == targetBlock;
+						bool good = capsuleClear && cylinderGood;
+						MyConsole.Add($"Position: {(good ? "GOOD" : "BAD")}", good ? Color.Green : Color.Red);
+					}
+				}
+			}
+
 			if(grid == null) return;
 
 			if(astarStart != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarStart.Value), Color.Green);
@@ -88,7 +152,6 @@ namespace LLE
 				}
 			}
 
-			var material = MyStringId.GetOrCompute("Square");
 			var red = Color.Red.ToVector4();
 			var gray = Color.Gray.ToVector4();
 					
@@ -99,6 +162,16 @@ namespace LLE
 			{	MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref red, 0.01f);
 				Drawing.RoundMarker(line.To, Color.OrangeRed);
 			}
+		}
+
+		private static void DrawConvexOutline(List<Vector3> worldVerts, Color color)
+		{
+			var world = new List<Vector3D>();
+			for (int i = 0; i < worldVerts.Count; i++)
+				world.Add(new Vector3D(worldVerts[i]));
+			var screen = Drawing.WorldToScreen(world);
+			var hull = Geometry.ConvexHull(screen);
+			Drawing.Contour(hull.ToArray(), true, 1e-4f, color.ToVector4());
 		}
 	}
 

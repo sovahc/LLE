@@ -235,6 +235,56 @@ namespace LLE
 			return outIntersected != null && outIntersected.Count != 0;
 		}
 
+		internal static bool ConvexVsBlockGeometry(CollisionGeometry geometry, List<Vector3> modelVerts)
+		{
+			foreach (var shape in geometry.Shapes)
+			{
+				var convex = shape as ConvexHullShape;
+				if (convex != null && Intersections.ConvexVsConvex(modelVerts, convex.Vertices))
+					return true;
+				var sphere = shape as SphereShape;
+				if (sphere != null && Intersections.SphereVsConvex(new Vector3D(sphere.Center), sphere.Radius, modelVerts))
+					return true;
+			}
+			return false;
+		}
+
+		internal static bool ConvexVsGridGeometry(IMyCubeGrid grid, List<Vector3> worldVerts, Vector3I min, Vector3I max,
+			List<IMySlimBlock> outIntersected)
+		{
+			bool returnOnFirstFound = outIntersected == null;
+
+			var iterator = new Vector3I_RangeIterator(ref min, ref max);
+			for (; iterator.IsValid(); iterator.MoveNext())
+			{
+				var slim = grid.GetCubeBlock(iterator.Current);
+				if (slim == null) continue;
+
+				if (outIntersected != null && outIntersected.Contains(slim)) continue;
+
+				CollisionGeometry cellGeometry;
+				if (!_collisionGeometry.TryGetValue(slim.BlockDefinition.Id, out cellGeometry))
+				{	if(returnOnFirstFound) return true;
+
+					outIntersected.Add(slim);
+					continue;
+				}
+
+				var modelVerts = new List<Vector3>(worldVerts.Count);
+				for (int v = 0; v < worldVerts.Count; v++)
+					modelVerts.Add((Vector3)Transform.WorldToModel(slim, new Vector3D(worldVerts[v])));
+
+				if (ConvexVsBlockGeometry(cellGeometry, modelVerts))
+				{
+					if(returnOnFirstFound) return true;
+
+					outIntersected.Add(slim);
+				}
+			}
+
+			return outIntersected != null && outIntersected.Count != 0;
+		}
+
 		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
 		{
 			var calc = new TraversabilityCalculator(grid, 0);
