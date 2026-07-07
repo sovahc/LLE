@@ -181,14 +181,25 @@ namespace LLE
 
 			md.Append($"Has energy: {GridHasPower(selectedGrid)}");
 			var cg = selectedGrid as MyCubeGrid;
-			if(cg.Mass > 0) md.Append($"Mass: {cg.Mass}Kg");
+
 			Vector3D size = cg.Max - cg.Min;
 			size *= cg.GridSize;
 			md.Append($"Linear size: {size}");
 			md.Append($"Coordinate range: Min {IJK(cg.Min)} Max {IJK(cg.Max)}");
-			md.Append($"Linear velocity: {cg.LinearVelocity.Length():F1}");
 			md.Append($"Blocks count: {cg.CubeBlocks.Count}");
 			md.Append($"Natural gravity: {cg.NaturalGravity.Length():F1}");
+
+			if(!cg.IsStatic)
+			{	md.Append($"Mass: {cg.Mass}Kg");
+				md.Append($"DampenersEnabled {cg.DampenersEnabled}");
+
+				md.Append($"Linear velocity: {cg.LinearVelocity.Length():F1}");
+
+				if(cg.Physics != null)
+					md.Append($"Angular velocity: {cg.Physics.AngularVelocity.Length():F1}");
+			}
+
+			// ClosestParentId
 			
 			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 			terminalBlocks.Clear();
