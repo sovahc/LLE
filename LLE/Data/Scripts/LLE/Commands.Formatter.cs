@@ -42,8 +42,14 @@ namespace LLE
 		{	return $"{v.X} {v.Y} {v.Z}";
 		}
 
-		public static string BlockName(IMySlimBlock block)
-		{	return block?.BlockDefinition?.DisplayNameText ?? "Unknown";
+		public static string Name(IMySlimBlock block)
+		{
+			if(block == null) return "Free space";
+			return block.BlockDefinition.DisplayNameText;
+		}
+
+		public static string Name(IMyCubeGrid grid)
+		{	return grid.CustomName ?? "Unnamed Grid";
 		}
 
 		public static void Description(MyEntity e, out string category, out string name)

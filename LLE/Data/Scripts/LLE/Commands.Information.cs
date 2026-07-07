@@ -120,12 +120,6 @@ namespace LLE
 			return "Other";
 		}
 
-		public static string Name(IMySlimBlock block)
-		{
-			if(block == null) return "Free space";
-			return block.BlockDefinition.DisplayNameText;
-		}
-
 		internal void ListDescription(List<Vector3I> coordinates, bool byCategory, MyMarkdown md)
 		{	md.Append($"Legend: Name → count (positions on the grid)");
 
@@ -339,8 +333,6 @@ namespace LLE
 				var grid = e as IMyCubeGrid;
 				if (grid == null || grid.Closed) continue;
 
-				string gridName = grid.CustomName ?? "Unnamed Grid";
-
 				var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(grid);
 				terminalBlocks.Clear();
 				ts.GetBlocks(terminalBlocks);
@@ -363,7 +355,7 @@ namespace LLE
 								Distance = distance,
 								Text =
 									$"* block {Quote(blockName)} at {IJK(block.Position)}" +
-									$" on {Quote(gridName)} (distance {Distance(distance)})\n"
+									$" on {Quote(Name(grid))} (distance {Distance(distance)})\n"
 							});					
 						}
 					}
@@ -392,7 +384,7 @@ namespace LLE
 										Text =
 											$"* {Quote(itemName)} → {(double)item.Amount:F2}" +
 											$" in block {Quote(blockName)} at {IJK(block.Position)}" +
-											$" on {Quote(gridName)} (distance {Distance(distance)})\n"
+											$" on {Quote(Name(grid))} (distance {Distance(distance)})\n"
 									});
 								}
 							}

@@ -191,14 +191,14 @@ namespace LLE
 
 		internal static void OnBlockAdded(IMySlimBlock block)
 		{	var gn = block.CubeGrid.DisplayName;
-			visionReport.Append($"* BLOCK {Commands.BlockName(block)} ADDED TO '{gn}' AT {Commands.IJK(block.Min)}\n");
+			visionReport.Append($"* BLOCK {Commands.Name(block)} ADDED TO '{gn}' AT {Commands.IJK(block.Min)}\n");
 		}
 
 		internal static void OnBlockRemoved(IMySlimBlock block)
 		{	// TODO: check IsBlockTrasferInProgress
 			
 			var gn = block.CubeGrid.DisplayName;
-			visionReport.Append($"* BLOCK {Commands.BlockName(block)} REMOVED FROM '{gn}' AT {Commands.IJK(block.Min)}\n");
+			visionReport.Append($"* BLOCK {Commands.Name(block)} REMOVED FROM '{gn}' AT {Commands.IJK(block.Min)}\n");
 		}
 
 		internal static void OnGridChanged(IMyCubeGrid grid) { }

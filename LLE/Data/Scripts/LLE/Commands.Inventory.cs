@@ -72,7 +72,7 @@ namespace LLE
 			if (!GridIsSet(out message)) return message;
 
 			StringBuilder sb = new StringBuilder();
-			sb.Append($"# Inventories on {Quote(selectedGrid.CustomName)}\n");
+			sb.Append($"# Inventories on {Quote(Name(selectedGrid))}\n");
 
 			var Inventories = (selectedGrid as MyCubeGrid).Inventories;
 			if (Inventories.Count == 0) return Success("No blocks with inventories on this grid.");
