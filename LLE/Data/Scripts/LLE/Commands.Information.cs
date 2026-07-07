@@ -199,8 +199,17 @@ namespace LLE
 					md.Append($"Angular velocity: {cg.Physics.AngularVelocity.Length():F1}");
 			}
 
-			// ClosestParentId
-			
+			var group = new List<IMyCubeGrid>();
+			MyAPIGateway.GridGroups.GetGroup(selectedGrid, GridLinkTypeEnum.Physical, group);
+			if(group.Count > 1)
+			{	md.Append($"## Physically connected to:");
+				
+				foreach(var g in group)
+				{	if(g.EntityId == cg.EntityId) continue;
+					md.Append($"* {Quote(Name(g))}");
+				}
+			}
+
 			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 			terminalBlocks.Clear();
 			ts.GetBlocks(terminalBlocks);

@@ -138,7 +138,7 @@ namespace LLE
 		public string Result()
 		{
 			if(data.Count == 0)
-				return " -- none --";
+				result.Append(" -- none --");
 
 			foreach(var kv in data)
 			{	
