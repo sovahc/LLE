@@ -1,74 +1,38 @@
-#useful
+# MyCubeGrid useful elements
 
-    IsSolarOccluded
-    
-    + HashSet<MyCubeBlock> Inventories;
++ HashSet<MyCubeBlock> Inventories;
 
-    public HashSetReader<MyCubeBlock> UnsafeBlocks => m_unsafeBlocks;
+* UnsafeBlocks
+  `MyCubeGrid.UnsafeBlocks` — a game mechanism that warns the player about rotors/pistons/connectors with settings capable of causing damage (high torque, high impulse, disabled shared inertia tensor).
 
-    public HashSetReader<MyDecoy> Decoys => m_decoys;
+* OccupiedBlocks - MyCockpit with a non-empty Pilot
+* NaturalGravity
+* IsPowerSwitchOn - turn off (or on) all producers on the grid/group at once + store this in a master flag
+* IsParked
+* NumberOfGridColors => m_colorStatistics.Count;
 
-    public HashSetReader<MyCockpit> OccupiedBlocks => m_occupiedBlocks;
+## public MyCubeGridSystems GridSystems { get; private set; } // many systems here
 
-    public Vector3 NaturalGravity => m_gravity;
+* DampenersEnabled
+* IsUnsupportedStation
 
-    
-    public bool IsPowerSwitchOn => m_isPowerSwitchOn.Value;
+* public float GridSize -> <CubeSizes Large="2.5" Small="0.5" />
+* public Vector3 LinearVelocity
 
-    public bool IsParked
+## Actions
 
-    public bool IsSmokeParticleActive
+* ! OnMinMaxChanged;
+* PowerSwitchChanged;
+* SpeedChanged;
 
-    public int NumberOfGridColors => m_colorStatistics.Count;
+* ? GridPresenceTierChanged;
+* ? PlayerPresenceTierChanged;
+* ? OnNaturalGravityChanged;
 
-    public bool IsSplit { get; set; } // ??
+* ! OnBlockAddedGlobally;
+* ! OnBlockRemovedGlobally;
 
-    public MyCubeGridSystems GridSystems { get; private set; } // many systems here
+## Other
 
-    public bool DampenersEnabled => m_dampenersEnabled;
-
-    public bool MarkedAsTrash => m_markedAsTrash;
-
-    public bool IsUnsupportedStation { get; private set; }
-
-    public float GridSize { get; private set; }
-
-    public float GridScale { get; private set; }
-
-    public float GridSizeHalf { get; private set; }
-
-    public Vector3 GridSizeHalfVector { get; private set; }
-
-    public float GridSizeQuarter { get; private set; }
-
-    public Vector3 GridSizeQuarterVector { get; private set; }
-
-    public Vector3 LinearVelocity
-
-
-    public event Action<MyCubeGrid, Vector3I, Vector3I> OnMinMaxChanged;
-
-    public event Action<MyCubeGrid> OnSolarOccludedChanged;
-
-    public event Action<bool> PowerSwitchChanged;
-
-    public event Action<VRage.Game.ModAPI.IMyCubeGrid> SpeedChanged;
-
-    public event Action<MyCubeGrid> GridPresenceTierChanged;
-
-    public event Action<MyCubeGrid> PlayerPresenceTierChanged;
-
-    public event Action<VRage.Game.ModAPI.IMyCubeGrid> OnNaturalGravityChanged;
-
-    //
-    // Summary:
-    //     Called only for single block changes
-    public static event Action<MySlimBlock> OnBlockAddedGlobally;
-
-    //
-    // Summary:
-    //     Not called on grid split, or when closing grid
-    public static event Action<MySlimBlock> OnBlockRemovedGlobally;
-
-    public static bool TryRayCastGrid(ref LineD worldRay, out MyCubeGrid hitGrid, out Vector3D worldHitPos)
+* public static bool TryRayCastGrid(ref LineD worldRay, out MyCubeGrid hitGrid, out Vector3D worldHitPos)
 
