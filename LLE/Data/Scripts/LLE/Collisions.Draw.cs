@@ -18,23 +18,13 @@ namespace LLE
 				Draw(geometry, Transform.GetModelToWorldMatrix(block));
 		}
 
-		private static void DrawConvexOutline(List<Vector3> modelVerts, Matrix shapeTransform,
-									  MatrixD modelToWorld, float epsilon, Vector4 color)
-		{
-			var worldVerts = modelVerts.Select(v => 
-				Vector3D.Transform(new Vector3D(Vector3.Transform(v, shapeTransform)), modelToWorld)).ToList();
-			var screenVerts = Drawing.WorldToScreen(worldVerts);
-			var hull = Geometry.ConvexHull(screenVerts);
-			Drawing.Contour(hull.ToArray(), true, epsilon, color);
-		}
-
 		private static void Draw(CollisionGeometry geometry, MatrixD modelToWorld)
 		{
 			foreach (var shape in geometry.Shapes)
 			{
 				var convex = shape as ConvexHullShape;
 				if (convex != null)
-					DrawConvexOutline(convex.Vertices, shape.Transform, modelToWorld, 1e-4f, new Vector4(1f, 0f, 0f, 1f));
+					Drawing.ConvexOutline(convex.Vertices, shape.Transform, modelToWorld, 1e-4f, new Vector4(1f, 0f, 0f, 1f));
 
 				var sphere = shape as SphereShape;
 				if (sphere != null)
@@ -68,7 +58,7 @@ namespace LLE
 
 				var vertices = new List<Vector3>();
 				Geometry.BoxToConvex(new Vector3(0.5f, 0.5f, 0.5f), vertices);
-				DrawConvexOutline(vertices, detector.Transform, modelToWorld, 5e-5f, color.ToVector4());
+				Drawing.ConvexOutline(vertices, detector.Transform, modelToWorld, 5e-5f, color.ToVector4());
 			}
 		}
 	}

@@ -102,11 +102,11 @@ namespace LLE
 				
 				Geometry.CapsuleToConvex(capA, capB, Constants.EngineerCapsuleRadius, tmp);
 				var capVerts = Geometry.FloatToDouble(tmp);
-				DrawConvexOutline(capVerts, Color.Green);
+				Drawing.ConvexOutline(capVerts, 1e-4f, Color.Green);
 				
 				Geometry.CylinderToConvex(cylA, cylB, 0.05f, tmp);
 				var cylVerts = Geometry.FloatToDouble(tmp);
-				DrawConvexOutline(cylVerts, Color.Cyan);
+				Drawing.ConvexOutline(cylVerts, 1e-4f, Color.Cyan);
 
 				if (grid != null && astarStart != null)
 				{
@@ -165,13 +165,6 @@ namespace LLE
 			{	MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref red, 0.01f);
 				Drawing.RoundMarker(line.To, Color.OrangeRed);
 			}
-		}
-
-		private static void DrawConvexOutline(List<Vector3D> worldSpace, Color color)
-		{
-			var screen = Drawing.WorldToScreen(worldSpace);
-			var hull = Geometry.ConvexHull(screen);
-			Drawing.Contour(hull.ToArray(), true, 1e-4f, color.ToVector4());
 		}
 	}
 

@@ -291,15 +291,15 @@ namespace LLE
 
 	public class Drawing
 	{
-		public static void Contour(Vector2D[] points, bool closed, float thickness, Vector4 color)
+		public static void Contour(List<Vector2D> points, bool closed, float thickness, Vector4 color)
 		{
 			if(!Common.Enabled) return;
-			if (points == null || points.Length < 2) return;
+			if (points == null || points.Count < 2) return;
 
 			var camera = MyAPIGateway.Session.Camera;
 
-			var worldPoints = new Vector3D[points.Length];
-			for (int i = 0; i < points.Length; i++)
+			var worldPoints = new Vector3D[points.Count];
+			for (int i = 0; i < points.Count; i++)
 				worldPoints[i] = Common.ScreenToWorld(points[i], Common._viewProjInv);
 
 			int count = closed ? worldPoints.Length : worldPoints.Length - 1;
@@ -360,7 +360,7 @@ namespace LLE
 			Vector3D localZ = new Vector3D(0, 0, extents.Z);
 
 			const int segments = 64;
-			Vector2D[] screenPoints = new Vector2D[segments];
+			List<Vector2D> screenPoints = new List<Vector2D>(segments);
 			Vector4 c = new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
 			float thickness = 5e-5f;
 
@@ -435,7 +435,24 @@ namespace LLE
 				silhouettePoints.Add(worldPoint);
 			}
 			var projected = WorldToScreen(silhouettePoints);
-			Contour(projected.ToArray(), true, 5e-5f, color);
+			Contour(projected, true, 5e-5f, color);
+		}
+
+		public static void ConvexOutline(List<Vector3D> worldSpace, float thickness, Color color)
+		{
+			var screen = WorldToScreen(worldSpace);
+			var hull = Geometry.ConvexHull(screen);
+			Contour(hull, true, thickness, color.ToVector4());
+		}
+
+		public static void ConvexOutline(List<Vector3> modelSpace, Matrix shapeTransform,
+			MatrixD modelToWorld, float thickness, Vector4 color)
+		{
+			var worldVerts = modelSpace.Select(v => 
+				Vector3D.Transform(new Vector3D(Vector3.Transform(v, shapeTransform)), modelToWorld)).ToList();
+			var screenVerts = WorldToScreen(worldVerts);
+			var hull = Geometry.ConvexHull(screenVerts);
+			Contour(hull, true, thickness, color);
 		}
 	}
 }
