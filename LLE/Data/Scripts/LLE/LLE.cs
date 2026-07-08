@@ -82,75 +82,22 @@ namespace LLE
 		{
 			var material = MyStringId.GetOrCompute("Square");
 
-			if (headPoint != null && headForward != null && headUp != null)
+			if (grid != null && astarStart != null &&
+				headPoint != null && headForward != null && headUp != null)
 			{
-				var p   = headPoint.Value;
+				var p = headPoint.Value;
 				var fwd = headForward.Value;
-				var up  = headUp.Value;
+				var up = headUp.Value;
 
 				var fwdColor = Color.Blue.ToVector4();
-				var upColor  = Color.Yellow.ToVector4();
+				var upColor = Color.Yellow.ToVector4();
 				MySimpleObjectDraw.DrawLine(p, p + fwd, material, ref fwdColor, 0.01f);
-				MySimpleObjectDraw.DrawLine(p, p + up,  material, ref upColor,  0.01f);
+				MySimpleObjectDraw.DrawLine(p, p + up, material, ref upColor, 0.01f);
 
-				// Shapes are built in model space (float, near origin) then transformed to
-				// world space (double) so large world coordinates aren't truncated to float.
-				var world = MatrixD.CreateWorld(p, fwd, up);
-				var modelVerts = new List<Vector3>();
-
-				// Capsule: axis along local +Y (head up), from feet (-height) to head (0).
-				Geometry.CapsuleToConvex(
-					new Vector3(0, -Constants.EngineerCapsuleHeight, 0),
-					Vector3.Zero,
-					Constants.EngineerCapsuleRadius, modelVerts);
-				var capVerts = new List<Vector3D>(modelVerts.Count);
-				for (int i = 0; i < modelVerts.Count; i++)
-					capVerts.Add(Vector3D.Transform(modelVerts[i], world));
-				Drawing.ConvexOutline(capVerts, 1e-4f, Color.Green);
-
-				// Cylinder: axis along local -Z (head forward), from head (0) to reach.
-				modelVerts.Clear();
-				Geometry.CylinderToConvex(
-					Vector3.Zero,
-					new Vector3(0, 0, -Constants.MaxInteractionDistance),
-					0.05f, modelVerts);
-				var cylVerts = new List<Vector3D>(modelVerts.Count);
-				for (int i = 0; i < modelVerts.Count; i++)
-					cylVerts.Add(Vector3D.Transform(modelVerts[i], world));
-				Drawing.ConvexOutline(cylVerts, 1e-4f, Color.Cyan);
-
-				if (grid != null && astarStart != null)
-				{
-					var targetBlock = grid.GetCubeBlock(astarStart.Value);
-					if (targetBlock != null)
-					{
-						var capMin = grid.WorldToGridInteger(capVerts[0]);
-						var capMax = capMin;
-						for (int v = 1; v < capVerts.Count; v++)
-						{	var vp = grid.WorldToGridInteger(capVerts[v]);
-							capMin = Vector3I.Min(capMin, vp);
-							capMax = Vector3I.Max(capMax, vp);
-						}
-						bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capVerts, capMin, capMax, null);
-
-						var cylIntersected = new List<IMySlimBlock>();
-						var cylMin = grid.WorldToGridInteger(cylVerts[0]);
-						var cylMax = cylMin;
-						for (int v = 1; v < cylVerts.Count; v++)
-						{	var vp = grid.WorldToGridInteger(cylVerts[v]);
-							cylMin = Vector3I.Min(cylMin, vp);
-							cylMax = Vector3I.Max(cylMax, vp);
-						}
-						Collisions.ConvexVsGridGeometry(grid, cylVerts, cylMin, cylMax, cylIntersected);
-
-						bool cylinderGood = cylIntersected.Count == 1 && cylIntersected[0] == targetBlock;
-						bool good = capsuleClear && cylinderGood;
-						MyConsole.Add($"Position: {(good ? "GOOD" : "BAD")}", good ? Color.Green : Color.Red);
-					}
-				}
+				IsGoodPosition(p, fwd, up);
 			}
 
-			if(grid == null) return;
+			if (grid == null) return;
 
 			if(astarStart != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarStart.Value), Color.Green);
 			if(astarGoal != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarGoal.Value), Color.Red);
@@ -175,6 +122,64 @@ namespace LLE
 			foreach(var line in linesRed)
 			{	MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref red, 0.01f);
 				Drawing.RoundMarker(line.To, Color.OrangeRed);
+			}
+		}
+
+		private static void IsGoodPosition(Vector3D p, Vector3D fwd, Vector3D up)
+		{
+			// Shapes are built in model space (float, near origin) then transformed to
+			// world space (double) so large world coordinates aren't truncated to float.
+			var world = MatrixD.CreateWorld(p, fwd, up);
+			var modelVerts = new List<Vector3>();
+
+			// Capsule: axis along local +Y (head up), from feet (-height) to head (0).
+			Geometry.CapsuleToConvex(
+				new Vector3(0, -Constants.EngineerCapsuleHeight, 0),
+				Vector3.Zero,
+				Constants.EngineerCapsuleRadius, modelVerts);
+			var capVerts = new List<Vector3D>(modelVerts.Count);
+			for (int i = 0; i < modelVerts.Count; i++)
+				capVerts.Add(Vector3D.Transform(modelVerts[i], world));
+			Drawing.ConvexOutline(capVerts, 1e-4f, Color.Green);
+
+			// Cylinder: axis along local -Z (head forward), from head (0) to reach.
+			modelVerts.Clear();
+			Geometry.CylinderToConvex(
+				Vector3.Zero,
+				new Vector3(0, 0, -Constants.MaxInteractionDistance),
+				0.05f, modelVerts);
+			var cylVerts = new List<Vector3D>(modelVerts.Count);
+			for (int i = 0; i < modelVerts.Count; i++)
+				cylVerts.Add(Vector3D.Transform(modelVerts[i], world));
+			Drawing.ConvexOutline(cylVerts, 1e-4f, Color.Cyan);
+
+			var targetBlock = grid.GetCubeBlock(astarStart.Value);
+			if (targetBlock != null)
+			{
+				var capMin = grid.WorldToGridInteger(capVerts[0]);
+				var capMax = capMin;
+				for (int v = 1; v < capVerts.Count; v++)
+				{
+					var vp = grid.WorldToGridInteger(capVerts[v]);
+					capMin = Vector3I.Min(capMin, vp);
+					capMax = Vector3I.Max(capMax, vp);
+				}
+				bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capVerts, capMin, capMax, null);
+
+				var cylIntersected = new List<IMySlimBlock>();
+				var cylMin = grid.WorldToGridInteger(cylVerts[0]);
+				var cylMax = cylMin;
+				for (int v = 1; v < cylVerts.Count; v++)
+				{
+					var vp = grid.WorldToGridInteger(cylVerts[v]);
+					cylMin = Vector3I.Min(cylMin, vp);
+					cylMax = Vector3I.Max(cylMax, vp);
+				}
+				Collisions.ConvexVsGridGeometry(grid, cylVerts, cylMin, cylMax, cylIntersected);
+
+				bool cylinderGood = cylIntersected.Count == 1 && cylIntersected[0] == targetBlock;
+				bool good = capsuleClear && cylinderGood;
+				MyConsole.Add($"Position: {(good ? "GOOD" : "BAD")}", good ? Color.Green : Color.Red);
 			}
 		}
 	}
