@@ -249,10 +249,12 @@ namespace LLE
 			return false;
 		}
 
-		internal static bool ConvexVsGridGeometry(IMyCubeGrid grid, List<Vector3> worldVerts, Vector3I min, Vector3I max,
+		internal static bool ConvexVsGridGeometry(IMyCubeGrid grid, List<Vector3D> worldSpace, Vector3I min, Vector3I max,
 			List<IMySlimBlock> outIntersected)
 		{
 			bool returnOnFirstFound = outIntersected == null;
+
+			var modelSpace = new List<Vector3>(worldSpace.Count);
 
 			var iterator = new Vector3I_RangeIterator(ref min, ref max);
 			for (; iterator.IsValid(); iterator.MoveNext())
@@ -262,19 +264,23 @@ namespace LLE
 
 				if (outIntersected != null && outIntersected.Contains(slim)) continue;
 
-				CollisionGeometry cellGeometry;
-				if (!_collisionGeometry.TryGetValue(slim.BlockDefinition.Id, out cellGeometry))
-				{	if(returnOnFirstFound) return true;
+				CollisionGeometry geometry;
+				if (!_collisionGeometry.TryGetValue(slim.BlockDefinition.Id, out geometry))
+				{	// treat the unknown block as solid
+					
+					if(returnOnFirstFound) return true;
 
 					outIntersected.Add(slim);
 					continue;
 				}
 
-				var modelVerts = new List<Vector3>(worldVerts.Count);
-				for (int v = 0; v < worldVerts.Count; v++)
-					modelVerts.Add((Vector3)Transform.WorldToModel(slim, new Vector3D(worldVerts[v])));
+				var w2m = Transform.GetWorldToModelMatrix(slim);
 
-				if (ConvexVsBlockGeometry(cellGeometry, modelVerts))
+				modelSpace.Clear();
+				for (int i = 0; i < worldSpace.Count; i++)
+					modelSpace.Add(Vector3D.Transform(worldSpace[i], w2m));
+
+				if (ConvexVsBlockGeometry(geometry, modelSpace))
 				{
 					if(returnOnFirstFound) return true;
 

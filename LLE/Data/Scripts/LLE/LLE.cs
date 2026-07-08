@@ -94,15 +94,18 @@ namespace LLE
 				var up = headUp.Value;
 				var capA = (Vector3)(p - up * Constants.EngineerCapsuleHeight);
 				var capB = (Vector3)p;
-				var capVerts = new List<Vector3>();
 				
 				var cylA = (Vector3)p;
 				var cylB = (Vector3)(p + headForward.Value * Constants.MaxInteractionDistance);
-				var cylVerts = new List<Vector3>();
 				
-				Geometry.CapsuleToConvex(capA, capB, Constants.EngineerCapsuleRadius, capVerts);
+				var tmp = new List<Vector3>();
+				
+				Geometry.CapsuleToConvex(capA, capB, Constants.EngineerCapsuleRadius, tmp);
+				var capVerts = Geometry.FloatToDouble(tmp);
 				DrawConvexOutline(capVerts, Color.Green);
-				Geometry.CylinderToConvex(cylA, cylB, 0.05f, cylVerts);
+				
+				Geometry.CylinderToConvex(cylA, cylB, 0.05f, tmp);
+				var cylVerts = Geometry.FloatToDouble(tmp);
 				DrawConvexOutline(cylVerts, Color.Cyan);
 
 				if (grid != null && astarStart != null)
@@ -164,12 +167,9 @@ namespace LLE
 			}
 		}
 
-		private static void DrawConvexOutline(List<Vector3> worldVerts, Color color)
+		private static void DrawConvexOutline(List<Vector3D> worldSpace, Color color)
 		{
-			var world = new List<Vector3D>();
-			for (int i = 0; i < worldVerts.Count; i++)
-				world.Add(new Vector3D(worldVerts[i]));
-			var screen = Drawing.WorldToScreen(world);
+			var screen = Drawing.WorldToScreen(worldSpace);
 			var hull = Geometry.ConvexHull(screen);
 			Drawing.Contour(hull.ToArray(), true, 1e-4f, color.ToVector4());
 		}

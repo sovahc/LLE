@@ -44,6 +44,7 @@ namespace LLE
 			List<Vector3> out_vertices, int segments = 16)
 		{
 			var vv = out_vertices;
+			vv.Clear();
 
 			var axis = Vector3.Normalize(b - a);
 			Vector3 right, localUp;
@@ -62,6 +63,7 @@ namespace LLE
 		public static void CapsuleToConvex(Vector3 a, Vector3 b, float R, List<Vector3> out_vertices, int segments = 8)
 		{
 			var vv = out_vertices;
+			vv.Clear();
 
 			var axis = Vector3.Normalize(b - a);
 			Vector3 right, localUp;
@@ -145,6 +147,8 @@ namespace LLE
 		public static void SweptCapsule(double halfHeight, double radius, double halfSweep, List<Vector3D> result,
 			int segments = 2, int segments2 = 3)
 		{
+			result.Clear();
+
 			for (int lat = 0; lat <= segments; lat++)
 			{
 				double phi = lat * Math.PI / 2.0 / segments;
@@ -183,6 +187,14 @@ namespace LLE
 				if(max.Y < p.Y) max.Y = p.Y;
 				if(max.Z < p.Z) max.Z = p.Z;
 			}
+		}
+
+		public static List<Vector3D> FloatToDouble(List<Vector3> vv)
+		{
+			var result = new List<Vector3D>(vv.Count);
+			foreach(var v in vv)
+				result.Add(new Vector3D(v));
+			return result;
 		}
 	}
 }
