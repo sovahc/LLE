@@ -84,28 +84,39 @@ namespace LLE
 
 			if (headPoint != null && headForward != null && headUp != null)
 			{
-				var p = headPoint.Value;
+				var p   = headPoint.Value;
+				var fwd = headForward.Value;
+				var up  = headUp.Value;
 
 				var fwdColor = Color.Blue.ToVector4();
-				var upColor = Color.Yellow.ToVector4();
-				MySimpleObjectDraw.DrawLine(p, p + headForward.Value, material, ref fwdColor, 0.01f);
-				MySimpleObjectDraw.DrawLine(p, p + headUp.Value, material, ref upColor, 0.01f);
+				var upColor  = Color.Yellow.ToVector4();
+				MySimpleObjectDraw.DrawLine(p, p + fwd, material, ref fwdColor, 0.01f);
+				MySimpleObjectDraw.DrawLine(p, p + up,  material, ref upColor,  0.01f);
 
-				var up = headUp.Value;
-				var capA = (Vector3)(p - up * Constants.EngineerCapsuleHeight);
-				var capB = (Vector3)p;
-				
-				var cylA = (Vector3)p;
-				var cylB = (Vector3)(p + headForward.Value * Constants.MaxInteractionDistance);
-				
-				var tmp = new List<Vector3>();
-				
-				Geometry.CapsuleToConvex(capA, capB, Constants.EngineerCapsuleRadius, tmp);
-				var capVerts = Geometry.FloatToDouble(tmp);
+				// Shapes are built in model space (float, near origin) then transformed to
+				// world space (double) so large world coordinates aren't truncated to float.
+				var world = MatrixD.CreateWorld(p, fwd, up);
+				var modelVerts = new List<Vector3>();
+
+				// Capsule: axis along local +Y (head up), from feet (-height) to head (0).
+				Geometry.CapsuleToConvex(
+					new Vector3(0, -Constants.EngineerCapsuleHeight, 0),
+					Vector3.Zero,
+					Constants.EngineerCapsuleRadius, modelVerts);
+				var capVerts = new List<Vector3D>(modelVerts.Count);
+				for (int i = 0; i < modelVerts.Count; i++)
+					capVerts.Add(Vector3D.Transform(modelVerts[i], world));
 				Drawing.ConvexOutline(capVerts, 1e-4f, Color.Green);
-				
-				Geometry.CylinderToConvex(cylA, cylB, 0.05f, tmp);
-				var cylVerts = Geometry.FloatToDouble(tmp);
+
+				// Cylinder: axis along local -Z (head forward), from head (0) to reach.
+				modelVerts.Clear();
+				Geometry.CylinderToConvex(
+					Vector3.Zero,
+					new Vector3(0, 0, -Constants.MaxInteractionDistance),
+					0.05f, modelVerts);
+				var cylVerts = new List<Vector3D>(modelVerts.Count);
+				for (int i = 0; i < modelVerts.Count; i++)
+					cylVerts.Add(Vector3D.Transform(modelVerts[i], world));
 				Drawing.ConvexOutline(cylVerts, 1e-4f, Color.Cyan);
 
 				if (grid != null && astarStart != null)
@@ -113,20 +124,20 @@ namespace LLE
 					var targetBlock = grid.GetCubeBlock(astarStart.Value);
 					if (targetBlock != null)
 					{
-						var capMin = grid.WorldToGridInteger((Vector3D)capVerts[0]);
+						var capMin = grid.WorldToGridInteger(capVerts[0]);
 						var capMax = capMin;
 						for (int v = 1; v < capVerts.Count; v++)
-						{	var vp = grid.WorldToGridInteger((Vector3D)capVerts[v]);
+						{	var vp = grid.WorldToGridInteger(capVerts[v]);
 							capMin = Vector3I.Min(capMin, vp);
 							capMax = Vector3I.Max(capMax, vp);
 						}
 						bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capVerts, capMin, capMax, null);
 
 						var cylIntersected = new List<IMySlimBlock>();
-						var cylMin = grid.WorldToGridInteger((Vector3D)cylVerts[0]);
+						var cylMin = grid.WorldToGridInteger(cylVerts[0]);
 						var cylMax = cylMin;
 						for (int v = 1; v < cylVerts.Count; v++)
-						{	var vp = grid.WorldToGridInteger((Vector3D)cylVerts[v]);
+						{	var vp = grid.WorldToGridInteger(cylVerts[v]);
 							cylMin = Vector3I.Min(cylMin, vp);
 							cylMax = Vector3I.Max(cylMax, vp);
 						}
