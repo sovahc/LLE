@@ -20,7 +20,6 @@ namespace LLE
 	public static class EQS
 	{
 		static readonly List<Vector3> capsuleModel = new List<Vector3>();
-		static readonly List<Vector3D> collisionCenters = new List<Vector3D>();
 
 		public static void Initialize()
 		{
