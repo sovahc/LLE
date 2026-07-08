@@ -102,9 +102,6 @@ namespace LLE
 
 			var grid = block.CubeGrid;
 
-			//Collisions.GetCollisionCenters(block, collisionCenters);
-			//if (collisionCenters.Count == 0) return;
-
 			var min = block.Min - 1;
 			var max = block.Max + 1;
 
