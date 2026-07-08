@@ -12,16 +12,18 @@ namespace LLE
 
 		public static void Initialize()
 		{
+			var h2 = Constants.EngineerCapsuleHeight / 2;
+
 			// Capsule: axis along local +Y (head up), from feet (-height) to head (0).
 			Geometry.CapsuleToConvex(
-				new Vector3(0, -Constants.EngineerCapsuleHeight, 0),
-				Vector3.Zero,
+				new Vector3(0, -h2, 0),
+				new Vector3(0, +h2, 0),
 				Constants.EngineerCapsuleRadius, capsuleModel);
 
 			// Cylinder: axis along local -Z (head forward), from head (0) to reach.
 			Geometry.CylinderToConvex(
-				Vector3.Zero,
-				new Vector3(0, 0, -Constants.MaxInteractionDistance / 2), // ??
+				new Vector3(0, +h2, 0),
+				new Vector3(0, +h2, -Constants.MaxInteractionDistance / 2), // ??
 				0.05f, cylinderModel);
 		}
 
