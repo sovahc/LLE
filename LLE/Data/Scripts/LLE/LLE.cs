@@ -22,10 +22,6 @@ namespace LLE
 		public static Vector3I? astarStart;
 		public static Vector3I? astarGoal;
 
-		public static Vector3D? headPoint;
-		public static Vector3D? headForward;
-		public static Vector3D? headUp;
-
 		private static AStarHelper aStarHelper;
 
 		public static List<LineD> linesRed = new List<LineD>();
@@ -58,10 +54,6 @@ namespace LLE
 			if (rm)
 			{	astarGoal = cell;
 				MyConsole.Add($"A* goal: {cell}", Color.Red);
-
-				headPoint = hm.Translation + hm.Forward;
-				headForward = hm.Forward;
-				headUp = hm.Up;
 			}
 
 			if (lm || rm)
@@ -82,22 +74,14 @@ namespace LLE
 		{
 			var material = MyStringId.GetOrCompute("Square");
 
-			if (grid != null && astarStart != null &&
-				headPoint != null && headForward != null && headUp != null)
+			if (grid != null && astarStart != null)
 			{
-				var p = headPoint.Value;
-				var fwd = headForward.Value;
-				var up = headUp.Value;
-
-				var fwdColor = Color.Blue.ToVector4();
-				var upColor = Color.Yellow.ToVector4();
-				MySimpleObjectDraw.DrawLine(p, p + fwd, material, ref fwdColor, 0.01f);
-				MySimpleObjectDraw.DrawLine(p, p + up, material, ref upColor, 0.01f);
-
 				var block = grid.GetCubeBlock(astarStart.Value);
 				if(block != null)
 				{	EQS.Initialize();
-					EQS.IsGoodPosition(p, fwd, up, block);
+					List<EQSResult> results = new List<EQSResult>();
+					//EQS.IsGoodPosition(p, fwd, up, block);
+					EQS.Query(block, hm.Translation, results);
 				}
 			}
 

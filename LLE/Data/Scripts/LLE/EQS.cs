@@ -5,6 +5,14 @@ using VRage.Game.ModAPI;
 
 namespace LLE
 {
+	public struct EQSResult
+	{
+		public Vector3D Position;
+		public Vector3D Forward;
+		public Vector3D Up;
+		public double Score;
+	}
+
 	public static class EQS
 	{
 		static readonly List<Vector3> capsuleModel = new List<Vector3>();
@@ -47,8 +55,6 @@ namespace LLE
 			MinMax(grid, capsule, out capMin, out capMax);
 			bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capsule, capMin, capMax, null);
 
-			Drawing.ConvexOutline(capsule, 1e-4f, capsuleClear ? Color.Green : Color.Gray);
-
 			if (!capsuleClear) return false;
 
 			var cylIntersected = new List<IMySlimBlock>();
@@ -58,9 +64,52 @@ namespace LLE
 
 			bool cylinderGood = cylIntersected.Count == 1 && cylIntersected[0] == targetBlock;
 
+			Drawing.ConvexOutline(capsule, 1e-4f, cylinderGood ? Color.Green : Color.Gray);
 			Drawing.ConvexOutline(cylinder, 1e-4f, cylinderGood ? Color.Green : Color.Gray);
 
 			return cylinderGood;
+		}
+
+		public static void Query(IMySlimBlock block, Vector3D engineerPosition, List<EQSResult> results)
+		{
+			results.Clear();
+
+			var grid = block.CubeGrid;
+			var up = grid.WorldMatrix.Up;
+
+			var min = block.Min - 1;
+			var max = block.Max + 1;
+
+			var iter = new Vector3I_RangeIterator(ref min, ref max);
+			for (; iter.IsValid(); iter.MoveNext())
+			{
+				var ijk = iter.Current;
+
+				var ijkBlock = grid.GetCubeBlock(ijk);
+				if (ijkBlock != null && !Collisions.CenterIsFree(ijkBlock, ijk)) continue;
+
+				Vector3D worldPos = grid.GridIntegerToWorld(ijk);
+
+				foreach (var dir in Constants.SixDirections)
+				{
+					if(grid.GetCubeBlock(ijk + dir) != block) continue;
+					
+					Vector3D forward = Vector3D.TransformNormal(new Vector3D(dir), grid.WorldMatrix);
+
+					if (!IsGoodPosition(worldPos, forward, up, block)) continue;
+
+					double score = -Vector3D.Distance(engineerPosition, worldPos);
+					results.Add(new EQSResult
+					{
+						Position = worldPos,
+						Forward = forward,
+						Up = up,
+						Score = score
+					});
+				}
+			}
+
+			results.Sort((a, b) => b.Score.CompareTo(a.Score));
 		}
 
 		private static void MinMax(IMyCubeGrid grid, List<Vector3D> world, out Vector3I min, out Vector3I max)
