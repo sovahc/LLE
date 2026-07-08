@@ -1,7 +1,11 @@
 using System.Collections.Generic;
 
 using VRageMath;
+using VRage.Game;
 using VRage.Game.ModAPI;
+using VRage.Utils;
+using Sandbox.ModAPI;
+using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
@@ -16,7 +20,7 @@ namespace LLE
 	public static class EQS
 	{
 		static readonly List<Vector3> capsuleModel = new List<Vector3>();
-		static readonly List<Vector3> cylinderModel = new List<Vector3>();
+		static Line raycast;
 
 		public static void Initialize()
 		{
@@ -28,46 +32,46 @@ namespace LLE
 				new Vector3(0, +h2, 0),
 				Constants.EngineerCapsuleRadius, capsuleModel);
 
-			// Cylinder: axis along local -Z (forward)
-			Geometry.CylinderToConvex(
-				new Vector3(0, +h2, 0),
-				new Vector3(0, +h2, -Constants.MaxInteractionDistance / 2), // ??
-				0.05f, cylinderModel);
+			raycast = new Line(new Vector3(0, +h2, 0), new Vector3(0, +h2, -Constants.MaxInteractionDistance / 2));
 		}
 
 		public static bool IsGoodPosition(Vector3D p, Vector3D forward, Vector3D up, IMySlimBlock targetBlock)
 		{
 			var grid = targetBlock.CubeGrid;
 
-			// Shapes are built in model space (float, near origin) then transformed to
-			// world space (double) so large world coordinates aren't truncated to float.
 			var world = MatrixD.CreateWorld(p, forward, up);
+
+			var a = Vector3D.Transform(raycast.From, world);
+			var b = Vector3D.Transform(raycast.To, world);
+
+			IHitInfo hitInfo;
+			MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
+
+			bool hit = false;
+			if(hitInfo != null)
+			{	b = a + (b - a) * hitInfo.Fraction * 1.01;
+				var hitIJK = grid.WorldToGridInteger(b);
+				var hitBlock = grid.GetCubeBlock(hitIJK);
+				if(hitBlock == targetBlock) hit = true;
+			}
+
+			var material = MyStringId.GetOrCompute("Square");
+			var color = hit ? Color.Plum.ToVector4() : Color.DarkGray.ToVector4();
+			MySimpleObjectDraw.DrawLine(a, b, material, ref color, 0.01f);
+			
+			if(!hit) return false;
 
 			var capsule = new List<Vector3D>(capsuleModel.Count);
 			for (int i = 0; i < capsuleModel.Count; i++)
 				capsule.Add(Vector3D.Transform(capsuleModel[i], world));
 
-			var cylinder = new List<Vector3D>(cylinderModel.Count);
-			for (int i = 0; i < cylinderModel.Count; i++)
-				cylinder.Add(Vector3D.Transform(cylinderModel[i], world));
-
 			Vector3I capMin, capMax;
 			MinMax(grid, capsule, out capMin, out capMax);
 			bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capsule, capMin, capMax, null);
 
-			if (!capsuleClear) return false;
+			Drawing.ConvexOutline(capsule, 1e-4f, capsuleClear ? Color.Cyan : Color.DarkGray);
 
-			var cylIntersected = new List<IMySlimBlock>();
-			Vector3I cylMin, cylMax;
-			MinMax(grid, cylinder, out cylMin, out cylMax);
-			Collisions.ConvexVsGridGeometry(grid, cylinder, cylMin, cylMax, cylIntersected);
-
-			bool cylinderGood = cylIntersected.Count == 1 && cylIntersected[0] == targetBlock;
-
-			Drawing.ConvexOutline(capsule, 1e-4f, cylinderGood ? Color.Green : Color.Gray);
-			Drawing.ConvexOutline(cylinder, 1e-4f, cylinderGood ? Color.Green : Color.Gray);
-
-			return cylinderGood;
+			return capsuleClear;
 		}
 
 		public static void Query(IMySlimBlock block, Vector3D engineerPosition, List<EQSResult> results)
@@ -91,7 +95,7 @@ namespace LLE
 
 				foreach (var dir in Constants.SixDirections)
 				{
-					if(grid.GetCubeBlock(ijk + dir) != block) continue;
+					//if(grid.GetCubeBlock(ijk + dir) != block) continue;
 					
 					Vector3D forward = Vector3D.TransformNormal(new Vector3D(dir), grid.WorldMatrix);
 
