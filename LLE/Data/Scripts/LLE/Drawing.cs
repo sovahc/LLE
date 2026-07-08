@@ -448,10 +448,10 @@ namespace LLE
 		public static void ConvexOutline(List<Vector3> modelSpace, Matrix shapeTransform,
 			MatrixD modelToWorld, float thickness, Vector4 color)
 		{
-			var worldVerts = modelSpace.Select(v => 
-				Vector3D.Transform(new Vector3D(Vector3.Transform(v, shapeTransform)), modelToWorld)).ToList();
-			var screenVerts = WorldToScreen(worldVerts);
-			var hull = Geometry.ConvexHull(screenVerts);
+			var combined = (MatrixD)shapeTransform * modelToWorld;
+			var worldSpace = modelSpace.Select(v =>  Vector3D.Transform(v, combined)).ToList();
+			var screenSpace = WorldToScreen(worldSpace);
+			var hull = Geometry.ConvexHull(screenSpace);
 			Contour(hull, true, thickness, color);
 		}
 	}
