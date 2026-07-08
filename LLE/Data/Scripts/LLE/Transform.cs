@@ -19,13 +19,18 @@ namespace LLE
 			return modelToWorld;
 		}
 
-		// Transform a point from world space to model space.
-		internal static Vector3D WorldToModel(IMySlimBlock block, Vector3D worldPoint)
+		internal static MatrixD GetWorldToModelMatrix(IMySlimBlock block)
 		{
 			var modelToWorld = GetModelToWorldMatrix(block);
 			MatrixD invModelToWorld;
 			MatrixD.Invert(ref modelToWorld, out invModelToWorld);
-			return Vector3D.Transform(worldPoint, invModelToWorld);
+			return invModelToWorld;
+		}
+
+		// Transform a point from world space to model space.
+		internal static Vector3D WorldToModel(IMySlimBlock block, Vector3D worldPoint)
+		{
+			return Vector3D.Transform(worldPoint, GetWorldToModelMatrix(block));
 		}
 
 		// Transform a point from model space to world space.
