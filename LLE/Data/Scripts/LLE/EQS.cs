@@ -75,7 +75,6 @@ namespace LLE
 			results.Clear();
 
 			var grid = block.CubeGrid;
-			var up = grid.WorldMatrix.Up;
 
 			var min = block.Min - 1;
 			var max = block.Max + 1;
@@ -95,6 +94,10 @@ namespace LLE
 					if(grid.GetCubeBlock(ijk + dir) != block) continue;
 					
 					Vector3D forward = Vector3D.TransformNormal(new Vector3D(dir), grid.WorldMatrix);
+
+					// Forward and Up must be perpendicular for MatrixD.CreateWorld.
+					// Vertical forward (±Y) is parallel to grid up, so use a horizontal up instead.
+					Vector3D up = (dir.Y != 0) ? grid.WorldMatrix.Forward : grid.WorldMatrix.Up;
 
 					if (!IsGoodPosition(worldPos, forward, up, block)) continue;
 
