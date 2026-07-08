@@ -25,13 +25,13 @@ namespace LLE
 				0.05f, cylinderModel);
 		}
 
-		public static bool IsGoodPosition(Vector3D p, Vector3D fwd, Vector3D up, IMySlimBlock targetBlock)
+		public static bool IsGoodPosition(Vector3D p, Vector3D forward, Vector3D up, IMySlimBlock targetBlock)
 		{
 			var grid = targetBlock.CubeGrid;
 
 			// Shapes are built in model space (float, near origin) then transformed to
 			// world space (double) so large world coordinates aren't truncated to float.
-			var world = MatrixD.CreateWorld(p, fwd, up);
+			var world = MatrixD.CreateWorld(p, forward, up);
 
 			var capsule = new List<Vector3D>(capsuleModel.Count);
 			for (int i = 0; i < capsuleModel.Count; i++)
