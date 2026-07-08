@@ -7,8 +7,8 @@ namespace LLE
 {
 	public static class EQS
 	{
-		static List<Vector3> capsuleModel = new List<Vector3>();
-		static List<Vector3> cylinderModel = new List<Vector3>();
+		static readonly List<Vector3> capsuleModel = new List<Vector3>();
+		static readonly List<Vector3> cylinderModel = new List<Vector3>();
 
 		public static void Initialize()
 		{
