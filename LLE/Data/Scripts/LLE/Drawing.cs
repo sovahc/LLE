@@ -405,18 +405,6 @@ namespace LLE
 			return result;
 		}
 
-		public static void ScreenMarkers(Font font, List<Vector2D> screenPoints, Color color)
-		{
-			if (!Common.Enabled || screenPoints == null || screenPoints.Count == 0) return;
-
-			for (int i = 0; i < screenPoints.Count; i++)
-			{
-				var sp = screenPoints[i];
-				if (double.IsNaN(sp.X)) continue;
-				font.String("x", sp, 0.00075f, color);
-			}
-		}
-
 		public static void ScreenSphere(Vector3D worldCenter, float radius, Vector4 color)
 		{
 			if(!Common.Enabled) return;
