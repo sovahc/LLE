@@ -326,6 +326,21 @@ namespace LLE
 			return ProbeIntersects(geometry, modelCenter, radius);
 		}
 
+		// Returns world-space centers of all collision shapes of a block.
+		public static void GetCollisionCenters(IMySlimBlock block, List<Vector3D> results)
+		{
+			results.Clear();
+
+			CollisionGeometry geometry;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return;
+
+			foreach (var shape in geometry.Shapes)
+			{
+				Vector3 center = GetShapeModelCenter(shape);
+				results.Add(Transform.ModelToWorld(block, new Vector3D(center))); // xx multiple matrix calculation
+			}
+		}
+
 		// Return the world-space center of the nearest collision shape to the given point.
 		// Returns null if the block has no collision geometry.
 		public static bool GetNearestCollisionCenter(IMySlimBlock block, Vector3D worldPoint, out Vector3D result)

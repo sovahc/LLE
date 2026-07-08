@@ -20,7 +20,7 @@ namespace LLE
 	public static class EQS
 	{
 		static readonly List<Vector3> capsuleModel = new List<Vector3>();
-		static Line raycast;
+		static readonly List<Vector3D> collisionCenters = new List<Vector3D>();
 
 		public static void Initialize()
 		{
@@ -31,35 +31,55 @@ namespace LLE
 				new Vector3(0, -h2, 0),
 				new Vector3(0, +h2, 0),
 				Constants.EngineerCapsuleRadius, capsuleModel);
-
-			raycast = new Line(new Vector3(0, +h2, 0), new Vector3(0, +h2, -Constants.MaxInteractionDistance / 2));
 		}
 
-		public static bool IsGoodPosition(Vector3D p, Vector3D forward, Vector3D up, IMySlimBlock targetBlock)
+		public static bool IsGoodPosition(Vector3D standPos, Vector3D collisionCenter, IMySlimBlock targetBlock,
+			out Vector3D forward, out Vector3D up)
 		{
+			forward = Vector3D.Zero;
+			up = Vector3D.Zero;
+
 			var grid = targetBlock.CubeGrid;
+			var gridUp = grid.WorldMatrix.Up;
 
-			var world = MatrixD.CreateWorld(p, forward, up);
+			var h2 = Constants.EngineerCapsuleHeight / 2;
+			var eyePos = standPos + gridUp * h2;
 
-			var a = Vector3D.Transform(raycast.From, world);
-			var b = Vector3D.Transform(raycast.To, world);
+			forward = collisionCenter - eyePos;
+			double dist = forward.Length();
+			if (dist < 0.1) return false;
+			forward /= dist;
+
+			// Up perpendicular to forward, closest to grid up.
+			// Skip when forward is nearly parallel to grid up (engineer can't look straight up/down).
+			var right = Vector3D.Cross(gridUp, forward);
+			if (right.LengthSquared() < 1e-10) return false;
+
+			var world = MatrixD.CreateWorld(standPos, forward, gridUp);
+			up = world.Up;
+
+			// Raycast from eye toward collision center
+			var a = eyePos;
+			var b = collisionCenter;
 
 			IHitInfo hitInfo;
 			MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
 
 			bool hit = false;
-			if(hitInfo != null)
-			{	b = a + (b - a) * hitInfo.Fraction * 1.01;
-				var hitIJK = grid.WorldToGridInteger(b);
+			if (hitInfo != null)
+			{
+				var hitPos = a + (b - a) * hitInfo.Fraction * 1.01;
+				b = hitPos;
+				var hitIJK = grid.WorldToGridInteger(hitPos);
 				var hitBlock = grid.GetCubeBlock(hitIJK);
-				if(hitBlock == targetBlock) hit = true;
+				if (hitBlock == targetBlock) hit = true;
 			}
 
-			var material = MyStringId.GetOrCompute("Square");
-			var color = hit ? Color.Plum.ToVector4() : Color.DarkGray.ToVector4();
-			MySimpleObjectDraw.DrawLine(a, b, material, ref color, 0.01f);
-			
-			if(!hit) return false;
+			if (!hit) return false;
+
+			var dir = (b - a).Normalized();
+			a = b - dir * Constants.GrindWeldDistance;
+			world.Translation = a;
 
 			var capsule = new List<Vector3D>(capsuleModel.Count);
 			for (int i = 0; i < capsuleModel.Count; i++)
@@ -69,6 +89,9 @@ namespace LLE
 			MinMax(grid, capsule, out capMin, out capMax);
 			bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capsule, capMin, capMax, null);
 
+			var material = MyStringId.GetOrCompute("Square");
+			var color = capsuleClear ? Color.Cyan.ToVector4() : Color.DarkGray.ToVector4();
+			MySimpleObjectDraw.DrawLine(a, b, material, ref color, 0.01f);
 			Drawing.ConvexOutline(capsule, 1e-4f, capsuleClear ? Color.Cyan : Color.DarkGray);
 
 			return capsuleClear;
@@ -79,6 +102,9 @@ namespace LLE
 			results.Clear();
 
 			var grid = block.CubeGrid;
+
+			//Collisions.GetCollisionCenters(block, collisionCenters);
+			//if (collisionCenters.Count == 0) return;
 
 			var min = block.Min - 1;
 			var max = block.Max + 1;
@@ -93,17 +119,12 @@ namespace LLE
 
 				Vector3D worldPos = grid.GridIntegerToWorld(ijk);
 
-				foreach (var dir in Constants.SixDirections)
+				//foreach (var collisionCenter in collisionCenters)
+				Vector3D collisionCenter;
+				Collisions.GetNearestCollisionCenter(block, worldPos, out collisionCenter);
 				{
-					//if(grid.GetCubeBlock(ijk + dir) != block) continue;
-					
-					Vector3D forward = Vector3D.TransformNormal(new Vector3D(dir), grid.WorldMatrix);
-
-					// Forward and Up must be perpendicular for MatrixD.CreateWorld.
-					// Vertical forward (±Y) is parallel to grid up, so use a horizontal up instead.
-					Vector3D up = (dir.Y != 0) ? grid.WorldMatrix.Forward : grid.WorldMatrix.Up;
-
-					if (!IsGoodPosition(worldPos, forward, up, block)) continue;
+					Vector3D forward, up;
+					if (!IsGoodPosition(worldPos, collisionCenter, block, out forward, out up)) continue;
 
 					double score = -Vector3D.Distance(engineerPosition, worldPos);
 					results.Add(new EQSResult
