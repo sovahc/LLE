@@ -155,6 +155,26 @@ namespace LLE
 			return blocked;
 		}
 
+		static readonly List<Vector3I> candidateCells = new List<Vector3I>();
+
+		/// <summary>
+		/// Orders candidate cells by distance from the block's geometric center (grid space).
+		/// A small off-axis jitter breaks ties for symmetric blocks.
+		/// </summary>
+		static void OrderCandidatesByDistance(List<Vector3I> cells, IMySlimBlock block)
+		{
+			// Grid-space center of the block
+			Vector3D center = (block.Min + block.Max) * 0.5;
+			center -= new Vector3D(0.1, 0.1, 0.1); // breaks symmetry
+
+			cells.Sort((a, b) =>
+			{
+				var da = (new Vector3D(a.X, a.Y, a.Z) - center).LengthSquared();
+				var db = (new Vector3D(b.X, b.Y, b.Z) - center).LengthSquared();
+				return da.CompareTo(db);
+			});
+		}
+
 		public static void Query(IMySlimBlock block, Vector3D engineerPosition, List<EQSResult> results)
 		{
 			results.Clear();
@@ -164,6 +184,7 @@ namespace LLE
 			var min = block.Min - 1;
 			var max = block.Max + 1;
 
+			candidateCells.Clear();
 			var iter = new Vector3I_RangeIterator(ref min, ref max);
 			for (; iter.IsValid(); iter.MoveNext())
 			{
@@ -172,24 +193,33 @@ namespace LLE
 				var ijkBlock = grid.GetCubeBlock(ijk);
 				if (ijkBlock != null && !Collisions.CenterIsFree(ijkBlock, ijk)) continue;
 
+				candidateCells.Add(ijk);
+			}
+
+			OrderCandidatesByDistance(candidateCells, block);
+
+			const int maxResults = 5;
+
+			foreach (var ijk in candidateCells)
+			{
 				Vector3D worldPos = grid.GridIntegerToWorld(ijk);
 
-				//foreach (var collisionCenter in collisionCenters)
 				Vector3D collisionCenter;
 				Collisions.GetNearestCollisionCenter(block, worldPos, out collisionCenter);
-				{
-					Vector3D forward, up;
-					if (!IsGoodPosition(worldPos, collisionCenter, block, out forward, out up)) continue;
 
-					double score = -Vector3D.Distance(engineerPosition, worldPos);
-					results.Add(new EQSResult
-					{
-						Position = worldPos,
-						Forward = forward,
-						Up = up,
-						Score = score
-					});
-				}
+				Vector3D forward, up;
+				if (!IsGoodPosition(worldPos, collisionCenter, block, out forward, out up)) continue;
+
+				double score = -Vector3D.Distance(engineerPosition, worldPos);
+				results.Add(new EQSResult
+				{
+					Position = worldPos,
+					Forward = forward,
+					Up = up,
+					Score = score
+				});
+
+				if (results.Count >= maxResults) break;
 			}
 
 			results.Sort((a, b) => b.Score.CompareTo(a.Score));
