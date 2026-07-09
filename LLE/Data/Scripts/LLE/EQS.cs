@@ -33,6 +33,32 @@ namespace LLE
 				Constants.EngineerCapsuleRadius, capsuleModel);
 		}
 
+		private static Vector3D? RaycastForGrindWeld(Vector3D a, Vector3D b, IMySlimBlock targetBlock)
+		{
+			if(!Collisions.HasCollision(targetBlock))
+			{	// light, camera, e.t.c.
+				var fat = targetBlock.FatBlock;
+				if (fat == null) return null;
+				
+				b = fat.PositionComp.WorldAABB.Center;
+				return b;
+			}
+
+			IHitInfo hitInfo;
+			MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
+
+			if (hitInfo == null) return null;
+
+			var grid = targetBlock.CubeGrid;
+				
+			var hit = a + (b - a) * hitInfo.Fraction * 1.01;
+			var hitIJK = grid.WorldToGridInteger(hit);
+			var hitBlock = grid.GetCubeBlock(hitIJK);
+			if (hitBlock != targetBlock) return null;
+
+			return hit;
+		}
+
 		private static bool IsGoodPosition(Vector3D engineerCenter, Vector3D target, IMySlimBlock targetBlock,
 			out Vector3D position, out Vector3D forward, out Vector3D up)
 		{
@@ -60,31 +86,10 @@ namespace LLE
 			var a = eyePosition;
 			var b = target;
 
-			bool hit = false;
+			var rc = RaycastForGrindWeld(a, b, targetBlock);
 
-			if(!Collisions.HasCollision(targetBlock))
-			{	// light, camera, e.t.c.
-				var fat = targetBlock.FatBlock;
-				if (fat != null)
-				{	b = fat.PositionComp.WorldAABB.Center;
-					hit = true;
-				}
-			}
-			else
-			{	IHitInfo hitInfo;
-				MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
-
-				if (hitInfo != null)
-				{
-					var hitPos = a + (b - a) * hitInfo.Fraction * 1.01;
-					b = hitPos;
-					var hitIJK = grid.WorldToGridInteger(hitPos);
-					var hitBlock = grid.GetCubeBlock(hitIJK);
-					if (hitBlock == targetBlock) hit = true;
-				}
-			}
-
-			if (!hit) return false;
+			if (rc == null) return false;
+			b = rc.Value;
 
 			var material = MyStringId.GetOrCompute("Square");
 			var color = Color.Cyan.ToVector4();
@@ -267,5 +272,65 @@ namespace LLE
 
 			foreach (var ijk in candidates) yield return ijk;
 		}
+/*
+		public static IEnumerable<EQSPosition> ProducePositions(IEnumerable<Vector3I> cells, IMySlimBlock block)
+		{
+			var grid = block.CubeGrid;
+			var gridUp = grid.WorldMatrix.Up; // xxx real up
+			var h2 = Constants.EngineerCapsuleHeight / 2;
+
+			foreach (var ijk in cells)
+			{
+				var ijkWorld = grid.GridIntegerToWorld(ijk);
+				var target = Collisions.GetGrindWeldTarget(block, ijkWorld);
+
+				var eyePosition = ijkWorld + gridUp * h2;
+				var forward = (target - eyePosition).Normalized();
+
+				var right = Vector3D.Cross(gridUp, forward);
+				if (right.LengthSquared() < 1e-10) continue;
+
+				var world = MatrixD.CreateWorld(ijkWorld, forward, gridUp);
+				var up = world.Up;
+
+				var a = eyePosition;
+				var b = target;
+				bool hit = false;
+
+				if (!Collisions.HasCollision(block))
+				{   // light, camera, e.t.c.
+					var fat = block.FatBlock;
+					if (fat != null) { b = fat.PositionComp.WorldAABB.Center; hit = true; }
+				}
+				else
+				{
+					IHitInfo hitInfo;
+					MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
+					if (hitInfo != null)
+					{
+						var hitPos = a + (b - a) * hitInfo.Fraction * 1.01;
+						b = hitPos;
+						if (grid.GetCubeBlock(grid.WorldToGridInteger(hitPos)) == block) hit = true;
+					}
+				}
+
+				if (!hit) continue;
+
+				var material = MyStringId.GetOrCompute("Square");
+				var color = Color.Cyan.ToVector4();
+				MySimpleObjectDraw.DrawLine(a, b, material, ref color, 0.01f);
+
+				var dir = (b - a).Normalized();
+				var position = (b - dir * Constants.GrindWeldDistance) - up * h2;
+
+				yield return new EQSPosition
+				{
+					Cell = ijk,
+					chPosition = position,
+					chUp = up,
+					Target = target,
+				};
+			}
+		}*/
 	}
 }
