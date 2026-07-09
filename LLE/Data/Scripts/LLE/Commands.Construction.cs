@@ -72,9 +72,6 @@ namespace LLE
 
 			// TODO: warning on WillRemoveBlockSplitGrid
 
-			var inventory = character.GetInventory();
-			if(inventory == null) yield return IE_NO_INVENTORY;
-
 			var grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
@@ -92,10 +89,14 @@ namespace LLE
 				yield return null;
 			}
 
+			// check if block still exist
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
 			var integrity0 = block.Integrity;
+
+			var inventory = character.GetInventory();
+			if(inventory == null) yield return IE_NO_INVENTORY;
 
 			var current = new Dictionary<string, double>();
 			InventoryDelta(inventory, current, +1);
@@ -229,32 +230,46 @@ namespace LLE
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if (block == null) yield return $"Error: no block at {IJK(ijk)}";
 
-			if (!IsAtGrindWeldPoint(block, out message)) yield return message;
-
 			if (block.Integrity >= block.MaxIntegrity)
 				yield return Success("The block is fully intact; no repairs needed.");
 
 			if (!EquipTool("Welder"))
 				yield return "Cannot equip handheld welder. Do you have a welder in your inventory?";
 
-			var inventory = character.GetInventory();
-			if (inventory == null) yield return IE_NO_INVENTORY;
-
 			var welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
-			Vector3D bp = Collisions.GetGrindWeldTarget(block, GetEngineerCenter());
-			// XX additionally verify that the block is actually raycastable
+			var grindWeldIP = new List<EQSResult>();
+			var ec = GetEngineerCenter();
+			var eCell = block.CubeGrid.WorldToGridInteger(ec);
+			EQS.QueryOneCell(block, eCell, ec, grindWeldIP, 1);
+			if(grindWeldIP.Count == 0)
+				yield return "Error: You are not at the correct interaction point with the block.";
+
+			var ip = grindWeldIP[0];
+			var Position = ip.chPosition;
+			var Target = ip.Target;
 
 			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())
 			{
-				CharacterRotateTo(bp);
+				CharacterMove(Position);
 				yield return null;
 			}
 
+			SetPause(Constants.MicronavigationDelay);
+			while(IsPaused())
+			{
+				CharacterRotateTo(Target);
+				yield return null;
+			}
+
+			// check if block still exist
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
+
+			var inventory = character.GetInventory();
+			if (inventory == null) yield return IE_NO_INVENTORY;
 
 			if (!block.CanContinueBuild(inventory))
 			{	StringBuilder sb = new StringBuilder();

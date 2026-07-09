@@ -343,7 +343,7 @@ namespace LLE
 			character.MoveAndRotate(Vector3.Zero, rotation, roll);
 		}
 
-		public void CharacterMove(Vector3D position, double desiredSpeed = 0.25)
+		public void CharacterMove(Vector3D position, double desiredSpeed = 1.0)
 		{
 			var ec = GetEngineerCenter();
 
