@@ -153,7 +153,7 @@ namespace LLE
 
 				// Simulating the process since the game once again locked the necessary API
 
-				SetPause(Constants.DelayForRotation);
+				SetPause(Constants.MicronavigationDelay);
 				while(IsPaused())
 				{	CharacterRotateTo(rechargeButton);
 					yield return null;

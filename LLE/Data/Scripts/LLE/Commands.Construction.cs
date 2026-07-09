@@ -54,14 +54,23 @@ namespace LLE
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
-
-			if(!IsAtGrindWeldPoint(block, out message)) yield return message;
-
-			// TODO: warning on WillRemoveBlockSplitGrid
+			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			if(!EquipTool("Grinder"))
 				yield return "Cannot equip grinder. Do you have a Grinder in your inventory?";
+
+			var grindWeldIP = new List<EQSResult>();
+			var ec = GetEngineerCenter();
+			var eCell = block.CubeGrid.WorldToGridInteger(ec);
+			EQS.QueryOneCell(block, eCell, ec, grindWeldIP, 1);
+			if(grindWeldIP.Count == 0)
+				yield return "Error: You are not at the correct interaction point with the block.";
+
+			var ip = grindWeldIP[0];
+			var Position = ip.Position;
+			var Target = ip.Position + ip.Forward;
+
+			// TODO: warning on WillRemoveBlockSplitGrid
 
 			var inventory = character.GetInventory();
 			if(inventory == null) yield return IE_NO_INVENTORY;
@@ -69,13 +78,12 @@ namespace LLE
 			var grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
-			Vector3D bp = Collisions.GetGrindWeldTarget(block, GetEngineerCenter());
 			// XX additionally verify that the block is actually raycastable
 
-			SetPause(Constants.DelayForRotation);
+			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())
 			{
-				CharacterRotateTo(bp);
+				CharacterMoveAndRotate(Position, Target);
 				yield return null;
 			}
 
@@ -233,7 +241,7 @@ namespace LLE
 			Vector3D bp = Collisions.GetGrindWeldTarget(block, GetEngineerCenter());
 			// XX additionally verify that the block is actually raycastable
 
-			SetPause(Constants.DelayForRotation);
+			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())
 			{
 				CharacterRotateTo(bp);

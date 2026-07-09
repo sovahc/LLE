@@ -11,6 +11,7 @@ using VRage.Game.ObjectBuilders.Definitions;
 using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
+using System.Linq;
 
 // Stack-based coroutine runner:
 //   yield return null;         = wait one tick
@@ -429,8 +430,8 @@ notes — print all keys.
 			var inventoryIP = new List<Vector3I>();
 			var medblockIP = new List<Vector3I>();
 			Collisions.CalculateInteractionPoints(block, inventoryIP, medblockIP);
-			var grindWeldIP = new List<Vector3I>();
-			Collisions.CalculateGrindWeldPoints(block, grindWeldIP);
+			var grindWeldIP = new List<EQSResult>();
+			EQS.Query(block, GetEngineerCenter(), grindWeldIP, 10);
 
 			sb.Append("Possible interaction points are:\n");
 
@@ -444,7 +445,8 @@ notes — print all keys.
 			}
 			if(grindWeldIP.Count != 0)
 			{	sb.Append("* Grind/Weld: ");
-				AppendList(grindWeldIP, sb);
+				var ip = grindWeldIP.Select(r => r.Cell).ToList();
+				AppendList(ip, sb);
 			}
 
 			if(inventoryIP.Count == 0 && medblockIP.Count == 0 && grindWeldIP.Count == 0)
@@ -459,8 +461,8 @@ notes — print all keys.
 			var inventoryIP = new List<Vector3I>();
 			var medblockIP = new List<Vector3I>();
 			Collisions.CalculateInteractionPoints(block, inventoryIP, medblockIP);
-			var grindWeldIP = new List<Vector3I>();
-			Collisions.CalculateGrindWeldPoints(block, grindWeldIP);
+			var grindWeldIP = new List<EQSResult>();
+			EQS.Query(block, GetEngineerCenter(), grindWeldIP, 10);
 
 			if(medblockIP.Count != 0)
 			{	bestIP = NearestToEngineer(medblockIP);
@@ -471,9 +473,11 @@ notes — print all keys.
 				return true;
 			}
 			if(grindWeldIP.Count != 0)
-			{	bestIP = NearestToEngineer(grindWeldIP);
+			{	var ip = grindWeldIP.Select(r => r.Cell).ToList();
+				bestIP = NearestToEngineer(ip);
 				return true;
 			}
+
 			bestIP = Vector3I.Zero;
 			return false;
 		}
@@ -496,9 +500,17 @@ notes — print all keys.
 
 		internal bool IsAtGrindWeldPoint(IMySlimBlock block, out string message)
 		{
-			var ip = new List<Vector3I>();
-			Collisions.CalculateGrindWeldPoints(block, ip);
-			return IsAtPoint(block, ip, out message);
+			var grindWeldIP = new List<EQSResult>();
+			var ec = GetEngineerCenter();
+			var cell = block.CubeGrid.WorldToGridInteger(ec);
+			EQS.QueryOneCell(block, cell, GetEngineerCenter(), grindWeldIP, 1);
+			if(grindWeldIP.Count != 0)
+			{	message = null;
+				return true;
+			}
+			
+			message = "Error: You are not at the correct interaction point with the block.";
+			return false;
 		}
 
 		internal bool IsAtPoint(IMySlimBlock block, List<Vector3I> ip, out string message)

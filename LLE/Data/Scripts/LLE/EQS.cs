@@ -12,10 +12,10 @@ namespace LLE
 {
 	public struct EQSResult
 	{
+		public Vector3I Cell;
 		public Vector3D Position;
 		public Vector3D Forward;
 		public Vector3D Up;
-		public double Score;
 	}
 
 	public static class EQS
@@ -33,7 +33,7 @@ namespace LLE
 				Constants.EngineerCapsuleRadius, capsuleModel);
 		}
 
-		public static bool IsGoodPosition(Vector3D standPos, Vector3D collisionCenter, IMySlimBlock targetBlock,
+		private static bool IsGoodPosition(Vector3D standPos, Vector3D collisionCenter, IMySlimBlock targetBlock,
 			out Vector3D forward, out Vector3D up)
 		{
 			forward = Vector3D.Zero;
@@ -183,14 +183,26 @@ namespace LLE
 			});
 		}
 
-		public static void Query(IMySlimBlock block, Vector3D engineerPosition, List<EQSResult> results)
+		public static void Query(IMySlimBlock block, Vector3D engineerPosition,
+			List<EQSResult> results, int maxResults)
+		{	var min = block.Min - 1;
+			var max = block.Max + 1;
+
+			Query(block, min, max, engineerPosition, results, maxResults);
+		}
+
+		public static void QueryOneCell(IMySlimBlock block, Vector3I cell, Vector3D engineerPosition,
+			List<EQSResult> results, int maxResults)
+		{	Query(block, cell, cell, engineerPosition, results, maxResults);
+		}
+
+		private static void Query(IMySlimBlock block, Vector3I min, Vector3I max,
+			Vector3D engineerPosition, List<EQSResult> results, int maxResults)
 		{
 			results.Clear();
 
 			var grid = block.CubeGrid;
 
-			var min = block.Min - 1;
-			var max = block.Max + 1;
 
 			candidateCells.Clear();
 			var iter = new Vector3I_RangeIterator(ref min, ref max);
@@ -206,8 +218,6 @@ namespace LLE
 
 			OrderCandidatesByDistance(candidateCells, block, engineerPosition, grid);
 
-			const int maxResults = 5;
-
 			foreach (var ijk in candidateCells)
 			{
 				Vector3D worldPos = grid.GridIntegerToWorld(ijk);
@@ -218,19 +228,16 @@ namespace LLE
 				Vector3D forward, up;
 				if (!IsGoodPosition(worldPos, collisionCenter, block, out forward, out up)) continue;
 
-				double score = -Vector3D.Distance(engineerPosition, worldPos);
 				results.Add(new EQSResult
 				{
+					Cell = ijk,
 					Position = worldPos,
 					Forward = forward,
-					Up = up,
-					Score = score
+					Up = up
 				});
 
 				if (results.Count >= maxResults) break;
 			}
-
-			results.Sort((a, b) => b.Score.CompareTo(a.Score));
 		}
 
 		private static void MinMax(IMyCubeGrid grid, List<Vector3D> world, out Vector3I min, out Vector3I max)

@@ -107,58 +107,5 @@ namespace LLE
 				distance.RemoveAt(n);
 			}
 		}
-
-		public static void CalculateGrindWeldPoints(IMySlimBlock block, List<Vector3I> grindWeldIP)
-		{
-			Debug.linesRed.Clear();
-			Debug.linesGray.Clear();
-
-			CollisionGeometry geometry;
-			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return;
-
-			var grid = block.CubeGrid;
-
-			var min = block.Min-1;
-			var max = block.Max+1;
-
-			var intersected = new List<IMySlimBlock>();
-
-			var iterator = new Vector3I_RangeIterator(ref min, ref max);
-			for (; iterator.IsValid(); iterator.MoveNext())
-			{
-				var ijk = iterator.Current;
-
-				var ijkBlock = grid.GetCubeBlock(ijk);
-				if(ijkBlock != null && !CenterIsFree(ijkBlock, ijk)) continue;
-
-				Vector3D worldFrom = grid.GridIntegerToWorld(ijk);
-
-				foreach(var direction in Constants.SixDirections)
-				{	
-					var test = ijk + direction;
-					//if(!test.IsInsideInclusiveEnd(min, max)) continue;
-					if(grid.GetCubeBlock(test) != block) continue;
-
-					Vector3D worldTo = grid.GridIntegerToWorld(test);
-					Vector3D v = worldTo - worldFrom;
-					worldTo = worldFrom + v * 1.25;
-
-					intersected.Clear();
-
-					var worldLine = new LineD(worldFrom, worldTo);
-					LineIntersectsGridGeometry(grid, worldLine, min, max, intersected);
-					
-					if(intersected.Count == 1 && intersected[0] == block)
-					{
-						grindWeldIP.Add(ijk);
-						Debug.linesRed.Add(worldLine);
-						break;
-					}
-					else
-					{	Debug.linesGray.Add(worldLine);
-					}
-				}
-			}
-		}
 	}
 }
