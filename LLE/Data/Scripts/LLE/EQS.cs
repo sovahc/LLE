@@ -187,28 +187,15 @@ namespace LLE
 
 			var grid = block.CubeGrid;
 
-			List<Vector3I> candidates = new List<Vector3I>();
-
 			if(!Collisions.HasCollision(block))
 			{	// light, camera, e.t.c.
 				min = block.Min;
 				max = block.Max;
 			}
 
-			var iter = new Vector3I_RangeIterator(ref min, ref max);
-			for (; iter.IsValid(); iter.MoveNext())
-			{
-				var ijk = iter.Current;
+			var producer = ProduceCells(block, min, max, engineerPosition);
 
-				var ijkBlock = grid.GetCubeBlock(ijk);
-				if (ijkBlock != null && !Collisions.CenterIsFree(ijkBlock, ijk)) continue;
-
-				candidates.Add(ijk);
-			}
-
-			ReorderCandidates(candidates, block, engineerPosition);
-
-			foreach (var ijk in candidates)
+			foreach (var ijk in producer)
 			{
 				Vector3D ijkWorld = grid.GridIntegerToWorld(ijk);
 
@@ -229,26 +216,6 @@ namespace LLE
 			}
 		}
 
-		static void ReorderCandidates(List<Vector3I> cells, IMySlimBlock targetBlock, Vector3D engineerPosition)
-		{
-			IMyCubeGrid grid = targetBlock.CubeGrid;
-
-			Vector3D blockCenter = (targetBlock.Min + targetBlock.Max) * 0.5;
-
-			var invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
-			Vector3D engineerCell = grid.WorldToGridInteger(engineerPosition);
-			Vector3D toEngineer = engineerCell - blockCenter;
-			
-			var shiftedCenter = blockCenter + toEngineer.Normalized() * 0.1; // Break tie
-
-			cells.Sort((a, b) =>
-			{
-				var da = (new Vector3D(a) - shiftedCenter).LengthSquared();
-				var db = (new Vector3D(b) - shiftedCenter).LengthSquared();
-				return da.CompareTo(db);
-			});
-		}
-
 		private static void MinMax(IMyCubeGrid grid, List<Vector3D> world, out Vector3I min, out Vector3I max)
 		{
 			min = grid.WorldToGridInteger(world[0]);
@@ -259,6 +226,46 @@ namespace LLE
 				min = Vector3I.Min(min, vp);
 				max = Vector3I.Max(max, vp);
 			}
+		}
+
+		public static IEnumerable<Vector3I> ProduceCells(IMySlimBlock block, Vector3I min, Vector3I max,
+			Vector3D engineerPosition)
+		{
+			var grid = block.CubeGrid;
+			
+			List<Vector3I> candidates = new List<Vector3I>();
+
+			var iter = new Vector3I_RangeIterator(ref min, ref max);
+			for (; iter.IsValid(); iter.MoveNext())
+			{
+				var ijk = iter.Current;
+
+				var ijkBlock = grid.GetCubeBlock(ijk);
+				if (ijkBlock != null && !Collisions.CenterIsFree(ijkBlock, ijk)) continue;
+
+				candidates.Add(ijk);
+			}
+
+			// reorder
+
+			Vector3D blockCenter = (block.Min + block.Max) * 0.5;
+
+			var invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
+			Vector3D engineerCell = grid.WorldToGridInteger(engineerPosition);
+			Vector3D toEngineer = engineerCell - blockCenter;
+			
+			var shiftedCenter = blockCenter + toEngineer.Normalized() * 0.1; // Break tie
+
+			candidates.Sort((a, b) =>
+			{
+				var da = (new Vector3D(a) - shiftedCenter).LengthSquared();
+				var db = (new Vector3D(b) - shiftedCenter).LengthSquared();
+				return da.CompareTo(db);
+			});
+
+			// output
+
+			foreach (var ijk in candidates) yield return ijk;
 		}
 	}
 }
