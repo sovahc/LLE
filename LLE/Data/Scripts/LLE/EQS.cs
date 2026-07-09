@@ -114,62 +114,10 @@ namespace LLE
 			if(!capsuleClear) return false;
 
 			// Check if the engineer's stand position is blocked by a foreign grid.
-			if (CheckWorldSphereAgainstGrids(position, Constants.CollisionProbeRadius, grid))
+			if (Collisions.CheckWorldSphereAgainstGrids(position, Constants.CollisionProbeRadius, grid))
 				return false;
 
 			return true;
-		}
-
-		/// <summary>
-		/// Checks if a world-space sphere intersects any cube grid except ignoreGrid.
-		/// Broad phase: entity AABB overlap via GetTopMostEntitiesInSphere.
-		/// Narrow phase: CheckWorldSphere per candidate block.
-		/// </summary>
-		public static bool CheckWorldSphereAgainstGrids(Vector3D worldCenter, double radius, IMyCubeGrid ignoreGrid)
-		{
-			var sphere = new BoundingSphereD(worldCenter, radius);
-			var entities = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
-
-			bool blocked = false;
-
-			foreach (var entity in entities)
-			{
-				var grid = entity as IMyCubeGrid;
-				if (grid == null) continue;
-				if (grid == ignoreGrid) continue;
-
-				// Sphere is rotation-invariant: center transforms, radius stays.
-				MatrixD invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
-				Vector3D localCenter = Vector3D.Transform(worldCenter, invWorld);
-				float gridSizeR = 1f / grid.GridSize;
-
-				// Conservative cell range: Floor/Ceiling, CheckWorldSphere is the real filter.
-				Vector3I min = new Vector3I(
-					(int)Math.Floor((localCenter.X - radius) * gridSizeR),
-					(int)Math.Floor((localCenter.Y - radius) * gridSizeR),
-					(int)Math.Floor((localCenter.Z - radius) * gridSizeR));
-				Vector3I max = new Vector3I(
-					(int)Math.Ceiling((localCenter.X + radius) * gridSizeR),
-					(int)Math.Ceiling((localCenter.Y + radius) * gridSizeR),
-					(int)Math.Ceiling((localCenter.Z + radius) * gridSizeR));
-
-				var iter = new Vector3I_RangeIterator(ref min, ref max);
-				for (; iter.IsValid(); iter.MoveNext())
-				{
-					var block = grid.GetCubeBlock(iter.Current);
-					if (block == null) continue;
-
-					if (Collisions.CheckWorldSphere(block, worldCenter, radius))
-					{
-						blocked = true;
-						goto done;
-					}
-				}
-			}
-
-		done:
-			Drawing.ScreenSphere(worldCenter, (float)radius, (blocked ? Color.Gray : Color.Lime).ToVector4());
-			return blocked;
 		}
 
 		public static void Query(IMySlimBlock block, Vector3D engineerPosition,
@@ -272,65 +220,5 @@ namespace LLE
 
 			foreach (var ijk in candidates) yield return ijk;
 		}
-/*
-		public static IEnumerable<EQSPosition> ProducePositions(IEnumerable<Vector3I> cells, IMySlimBlock block)
-		{
-			var grid = block.CubeGrid;
-			var gridUp = grid.WorldMatrix.Up; // xxx real up
-			var h2 = Constants.EngineerCapsuleHeight / 2;
-
-			foreach (var ijk in cells)
-			{
-				var ijkWorld = grid.GridIntegerToWorld(ijk);
-				var target = Collisions.GetGrindWeldTarget(block, ijkWorld);
-
-				var eyePosition = ijkWorld + gridUp * h2;
-				var forward = (target - eyePosition).Normalized();
-
-				var right = Vector3D.Cross(gridUp, forward);
-				if (right.LengthSquared() < 1e-10) continue;
-
-				var world = MatrixD.CreateWorld(ijkWorld, forward, gridUp);
-				var up = world.Up;
-
-				var a = eyePosition;
-				var b = target;
-				bool hit = false;
-
-				if (!Collisions.HasCollision(block))
-				{   // light, camera, e.t.c.
-					var fat = block.FatBlock;
-					if (fat != null) { b = fat.PositionComp.WorldAABB.Center; hit = true; }
-				}
-				else
-				{
-					IHitInfo hitInfo;
-					MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
-					if (hitInfo != null)
-					{
-						var hitPos = a + (b - a) * hitInfo.Fraction * 1.01;
-						b = hitPos;
-						if (grid.GetCubeBlock(grid.WorldToGridInteger(hitPos)) == block) hit = true;
-					}
-				}
-
-				if (!hit) continue;
-
-				var material = MyStringId.GetOrCompute("Square");
-				var color = Color.Cyan.ToVector4();
-				MySimpleObjectDraw.DrawLine(a, b, material, ref color, 0.01f);
-
-				var dir = (b - a).Normalized();
-				var position = (b - dir * Constants.GrindWeldDistance) - up * h2;
-
-				yield return new EQSPosition
-				{
-					Cell = ijk,
-					chPosition = position,
-					chUp = up,
-					Target = target,
-				};
-			}
-		}*/
 	}
 }

@@ -8,6 +8,7 @@ using VRage.ObjectBuilders;
 using VRage.Utils;
 using Sandbox.Definitions;
 using Sandbox.ModAPI;
+using System;
 
 namespace LLE
 {
@@ -324,6 +325,58 @@ namespace LLE
 
 			Vector3D modelCenter = Transform.WorldToModel(block, worldCenter);
 			return ProbeIntersects(geometry, modelCenter, radius);
+		}
+
+		/// <summary>
+		/// Checks if a world-space sphere intersects any cube grid except ignoreGrid.
+		/// Broad phase: entity AABB overlap via GetTopMostEntitiesInSphere.
+		/// Narrow phase: CheckWorldSphere per candidate block.
+		/// </summary>
+		public static bool CheckWorldSphereAgainstGrids(Vector3D worldCenter, double radius, IMyCubeGrid ignoreGrid)
+		{
+			var sphere = new BoundingSphereD(worldCenter, radius);
+			var entities = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
+
+			bool blocked = false;
+
+			foreach (var entity in entities)
+			{
+				var grid = entity as IMyCubeGrid;
+				if (grid == null) continue;
+				if (grid == ignoreGrid) continue;
+
+				// Sphere is rotation-invariant: center transforms, radius stays.
+				MatrixD invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
+				Vector3D localCenter = Vector3D.Transform(worldCenter, invWorld);
+				float gridSizeR = 1f / grid.GridSize;
+
+				// Conservative cell range: Floor/Ceiling, CheckWorldSphere is the real filter.
+				Vector3I min = new Vector3I(
+					(int)Math.Floor((localCenter.X - radius) * gridSizeR),
+					(int)Math.Floor((localCenter.Y - radius) * gridSizeR),
+					(int)Math.Floor((localCenter.Z - radius) * gridSizeR));
+				Vector3I max = new Vector3I(
+					(int)Math.Ceiling((localCenter.X + radius) * gridSizeR),
+					(int)Math.Ceiling((localCenter.Y + radius) * gridSizeR),
+					(int)Math.Ceiling((localCenter.Z + radius) * gridSizeR));
+
+				var iter = new Vector3I_RangeIterator(ref min, ref max);
+				for (; iter.IsValid(); iter.MoveNext())
+				{
+					var block = grid.GetCubeBlock(iter.Current);
+					if (block == null) continue;
+
+					if (Collisions.CheckWorldSphere(block, worldCenter, radius))
+					{
+						blocked = true;
+						goto done;
+					}
+				}
+			}
+
+		done:
+			Drawing.ScreenSphere(worldCenter, (float)radius, (blocked ? Color.Gray : Color.Lime).ToVector4());
+			return blocked;
 		}
 
 		public static bool HasCollision(IMySlimBlock block)
