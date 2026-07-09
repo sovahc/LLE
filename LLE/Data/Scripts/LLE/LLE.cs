@@ -79,8 +79,7 @@ namespace LLE
 				var block = grid.GetCubeBlock(astarStart.Value);
 				if(block != null)
 				{	List<EQSResult> results = new List<EQSResult>();
-					//EQS.IsGoodPosition(p, fwd, up, block);
-					EQS.Query(block, hm.Translation, results, 100);
+					EQS.Query(block, hm.Translation, results, 5);
 				}
 			}
 
