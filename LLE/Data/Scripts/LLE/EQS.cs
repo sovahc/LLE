@@ -60,17 +60,28 @@ namespace LLE
 			var a = eyePosition;
 			var b = target;
 
-			IHitInfo hitInfo;
-			MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
-
 			bool hit = false;
-			if (hitInfo != null)
-			{
-				var hitPos = a + (b - a) * hitInfo.Fraction * 1.01;
-				b = hitPos;
-				var hitIJK = grid.WorldToGridInteger(hitPos);
-				var hitBlock = grid.GetCubeBlock(hitIJK);
-				if (hitBlock == targetBlock) hit = true;
+
+			if(!Collisions.HasCollision(targetBlock))
+			{	// light, camera, e.t.c.
+				var fat = targetBlock.FatBlock;
+				if (fat != null)
+				{	b = fat.PositionComp.WorldAABB.Center;
+					hit = true;
+				}
+			}
+			else
+			{	IHitInfo hitInfo;
+				MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
+
+				if (hitInfo != null)
+				{
+					var hitPos = a + (b - a) * hitInfo.Fraction * 1.01;
+					b = hitPos;
+					var hitIJK = grid.WorldToGridInteger(hitPos);
+					var hitBlock = grid.GetCubeBlock(hitIJK);
+					if (hitBlock == targetBlock) hit = true;
+				}
 			}
 
 			if (!hit) return false;
@@ -178,6 +189,12 @@ namespace LLE
 
 			List<Vector3I> candidates = new List<Vector3I>();
 
+			if(!Collisions.HasCollision(block))
+			{	// light, camera, e.t.c.
+				min = block.Min;
+				max = block.Max;
+			}
+
 			var iter = new Vector3I_RangeIterator(ref min, ref max);
 			for (; iter.IsValid(); iter.MoveNext())
 			{
@@ -195,18 +212,17 @@ namespace LLE
 			{
 				Vector3D ijkWorld = grid.GridIntegerToWorld(ijk);
 
-				Vector3D collisionCenter;
-				Collisions.GetNearestCollisionCenter(block, ijkWorld, out collisionCenter);
+				Vector3D target = Collisions.GetGrindWeldTarget(block, ijkWorld);
 
 				Vector3D position, forward, up;
-				if (!IsGoodPosition(ijkWorld, collisionCenter, block, out position, out forward, out up)) continue;
+				if (!IsGoodPosition(ijkWorld, target, block, out position, out forward, out up)) continue;
 
 				results.Add(new EQSResult
 				{
 					Cell = ijk,
 					chPosition = position,
 					chUp = up,
-					Target = collisionCenter
+					Target = target
 				});
 
 				if (results.Count >= maxResults) break;
