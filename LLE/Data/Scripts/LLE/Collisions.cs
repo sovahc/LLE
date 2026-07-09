@@ -320,7 +320,7 @@ namespace LLE
 		public static bool CheckWorldSphere(IMySlimBlock block, Vector3D worldCenter, double radius)
 		{
 			CollisionGeometry geometry;
-			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return false;
+			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return true; // treat unknown as solid
 
 			Vector3D modelCenter = Transform.WorldToModel(block, worldCenter);
 			return ProbeIntersects(geometry, modelCenter, radius);
