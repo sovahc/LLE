@@ -13,9 +13,9 @@ namespace LLE
 	public struct EQSResult
 	{
 		public Vector3I Cell;
-		public Vector3D Position;
-		public Vector3D Forward;
-		public Vector3D Up;
+		public Vector3D chPosition;
+		public Vector3D chUp;
+		public Vector3D Target;
 	}
 
 	public static class EQS
@@ -33,34 +33,32 @@ namespace LLE
 				Constants.EngineerCapsuleRadius, capsuleModel);
 		}
 
-		private static bool IsGoodPosition(Vector3D standPos, Vector3D collisionCenter, IMySlimBlock targetBlock,
-			out Vector3D forward, out Vector3D up)
+		private static bool IsGoodPosition(Vector3D engineerCenter, Vector3D target, IMySlimBlock targetBlock,
+			out Vector3D position, out Vector3D forward, out Vector3D up)
 		{
+			position = Vector3D.Zero;
 			forward = Vector3D.Zero;
 			up = Vector3D.Zero;
 
 			var grid = targetBlock.CubeGrid;
-			var gridUp = grid.WorldMatrix.Up;
+			var gridUp = grid.WorldMatrix.Up; // xxx real up
 
 			var h2 = Constants.EngineerCapsuleHeight / 2;
-			var eyePos = standPos + gridUp * h2;
+			var eyePosition = engineerCenter + gridUp * h2;
 
-			forward = collisionCenter - eyePos;
-			double dist = forward.Length();
-			if (dist < 0.1) return false;
-			forward /= dist;
+			forward = (target - eyePosition).Normalized();
 
 			// Up perpendicular to forward, closest to grid up.
 			// Skip when forward is nearly parallel to grid up (engineer can't look straight up/down).
 			var right = Vector3D.Cross(gridUp, forward);
 			if (right.LengthSquared() < 1e-10) return false;
 
-			var world = MatrixD.CreateWorld(standPos, forward, gridUp);
+			var world = MatrixD.CreateWorld(engineerCenter, forward, gridUp);
 			up = world.Up;
 
 			// Raycast from eye toward collision center
-			var a = eyePos;
-			var b = collisionCenter;
+			var a = eyePosition;
+			var b = target;
 
 			IHitInfo hitInfo;
 			MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
@@ -77,9 +75,15 @@ namespace LLE
 
 			if (!hit) return false;
 
+			var material = MyStringId.GetOrCompute("Square");
+			var color = Color.Cyan.ToVector4();
+			MySimpleObjectDraw.DrawLine(a, b, material, ref color, 0.01f);
+
 			var dir = (b - a).Normalized();
 			a = b - dir * Constants.GrindWeldDistance;
-			world.Translation = a;
+			
+			position = a - up * h2;
+			world.Translation = position;
 
 			var capsule = new List<Vector3D>(capsuleModel.Count);
 			for (int i = 0; i < capsuleModel.Count; i++)
@@ -89,15 +93,12 @@ namespace LLE
 			MinMax(grid, capsule, out capMin, out capMax);
 			bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capsule, capMin, capMax, null);
 
-			var material = MyStringId.GetOrCompute("Square");
-			var color = capsuleClear ? Color.Cyan.ToVector4() : Color.DarkGray.ToVector4();
-			MySimpleObjectDraw.DrawLine(a, b, material, ref color, 0.01f);
 			Drawing.ConvexOutline(capsule, 1e-4f, capsuleClear ? Color.Cyan : Color.DarkGray);
 
 			if(!capsuleClear) return false;
 
 			// Check if the engineer's stand position is blocked by a foreign grid.
-			if (CheckWorldSphereAgainstGrids(a, Constants.CollisionProbeRadius, grid))
+			if (CheckWorldSphereAgainstGrids(position, Constants.CollisionProbeRadius, grid))
 				return false;
 
 			return true;
@@ -192,20 +193,20 @@ namespace LLE
 
 			foreach (var ijk in candidates)
 			{
-				Vector3D worldPos = grid.GridIntegerToWorld(ijk);
+				Vector3D ijkWorld = grid.GridIntegerToWorld(ijk);
 
 				Vector3D collisionCenter;
-				Collisions.GetNearestCollisionCenter(block, worldPos, out collisionCenter);
+				Collisions.GetNearestCollisionCenter(block, ijkWorld, out collisionCenter);
 
-				Vector3D forward, up;
-				if (!IsGoodPosition(worldPos, collisionCenter, block, out forward, out up)) continue;
+				Vector3D position, forward, up;
+				if (!IsGoodPosition(ijkWorld, collisionCenter, block, out position, out forward, out up)) continue;
 
 				results.Add(new EQSResult
 				{
 					Cell = ijk,
-					Position = worldPos,
-					Forward = forward,
-					Up = up
+					chPosition = position,
+					chUp = up,
+					Target = collisionCenter
 				});
 
 				if (results.Count >= maxResults) break;

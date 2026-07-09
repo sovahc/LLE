@@ -343,7 +343,7 @@ namespace LLE
 			character.MoveAndRotate(Vector3.Zero, rotation, roll);
 		}
 
-		public void CharacterMoveAndRotate(Vector3D position, Vector3D target, double desiredSpeed = 1.0)
+		public void CharacterMove(Vector3D position, double desiredSpeed = 0.25)
 		{
 			var ec = GetEngineerCenter();
 
@@ -357,15 +357,9 @@ namespace LLE
 			var P_coefficient = 5.0;
 			Vector3D acceleration = velocityError * P_coefficient;
 
-			Vector2 rotationIndicator;
-			float rollIndicator;
-
-			springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
-				target, up, 0.2, out rotationIndicator, out rollIndicator);
-				
 			var moveIndicator = micro.ComputeMoveInput(desiredVelocity, currentVelocity, character.WorldMatrix);
 
-			character.MoveAndRotate(moveIndicator, rotationIndicator, rollIndicator);
+			character.MoveAndRotate(moveIndicator, Vector2.Zero, 0);
 		}
 	}
 }

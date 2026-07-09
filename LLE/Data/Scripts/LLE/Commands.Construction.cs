@@ -67,8 +67,8 @@ namespace LLE
 				yield return "Error: You are not at the correct interaction point with the block.";
 
 			var ip = grindWeldIP[0];
-			var Position = ip.Position;
-			var Target = ip.Position + ip.Forward;
+			var Position = ip.chPosition;
+			var Target = ip.Target;
 
 			// TODO: warning on WillRemoveBlockSplitGrid
 
@@ -78,12 +78,17 @@ namespace LLE
 			var grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
-			// XX additionally verify that the block is actually raycastable
+			SetPause(Constants.MicronavigationDelay);
+			while(IsPaused())
+			{
+				CharacterMove(Position);
+				yield return null;
+			}
 
 			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())
 			{
-				CharacterMoveAndRotate(Position, Target);
+				CharacterRotateTo(Target);
 				yield return null;
 			}
 
