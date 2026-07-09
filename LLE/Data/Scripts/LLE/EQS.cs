@@ -59,6 +59,61 @@ namespace LLE
 			return hit;
 		}
 
+		private static Vector3D? RaycastForInteraction(Vector3D worldFrom, IMySlimBlock block)
+		{	
+			CollisionGeometry geometry;
+			if (!Collisions._collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry))
+				return null; // cannot interact with unknown block
+
+			var grid = block.CubeGrid;
+			Vector3 modelFrom = Transform.WorldToModel(block, worldFrom);
+
+			foreach (var detector in geometry.Detectors)
+			{	
+				bool inventory =
+					detector.Name.StartsWith("conveyor_") ||
+					detector.Name.StartsWith("inventory_") || 
+					detector.Name.StartsWith("cockpit_");
+				bool medblock = detector.Name.StartsWith("block_");
+
+				if(!inventory && !medblock) continue;
+
+				var detectorCenter = detector.Transform.Translation;
+				var line = new Line(modelFrom, detectorCenter);
+					
+				if(line.Length > Constants.MaxInteractionDistance) continue;
+
+				float minIntersection = float.MaxValue;
+
+				foreach(var p in detector.ForRaycast)
+				{	var lp = p;
+					var f = Intersections.GetLineParallelogramIntersection(ref line, ref lp);
+					if(!f.HasValue) continue;
+
+					if(f.Value < minIntersection) minIntersection = f.Value;
+				}
+
+				if(minIntersection >= float.MaxValue) continue;
+
+				var clippedByDetector = new Line(line.From, line.From + line.Direction * minIntersection);
+				var worldLine = new LineD(worldFrom, Transform.ModelToWorld(block, clippedByDetector.To));
+
+				var min = block.Min-1; // XXX big query
+				var max = block.Max+1;
+				if(Collisions.LineIntersectsGridGeometry(grid, worldLine, min, max, null))
+				{	Drawing.RoundMarker(worldLine.To, Color.Gray);
+					continue;
+				}
+
+				Drawing.RoundMarker(worldLine.To, Color.Green);
+
+				Debug.linesRed.Add(worldLine);
+
+				return worldLine.To; // XXX return first found detector
+			}
+			return null;
+		}
+
 		private static bool IsGoodPosition(Vector3D engineerCenter, Vector3D target, IMySlimBlock targetBlock,
 			out Vector3D position, out Vector3D forward, out Vector3D up)
 		{
@@ -86,7 +141,8 @@ namespace LLE
 			var a = eyePosition;
 			var b = target;
 
-			var rc = RaycastForGrindWeld(a, b, targetBlock);
+			//var rc = RaycastForGrindWeld(a, b, targetBlock);
+			var rc = RaycastForInteraction(a, targetBlock);
 
 			if (rc == null) return false;
 			b = rc.Value;
@@ -136,6 +192,9 @@ namespace LLE
 		private static void Query(IMySlimBlock block, Vector3I min, Vector3I max,
 			Vector3D engineerPosition, List<EQSResult> results, int maxResults)
 		{
+			Debug.linesRed.Clear();
+			Debug.linesGray.Clear();
+
 			results.Clear();
 
 			var grid = block.CubeGrid;
@@ -152,7 +211,10 @@ namespace LLE
 			{
 				Vector3D ijkWorld = grid.GridIntegerToWorld(ijk);
 
-				Vector3D target = Collisions.GetGrindWeldTarget(block, ijkWorld);
+				//Vector3D target = Collisions.GetGrindWeldTarget(block, ijkWorld);
+				Vector3D target;
+				if(!Collisions.GetNearestDetectorCenterByPrefix(block, engineerPosition, "conveyor_", out target))
+					continue;
 
 				Vector3D position, forward, up;
 				if (!IsGoodPosition(ijkWorld, target, block, out position, out forward, out up)) continue;
