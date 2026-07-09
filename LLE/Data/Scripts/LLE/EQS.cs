@@ -159,13 +159,21 @@ namespace LLE
 
 		/// <summary>
 		/// Orders candidate cells by distance from the block's geometric center (grid space).
-		/// A small off-axis jitter breaks ties for symmetric blocks.
+		/// A small jitter toward the engineer breaks ties for symmetric blocks,
+		/// so positions on the engineer's side are found first.
 		/// </summary>
-		static void OrderCandidatesByDistance(List<Vector3I> cells, IMySlimBlock block)
+		static void OrderCandidatesByDistance(List<Vector3I> cells, IMySlimBlock block,
+			Vector3D engineerPosition, IMyCubeGrid grid)
 		{
 			// Grid-space center of the block
 			Vector3D center = (block.Min + block.Max) * 0.5;
-			center -= new Vector3D(0.1, 0.1, 0.1); // breaks symmetry
+
+			// Jitter: 0.1m toward the engineer (in grid-space units)
+			var invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
+			Vector3D engineerGrid = Vector3D.Transform(engineerPosition, invWorld) / grid.GridSize;
+			Vector3D toEngineer = engineerGrid - center;
+			double len = toEngineer.Length();
+			if (len > 1e-10) center += toEngineer / len * 0.1;
 
 			cells.Sort((a, b) =>
 			{
@@ -196,7 +204,7 @@ namespace LLE
 				candidateCells.Add(ijk);
 			}
 
-			OrderCandidatesByDistance(candidateCells, block);
+			OrderCandidatesByDistance(candidateCells, block, engineerPosition, grid);
 
 			const int maxResults = 5;
 
