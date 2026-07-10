@@ -59,16 +59,12 @@ namespace LLE
 			if(!EquipTool("Grinder"))
 				yield return "Cannot equip grinder. Do you have a Grinder in your inventory?";
 
-			var grindWeldIP = new List<EQSResult>();
-			var ec = GetEngineerCenter();
-			var eCell = block.CubeGrid.WorldToGridInteger(ec);
-			EQS.QueryOneCell(block, eCell, ec, grindWeldIP, 1);
-			if(grindWeldIP.Count == 0)
-				yield return "Error: You are not at the correct interaction point with the block.";
-
-			var ip = grindWeldIP[0];
-			var Position = ip.chPosition;
-			var Target = ip.Target;
+			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
+			if(!ip.HasValue)
+				yield return E_BAD_POINT;
+			
+			var Position = ip.Value.chPosition;
+			var Target = ip.Value.Target;
 
 			// TODO: warning on WillRemoveBlockSplitGrid
 
@@ -239,16 +235,15 @@ namespace LLE
 			var welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
-			var grindWeldIP = new List<EQSResult>();
-			var ec = GetEngineerCenter();
-			var eCell = block.CubeGrid.WorldToGridInteger(ec);
-			EQS.QueryOneCell(block, eCell, ec, grindWeldIP, 1);
-			if(grindWeldIP.Count == 0)
-				yield return "Error: You are not at the correct interaction point with the block.";
+			if(!IsAtInteractionPoint(block, InteractionKind.GrindWeld, out message))
+				yield return message;
 
-			var ip = grindWeldIP[0];
-			var Position = ip.chPosition;
-			var Target = ip.Target;
+			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
+			if(!ip.HasValue)
+				yield return E_BAD_POINT;
+			
+			var Position = ip.Value.chPosition;
+			var Target = ip.Value.Target;
 
 			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())

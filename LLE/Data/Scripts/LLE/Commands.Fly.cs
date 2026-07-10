@@ -165,13 +165,13 @@ namespace LLE
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(!Collisions.CenterIsFree(block, ijk))
 			{	
-				Vector3I ip;
+				//Vector3I ip;
+				//if(!GetBestInteractionPoint(ijk, out ip))
+				//	yield return $"Error: no interaction points found for the block at {IJK(ijk)}" +
+				//		" The block is probably blocked from all sides.";
+				//ijk = ip;
 
-				if(!GetBestInteractionPoint(ijk, out ip))
-					yield return $"Error: no interaction points found for the block at {IJK(ijk)}" +
-						" The block is probably blocked from all sides.";
-				
-				ijk = ip;
+				yield return $"Destination is blocked. Use `points` to find interaction points";
 			}
 
 			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();

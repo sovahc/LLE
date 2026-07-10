@@ -10,12 +10,18 @@ using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
-	public struct EQSResult
+	internal struct EQSResult
 	{
 		public Vector3I Cell;
 		public Vector3D chPosition;
 		public Vector3D chUp;
 		public Vector3D Target;
+	}
+
+	internal enum InteractionKind
+	{	GrindWeld,
+		Inventory,
+		Recharge			
 	}
 
 	public static class EQS
@@ -32,18 +38,6 @@ namespace LLE
 				new Vector3(0, +h2, 0),
 				Constants.EngineerCapsuleRadius, capsuleModel);
 		}
-
-		enum InteractionKind
-		{	GrindWeld,
-			Inventory,
-			Recharge			
-		}
-
-//EQS.Query
-// ├─ EnumerateCandidateCells
-// ├─ Collisions.TryGetVisibleInteraction
-// ├─ TryCreatePose
-// └─ IsPoseClear
 
 		private static Vector3D? CalculateInteractionPoint_Collision(IMySlimBlock block, Vector3D worldFrom)
 		{
@@ -136,78 +130,23 @@ namespace LLE
 			return result;
 		}
 
-		private static bool IsGoodPosition(Vector3D gridUp,
-			Vector3D engineerCenter, Vector3D target, IMySlimBlock targetBlock,
-			out Vector3D position, out Vector3D forward, out Vector3D up)
-		{
-			position = Vector3D.Zero;
-			forward = Vector3D.Zero;
-			up = Vector3D.Zero;
-
-			var grid = targetBlock.CubeGrid;
-
-			var h2 = Constants.EngineerCapsuleHeight / 2;
-			var eyePosition = engineerCenter + gridUp * h2;
-
-			forward = (target - eyePosition).Normalized();
-
-			var world = MatrixD.CreateWorld(engineerCenter, forward, gridUp);
-			up = world.Up;
-
-			// Raycast from eye toward collision center
-			var a = eyePosition;
-			var b = target;
-
-			//var rc = RaycastForGrindWeld(a, b, targetBlock);
-			var rc = CalculateInteractionPoint_Detectors(targetBlock, a, InteractionKind.Inventory);
-
-			if (rc == null) return false;
-			b = rc.Value;
-
-			var material = MyStringId.GetOrCompute("Square");
-			var color = Color.Cyan.ToVector4();
-			MySimpleObjectDraw.DrawLine(a, b, material, ref color, 0.01f);
-
-			var dir = (b - a).Normalized();
-			a = b - dir * Constants.GrindWeldDistance;
-			
-			position = a - up * h2;
-			world.Translation = position;
-
-			var capsule = new List<Vector3D>(capsuleModel.Count);
-			for (int i = 0; i < capsuleModel.Count; i++)
-				capsule.Add(Vector3D.Transform(capsuleModel[i], world));
-
-			Vector3I capMin, capMax;
-			MinMax(grid, capsule, out capMin, out capMax);
-			bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capsule, capMin, capMax, null);
-
-			Drawing.ConvexOutline(capsule, 1e-4f, capsuleClear ? Color.Cyan : Color.DarkGray);
-
-			if(!capsuleClear) return false;
-
-			// Check if the engineer's stand position is blocked by a foreign grid.
-			if (Collisions.CheckWorldSphereAgainstGrids(position, Constants.CollisionProbeRadius, grid))
-				return false;
-
-			return true;
-		}
-
-		public static void Query(IMySlimBlock block, Vector3D engineerPosition,
+		internal static void Query(IMySlimBlock block, Vector3D engineerPosition, InteractionKind kind,
 			List<EQSResult> results, int maxResults)
 		{	var min = block.Min - 1;
 			var max = block.Max + 1;
 
-			Query(block, min, max, engineerPosition, results, maxResults);
+			Query(block, min, max, engineerPosition, kind, results, maxResults);
 		}
 
-		public static void QueryOneCell(IMySlimBlock block, Vector3I cell, Vector3D engineerPosition,
+		internal static void QueryOneCell(IMySlimBlock block, Vector3I cell,
+			Vector3D engineerPosition, InteractionKind kind,
 			List<EQSResult> results, int maxResults)
-		{	Query(block, cell, cell, engineerPosition, results, maxResults);
+		{	Query(block, cell, cell, engineerPosition, kind, results, maxResults);
 		}
 
 		private static void Query(IMySlimBlock block, Vector3I min, Vector3I max,
-			Vector3D engineerPosition, List<EQSResult> results, int maxResults)
+			Vector3D engineerPosition, InteractionKind kind,
+			List<EQSResult> results, int maxResults)
 		{
 			Debug.ClearLines();
 
@@ -228,33 +167,56 @@ namespace LLE
 			foreach (var ijk in producer)
 			{
 				Vector3D ijkWorld = grid.GridIntegerToWorld(ijk);
-				Vector3D? r;
-				r = CalculateInteractionPoint_Collision(block, ijkWorld);
-				if(r.HasValue) Debug.AddLine(new LineD(ijkWorld, r.Value), Color.Red);
 
-				r = CalculateInteractionPoint_Detectors(block, ijkWorld, InteractionKind.Inventory);
-				if(r.HasValue) Debug.AddLine(new LineD(ijkWorld, r.Value), Color.Yellow);
+				var worldFrom = ijkWorld + gridUp * Constants.EngineerCapsuleHeight / 2; // XXxx
 
-				r = CalculateInteractionPoint_Detectors(block, ijkWorld, InteractionKind.Recharge);
-				if(r.HasValue) Debug.AddLine(new LineD(ijkWorld, r.Value), Color.White);
+				Vector3D? r = null;
+
+				switch(kind)
+				{	case InteractionKind.GrindWeld:
+						r = CalculateInteractionPoint_Collision(block, worldFrom);
+						break;
+					case InteractionKind.Inventory:
+						r = CalculateInteractionPoint_Detectors(block, worldFrom, InteractionKind.Inventory);
+						break;
+					case InteractionKind.Recharge:
+						r = CalculateInteractionPoint_Detectors(block, worldFrom, InteractionKind.Recharge);
+						break;
+				}
+				if(r.HasValue)
+					Debug.AddLine(new LineD(worldFrom, r.Value), Color.Green);
+				else
+					Drawing.RoundMarker(worldFrom, Color.Black);
+
+				if(!r.HasValue) continue;
+
+				// check engineer placement
+
+				var worldTo = r.Value;
+
+				var world = MatrixD.CreateWorld(worldFrom, worldTo-worldFrom, gridUp); // normailization is inside.
+
+				var capsule = new List<Vector3D>(capsuleModel.Count);
+				for (int i = 0; i < capsuleModel.Count; i++)
+					capsule.Add(Vector3D.Transform(capsuleModel[i], world));
 				
-				//Vector3D target = Collisions.GetGrindWeldTarget(block, ijkWorld);
-				//Vector3D target;
-				//if(!Collisions.GetNearestDetectorCenterByPrefix(block, engineerPosition, "conveyor_", out target))
-				//	continue;
+				Vector3I capMin, capMax;
+				MinMax(grid, capsule, out capMin, out capMax);
+				bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capsule, capMin, capMax, null);
 
-				//Vector3D position, forward, up;
-				//if (!IsGoodPosition(gridUp, ijkWorld, target, block, out position, out forward, out up)) continue;
+				Drawing.ConvexOutline(capsule, 1e-4f, capsuleClear ? Color.Cyan : Color.DarkGray);
 
-				//results.Add(new EQSResult
-				//{
-				//	Cell = ijk,
-				//	chPosition = position,
-				//	chUp = up,
-				//	Target = target
-				//});
-				//
-				//if (results.Count >= maxResults) break;
+				if(!capsuleClear) continue;
+				
+				results.Add(new EQSResult
+				{
+					Cell = ijk,
+					chPosition = worldFrom,
+					chUp = world.Up,
+					Target = worldTo
+				});
+				
+				if (results.Count >= maxResults) break;
 			}
 		}
 

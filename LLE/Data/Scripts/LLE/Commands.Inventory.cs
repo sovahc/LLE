@@ -163,7 +163,8 @@ namespace LLE
 			if(fat == null || !fat.HasInventory)
 				yield return  $"Block {Quote(fromName)} does not have an inventory.";
 
-			if(!IsAtInventoryPoint(block, out message)) yield return message;
+			if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
+				yield return message;
 
 			Vector3D bp;
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
@@ -232,7 +233,8 @@ namespace LLE
 			if(fat == null || !fat.HasInventory)
 				yield return $"Block {Quote(toName)} does not have an inventory.";
 
-			if(!IsAtInventoryPoint(block, out message)) yield return message;
+			if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
+				yield return message;
 
 			Vector3D bp;
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
@@ -310,8 +312,11 @@ namespace LLE
 			if(fatTo == null || !fatTo.HasInventory)
 				yield return $"Block {Quote(toName)} does not have an inventory.";
 
-			if(!IsAtInventoryPoint(blockFrom, out message) || !IsAtInventoryPoint(blockTo, out message)) yield return message;
-				// TODO: Check conveyor connection between inventories
+			if(!IsAtInteractionPoint(blockFrom, InteractionKind.Inventory, out message) ||
+				!IsAtInteractionPoint(blockTo, InteractionKind.Inventory, out message))
+				yield return message;
+			
+			// TODO: Check conveyor connection between inventories
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();

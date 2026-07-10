@@ -31,6 +31,7 @@ namespace LLE
 	public partial class Commands
 	{
 		private const string IE_NO_INVENTORY = "Internal error: character.GetInventory() is null";
+		private const string E_BAD_POINT = "Error: You are not at the correct interaction point with the block.";
 
 		internal static CommandResult Success(string message) => CommandResult.Success(message);
 		internal static CommandResult Incomplete(string message) => CommandResult.Incomplete(message);
@@ -427,90 +428,61 @@ notes — print all keys.
 		{	
 			var block = selectedGrid.GetCubeBlock(ijk);
 
-			var inventoryIP = new List<Vector3I>();
-			var medblockIP = new List<Vector3I>();
-			Collisions.CalculateInteractionPoints(block, inventoryIP, medblockIP);
-			var grindWeldIP = new List<EQSResult>();
-			EQS.Query(block, GetEngineerCenter(), grindWeldIP, 10);
+			var eqsr = new List<EQSResult>();
+			int totalCount = 0;
 
-			sb.Append("Possible interaction points are:\n");
+			EQS.Query(block, GetEngineerCenter(), InteractionKind.Inventory, eqsr, 10);
+			totalCount += eqsr.Count;
 
-			if(inventoryIP.Count != 0)
+			if(eqsr.Count != 0)
 			{	sb.Append("* Get/Put: ");
-				AppendList(inventoryIP, sb);
-			}
-			if(medblockIP.Count != 0)
-			{	sb.Append("* Recharge: ");
-				AppendList(medblockIP, sb);
-			}
-			if(grindWeldIP.Count != 0)
-			{	sb.Append("* Grind/Weld: ");
-				var ip = grindWeldIP.Select(r => r.Cell).ToList();
+				var ip = eqsr.Select(r => r.Cell).ToList();
 				AppendList(ip, sb);
 			}
 
-			if(inventoryIP.Count == 0 && medblockIP.Count == 0 && grindWeldIP.Count == 0)
-			{	sb.Append("(none)\n");
+			EQS.Query(block, GetEngineerCenter(), InteractionKind.Recharge, eqsr, 10);
+			totalCount += eqsr.Count;
+
+			if(eqsr.Count != 0)
+			{	sb.Append("* Recharge: ");
+				var ip = eqsr.Select(r => r.Cell).ToList();
+				AppendList(ip, sb);
+			}
+			
+			EQS.Query(block, GetEngineerCenter(), InteractionKind.GrindWeld, eqsr, 10);
+			totalCount += eqsr.Count;
+			
+			if(eqsr.Count != 0)
+			{	sb.Append("* Grind/Weld: ");
+				var ip = eqsr.Select(r => r.Cell).ToList();
+				AppendList(ip, sb);
+			}
+
+			if(totalCount == 0)
+			{	sb.Append("-- none --\n");
+				sb.Append("(the block is likely fully obstructed by other blocks or rock)\n");
 			}
 		}
 
-		internal bool GetBestInteractionPoint(Vector3I ijk, out Vector3I bestIP)
-		{	
-			var block = selectedGrid.GetCubeBlock(ijk);
-
-			var inventoryIP = new List<Vector3I>();
-			var medblockIP = new List<Vector3I>();
-			Collisions.CalculateInteractionPoints(block, inventoryIP, medblockIP);
-			var grindWeldIP = new List<EQSResult>();
-			EQS.Query(block, GetEngineerCenter(), grindWeldIP, 10);
-
-			if(medblockIP.Count != 0)
-			{	bestIP = NearestToEngineer(medblockIP);
-				return true;
-			}
-			if(inventoryIP.Count != 0)
-			{	bestIP = NearestToEngineer(inventoryIP);
-				return true;
-			}
-			if(grindWeldIP.Count != 0)
-			{	var ip = grindWeldIP.Select(r => r.Cell).ToList();
-				bestIP = NearestToEngineer(ip);
-				return true;
-			}
-
-			bestIP = Vector3I.Zero;
-			return false;
-		}
-
-		internal bool IsAtInventoryPoint(IMySlimBlock block, out string message)
+		internal bool IsAtInteractionPoint(IMySlimBlock block, InteractionKind kind, out string message)
 		{
-			var ip = new List<Vector3I>();
-			var dummy = new List<Vector3I>();
-			Collisions.CalculateInteractionPoints(block, ip, dummy);
-			return IsAtPoint(block, ip, out message);
-		}
-
-		internal bool IsAtMedblockPoint(IMySlimBlock block, out string message)
-		{
-			var ip = new List<Vector3I>();
-			var dummy = new List<Vector3I>();
-			Collisions.CalculateInteractionPoints(block, dummy, ip);
-			return IsAtPoint(block, ip, out message);
-		}
-
-		internal bool IsAtGrindWeldPoint(IMySlimBlock block, out string message)
-		{
-			var grindWeldIP = new List<EQSResult>();
 			var ec = GetEngineerCenter();
-			var cell = block.CubeGrid.WorldToGridInteger(ec);
-			EQS.QueryOneCell(block, cell, GetEngineerCenter(), grindWeldIP, 1);
-			if(grindWeldIP.Count != 0)
+			var r = GetInteractionPointAt(block, kind, ec);
+			if(r.HasValue)
 			{	message = null;
 				return true;
 			}
-			
-			message = "Error: You are not at the correct interaction point with the block.";
+			message = E_BAD_POINT;
 			return false;
+		}
+
+		EQSResult? GetInteractionPointAt(IMySlimBlock block, InteractionKind kind, Vector3D point)
+		{	var eqsr = new List<EQSResult>();
+			var cell = block.CubeGrid.WorldToGridInteger(point);
+			EQS.QueryOneCell(block, cell, GetEngineerCenter(), kind, eqsr, 1);
+			if(eqsr.Count == 0) return null;
+
+			return eqsr[0];
 		}
 
 		internal bool IsAtPoint(IMySlimBlock block, List<Vector3I> ip, out string message)
