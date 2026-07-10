@@ -115,7 +115,7 @@ namespace LLE
 				var clippedByDetector = new Line(line.From, line.From + line.Direction * intersection.Value);
 				var worldLine = new LineD(worldFrom, Transform.ModelToWorld(block, clippedByDetector.To));
 
-				var min = block.Min-1; // XXX big query
+				var min = block.Min-1; // XXX this query is too big
 				var max = block.Max+1;
 				
 				bool ligg = Collisions.LineIntersectsGridGeometry(grid, worldLine, min, max, null);
