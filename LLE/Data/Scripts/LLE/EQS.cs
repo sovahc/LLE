@@ -215,7 +215,8 @@ namespace LLE
 
 				var world = MatrixD.CreateWorld(worldFrom, worldTo-worldFrom, gridUp); // normailization is inside.
 
-				var capsule = new List<Vector3D>(capsuleModel.Count);
+				tmp.Clear();
+				var capsule = tmp;
 				for (int i = 0; i < capsuleModel.Count; i++)
 					capsule.Add(Vector3D.Transform(capsuleModel[i], world));
 				
