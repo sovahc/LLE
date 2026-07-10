@@ -116,16 +116,9 @@ namespace LLE
 				var clippedByDetector = new Line(line.From, line.From + line.Direction * intersection.Value);
 				var worldLine = new LineD(worldFrom, Transform.ModelToWorld(block, clippedByDetector.To));
 
-				Vector3I lineMin, lineMax;
-				tmp.Clear();
-				tmp.Add(worldLine.From);
-				tmp.Add(worldLine.To);
-				MinMax(grid, tmp, out lineMin, out lineMax);
-				
-				bool ligg = Collisions.LineIntersectsGridGeometry(grid, worldLine, lineMin, lineMax, null);
-					// XX optimize
-				
-				if(ligg) continue;
+				IHitInfo hitInfo;
+				if(MyAPIGateway.Physics.CastRay(worldLine.From, worldLine.To, out hitInfo,
+					CollisionLayers.CollisionLayerWithoutCharacter)) continue;
 
 				if(intersection.Value < minDistance)
 				{	minDistance = intersection.Value;
