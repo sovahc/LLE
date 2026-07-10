@@ -619,17 +619,14 @@ namespace LLE
 			
 			if (cg.HasMainCockpit())
 			{	m = cg.MainCockpit.WorldMatrix;
-				MyConsole.Add("HasMainCockpit");
 			}
 			else if (cg.HasMainRemoteControl())
 			{	m = cg.MainRemoteControl.WorldMatrix;
-				MyConsole.Add("HasMainRemoteControl");
 			}
 			else
 			{	foreach (var b in cg.GetFatBlocks())
 				{	if (b is IMyShipController)
 					{	m = b.WorldMatrix;
-						MyConsole.Add($"IMyShipController {b.DisplayNameText}");
         				break;
     				}
 				}
