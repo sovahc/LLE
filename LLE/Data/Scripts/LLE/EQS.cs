@@ -59,7 +59,25 @@ namespace LLE
 			return hit;
 		}
 
-		private static Vector3D? RaycastForInteraction(Vector3D worldFrom, IMySlimBlock block)
+		private static float? RaycastDetector(DetectorInfo detector, Line line)
+		{
+			float minIntersection = float.MaxValue;
+
+			foreach(var p in detector.ForRaycast)
+			{	var lp = p;
+				var f = Intersections.GetLineParallelogramIntersection(ref line, ref lp);
+				if(!f.HasValue) continue;
+
+				if(f.Value < minIntersection) minIntersection = f.Value;
+			}
+
+			if(minIntersection >= float.MaxValue) return null;
+
+			return minIntersection;
+		}
+
+		private static Vector3D? RaycastForInteraction(Vector3D worldFrom, bool withInventory, bool withMedblock,
+			IMySlimBlock block)
 		{	
 			CollisionGeometry geometry;
 			if (!Collisions._collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry))
@@ -68,50 +86,53 @@ namespace LLE
 			var grid = block.CubeGrid;
 			Vector3 modelFrom = Transform.WorldToModel(block, worldFrom);
 
+			Vector3D? result = null;
+			float minDistance = float.MaxValue;
+
 			foreach (var detector in geometry.Detectors)
 			{	
-				bool inventory =
-					detector.Name.StartsWith("conveyor_") ||
-					detector.Name.StartsWith("inventory_") || 
-					detector.Name.StartsWith("cockpit_");
-				bool medblock = detector.Name.StartsWith("block_");
-
-				if(!inventory && !medblock) continue;
+				if(withInventory)
+				{	bool inventory =
+						detector.Name.StartsWith("conveyor_") ||
+						detector.Name.StartsWith("inventory_") || 
+						detector.Name.StartsWith("cockpit_");
+					if(!inventory) continue;
+				}
+				if(withMedblock)
+				{	bool medblock = detector.Name.StartsWith("block_");
+					if(!medblock) continue;
+				}
 
 				var detectorCenter = detector.Transform.Translation;
 				var line = new Line(modelFrom, detectorCenter);
 					
 				if(line.Length > Constants.MaxInteractionDistance) continue;
 
-				float minIntersection = float.MaxValue;
+				var intersection = RaycastDetector(detector, line);
+				if(!intersection.HasValue) continue;
 
-				foreach(var p in detector.ForRaycast)
-				{	var lp = p;
-					var f = Intersections.GetLineParallelogramIntersection(ref line, ref lp);
-					if(!f.HasValue) continue;
-
-					if(f.Value < minIntersection) minIntersection = f.Value;
-				}
-
-				if(minIntersection >= float.MaxValue) continue;
-
-				var clippedByDetector = new Line(line.From, line.From + line.Direction * minIntersection);
+				var clippedByDetector = new Line(line.From, line.From + line.Direction * intersection.Value);
 				var worldLine = new LineD(worldFrom, Transform.ModelToWorld(block, clippedByDetector.To));
 
 				var min = block.Min-1; // XXX big query
 				var max = block.Max+1;
-				if(Collisions.LineIntersectsGridGeometry(grid, worldLine, min, max, null))
+				
+				bool ligg = Collisions.LineIntersectsGridGeometry(grid, worldLine, min, max, null);
+				
+				if(ligg)
 				{	Drawing.RoundMarker(worldLine.To, Color.Gray);
 					continue;
 				}
-
 				Drawing.RoundMarker(worldLine.To, Color.Green);
 
 				Debug.linesRed.Add(worldLine);
 
-				return worldLine.To; // XXX return first found detector
+				if(intersection.Value < minDistance)
+				{	minDistance = intersection.Value;
+					result = worldLine.To;
+				}
 			}
-			return null;
+			return result;
 		}
 
 		private static bool IsGoodPosition(Vector3D gridUp,
@@ -142,7 +163,7 @@ namespace LLE
 			var b = target;
 
 			//var rc = RaycastForGrindWeld(a, b, targetBlock);
-			var rc = RaycastForInteraction(a, targetBlock);
+			var rc = RaycastForInteraction(a, true, false, targetBlock);
 
 			if (rc == null) return false;
 			b = rc.Value;
