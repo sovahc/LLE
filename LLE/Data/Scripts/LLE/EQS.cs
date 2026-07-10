@@ -198,14 +198,19 @@ namespace LLE
 				if(!r.HasValue) continue;
 
 				// check engineer placement
-
+				
 				var worldTo = r.Value;
 				var direction = (worldTo - worldFrom).Normalized();
-				if(kind == InteractionKind.GrindWeld)
-					worldFrom = worldTo - direction * Constants.GrindWeldDistance;
-				else
-					worldFrom = worldTo - direction * Constants.MaxInteractionDistance / 2;
 
+				var desiredDist = (kind == InteractionKind.GrindWeld) ?
+					Constants.MaxGrindWeldDistance :
+					Constants.MaxInteractionDistance;
+
+				var naturalDist = (worldTo - worldFrom).Length();
+
+				if(desiredDist > naturalDist) desiredDist = (float)naturalDist;
+
+				worldFrom = worldTo - direction * desiredDist;
 				worldFrom -= eyesShift;
 
 				var world = MatrixD.CreateWorld(worldFrom, worldTo-worldFrom, gridUp); // normailization is inside.

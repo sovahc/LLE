@@ -19,7 +19,7 @@ namespace LLE
 		public const float EngineerHeight = 1.8f;
 		public const float CollisionProbeRadius = 0.6f;
 		public const float MaxInteractionDistance = 4.5f;
-		public const float GrindWeldDistance = 1.5f;
+		public const float MaxGrindWeldDistance = 2.0f;
 		public const double NearInformationRadius = 500;
 		// Sandbox.Game.MyEnergyConstants.BATTERY_MAX_CAPACITY.
 		// Upper energy limit is hardcoded in the engine (MyBattery.UpdateOnServer100 clamps capacity).
