@@ -70,8 +70,6 @@ namespace LLE
 
 	public partial class Commands
 	{
-		private Vector3D up;
-
 		private readonly MicroNavigation micro = new MicroNavigation();
 		private readonly DampedSpringController springController = new DampedSpringController();
 
@@ -192,8 +190,6 @@ namespace LLE
 			if(currentGrid != null && currentGrid != selectedGrid)
 			{	MyConsole.Add("Fly out of the current grid toward the target.");
 
-				up = currentGrid.WorldMatrix.Up;
-
 				from = currentGrid.WorldToGridInteger(engineer);
 				to = currentGrid.WorldToGridInteger(destination);
 
@@ -215,8 +211,6 @@ namespace LLE
 			}
 
 			engineer = GetEngineerCenter();
-
-			up = selectedGrid.WorldMatrix.Up;
 
 			from = selectedGrid.WorldToGridInteger(engineer);
 			to = ijk;
@@ -245,6 +239,8 @@ namespace LLE
 		internal IEnumerator NavigationCR(IMyCubeGrid exitGrid = null)
 		{
 			bool closeBehind = false;
+
+			var up = CalculateUpVector(exitGrid ?? selectedGrid);
 
 			for(;;)
 			{
