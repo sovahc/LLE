@@ -33,51 +33,55 @@ namespace LLE
 				Constants.EngineerCapsuleRadius, capsuleModel);
 		}
 
-		private static Vector3D? RaycastForGrindWeld(Vector3D a, Vector3D b, IMySlimBlock targetBlock)
+		enum InteractionKind
+		{	GrindWeld,
+			Inventory,
+			Recharge			
+		}
+
+//EQS.Query
+// ├─ EnumerateCandidateCells
+// ├─ Collisions.TryGetVisibleInteraction
+// ├─ TryCreatePose
+// └─ IsPoseClear
+
+		private static Vector3D? CalculateInteractionPoint_Collision(IMySlimBlock block, Vector3D worldFrom)
 		{
-			if(!Collisions.HasCollision(targetBlock))
+			var a = worldFrom;
+			Vector3D b;
+
+			if(!Collisions.HasCollision(block))
 			{	// light, camera, e.t.c.
-				var fat = targetBlock.FatBlock;
+				var fat = block.FatBlock;
 				if (fat == null) return null;
 				
 				b = fat.PositionComp.WorldAABB.Center;
 				return b;
 			}
 
+			if(block.Min != block.Max)
+			{	/// nearest cell??				
+			}
+
+			b = Collisions.GetGrindWeldTarget(block, a);
+
 			IHitInfo hitInfo;
 			MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
 
 			if (hitInfo == null) return null;
 
-			var grid = targetBlock.CubeGrid;
+			var grid = block.CubeGrid;
 				
 			var hit = a + (b - a) * hitInfo.Fraction * 1.01;
 			var hitIJK = grid.WorldToGridInteger(hit);
 			var hitBlock = grid.GetCubeBlock(hitIJK);
-			if (hitBlock != targetBlock) return null;
+			if (hitBlock != block) return null;
 
 			return hit;
 		}
 
-		private static float? RaycastDetector(DetectorInfo detector, Line line)
-		{
-			float minIntersection = float.MaxValue;
-
-			foreach(var p in detector.ForRaycast)
-			{	var lp = p;
-				var f = Intersections.GetLineParallelogramIntersection(ref line, ref lp);
-				if(!f.HasValue) continue;
-
-				if(f.Value < minIntersection) minIntersection = f.Value;
-			}
-
-			if(minIntersection >= float.MaxValue) return null;
-
-			return minIntersection;
-		}
-
-		private static Vector3D? RaycastForInteraction(Vector3D worldFrom, bool withInventory, bool withMedblock,
-			IMySlimBlock block)
+		private static Vector3D? CalculateInteractionPoint_Detectors(
+			IMySlimBlock block, Vector3D worldFrom, InteractionKind kind)
 		{	
 			CollisionGeometry geometry;
 			if (!Collisions._collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry))
@@ -91,24 +95,27 @@ namespace LLE
 
 			foreach (var detector in geometry.Detectors)
 			{	
-				if(withInventory)
+				if(kind == InteractionKind.Inventory)
 				{	bool inventory =
 						detector.Name.StartsWith("conveyor_") ||
 						detector.Name.StartsWith("inventory_") || 
 						detector.Name.StartsWith("cockpit_");
 					if(!inventory) continue;
 				}
-				if(withMedblock)
+				if(kind == InteractionKind.Recharge)
 				{	bool medblock = detector.Name.StartsWith("block_");
 					if(!medblock) continue;
 				}
 
 				var detectorCenter = detector.Transform.Translation;
+				var dcWordld = Transform.ModelToWorld(block, detectorCenter);
+				Drawing.RoundMarker(dcWordld, Color.Purple);
+
 				var line = new Line(modelFrom, detectorCenter);
 					
 				if(line.Length > Constants.MaxInteractionDistance) continue;
 
-				var intersection = RaycastDetector(detector, line);
+				var intersection = Collisions.RaycastDetector(detector, line);
 				if(!intersection.HasValue) continue;
 
 				var clippedByDetector = new Line(line.From, line.From + line.Direction * intersection.Value);
@@ -119,13 +126,7 @@ namespace LLE
 				
 				bool ligg = Collisions.LineIntersectsGridGeometry(grid, worldLine, min, max, null);
 				
-				if(ligg)
-				{	Drawing.RoundMarker(worldLine.To, Color.Gray);
-					continue;
-				}
-				Drawing.RoundMarker(worldLine.To, Color.Green);
-
-				Debug.linesRed.Add(worldLine);
+				if(ligg) continue;
 
 				if(intersection.Value < minDistance)
 				{	minDistance = intersection.Value;
@@ -150,11 +151,6 @@ namespace LLE
 
 			forward = (target - eyePosition).Normalized();
 
-			// Up perpendicular to forward, closest to grid up.
-			// Skip when forward is nearly parallel to grid up (engineer can't look straight up/down).
-			var right = Vector3D.Cross(gridUp, forward);
-			if (right.LengthSquared() < 1e-10) return false;
-
 			var world = MatrixD.CreateWorld(engineerCenter, forward, gridUp);
 			up = world.Up;
 
@@ -163,7 +159,7 @@ namespace LLE
 			var b = target;
 
 			//var rc = RaycastForGrindWeld(a, b, targetBlock);
-			var rc = RaycastForInteraction(a, true, false, targetBlock);
+			var rc = CalculateInteractionPoint_Detectors(targetBlock, a, InteractionKind.Inventory);
 
 			if (rc == null) return false;
 			b = rc.Value;
@@ -213,8 +209,7 @@ namespace LLE
 		private static void Query(IMySlimBlock block, Vector3I min, Vector3I max,
 			Vector3D engineerPosition, List<EQSResult> results, int maxResults)
 		{
-			Debug.linesRed.Clear();
-			Debug.linesGray.Clear();
+			Debug.ClearLines();
 
 			results.Clear();
 
@@ -233,24 +228,33 @@ namespace LLE
 			foreach (var ijk in producer)
 			{
 				Vector3D ijkWorld = grid.GridIntegerToWorld(ijk);
+				Vector3D? r;
+				r = CalculateInteractionPoint_Collision(block, ijkWorld);
+				if(r.HasValue) Debug.AddLine(new LineD(ijkWorld, r.Value), Color.Red);
 
+				r = CalculateInteractionPoint_Detectors(block, ijkWorld, InteractionKind.Inventory);
+				if(r.HasValue) Debug.AddLine(new LineD(ijkWorld, r.Value), Color.Yellow);
+
+				r = CalculateInteractionPoint_Detectors(block, ijkWorld, InteractionKind.Recharge);
+				if(r.HasValue) Debug.AddLine(new LineD(ijkWorld, r.Value), Color.White);
+				
 				//Vector3D target = Collisions.GetGrindWeldTarget(block, ijkWorld);
-				Vector3D target;
-				if(!Collisions.GetNearestDetectorCenterByPrefix(block, engineerPosition, "conveyor_", out target))
-					continue;
+				//Vector3D target;
+				//if(!Collisions.GetNearestDetectorCenterByPrefix(block, engineerPosition, "conveyor_", out target))
+				//	continue;
 
-				Vector3D position, forward, up;
-				if (!IsGoodPosition(gridUp, ijkWorld, target, block, out position, out forward, out up)) continue;
+				//Vector3D position, forward, up;
+				//if (!IsGoodPosition(gridUp, ijkWorld, target, block, out position, out forward, out up)) continue;
 
-				results.Add(new EQSResult
-				{
-					Cell = ijk,
-					chPosition = position,
-					chUp = up,
-					Target = target
-				});
-
-				if (results.Count >= maxResults) break;
+				//results.Add(new EQSResult
+				//{
+				//	Cell = ijk,
+				//	chPosition = position,
+				//	chUp = up,
+				//	Target = target
+				//});
+				//
+				//if (results.Count >= maxResults) break;
 			}
 		}
 

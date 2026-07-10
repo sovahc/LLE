@@ -292,30 +292,21 @@ namespace LLE
 			return outIntersected != null && outIntersected.Count != 0;
 		}
 
-		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
+		internal static float? RaycastDetector(DetectorInfo detector, Line line)
 		{
-			var calc = new TraversabilityCalculator(grid, 0);
-			Traversability t = calc.GetTraversability(position);
-			var zero = grid.GridIntegerToWorld(position);
+			float minIntersection = float.MaxValue;
 
-			// Draw probe spheres at the same positions used for traversability calculation
-			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
+			foreach(var p in detector.ForRaycast)
+			{	var lp = p;
+				var f = Intersections.GetLineParallelogramIntersection(ref line, ref lp);
+				if(!f.HasValue) continue;
 
-			float offset = blockSize/2;
-
-			var color = new Vector4(0.25f, 0.25f, 0.25f, 1.0f);
-
-			Drawing.ScreenSphere(zero, ProbeRadius, color);
-			var dirs = Constants.SixDirections;
-
-			for (int d = 0; d < dirs.Length; ++d)
-			{
-				Vector3I dir = dirs[d];
-				var world = zero + offset * Vector3D.TransformNormal(new Vector3D(dir.X, dir.Y, dir.Z), grid.WorldMatrix);
-				Drawing.ScreenSphere(world, ProbeRadius, color);
-				Drawing.RoundMarker(world, t[dirs[d]] ? Color.Black : Color.Lime);
+				if(f.Value < minIntersection) minIntersection = f.Value;
 			}
-			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.Black : Color.Green);
+
+			if(minIntersection >= float.MaxValue) return null;
+
+			return minIntersection;
 		}
 
 		public static bool CheckWorldSphere(IMySlimBlock block, Vector3D worldCenter, double radius)
@@ -366,7 +357,7 @@ namespace LLE
 					var block = grid.GetCubeBlock(iter.Current);
 					if (block == null) continue;
 
-					if (Collisions.CheckWorldSphere(block, worldCenter, radius))
+					if (CheckWorldSphere(block, worldCenter, radius))
 					{
 						blocked = true;
 						goto done;
@@ -376,6 +367,7 @@ namespace LLE
 
 		done:
 			Drawing.ScreenSphere(worldCenter, (float)radius, (blocked ? Color.Gray : Color.Lime).ToVector4());
+				// XXX Debug
 			return blocked;
 		}
 

@@ -11,9 +11,6 @@ namespace LLE
 			List<Vector3I> inventoryIP,
 			List<Vector3I> medblockIP)
 		{
-			Debug.linesRed.Clear();
-			Debug.linesGray.Clear();
-
 			CollisionGeometry geometry;
 			if (!_collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry)) return;
 
@@ -72,8 +69,6 @@ namespace LLE
 					}
 
 					Drawing.RoundMarker(worldLine.To, Color.Green);
-
-					Debug.linesRed.Add(worldLine);
 
 					if(inventory)
 					{	inventoryIP.Add(ijk);

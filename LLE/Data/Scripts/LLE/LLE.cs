@@ -24,8 +24,18 @@ namespace LLE
 
 		private static AStarHelper aStarHelper;
 
-		public static List<LineD> linesRed = new List<LineD>();
-		public static List<LineD> linesGray = new List<LineD>();
+		private static List<LineD> lines = new List<LineD>();
+		private static List<Color> lineColors = new List<Color>();
+
+		public static void ClearLines()
+		{	lines.Clear();
+			lineColors.Clear();			
+		}
+
+		public static void AddLine(LineD line, Color color)
+		{	lines.Add(line);
+			lineColors.Add(color);
+		}
 
 		internal static void Start(IMyCubeGrid grid_)
 		{	grid = grid_;
@@ -97,15 +107,12 @@ namespace LLE
 				}
 			}
 
-			var red = Color.Red.ToVector4();
-			var gray = Color.Gray.ToVector4();
-					
-			foreach(var line in linesGray)
-			{	MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref gray, 0.01f);
-			}
-			foreach(var line in linesRed)
-			{	MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref red, 0.01f);
-				Drawing.RoundMarker(line.To, Color.OrangeRed);
+			for(int i = 0; i < lines.Count; ++i)
+			{
+				var line = lines[i];
+				var color = lineColors[i].ToVector4();
+				MySimpleObjectDraw.DrawLine(line.From, line.To, material, ref color, 0.01f);
+				Drawing.RoundMarker(line.To, lineColors[i]);
 			}
 		}
 	}

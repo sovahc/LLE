@@ -1,8 +1,9 @@
 using System.Collections.Generic;
-using System.Linq;
 
 using VRageMath;
+using VRage.Game;
 using VRage.Game.ModAPI;
+using Sandbox.Definitions;
 
 namespace LLE
 {
@@ -60,6 +61,32 @@ namespace LLE
 				Geometry.BoxToConvex(new Vector3(0.5f, 0.5f, 0.5f), vertices);
 				Drawing.ConvexOutline(vertices, detector.Transform, modelToWorld, 5e-5f, color.ToVector4());
 			}
+		}
+
+		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
+		{
+			var calc = new TraversabilityCalculator(grid, 0);
+			Traversability t = calc.GetTraversability(position);
+			var zero = grid.GridIntegerToWorld(position);
+
+			// Draw probe spheres at the same positions used for traversability calculation
+			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
+
+			float offset = blockSize/2;
+
+			var color = new Vector4(0.25f, 0.25f, 0.25f, 1.0f);
+
+			Drawing.ScreenSphere(zero, ProbeRadius, color);
+			var dirs = Constants.SixDirections;
+
+			for (int d = 0; d < dirs.Length; ++d)
+			{
+				Vector3I dir = dirs[d];
+				var world = zero + offset * Vector3D.TransformNormal(new Vector3D(dir.X, dir.Y, dir.Z), grid.WorldMatrix);
+				Drawing.ScreenSphere(world, ProbeRadius, color);
+				Drawing.RoundMarker(world, t[dirs[d]] ? Color.Black : Color.Lime);
+			}
+			Drawing.RoundMarker(zero, t[0, 0, 0] ? Color.Black : Color.Green);
 		}
 	}
 }
