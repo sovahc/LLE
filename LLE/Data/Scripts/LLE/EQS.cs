@@ -27,6 +27,7 @@ namespace LLE
 	public static class EQS
 	{
 		static readonly List<Vector3> capsuleModel = new List<Vector3>();
+		static readonly List<Vector3D> tmp= new List<Vector3D>();
 
 		public static void Initialize()
 		{
@@ -115,10 +116,14 @@ namespace LLE
 				var clippedByDetector = new Line(line.From, line.From + line.Direction * intersection.Value);
 				var worldLine = new LineD(worldFrom, Transform.ModelToWorld(block, clippedByDetector.To));
 
-				var min = block.Min-1; // XXX this query is too big
-				var max = block.Max+1;
+				Vector3I lineMin, lineMax;
+				tmp.Clear();
+				tmp.Add(worldLine.From);
+				tmp.Add(worldLine.To);
+				MinMax(grid, tmp, out lineMin, out lineMax);
 				
-				bool ligg = Collisions.LineIntersectsGridGeometry(grid, worldLine, min, max, null);
+				bool ligg = Collisions.LineIntersectsGridGeometry(grid, worldLine, lineMin, lineMax, null);
+					// XX optimize
 				
 				if(ligg) continue;
 

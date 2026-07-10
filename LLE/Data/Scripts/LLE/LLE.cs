@@ -89,7 +89,9 @@ namespace LLE
 				var block = grid.GetCubeBlock(astarStart.Value);
 				if(block != null)
 				{	List<EQSResult> results = new List<EQSResult>();
+					var p = new Profiler("EQS.Query");
 					EQS.Query(block, hm.Translation, InteractionKind.Inventory, results, 5);
+					p.Dispose();
 				}
 			}
 
