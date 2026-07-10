@@ -168,7 +168,9 @@ namespace LLE
 			{
 				Vector3D ijkWorld = grid.GridIntegerToWorld(ijk);
 
-				var worldFrom = ijkWorld + gridUp * Constants.EngineerCapsuleHeight / 2; // XXxx
+				var eyesShift = gridUp * Constants.EngineerCapsuleHeight / 2;
+
+				var worldFrom = ijkWorld + eyesShift;
 
 				Vector3D? r = null;
 
@@ -193,6 +195,13 @@ namespace LLE
 				// check engineer placement
 
 				var worldTo = r.Value;
+				var direction = (worldTo - worldFrom).Normalized();
+				if(kind == InteractionKind.GrindWeld)
+					worldFrom = worldTo - direction * Constants.GrindWeldDistance;
+				else
+					worldFrom = worldTo - direction * Constants.MaxInteractionDistance / 2;
+
+				worldFrom -= eyesShift;
 
 				var world = MatrixD.CreateWorld(worldFrom, worldTo-worldFrom, gridUp); // normailization is inside.
 

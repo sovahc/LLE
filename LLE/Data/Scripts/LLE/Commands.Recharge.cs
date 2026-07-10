@@ -133,7 +133,7 @@ namespace LLE
 			var tb = block.FatBlock as IMyTerminalBlock;
 			if(IsSurvivalKit(tb) || tb is IMyMedicalRoom)
 			{
-				if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
+				if(!IsAtInteractionPoint(block, InteractionKind.Recharge, out message))
 					yield return message;
 
 				var ec = GetEngineerCenter();

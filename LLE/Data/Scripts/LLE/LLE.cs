@@ -89,7 +89,7 @@ namespace LLE
 				var block = grid.GetCubeBlock(astarStart.Value);
 				if(block != null)
 				{	List<EQSResult> results = new List<EQSResult>();
-					EQS.Query(block, hm.Translation, InteractionKind.GrindWeld, results, 5);
+					EQS.Query(block, hm.Translation, InteractionKind.Inventory, results, 5);
 				}
 			}
 
