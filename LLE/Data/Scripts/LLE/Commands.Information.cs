@@ -612,7 +612,7 @@ namespace LLE
 			return dist != null && dist.ResourceState != MyResourceStateEnum.NoPower;
 		}
 
-		internal Vector3D CalculateUpVector(IMyCubeGrid grid)
+		internal static Vector3D CalculateUpVector(IMyCubeGrid grid)
 		{
 			var cg = grid as MyCubeGrid;
 			MatrixD m = cg.WorldMatrix;

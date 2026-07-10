@@ -114,7 +114,8 @@ namespace LLE
 			return null;
 		}
 
-		private static bool IsGoodPosition(Vector3D engineerCenter, Vector3D target, IMySlimBlock targetBlock,
+		private static bool IsGoodPosition(Vector3D gridUp,
+			Vector3D engineerCenter, Vector3D target, IMySlimBlock targetBlock,
 			out Vector3D position, out Vector3D forward, out Vector3D up)
 		{
 			position = Vector3D.Zero;
@@ -122,7 +123,6 @@ namespace LLE
 			up = Vector3D.Zero;
 
 			var grid = targetBlock.CubeGrid;
-			var gridUp = grid.WorldMatrix.Up; // xxx real up
 
 			var h2 = Constants.EngineerCapsuleHeight / 2;
 			var eyePosition = engineerCenter + gridUp * h2;
@@ -205,6 +205,8 @@ namespace LLE
 				max = block.Max;
 			}
 
+			var gridUp = Commands.CalculateUpVector(grid);
+
 			var producer = ProduceCells(block, min, max, engineerPosition);
 
 			foreach (var ijk in producer)
@@ -217,7 +219,7 @@ namespace LLE
 					continue;
 
 				Vector3D position, forward, up;
-				if (!IsGoodPosition(ijkWorld, target, block, out position, out forward, out up)) continue;
+				if (!IsGoodPosition(gridUp, ijkWorld, target, block, out position, out forward, out up)) continue;
 
 				results.Add(new EQSResult
 				{
