@@ -1,10 +1,7 @@
-using System;
 using System.Collections.Generic;
 
 using VRageMath;
-using VRage.Game;
 using VRage.Game.ModAPI;
-using VRage.Utils;
 using Sandbox.ModAPI;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
@@ -27,7 +24,7 @@ namespace LLE
 	public static class EQS
 	{
 		static readonly List<Vector3> capsuleModel = new List<Vector3>();
-		static readonly List<Vector3D> tmp= new List<Vector3D>();
+		static readonly List<Vector3D> tmp = new List<Vector3D>();
 
 		public static void Initialize()
 		{
@@ -46,7 +43,7 @@ namespace LLE
 			Vector3D b;
 
 			if(!Collisions.HasCollision(block))
-			{	// light, camera, e.t.c.
+			{	// light, camera, etc.
 				var fat = block.FatBlock;
 				if (fat == null) return null;
 				
@@ -103,8 +100,8 @@ namespace LLE
 				}
 
 				var detectorCenter = detector.Transform.Translation;
-				var dcWordld = Transform.ModelToWorld(block, detectorCenter);
-				Drawing.RoundMarker(dcWordld, Color.Purple);
+				var dcWorld = Transform.ModelToWorld(block, detectorCenter);
+				Drawing.RoundMarker(dcWorld, Color.Purple);
 
 				var line = new Line(modelFrom, detectorCenter);
 					
@@ -206,7 +203,7 @@ namespace LLE
 				worldFrom = worldTo - direction * desiredDist;
 				worldFrom -= eyesShift;
 
-				var world = MatrixD.CreateWorld(worldFrom, worldTo-worldFrom, gridUp); // normailization is inside.
+				var world = MatrixD.CreateWorld(worldFrom, worldTo-worldFrom, gridUp); // normalization is inside.
 
 				tmp.Clear();
 				var capsule = tmp;
@@ -267,7 +264,6 @@ namespace LLE
 
 			Vector3D blockCenter = (block.Min + block.Max) * 0.5;
 
-			var invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
 			Vector3D engineerCell = grid.WorldToGridInteger(engineerPosition);
 			Vector3D toEngineer = engineerCell - blockCenter;
 			
