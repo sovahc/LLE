@@ -117,8 +117,9 @@ You operate on a selected grid (ship or station).
 * integrity
   Show damaged blocks on the selected grid.
 
-* fly I J K
+* fly I J K [grind|weld|get|put|recharge|enter]
   Fly to specific grid coordinates. If block coordinates are specified instead of free space, the bot flies to the interaction point with the block.
+  With an intention keyword, flies directly to the nearest interaction point for that action (e.g. `fly 5 0 2 grind`).
 
 * grind I J K
   Grind a block at specific coordinates.

@@ -115,6 +115,27 @@ namespace LLE
 			return block?.FatBlock as IMyDoor;
 		}
 
+		private InteractionKind? ParseIntention(string word, IMySlimBlock block)
+		{
+			if(string.Equals(word, "grind", StringComparison.OrdinalIgnoreCase) ||
+			   string.Equals(word, "weld", StringComparison.OrdinalIgnoreCase))
+				return InteractionKind.GrindWeld;
+
+			if(string.Equals(word, "get", StringComparison.OrdinalIgnoreCase) ||
+			   string.Equals(word, "put", StringComparison.OrdinalIgnoreCase) ||
+			   string.Equals(word, "enter", StringComparison.OrdinalIgnoreCase))
+				return InteractionKind.Inventory;
+
+			if(string.Equals(word, "recharge", StringComparison.OrdinalIgnoreCase))
+			{
+				if(block?.FatBlock is IMyCockpit)
+					return InteractionKind.Inventory;
+				return InteractionKind.Recharge;
+			}
+
+			return null;
+		}
+
 		internal class PathNode
 		{	public Vector3D v;
 			public Vector3I? openDoor;
@@ -163,16 +184,41 @@ namespace LLE
 			Vector3I ijk;
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
-			var block = selectedGrid.GetCubeBlock(ijk);
-			if(!Collisions.CenterIsFree(block, ijk))
-			{	
-				//Vector3I ip;
-				//if(!GetBestInteractionPoint(ijk, out ip))
-				//	yield return $"Error: no interaction points found for the block at {IJK(ijk)}" +
-				//		" The block is probably blocked from all sides.";
-				//ijk = ip;
+			// Optional intention: fly I J K grind|weld|get|put|recharge|enter
+			string intentionWord = null;
+			if(!tp.End) intentionWord = tp.NextString();
 
-				yield return $"Destination is blocked. Use `points` to find interaction points";
+			var block = selectedGrid.GetCubeBlock(ijk);
+
+			// Destination cell: raw coords, or nearest interaction point for the intention.
+			Vector3I destinationCell = ijk;
+			string arrivalMessage = null;
+
+			if(intentionWord != null)
+			{
+				var intention = ParseIntention(intentionWord, block);
+				if(intention == null)
+					yield return $"Error: unknown fly intention '{intentionWord}'. Expected: grind, weld, get, put, recharge, enter";
+				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
+
+				var eqsr = new List<EQSResult>();
+				EQS.Query(block, GetEngineerCenter(), intention.Value, eqsr, 10);
+
+				if(eqsr.Count == 0)
+					yield return $"Error: no {intentionWord} interaction points found for {Name(block)} at {IJK(ijk)}";
+
+				var cells = new List<Vector3I>();
+				foreach(var r in eqsr) cells.Add(r.Cell);
+				destinationCell = NearestToEngineer(cells);
+
+				arrivalMessage = $"Arrived at {intentionWord} point for {Quote(Name(block))} at {IJK(ijk)}. Position: {IJK(destinationCell)}. Ready to {intentionWord}.";
+			}
+			else
+			{
+				if(!Collisions.CenterIsFree(block, ijk))
+				{ 
+					yield return $"Destination is blocked. Use `points` to find interaction points";
+				}
 			}
 
 			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
@@ -180,7 +226,7 @@ namespace LLE
 			jetComp.TurnOnJetpack(true);
 
 			Vector3D engineer = GetEngineerCenter();
-			Vector3D destination = selectedGrid.GridIntegerToWorld(ijk);
+			Vector3D destination = selectedGrid.GridIntegerToWorld(destinationCell);
 
 			Vector3I from, to;
 
@@ -214,7 +260,7 @@ namespace LLE
 			engineer = GetEngineerCenter();
 
 			from = selectedGrid.WorldToGridInteger(engineer);
-			to = ijk;
+			to = destinationCell;
 
 			aStarHelper = new AStarHelper(selectedGrid, to, from); // Reversed: A* only knows how to find a path OUT of the grid (to border), so we search backward and reverse the result
 
@@ -230,14 +276,14 @@ namespace LLE
 
 			micro.Fly(worldPath);
 
-			yield return NavigationCR();
+			yield return NavigationCR(null, arrivalMessage);
 		}
 
 		internal string CharacterCellText()
 		{	return IJK(selectedGrid.WorldToGridInteger(GetEngineerCenter()));
 		}
 
-		internal IEnumerator NavigationCR(IMyCubeGrid exitGrid = null)
+		internal IEnumerator NavigationCR(IMyCubeGrid exitGrid = null, string arrivalMessage = null)
 		{
 			bool closeBehind = false;
 
@@ -251,7 +297,7 @@ namespace LLE
 				if(exitGrid != null && !IsEngineerInsideGrid(ec, exitGrid))
 					yield break; // no answer to LLM, continue
 
-				if(micro.Arrived()) { yield return Success($"Arrived. Position: {CharacterCellText()}"); }
+				if(micro.Arrived()) { yield return Success(arrivalMessage ?? $"Arrived. Position: {CharacterCellText()}"); }
 
 				if(micro.Stuck)
 				{	micro.Stop();
