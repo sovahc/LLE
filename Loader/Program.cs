@@ -246,14 +246,16 @@ namespace LLELoader
 				return false;
 			}
 
-			static void Prefix_SendMessageToLLM(string text)
+			static bool Prefix_SendMessageToLLM(string text)
 			{
 				SendMessageToLLM(text);
+				return false;
 			}
 
-			static void Prefix_SetHelp(string text)
+			static bool Prefix_SetHelp(string text)
 			{
 				SetHelp(text);
+				return false;
 			}
 
 			static bool Prefix_GetContextStatus(out int usedChars, out int totalChars)
