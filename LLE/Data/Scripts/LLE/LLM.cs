@@ -8,7 +8,7 @@ namespace LLE
 	class LoopDetector
 	{
 		private string lastBatch;
-		private int repeats;            // consecutive times lastBatch was seen
+		private int repeats; // consecutive times lastBatch was seen
 
 		// Returns true to BLOCK execution. On a non-blocking detection, 'message' carries a warning to append.
 		public bool IsLoop(List<string> commands, out string message)
