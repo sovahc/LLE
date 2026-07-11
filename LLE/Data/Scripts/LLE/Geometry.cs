@@ -60,36 +60,91 @@ namespace LLE
 			}
 		}
 
-		// BUG: generates duplicate vertices at poles (lat=0, lat=segments/2)
-		public static void CapsuleToConvex(Vector3 a, Vector3 b, float R, List<Vector3> out_vertices, int segments = 8)
+		// Generates a full octasphere: subdivided octahedron projected onto a sphere.
+		// subdivisions=0 → 6 vertices, =1 → 18, =2 → 66.
+		public static void Octasphere(float radius, int subdivisions, List<Vector3> result)
+		{
+			result.Clear();
+
+			Vector3[] octaVerts = {
+				new Vector3( 1, 0, 0), new Vector3(-1, 0, 0),
+				new Vector3( 0, 1, 0), new Vector3( 0,-1, 0),
+				new Vector3( 0, 0, 1), new Vector3( 0, 0,-1),
+			};
+			int[][] faces = {
+				new[]{ 0, 2, 4 }, new[]{ 0, 4, 3 }, new[]{ 0, 3, 5 }, new[]{ 0, 5, 2 },
+				new[]{ 1, 4, 2 }, new[]{ 1, 3, 4 }, new[]{ 1, 5, 3 }, new[]{ 1, 2, 5 },
+			};
+
+			foreach (var f in faces)
+			{
+				SubdivideFace(octaVerts[f[0]], octaVerts[f[1]], octaVerts[f[2]],
+					subdivisions, radius, result);
+			}
+		}
+
+		// Octasphere-based capsule: top hemisphere → b, mirrored bottom → a.
+		// subdivisions=2 → 82 capsule vertices.
+		public static void CapsuleToConvex(Vector3 a, Vector3 b, float R,
+			List<Vector3> out_vertices, int subdivisions = 2)
 		{
 			var vv = out_vertices;
 			vv.Clear();
 
+			// 1. Full octasphere in local space (Z = capsule axis)
+			var sphere = new List<Vector3>();
+			Octasphere(R, subdivisions, sphere);
+
+			// 2. Capsule frame
 			var axis = Vector3.Normalize(b - a);
-			Vector3 right, localUp;
-			OrthonormalBasis(axis, out right, out localUp);
+			Vector3 right, up;
+			OrthonormalBasis(axis, out right, out up);
 
-			// Generate points for two hemispheres at A and B
-			for (int lat = 0; lat <= segments / 2; lat++)
+			// 3. Keep top hemisphere (Z >= -epsilon), shift up to b, mirror down to a
+			float epsilon = R * 0.001f;
+
+			foreach (var v in sphere)
 			{
-				float phi = lat * (float)Math.PI / segments;
-				float sinPhi = (float)Math.Sin(phi);
-				float cosPhi = (float)Math.Cos(phi);
+				if (v.Z < -epsilon)
+					continue;
 
-				for (int lon = 0; lon < segments; lon++)
-				{
-					float theta = lon * (float)Math.PI * 2 / segments;
-					float c = (float)Math.Cos(theta);
-					float sn = (float)Math.Sin(theta);
+				// Top: local (X, Y, Z + halfHeight) → world at b
+				vv.Add(b + right * v.X + up * v.Y + axis * v.Z);
 
-					Vector3 offset = (float)c * right * sinPhi * R + (float)sn * localUp * sinPhi * R;
-					Vector3 poleOffset = (float)cosPhi * axis * R;
-
-					vv.Add(a - poleOffset + offset);
-					vv.Add(b + poleOffset + offset);
-				}
+				// Mirror: local (X, Y, -(Z + halfHeight)) → world at a
+				vv.Add(a + right * v.X + up * v.Y - axis * v.Z);
 			}
+		}
+
+		private static void SubdivideFace(Vector3 v0, Vector3 v1, Vector3 v2, int depth,
+			float radius, List<Vector3> result)
+		{
+			if (depth <= 0)
+			{
+				AddUnique(v0 * radius, result);
+				AddUnique(v1 * radius, result);
+				AddUnique(v2 * radius, result);
+				return;
+			}
+
+			var m01 = Vector3.Normalize(v0 + v1);
+			var m12 = Vector3.Normalize(v1 + v2);
+			var m20 = Vector3.Normalize(v2 + v0);
+
+			SubdivideFace(v0, m01, m20, depth - 1, radius, result);
+			SubdivideFace(m01, v1, m12, depth - 1, radius, result);
+			SubdivideFace(m20, m12, v2, depth - 1, radius, result);
+			SubdivideFace(m01, m12, m20, depth - 1, radius, result);
+		}
+
+		private static void AddUnique(Vector3 v, List<Vector3> result)
+		{
+			for (int i = 0; i < result.Count; i++)
+			{
+				if (result[i].X == v.X && result[i].Y == v.Y && result[i].Z == v.Z)
+					return;
+			}
+			result.Add(v);
 		}
 
 		public static void OrthonormalBasis(Vector3 axis, out Vector3 right, out Vector3 up)

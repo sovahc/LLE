@@ -114,6 +114,7 @@ namespace LLE
 
 					var vertices = new List<Vector3>();
 					Geometry.CapsuleToConvex(mA, mB, capsule.Radius, vertices);
+					MyConsole.Add("CapsuleToConvex: " + vertices.Count + " vertices");
 					shapes[i] = new ConvexHullShape { Vertices = vertices };
 					continue;
 				}
