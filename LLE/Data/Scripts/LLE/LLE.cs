@@ -9,7 +9,6 @@ using VRage.ModAPI;
 using VRage.Utils;
 using Sandbox.ModAPI;
 using Sandbox.Game.Entities;
-using Sandbox.Game.EntityComponents;
 
 namespace LLE
 {
@@ -80,7 +79,7 @@ namespace LLE
 			}
 		}
 
-		internal static void Draw(MatrixD hm, Commands commands)
+		internal static void Draw(MatrixD hm)
 		{
 			var material = MyStringId.GetOrCompute("Square");
 
@@ -231,11 +230,11 @@ namespace LLE
 			{
 				var hm = ch.GetHeadMatrix(false, false);
 				Debug.Pathfinding(hm);
-				Debug.Draw(hm, commands);
+				Debug.Draw(hm);
 			}
 
 			MyConsole.Render(font);
-			Common.Call_Add_Billboards(); // just for sure
+			Common.Call_Add_Billboards(); // just to be sure
 		}
 
 		public static void DrawOctNode(AsteroidNavigation nav, OctreeNode node, bool marker)

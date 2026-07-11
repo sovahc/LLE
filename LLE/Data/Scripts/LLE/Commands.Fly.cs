@@ -199,7 +199,7 @@ namespace LLE
 
 				worldPath = MakePath(aStarHelper.GetPath());
 
-				if(worldPath.Count == 0) yield return "There is no out path from grid.";
+				if(worldPath.Count == 0) yield return "No exit path found from the grid found.";
 
 				MyConsole.Add($"path.Count {worldPath.Count}", Color.IndianRed);
 
@@ -278,7 +278,8 @@ namespace LLE
 								closeBehind = true;
 							}
 
-							var pause = Time.Now + 5;
+							const double doorOpenTimeout = 5;
+							var pause = Time.Now + doorOpenTimeout;
 
 							while(Time.Now < pause)
 							{	

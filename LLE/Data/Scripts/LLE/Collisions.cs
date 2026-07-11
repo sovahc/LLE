@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -8,7 +9,6 @@ using VRage.ObjectBuilders;
 using VRage.Utils;
 using Sandbox.Definitions;
 using Sandbox.ModAPI;
-using System;
 
 namespace LLE
 {
@@ -223,7 +223,7 @@ namespace LLE
 					continue;
 				}
 
-				var modelFrom = Transform.WorldToModel(slim, worldLine.From); // XX double inverse matrix calculatuion
+				var modelFrom = Transform.WorldToModel(slim, worldLine.From); // XX double inverse matrix calculation.
 				var modelTo = Transform.WorldToModel(slim, worldLine.To);
 				if (LineIntersects(cellGeometry, modelFrom, modelTo))
 				{	
@@ -339,17 +339,17 @@ namespace LLE
 				// Sphere is rotation-invariant: center transforms, radius stays.
 				MatrixD invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
 				Vector3D localCenter = Vector3D.Transform(worldCenter, invWorld);
-				float gridSizeR = 1f / grid.GridSize;
+				float gridSizeInv = 1f / grid.GridSize;
 
 				// Conservative cell range: Floor/Ceiling, CheckWorldSphere is the real filter.
 				Vector3I min = new Vector3I(
-					(int)Math.Floor((localCenter.X - radius) * gridSizeR),
-					(int)Math.Floor((localCenter.Y - radius) * gridSizeR),
-					(int)Math.Floor((localCenter.Z - radius) * gridSizeR));
+					(int)Math.Floor((localCenter.X - radius) * gridSizeInv),
+					(int)Math.Floor((localCenter.Y - radius) * gridSizeInv),
+					(int)Math.Floor((localCenter.Z - radius) * gridSizeInv));
 				Vector3I max = new Vector3I(
-					(int)Math.Ceiling((localCenter.X + radius) * gridSizeR),
-					(int)Math.Ceiling((localCenter.Y + radius) * gridSizeR),
-					(int)Math.Ceiling((localCenter.Z + radius) * gridSizeR));
+					(int)Math.Ceiling((localCenter.X + radius) * gridSizeInv),
+					(int)Math.Ceiling((localCenter.Y + radius) * gridSizeInv),
+					(int)Math.Ceiling((localCenter.Z + radius) * gridSizeInv));
 
 				var iter = new Vector3I_RangeIterator(ref min, ref max);
 				for (; iter.IsValid(); iter.MoveNext())

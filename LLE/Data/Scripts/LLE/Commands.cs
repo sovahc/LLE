@@ -194,11 +194,12 @@ You operate on a selected grid (ship or station).
 
 * recharge I J K
   Recharge at the block at the given grid coordinates. Use `fly I J K` first to get close enough.
-  For cockpits, cryo-chambers and seats: sits in it, exits automatically when done.
+  For cockpits, cryo-chambers and seats: sits the bot in it, exits automatically when done.
   For medblocks and survival kits: collects energy near the block through a port.
 ";
 }
-// 5. Do not work with multiple objects at once; the character's inventory is limited, so it is better to perform tasks sequentially.
+// 5. Disabled: weak LLMs ignore this rule. Left for testing with stronger models.
+//    Do not work with multiple objects at once; the character's inventory is limited, so it is better to perform tasks sequentially.
 
 /*
 * power — state of the grid's power system: reactors/batteries/solar/wind, total output, battery charge
@@ -349,15 +350,15 @@ notes — print all keys.
 
 			if(matches.Count != 1) return MyError(engineer, what, matches);
 
-			var select = matches[0];
+			var match = matches[0];
 
-			Description(select, out category, out name);
+			Description(match, out category, out name);
 
-			var grid = select as IMyCubeGrid;
+			var grid = match as IMyCubeGrid;
 			if(grid != null)
 			{	
 				if(grid.GridSizeEnum == MyCubeSize.Small)
-					return $"Operations on small grids is not supported yet.";
+					return "Operations on small grids are not supported yet.";
 				
 				Debug.Start(grid);
 				selectedGrid = grid;
@@ -365,7 +366,7 @@ notes — print all keys.
 				return Success($"Selected {category} {Quote(name)}");
 			}
 
-			var asteroid = select as MyVoxelBase;
+			var asteroid = match as MyVoxelBase;
 			if(asteroid != null)
 			{	selectedGrid = null;
 				selectedAsteroid = asteroid;
@@ -494,7 +495,7 @@ notes — print all keys.
 				return true;
 			}
 
-			message = "Error: You are not at the correct interaction point with the block.";
+			message = E_BAD_POINT;
 			return false;
 		}
 

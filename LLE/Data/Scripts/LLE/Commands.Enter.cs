@@ -70,7 +70,7 @@ namespace LLE
 			var blockName = seat.CustomName ?? "cockpit";
 			seat.RemovePilot();
 
-			// RemovePilot itself relocates the character to a free neighbouring position.
+			// RemovePilot relocates the character to a free neighboring position.
 			if(character.Parent != null)
 				return $"Error: failed to leave {Quote(blockName)}.";
 

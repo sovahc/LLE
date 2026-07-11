@@ -53,13 +53,12 @@ namespace LLE
 
 					string ecat;
 
-					if(hasPower && hasHydrogen)
+					// hasPower is true
+
+					if(hasHydrogen)
 						ecat = "## Energy and Hydrogen";
-					else if (hasPower)
+					else
 						ecat = "## Energy";
-					else if (hasHydrogen)
-						ecat = "## Hydrogen";
-					else ecat = null;
 
 					if(ecat != null)
 						md.Add(ecat, $"* {Name(block.SlimBlock)} at {IJK(block.Position)}{occupiedBy}");
@@ -122,12 +121,12 @@ namespace LLE
 						}
 
 						cockpit.RemovePilot();
-						yield return Success(status.ReportAll()); // not fully correct
+						yield return Success(status.ReportAll());
 					}
 				}
 
 				cockpit.RemovePilot();
-				yield return $"Timeout! Recharge may be too slow.";
+				yield return "Timeout! Recharge may be too slow.";
 			}
 
 			var tb = block.FatBlock as IMyTerminalBlock;
@@ -141,7 +140,7 @@ namespace LLE
 				if(!Collisions.GetNearestDetectorCenterByPrefix(block, ec, "block_", out rechargeButton))
 					yield return $"Recharge button not found on {Name(block)}";
 
-				bool hasEnergy = GridHasPower(selectedGrid);
+				bool hasPower = GridHasPower(selectedGrid);
 
 				var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 				terminalBlocks.Clear();
@@ -150,7 +149,7 @@ namespace LLE
 				bool hasHydrogen = IsHydrogenReachable(block.FatBlock, terminalBlocks);
 				terminalBlocks.Clear();
 
-				if(!hasEnergy && !hasHydrogen)
+				if(!hasPower && !hasHydrogen)
     				yield return "No power or hydrogen available for recharging.";
 
 				// Simulating the process since the game once again locked the necessary API
@@ -192,7 +191,7 @@ namespace LLE
 						sc.Health.Value = target;
 					}
 
-    				if(hasEnergy)
+    				if(hasPower)
     				{
 						float max = Constants.CharacterBatteryMWh;
 						float current = oc.CharacterGasSource.RemainingCapacityByType(electricityId);
@@ -214,7 +213,7 @@ namespace LLE
 					}
 
 					if(needMoreHealth) continue;
-					if(hasEnergy && needMoreEnergy) continue;
+					if(hasPower && needMoreEnergy) continue;
 					if(hasHydrogen && needMoreHydrogen) continue;
 
 					StopSound();

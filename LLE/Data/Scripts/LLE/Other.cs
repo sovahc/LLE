@@ -60,7 +60,7 @@ namespace LLE
 		{
 			if (iter == null) return;
 			var start = Stopwatch.GetTimestamp();
-			var limit = start + TimeSpan.TicksPerMillisecond / 2;
+			var limit = start + TimeSpan.TicksPerMillisecond * 1.0;
 			long now = start;
 			for (int i = 0; i < 100; ++i)
 			{

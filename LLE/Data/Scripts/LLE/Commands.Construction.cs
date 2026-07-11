@@ -63,8 +63,8 @@ namespace LLE
 			if(!ip.HasValue)
 				yield return E_BAD_POINT;
 			
-			var Position = ip.Value.chPosition;
-			var Target = ip.Value.Target;
+			var position = ip.Value.chPosition;
+			var target = ip.Value.Target;
 
 			// TODO: warning on WillRemoveBlockSplitGrid
 
@@ -74,18 +74,18 @@ namespace LLE
 			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())
 			{
-				CharacterMove(Position);
+				CharacterMove(position);
 				yield return null;
 			}
 
 			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())
 			{
-				CharacterRotateTo(Target);
+				CharacterRotateTo(target);
 				yield return null;
 			}
 
-			// check if block still exist
+			// check if block still exists
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
@@ -107,8 +107,10 @@ namespace LLE
 				{	grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 					if(grinderGun == null) yield break; // intentional stop on user interaction
 					
-					if(!grinderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
-						yield return null;
+					if(grinderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
+						break;
+					
+					yield return null;
 				}
 
 				if(status != MyGunStatusEnum.OK)
@@ -230,32 +232,29 @@ namespace LLE
 				yield return Success("The block is fully intact; no repairs needed.");
 
 			if (!EquipTool("Welder"))
-				yield return "Cannot equip handheld welder. Do you have a welder in your inventory?";
+				yield return "Cannot equip handheld welder. Do you have a Welder in your inventory?";
 
 			var welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
-
-			if(!IsAtInteractionPoint(block, InteractionKind.GrindWeld, out message))
-				yield return message;
 
 			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
 			if(!ip.HasValue)
 				yield return E_BAD_POINT;
 			
-			var Position = ip.Value.chPosition;
-			var Target = ip.Value.Target;
+			var position = ip.Value.chPosition;
+			var target = ip.Value.Target;
 
 			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())
 			{
-				CharacterMove(Position);
+				CharacterMove(position);
 				yield return null;
 			}
 
 			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())
 			{
-				CharacterRotateTo(Target);
+				CharacterRotateTo(target);
 				yield return null;
 			}
 
@@ -286,8 +285,10 @@ namespace LLE
 				{	welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 					if(welderGun == null) yield break; // intentional stop on user interaction
 					
-					if(!welderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
-						yield return null;
+					if(welderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
+						break;
+					
+					yield return null;
 				}
 
 				if(status != MyGunStatusEnum.OK)

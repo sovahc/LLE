@@ -74,10 +74,10 @@ namespace LLE
 			StringBuilder sb = new StringBuilder();
 			sb.Append($"# Inventories on {Quote(Name(selectedGrid))}\n");
 
-			var Inventories = (selectedGrid as MyCubeGrid).Inventories;
-			if (Inventories.Count == 0) return Success("No blocks with inventories on this grid.");
+			var inventories = (selectedGrid as MyCubeGrid).Inventories;
+			if (inventories.Count == 0) return Success("No blocks with inventories on this grid.");
 
-			foreach (MyCubeBlock block in Inventories)
+			foreach (MyCubeBlock block in inventories)
 			{
 				if (block.CubeGrid != selectedGrid) continue;
 
@@ -161,7 +161,7 @@ namespace LLE
 			var fromName = Name(block);
 
 			if(fat == null || !fat.HasInventory)
-				yield return  $"Block {Quote(fromName)} does not have an inventory.";
+				yield return $"Block {Quote(fromName)} does not have an inventory.";
 
 			if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
 				yield return message;
@@ -339,7 +339,7 @@ namespace LLE
 
 		private static bool Include(MyPhysicalItemDefinition def, List<string> itemNames)
 		{
-			if(def == null) return false; // ?
+			if(def == null) return false; // shouldn't happen
 
 			foreach(var name in itemNames)
 			{	if(def.DisplayNameText == name) return true;
@@ -356,10 +356,10 @@ namespace LLE
 			bool somethingTransferred = false;
 			bool noSpaceWarning = false;
 
-			foreach(IMyInventory from in fromList)
+			foreach(IMyInventory fromInv in fromList)
 			{	
 				items.Clear();
-				from.GetItems(items);
+				fromInv.GetItems(items);
 
 				for(int i = items.Count - 1; i >= 0; --i)
 				{	var item = items[i];
@@ -371,7 +371,7 @@ namespace LLE
 					var transfer = amount;
 					if(transfer > item.Amount) transfer = item.Amount;
 					
-					MyFixedPoint transferred = InventoryTransfer(from, i, toList, transfer);
+					MyFixedPoint transferred = InventoryTransfer(fromInv, i, toList, transfer);
 					if(transferred > 0)
 					{
 						somethingTransferred = true;
@@ -390,7 +390,7 @@ namespace LLE
 				PlaySound("PlayDropItem");
 			}
 			else
-			{	result.Append($"No items transfered!\n");
+			{	result.Append($"No items transferred!\n");
 			}
 
 			return somethingTransferred && !noSpaceWarning;
