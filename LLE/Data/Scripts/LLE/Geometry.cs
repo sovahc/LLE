@@ -60,40 +60,59 @@ namespace LLE
 			}
 		}
 
-		// Generates a full octasphere: subdivided octahedron projected onto a sphere.
-		// subdivisions=0 → 6 vertices, =1 → 18, =2 → 66.
-		public static void Octasphere(float radius, int subdivisions, List<Vector3> result)
+		// Generates a full icosphere: subdivided icosahedron projected onto a sphere.
+		// Vertex-at-pole orientation (poles along Z, clean equator at depth >= 1).
+		// subdivisions=0 → 12 vertices, =1 → 42, =2 → 162.
+		public static void Icosphere(float radius, int subdivisions, List<Vector3> result)
 		{
 			result.Clear();
 
-			Vector3[] octaVerts = {
-				new Vector3( 1, 0, 0), new Vector3(-1, 0, 0),
-				new Vector3( 0, 1, 0), new Vector3( 0,-1, 0),
-				new Vector3( 0, 0, 1), new Vector3( 0, 0,-1),
-			};
+			float r = 2f / (float)Math.Sqrt(5);
+			float h = 1f / (float)Math.Sqrt(5);
+			float step = 2f * (float)Math.PI / 5f;
+
+			Vector3[] icoVerts = new Vector3[12];
+			icoVerts[0] = new Vector3(0, 0, 1);   // north pole
+			for (int k = 0; k < 5; k++)           // upper ring
+			{
+				float a = k * step;
+				icoVerts[1 + k] = new Vector3(r * (float)Math.Cos(a), r * (float)Math.Sin(a), h);
+			}
+			for (int k = 0; k < 5; k++)           // lower ring (offset by 36°)
+			{
+				float a = k * step + (float)Math.PI / 5f;
+				icoVerts[6 + k] = new Vector3(r * (float)Math.Cos(a), r * (float)Math.Sin(a), -h);
+			}
+			icoVerts[11] = new Vector3(0, 0, -1); // south pole
+
 			int[][] faces = {
-				new[]{ 0, 2, 4 }, new[]{ 0, 4, 3 }, new[]{ 0, 3, 5 }, new[]{ 0, 5, 2 },
-				new[]{ 1, 4, 2 }, new[]{ 1, 3, 4 }, new[]{ 1, 5, 3 }, new[]{ 1, 2, 5 },
+				// 5 around north pole
+				new[]{ 0, 1, 2 }, new[]{ 0, 2, 3 }, new[]{ 0, 3, 4 }, new[]{ 0, 4, 5 }, new[]{ 0, 5, 1 },
+				// 10 connecting upper and lower rings
+				new[]{ 1, 6, 2 }, new[]{ 2, 6, 7 }, new[]{ 2, 7, 3 }, new[]{ 3, 7, 8 }, new[]{ 3, 8, 4 },
+				new[]{ 4, 8, 9 }, new[]{ 4, 9, 5 }, new[]{ 5, 9, 10 }, new[]{ 5, 10, 1 }, new[]{ 1, 10, 6 },
+				// 5 around south pole
+				new[]{ 11, 7, 6 }, new[]{ 11, 8, 7 }, new[]{ 11, 9, 8 }, new[]{ 11, 10, 9 }, new[]{ 11, 6, 10 },
 			};
 
 			foreach (var f in faces)
 			{
-				SubdivideFace(octaVerts[f[0]], octaVerts[f[1]], octaVerts[f[2]],
+				SubdivideFace(icoVerts[f[0]], icoVerts[f[1]], icoVerts[f[2]],
 					subdivisions, radius, result);
 			}
 		}
 
-		// Octasphere-based capsule: top hemisphere → b, mirrored bottom → a.
-		// subdivisions=2 → 82 capsule vertices.
+		// Icosphere-based capsule: top hemisphere → b, mirrored bottom → a.
+		// subdivisions=1 → 52 capsule vertices.
 		public static void CapsuleToConvex(Vector3 a, Vector3 b, float R,
-			List<Vector3> out_vertices, int subdivisions = 2)
+			List<Vector3> out_vertices, int subdivisions = 1)
 		{
 			var vv = out_vertices;
 			vv.Clear();
 
-			// 1. Full octasphere in local space (Z = capsule axis)
+			// 1. Full icosphere in local space (Z = capsule axis)
 			var sphere = new List<Vector3>();
-			Octasphere(R, subdivisions, sphere);
+			Icosphere(R, subdivisions, sphere);
 
 			// 2. Capsule frame
 			var axis = Vector3.Normalize(b - a);
