@@ -110,10 +110,10 @@ namespace LLE
 		{
 			Glyph glyph;
 			if (_characters.TryGetValue('H', out glyph))
-				return glyph.sx * scale;
+				return glyph.sy * scale;
 			// fallback
 			if (_characters.TryGetValue('\u25A1', out glyph))
-				return glyph.sx * scale;
+				return glyph.sy * scale;
 			return 0.02f;
 		}
 

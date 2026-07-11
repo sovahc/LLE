@@ -192,7 +192,7 @@ namespace LLE
 
 			if(!cg.IsStatic)
 			{	md.Append($"Mass: {cg.Mass} kg");
-				md.Append($"Dampeners enabled {cg.DampenersEnabled}");
+				md.Append($"Dampeners enabled: {cg.DampenersEnabled}");
 
 				md.Append($"Linear velocity: {cg.LinearVelocity.Length():F1}");
 
@@ -312,7 +312,7 @@ namespace LLE
 				hint = "Your block";
 			}
 			else
-			{	if(!tp.NextVector3I(out ijk)) return "Expected: I J K";
+			{	if(!tp.NextVector3I(out ijk)) return "Error: Expected: I J K";
 				hint = "Central block";
 			}
 
@@ -429,15 +429,16 @@ namespace LLE
 			matches.Sort((a, b) => a.Distance.CompareTo(b.Distance));
 			
 			StringBuilder sb = new StringBuilder();
-			int count = matches.Count;
-			if (count > limit) matches.RemoveRange(limit, count - limit);
+			int total = matches.Count;
+			if (total > limit) matches.RemoveRange(limit, total - limit);
 
 			string what = "";
 			if(searchItems && searchBlocks) what = "items and blocks";
 			else if(searchItems) what = "items";
 			else if(searchBlocks) what = "blocks";
 
-			sb.Append($"Found {count} {what} matching {Quote(query)}:\n");
+			string qualifier = total > limit ? $" (showing {limit} closest)" : "";
+			sb.Append($"Found {total} {what} matching {Quote(query)}{qualifier}:\n");
 			foreach (var m in matches) sb.Append(m.Text);
 
 			return Success(sb.ToString());
