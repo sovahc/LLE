@@ -266,7 +266,7 @@ namespace LLE
 			for (int i = lines.Length - 1; i >= 0; --i)
 			{
 				string l = lines[i].Trim();
-				if (!l.StartsWith(prefix)) break;
+				if (!l.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase)) break;
 
 				var command = MyTrim(l.Substring(prefix.Length));
 
