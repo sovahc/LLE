@@ -40,7 +40,7 @@ namespace LLE
 	{
 		public static void HighlightCell(IMyCubeGrid grid, Vector3I position, Color color)
 		{
-			float blockSize = MyDefinitionManager.Static.GetCubeSize(grid.GridSizeEnum);
+			float blockSize = grid.GridSize;
 
 			Vector3D world = grid.GridIntegerToWorld(position);
 

@@ -47,11 +47,11 @@ namespace LLE
 		{
 			if (grid == null) return;
 
-			Vector3D ahead = hm.Translation + hm.Forward * 7;
+			Vector3D ahead = hm.Translation + hm.Forward * 5;
 
 			var cell = grid.WorldToGridInteger(ahead);
 
-			Utilities.HighlightCell(grid, cell, Color.Gray);
+			Utilities.HighlightCell(grid, cell, Color.Green);
 
 			var lm = MyAPIGateway.Input.IsNewLeftMousePressed();
 			var rm = MyAPIGateway.Input.IsNewRightMousePressed();

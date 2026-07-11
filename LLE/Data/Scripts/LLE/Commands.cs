@@ -357,8 +357,8 @@ notes — print all keys.
 			var grid = match as IMyCubeGrid;
 			if(grid != null)
 			{	
-				if(grid.GridSizeEnum == MyCubeSize.Small)
-					return "Operations on small grids are not supported yet.";
+				//if(grid.GridSizeEnum == MyCubeSize.Small)
+				//	return "Operations on small grids are not supported yet.";
 				
 				Debug.Start(grid);
 				selectedGrid = grid;
