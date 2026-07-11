@@ -367,17 +367,29 @@ namespace LLE
 		{
 			if(!Common.Enabled) return;
 			var camera = MyAPIGateway.Session.Camera;
-			Vector3D viewDir = Vector3D.Normalize(worldCenter - camera.Position);
+			Vector3D toCenter = worldCenter - camera.Position;
+			double d = toCenter.Length();
+
+			if (d <= radius) return; // camera inside sphere — no silhouette
+
+			Vector3D viewDir = toCenter / d;
 
 			Vector3D right, localUp;
 			Geometry.OrthonormalBasis(viewDir, out right, out localUp);
+
+			// True silhouette: plane at d - r²/d, radius r*sqrt(1 - r²/d²)
+			double rsq = (double)radius * radius;
+			double silhouetteRadius = radius * Math.Sqrt(Math.Max(0.0, 1.0 - rsq / (d * d)));
+			Vector3D silhouetteCenter = camera.Position + viewDir * (d - rsq / d);
 
 			int segments = 64;
 			var silhouettePoints = new List<Vector3D>();
 			for (int i = 0; i < segments; i++)
 			{
 				double angle = i * MathHelper.TwoPi / segments;
-				Vector3D worldPoint = worldCenter + Math.Cos(angle) * right * radius + Math.Sin(angle) * localUp * radius;
+				Vector3D worldPoint = silhouetteCenter
+					+ Math.Cos(angle) * right * silhouetteRadius
+					+ Math.Sin(angle) * localUp * silhouetteRadius;
 				silhouettePoints.Add(worldPoint);
 			}
 			var projected = WorldToScreen(silhouettePoints);
