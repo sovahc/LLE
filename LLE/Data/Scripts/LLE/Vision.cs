@@ -84,8 +84,6 @@ namespace LLE
 			int localSkipCounter = _frameSkipOffset;
 			_frameSkipOffset = (_frameSkipOffset + 1) % RAYCAST_SKIP_INTERVAL;
 
-			int raycasts = 0;
-
 			foreach (IMyEntity entity in candidates)
 			{
 				if (entity.Closed) continue;
@@ -100,7 +98,6 @@ namespace LLE
 					if (!r) continue;
 
 					MyAPIGateway.Physics.CastRay(engineer, p, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
-					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 					if (DebugVision) Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.LimeGreen);
@@ -118,7 +115,6 @@ namespace LLE
 					if (!r) continue;
 
 					MyAPIGateway.Physics.CastRay(engineer, p, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
-					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 					if (DebugVision) Drawing.RoundMarker(p, isBlocked ? Color.DimGray : Color.YellowGreen);
@@ -134,7 +130,6 @@ namespace LLE
 					if (localSkipCounter++ % RAYCAST_SKIP_INTERVAL != 0) continue;
 
 					MyAPIGateway.Physics.CastRay(engineer, entity.WorldMatrix.Translation, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
-					++raycasts;
 
 					bool isBlocked = hit != null && hit.HitEntity != entity;
 
@@ -197,7 +192,7 @@ namespace LLE
 		}
 
 		internal static void OnBlockRemoved(IMySlimBlock block)
-		{	// TODO: check IsBlockTrasferInProgress
+		{	// TODO: check IsBlockTransferInProgress
 			
 			var gn = block.CubeGrid.DisplayName;
 			visionReport.Append($"* BLOCK {Commands.Name(block)} REMOVED FROM '{gn}' AT {Commands.IJK(block.Min)}\n");

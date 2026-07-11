@@ -88,7 +88,7 @@ namespace LLE
 	public class SphereShape : CollisionShape
 	{
 		public SphereShape() { }
-		public Vector3 Center;
+		public Vector3 Center; // intentional: not serialized
 		[ProtoMember(2)] public float Radius;
 		public override string ToString() => $"SphereShape: r={Radius}";
 	}

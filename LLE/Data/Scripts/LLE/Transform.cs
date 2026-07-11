@@ -14,7 +14,7 @@ namespace LLE
 			Vector3D worldCenter;
 			block.ComputeWorldCenter(out worldCenter);
 
-			MatrixD modelToWorld = new MatrixD(orientMatrix) * block.CubeGrid.WorldMatrix;
+			var modelToWorld = new MatrixD(orientMatrix) * block.CubeGrid.WorldMatrix;
 			modelToWorld.Translation = worldCenter;
 			return modelToWorld;
 		}

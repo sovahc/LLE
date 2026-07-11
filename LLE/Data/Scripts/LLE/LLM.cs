@@ -26,16 +26,16 @@ namespace LLE
 				return false;
 			}
 			if (repeats == 2)
-			{	message = "!Warning: This command batch is identical to the previous one. "
-					+ "If the task is complete, use `pause`.\n";
+			{	message = "!Warning: This command batch is identical to the previous one."
+					+ " If the task is complete, use `pause`.\n";
 				return false;
 			}
 			if (repeats == 3)
 			{	message = "!WARNING: Identical batch repeated again."
-					+ "Output \"Execute `pause`\" to stop.\n";
+					+ " Output \"Execute `pause`\" to stop.\n";
 				return false;
 			}
-			//if (repeats >= 4)
+			// repeats >= 4
 			{	message = "!ERROR: LOOP DETECTED. This command batch has been repeated too many times and is blocked.\n";
 				return true;
 			}
@@ -182,7 +182,7 @@ namespace LLE
 			}
 		}
 
-		private void ContextStatisitic()
+		private void ContextStatistic()
 		{
 			int used, total;
 			LLE_Loader.GetContextStatus(out used, out total);
@@ -233,7 +233,7 @@ namespace LLE
 						MyConsole.AddMultiline("\n", Color.White);
 						
 						waitingForResponse = false;
-						ContextStatisitic();
+						ContextStatistic();
 
 						return;
 				

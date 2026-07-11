@@ -21,19 +21,19 @@ namespace LLE
 
 		public static void BoxToParallelograms(Vector3 he, List<Parallelogram> result)
 		{
-			var A = new Vector3(-he.X,  -he.Y,  -he.Z);
-			var B = new Vector3(+he.X,  -he.Y,  -he.Z);
-			var C = new Vector3(-he.X,  +he.Y,  -he.Z);
-			var D = new Vector3(-he.X,  -he.Y,  +he.Z);
+			var A = new Vector3(-he.X, -he.Y, -he.Z);
+			var B = new Vector3(+he.X, -he.Y, -he.Z);
+			var C = new Vector3(-he.X, +he.Y, -he.Z);
+			var D = new Vector3(-he.X, -he.Y, +he.Z);
 			
 			result.Add(new Parallelogram(A, B, C));
 			result.Add(new Parallelogram(A, C, D));
 			result.Add(new Parallelogram(A, D, B));
 
-			A = new Vector3(+he.X,  +he.Y,  +he.Z);
-			B = new Vector3(-he.X,  +he.Y,  +he.Z);
-			C = new Vector3(+he.X,  -he.Y,  +he.Z);
-			D = new Vector3(+he.X,  +he.Y,  -he.Z);
+			A = new Vector3(+he.X, +he.Y, +he.Z);
+			B = new Vector3(-he.X, +he.Y, +he.Z);
+			C = new Vector3(+he.X, -he.Y, +he.Z);
+			D = new Vector3(+he.X, +he.Y, -he.Z);
 
 			result.Add(new Parallelogram(A, B, C));
 			result.Add(new Parallelogram(A, C, D));
@@ -60,6 +60,7 @@ namespace LLE
 			}
 		}
 
+		// BUG: generates duplicate vertices at poles (lat=0, lat=segments/2)
 		public static void CapsuleToConvex(Vector3 a, Vector3 b, float R, List<Vector3> out_vertices, int segments = 8)
 		{
 			var vv = out_vertices;
@@ -112,6 +113,7 @@ namespace LLE
 
 		// Returns points on the convex hull in counter-clockwise order.
 		// Note: the last point in the returned list is the same as the first one.
+		// Note: sorts the input list in-place as a side effect.
 		public static List<Vector2D> ConvexHull(List<Vector2D> p)
 		{
 			int n = p.Count, k = 0;
