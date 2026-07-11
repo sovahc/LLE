@@ -7,6 +7,7 @@ using VRage.Game.ModAPI;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Character.Components;
 using Sandbox.ModAPI;
+using System;
 
 namespace LLE
 {
@@ -344,6 +345,7 @@ namespace LLE
 			var ec = GetEngineerCenter();
 
 			Vector3D toTarget = position - ec;
+			desiredSpeed = Math.Min(desiredSpeed, toTarget.Length() * 3.0);
 			Vector3D desiredVelocity = toTarget.Normalized() * desiredSpeed;
 
 			Vector3D currentVelocity = character.Physics.LinearVelocity;
