@@ -94,6 +94,15 @@ namespace LLE
 				{
 					for (int v = 0; v < convex.Vertices.Count; ++v)
 						convex.Vertices[v] = Vector3.Transform(convex.Vertices[v], convex.Transform);
+					convex.Transform = Matrix.Identity; // vertices are now in model space
+					continue;
+				}
+
+				var sphere = shape as SphereShape;
+				if (sphere != null)
+				{
+					sphere.Center = Vector3.Transform(sphere.Center, sphere.Transform);
+					sphere.Transform = Matrix.Identity; // center is now in model space
 					continue;
 				}
 
