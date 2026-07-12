@@ -21,6 +21,12 @@ namespace LLE
 				repeats = 1;
 			}
 
+			if (commands.Count == 0)
+			{	message = "!ERROR: No commands found in your last message."
+					+ " Use 'Execute `command`' on separate lines.\n";
+				return repeats >= 4;
+			}
+
 			if (repeats == 1)
 			{	message = null;
 				return false;
@@ -235,6 +241,8 @@ namespace LLE
 						waitingForResponse = false;
 						ContextStatistic();
 
+						if(contentToProcess.Length == 0)
+							contentToProcess.Append("[EMPTY RESPONSE]");
 						return;
 				
 					case MessageType.Error:
@@ -276,13 +284,6 @@ namespace LLE
 			// Reverse back to original order (first command first)
 			cc.Reverse();
 
-			if (cc.Count == 0)
-			{
-				Append($"!ERROR: No commands found in your last message:\n---\n{content}\n---\n"
-					+ "Use 'Execute `command`' on separate lines.\n", Color.Red);
-				return;
-			}
-
 			if(cc.Count == 1 && 0 == string.Compare(cc[0], "pause", true))
 			{}
 			else
@@ -291,7 +292,7 @@ namespace LLE
 				bool blocked = loopDetector.IsLoop(cc, out loopMsg);
 				if (loopMsg != null)
 					Append(loopMsg, blocked ? Color.Red : Color.Yellow);
-				if (blocked)
+				if (blocked || cc.Count == 0)
 				{	Append($"Your last message was:\n---\n{content}\n---\n", Color.Red);
 					return;
 				}
