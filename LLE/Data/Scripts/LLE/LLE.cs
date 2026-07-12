@@ -235,33 +235,6 @@ namespace LLE
 			Common.Call_Add_Billboards(); // just to be sure
 		}
 
-		public static void DrawOctNode(AsteroidNavigation nav, OctreeNode node, bool marker)
-		{
-			Color color;
-			switch(node.Type)
-			{	case NodeType.Free: color = Color.Green; break;
-				case NodeType.Blocked: color = Color.Red; break;
-				default: color = Color.Gray; break;
-			}
-
-			var bb = nav.NodeToWorldBB(node);
-
-			MatrixD matrix = MatrixD.Identity;
-			matrix.Translation = new Vector3D(
-				(bb.Min.X + bb.Max.X) * 0.5,
-				(bb.Min.Y + bb.Max.Y) * 0.5,
-				(bb.Min.Z + bb.Max.Z) * 0.5);
-
-			if(marker) Drawing.RoundMarker(matrix.Translation, color);
-
-			var half = (bb.Max - bb.Min) * 0.49;
-			var localBb = new BoundingBoxD(-half, half);
-
-			var material = MyStringId.GetOrCompute("Square");
-			MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref localBb, ref color,
-				MySimpleObjectRasterizer.Wireframe, 1, 0.003f, material, material);
-		}
-
 		void OnEntityAdd(IMyEntity entity)
 		{
 			var grid = entity as IMyCubeGrid;

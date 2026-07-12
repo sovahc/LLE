@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 
 using VRageMath;
+using VRage.Game;
+using VRage.Utils;
 using VRage.Voxels;
 using Sandbox.Game.Entities;
+
 using Priority_Queue;
 
 // MyVoxelConstants.VOXEL_SIZE_IN_METRES
@@ -296,6 +299,33 @@ namespace LLE
 				if (!parent.TryGetValue(current, out current)) break;
 			}
 			result.Reverse();
+		}
+
+		public void DrawOctNode(OctreeNode node, bool marker)
+		{
+			Color color;
+			switch(node.Type)
+			{	case NodeType.Free: color = Color.Green; break;
+				case NodeType.Blocked: color = Color.Red; break;
+				default: color = Color.Gray; break;
+			}
+
+			var bb = NodeToWorldBB(node);
+
+			MatrixD matrix = MatrixD.Identity;
+			matrix.Translation = new Vector3D(
+				(bb.Min.X + bb.Max.X) * 0.5,
+				(bb.Min.Y + bb.Max.Y) * 0.5,
+				(bb.Min.Z + bb.Max.Z) * 0.5);
+
+			if(marker) Drawing.RoundMarker(matrix.Translation, color);
+
+			var half = (bb.Max - bb.Min) * 0.49;
+			var localBb = new BoundingBoxD(-half, half);
+
+			var material = MyStringId.GetOrCompute("Square");
+			MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref localBb, ref color,
+				MySimpleObjectRasterizer.Wireframe, 1, 0.003f, material, material);
 		}
 	}
 }
