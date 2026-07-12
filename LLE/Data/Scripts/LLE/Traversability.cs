@@ -134,16 +134,26 @@ namespace LLE
 
 		public Traversability GetTraversability(Vector3I position)
 		{
+			// Small grid blocks are always treated as fully blocked.
+			if (grid.GridSizeEnum == MyCubeSize.Small)
+			{	
+				// !not optimized!
+				Vector3I v;
+				for(v.Z = -1; v.Z <= 1; ++v.Z)
+					for(v.Y = -1; v.Y <= 1; ++v.Y)
+						for(v.X = -1; v.X <= 1; ++v.X)
+						{	if(grid.GetCubeBlock(position + v) != null) return Traversability.Blocked;
+						}
+				
+				return Traversability.Free;
+			}
+
 			foreach(var voxel in intersectingVoxels)
 				if(!IsVoxelTraversable(voxel, position)) return Traversability.Blocked;
 
 			var slim = grid.GetCubeBlock(position);
 			if (slim == null)
 				return Traversability.Free;
-
-			// Small grid blocks are always treated as fully blocked.
-			if (grid.GridSizeEnum == MyCubeSize.Small)
-				return Traversability.Blocked;
 
 			return Collisions.GetBlockTraversability(slim, position);
 		}
