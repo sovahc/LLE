@@ -256,7 +256,11 @@ namespace LLE
 			var byCategory = new Dictionary<string, List<IMySlimBlock>>();
 			foreach (var block in damaged)
 			{
-				var cat = Categorize(block.FatBlock as IMyTerminalBlock);
+				string cat;
+				if(block.FatBlock != null && block.FatBlock is IMyTerminalBlock)
+					cat = Categorize(block.FatBlock as IMyTerminalBlock);
+				else
+					cat = "Other";
 				List<IMySlimBlock> list;
 				if (!byCategory.TryGetValue(cat, out list))
 				{
