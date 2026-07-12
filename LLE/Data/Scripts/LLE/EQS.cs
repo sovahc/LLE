@@ -164,7 +164,10 @@ namespace LLE
 			Vector3D blockCenterWorld = (grid.GridIntegerToWorld(block.Min) + grid.GridIntegerToWorld(block.Max)) * 0.5;
 			var horizontalEngineer = blockCenterWorld - engineerPosition;
 			horizontalEngineer -= gridUp * Vector3D.Dot(horizontalEngineer, gridUp);
-			horizontalEngineer.Normalize();
+			if (horizontalEngineer.LengthSquared() < 1e-8)
+				horizontalEngineer = Vector3D.CalculatePerpendicularVector(gridUp);
+			else
+				horizontalEngineer.Normalize();
 
 			foreach (var ijk in producer)
 			{
