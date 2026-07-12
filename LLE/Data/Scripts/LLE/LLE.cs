@@ -8,7 +8,6 @@ using VRage.Input;
 using VRage.ModAPI;
 using VRage.Utils;
 using Sandbox.ModAPI;
-using Sandbox.Game.Entities;
 
 namespace LLE
 {
@@ -148,7 +147,7 @@ namespace LLE
 			MyAPIGateway.Entities.GetEntities(entities);
 			foreach (var e in entities) OnEntityAdd(e);
 
-			MyEntities.OnEntityAdd += OnEntityAdd;
+			MyAPIGateway.Entities.OnEntityAdd += OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered += OnChatMessage;
 		}
 
@@ -156,7 +155,7 @@ namespace LLE
 		{
 			if (toggle_signals != null) toggle_signals.IsEnabled = true;
 
-			MyEntities.OnEntityAdd -= OnEntityAdd;
+			MyAPIGateway.Entities.OnEntityAdd -= OnEntityAdd;
 			MyAPIGateway.Utilities.MessageEntered -= OnChatMessage;
 		}
 

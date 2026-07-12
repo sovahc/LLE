@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Sandbox.Game;
-using Sandbox.Game.Entities;
 using Sandbox.ModAPI;
 using VRage;
 using VRage.Game;
-using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ObjectBuilders;
 using VRageMath;
@@ -35,7 +33,7 @@ namespace LLE
 				Vector3D.Zero, Vector3.Forward, Vector3.Up, "");
 			if (dummyId == 0) return null;
 
-			var dummy = MyEntities.GetEntityById(dummyId) as IMyCharacter;
+			var dummy = MyAPIGateway.Entities.GetEntityById(dummyId) as IMyCharacter;
 			if (dummy == null) throw new Exception("Spawn: Failed to get entity");
 
 			var dummyPlayer = GetPlayerById(dummyId);
@@ -87,7 +85,7 @@ namespace LLE
 				ColorMaskHSV = MyColorPickerConstants.HSVToHSVOffset(new Vector3(0.16f, 0.85f, 1f))
 			};
 
-			var bot = MyEntities.CreateFromObjectBuilder(ob, true) as IMyCharacter;
+			var bot = MyAPIGateway.Entities.CreateFromObjectBuilder(ob) as IMyCharacter;
 			if (bot == null) return null;
 
 			bot.Save = false;
@@ -96,7 +94,7 @@ namespace LLE
 
 			if (bot.PositionComp.GetPosition() == Vector3D.Zero) bot.SetPosition(spawnAt); // ??
 
-			MyEntities.Add((MyEntity)bot, true);
+			MyAPIGateway.Entities.AddEntity(bot, true);
 
 			controller.TakeControl(bot);
 
