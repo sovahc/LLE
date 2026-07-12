@@ -9,6 +9,8 @@ using VRage.ModAPI;
 using VRage.Utils;
 using Sandbox.ModAPI;
 
+// SE mod rule: prefer IMy* interfaces where possible, use concrete types only when ModAPI is insufficient.
+
 namespace LLE
 {
 	public static class Time { public static double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds; }
