@@ -15,7 +15,7 @@ namespace LLE
 	{
 		private IMyCubeGrid grid;
 		private AStar astar;
-		private const int AStarBorder = 2;
+		private int AStarBorder;
 
 		internal List<Vector3I> GetPath()
 		{
@@ -32,6 +32,9 @@ namespace LLE
 
 		internal AStarHelper(IMyCubeGrid grid_, Vector3I point_A, Vector3I point_B)
 		{	grid = grid_;
+
+			if(grid.GridSizeEnum == MyCubeSize.Large) AStarBorder = 2;
+			if(grid.GridSizeEnum == MyCubeSize.Small) AStarBorder = 7;
 
 			Vector3I gridSize = grid.Max - grid.Min + 1;
 
