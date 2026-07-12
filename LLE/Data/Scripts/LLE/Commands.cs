@@ -8,10 +8,13 @@ using VRage.Game;
 using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.Game.ObjectBuilders.Definitions;
+using VRage.ModAPI;
 using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using System.Linq;
+using Sandbox.ModAPI;
+
 
 // Stack-based coroutine runner:
 //   yield return null;         = wait one tick
@@ -290,7 +293,7 @@ notes — print all keys.
 			return text.Contains(searchTerm);
 		}
 
-		private string MyError(Vector3D engineer, string query, List<MyEntity> matches)
+		private string MyError(Vector3D engineer, string query, List<IMyEntity> matches)
 		{
 			if(matches.Count == 0)
 				return $"Error: object '{query}' not found. Use the exact object name.";
@@ -334,9 +337,9 @@ notes — print all keys.
 			var engineer = GetEngineerCenter();
 			
 			BoundingSphereD S = new BoundingSphereD(engineer, Constants.NearInformationRadius);
-			List<MyEntity> entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
+			var entities = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref S);
 
-			List<MyEntity> matches = new List<MyEntity>();
+			List<IMyEntity> matches = new List<IMyEntity>();
 
 			string category, name;
 			

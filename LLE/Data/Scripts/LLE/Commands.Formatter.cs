@@ -3,9 +3,9 @@ using System.Linq;
 
 using VRageMath;
 using VRage.Game;
-using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using Sandbox.Game.Entities;
+using VRage.ModAPI;
 
 namespace LLE
 {
@@ -52,7 +52,7 @@ namespace LLE
 		{	return grid.CustomName ?? "Unnamed Grid";
 		}
 
-		public static void Description(MyEntity e, out string category, out string name)
+		public static void Description(IMyEntity e, out string category, out string name)
 		{
 			category = "Unknown";
 			name = e.DisplayName;

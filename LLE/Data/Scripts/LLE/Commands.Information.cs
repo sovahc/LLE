@@ -360,7 +360,7 @@ namespace LLE
 			var engineer = GetEngineerCenter();
 			var S = new BoundingSphereD(engineer, Constants.NearInformationRadius);
 
-			var entities = MyEntities.GetTopMostEntitiesInSphere(ref S);
+			var entities = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref S);
 
 			List<SearchMatch> matches = new List<SearchMatch>();
 

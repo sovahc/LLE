@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
-using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Character.Components;
 using Sandbox.ModAPI;
 using System;
@@ -90,7 +89,7 @@ namespace LLE
 		internal IMyCubeGrid GetCurrentEngineerGrid(Vector3D engineer)
 		{
 			var sphere = new BoundingSphereD(engineer, 10);
-			var entities = MyEntities.GetTopMostEntitiesInSphere(ref sphere);
+			var entities = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
 
 			IMyCubeGrid result = null;
 			double minimalDistanceSq = double.MaxValue;
