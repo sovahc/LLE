@@ -35,13 +35,47 @@ namespace LLELoader
 		}
 	}
 
+	class LlmConfig
+	{
+		public string LlmUrl { get; set; } = "http://localhost:8080/v1/chat/completions";
+		public string Model { get; set; } = "qwen";
+		public string ApiKey { get; set; } = "";
+		public string Provider { get; set; } = "local";
+	}
+
 	static class MessageBroker
 	{
-		const string LlmUrl = "http://localhost:8080/v1/chat/completions";
 		private const int ContextWindow = 100000;
 		private const int max_tokens = 1000;
 
 		private static string _systemPrompt = "";
+
+		private static readonly LlmConfig _config = LoadConfig();
+
+		private static LlmConfig LoadConfig()
+		{
+			try
+			{
+				string exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+				string configPath = Path.Combine(exeDir, "lle_loader.json");
+				if (File.Exists(configPath))
+				{
+					var text = File.ReadAllText(configPath);
+					var c = System.Text.Json.JsonSerializer.Deserialize<LlmConfig>(text);
+					if (c != null)
+					{
+						Logger.Write($"[Config] Loaded {configPath}: url={c.LlmUrl} model={c.Model} provider={c.Provider}");
+						return c;
+					}
+				}
+				Logger.Write("[Config] lle_loader.json not found, using defaults (local)");
+			}
+			catch (Exception ex)
+			{
+				Logger.Write("[Config] Failed to load config: " + ex.Message);
+			}
+			return new LlmConfig();
+		}
 
 		private static readonly Queue<string> _chatContext = new Queue<string>();
 
@@ -73,24 +107,39 @@ namespace LLELoader
 		{
 			try
 			{
-				var payload = new
+				var payload = new Dictionary<string, object>
 				{
-					model = "qwen",
-					messages = new[]
+					["model"] = _config.Model,
+					["messages"] = new[]
 					{
 						new { role = "system", content = _systemPrompt },
 						new { role = "user",   content = chatContext }
 					},
-					max_tokens = max_tokens,
-					stream = true,
-					chat_template_kwargs = new { enable_thinking = false }
+					["max_tokens"] = max_tokens,
+					["stream"] = true,
 				};
+				if (_config.Provider == "local")
+					payload["chat_template_kwargs"] = new { enable_thinking = false };
+				else if (_config.Provider == "openrouter")
+					payload["reasoning"] = new { enabled = false };
+
 				var body = System.Text.Json.JsonSerializer.Serialize(payload);
 
-				var request = new HttpRequestMessage(HttpMethod.Post, LlmUrl)
+				var request = new HttpRequestMessage(HttpMethod.Post, _config.LlmUrl)
 				{	Content = new StringContent(body, Encoding.UTF8, "application/json")
 				};
+				if (!string.IsNullOrEmpty(_config.ApiKey))
+					request.Headers.Add("Authorization", "Bearer " + _config.ApiKey);
 				var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+
+				if (!response.IsSuccessStatusCode)
+				{
+					string errBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+					Logger.Write($"[LLM] HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}");
+					_commandQueue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = $"HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}" });
+					return;
+				}
+
 				var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
 
 				string line;
@@ -107,17 +156,22 @@ namespace LLELoader
 					if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
 						&& choices[0].TryGetProperty("delta", out var delta))
 					{
+						// Reasoning — field name differs by provider:
+						//   local (llama.cpp): "reasoning_content"
+						//   openrouter:        "reasoning"
+						string reasoning = null;
 						if (delta.TryGetProperty("reasoning_content", out var reasoningProp))
+							reasoning = reasoningProp.ValueKind == System.Text.Json.JsonValueKind.String ? reasoningProp.GetString() : null;
+						else if (delta.TryGetProperty("reasoning", out var reasoningProp2))
+							reasoning = reasoningProp2.ValueKind == System.Text.Json.JsonValueKind.String ? reasoningProp2.GetString() : null;
+
+						if (!string.IsNullOrEmpty(reasoning))
 						{
-							var reasoning = reasoningProp.GetString();
-							if (!string.IsNullOrEmpty(reasoning))
+							_commandQueue.Enqueue(new LLE.FromLLM
 							{
-								_commandQueue.Enqueue(new LLE.FromLLM
-								{
-									Type = LLE.MessageType.Reasoning,
-									Payload = reasoning
-								});
-							}
+								Type = LLE.MessageType.Reasoning,
+								Payload = reasoning
+							});
 						}
 						if (delta.TryGetProperty("content", out var contentProp))
 						{

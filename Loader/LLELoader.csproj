@@ -70,7 +70,14 @@
     <Compile Include="..\LLE\Data\Scripts\LLE\DTO.cs" Link="DTO.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="lle_loader.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <Target Name="CopyToBin64" AfterTargets="Build">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="/home/cat/Projects/SpaceEngineers/Bin64/" />
+    <Copy SourceFiles="$(TargetDir)lle_loader.json" DestinationFolder="/home/cat/Projects/SpaceEngineers/Bin64/" Condition="Exists('$(TargetDir)lle_loader.json')" />
   </Target>
 </Project>
