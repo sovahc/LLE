@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 using VRageMath;
@@ -160,12 +161,28 @@ namespace LLE
 
 			var producer = ProduceCells(block, min, max, engineerPosition);
 
+			Vector3D blockCenterWorld = (grid.GridIntegerToWorld(block.Min) + grid.GridIntegerToWorld(block.Max)) * 0.5;
+			var horizontalEngineer = blockCenterWorld - engineerPosition;
+			horizontalEngineer -= gridUp * Vector3D.Dot(horizontalEngineer, gridUp);
+			horizontalEngineer.Normalize();
+
 			foreach (var ijk in producer)
 			{
 				Vector3D ijkWorld = grid.GridIntegerToWorld(ijk);
-				Drawing.RoundMarker(ijkWorld, Color.Gray);
+				Vector3D ijkDirection = (ijkWorld-blockCenterWorld).Normalized();
 
-				var eyesShift = gridUp * Constants.EngineerCapsuleHeight / 2;
+				Vector3D up;
+				
+				var dot = Math.Abs(Vector3D.Dot(ijkDirection, gridUp));
+				if(dot < 0.7)
+				{	up = gridUp;					
+				}
+				else
+				{	//Debug.AddLine(new LineD(ijkWorld, ijkWorld+horizontalEngineer), Color.Cyan);
+					up = horizontalEngineer;
+				}
+
+				var eyesShift = up * Constants.EngineerCapsuleHeight / 2;
 
 				var worldFrom = ijkWorld + eyesShift;
 
@@ -184,8 +201,8 @@ namespace LLE
 				}
 				if(r.HasValue)
 					Debug.AddLine(new LineD(worldFrom, r.Value), Color.Green);
-				else
-					Drawing.RoundMarker(worldFrom, Color.Black);
+				//else
+				//	Drawing.RoundMarker(worldFrom, Color.Black);
 
 				if(!r.HasValue) continue;
 
@@ -205,7 +222,7 @@ namespace LLE
 				worldFrom = worldTo - direction * desiredDist;
 				worldFrom -= eyesShift;
 
-				var world = MatrixD.CreateWorld(worldFrom, worldTo-worldFrom, gridUp); // normalization is inside.
+				var world = MatrixD.CreateWorld(worldFrom, worldTo-worldFrom, up); // normalization is inside.
 
 				tmp.Clear();
 				var capsule = tmp;
