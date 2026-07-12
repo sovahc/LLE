@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 
 using VRageMath;
+using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.Voxels;
 using Sandbox.Game.Entities;
@@ -139,6 +140,10 @@ namespace LLE
 			var slim = grid.GetCubeBlock(position);
 			if (slim == null)
 				return Traversability.Free;
+
+			// Small grid blocks are always treated as fully blocked.
+			if (grid.GridSizeEnum == MyCubeSize.Small)
+				return Traversability.Blocked;
 
 			return Collisions.GetBlockTraversability(slim, position);
 		}

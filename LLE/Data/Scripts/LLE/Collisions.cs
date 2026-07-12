@@ -51,7 +51,13 @@ namespace LLE
 
 					var defId = new MyDefinitionId(typeId, subtypeId);
 					_collisionGeometry[defId] = kv.Value;
-					_traversabilityCache[defId] = CalculateTraversability(kv.Value);
+
+					// Skip traversability precomputation for small-grid blocks:
+					// they are always treated as Blocked at runtime (see TraversabilityCalculator).
+					MyCubeBlockDefinition blockDef;
+					if (!(MyDefinitionManager.Static.TryGetCubeBlockDefinition(defId, out blockDef)
+					    && blockDef.CubeSize == MyCubeSize.Small))
+						_traversabilityCache[defId] = CalculateTraversability(kv.Value);
 				}
 			}
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);

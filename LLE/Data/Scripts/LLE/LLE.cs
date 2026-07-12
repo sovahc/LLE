@@ -103,7 +103,7 @@ namespace LLE
 				if(block != null)
 				{
 					Collisions.Draw(block);
-					//Collisions.DrawTraversability(grid, astarStart.Value);
+					Collisions.DrawTraversability(grid, astarStart.Value);
 				}
 			}
 
