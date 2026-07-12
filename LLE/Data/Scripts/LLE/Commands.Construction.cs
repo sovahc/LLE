@@ -163,7 +163,10 @@ namespace LLE
 					InventoryDiff(current, sb);
 
 					if(inventoryFull) sb.Append("Your inventory is full.\n");
-					else if(stale) sb.Append("No progress!\n");
+					else if(stale)
+					{	sb.Append("No progress!\n");
+						sb.Append("If this repeats, try a different interaction point.\n");
+					}
 					
 					if(removed) sb.Append($"Done! {Name(block)} has been removed.");
 
@@ -318,6 +321,8 @@ namespace LLE
 						sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
 
 						if(stale) AddMissingComponentsString(block, sb);
+						if(integrity0 == block.Integrity)
+							sb.Append("If this repeats, try a different interaction point.\n");
 					}
 
 					yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
