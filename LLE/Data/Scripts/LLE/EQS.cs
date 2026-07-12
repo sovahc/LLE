@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 
 using VRageMath;
+using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.ModAPI;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
@@ -162,6 +163,7 @@ namespace LLE
 			foreach (var ijk in producer)
 			{
 				Vector3D ijkWorld = grid.GridIntegerToWorld(ijk);
+				Drawing.RoundMarker(ijkWorld, Color.Gray);
 
 				var eyesShift = gridUp * Constants.EngineerCapsuleHeight / 2;
 
@@ -249,20 +251,39 @@ namespace LLE
 			
 			List<Vector3I> candidates = new List<Vector3I>();
 
-			var iter = new Vector3I_RangeIterator(ref min, ref max);
-			for (; iter.IsValid(); iter.MoveNext())
+			if(grid.GridSizeEnum == MyCubeSize.Large)
+			{	var iter = new Vector3I_RangeIterator(ref min, ref max);
+				for (; iter.IsValid(); iter.MoveNext())
+				{
+					var ijk = iter.Current;
+
+					var ijkBlock = grid.GetCubeBlock(ijk);
+					if (ijkBlock != null && !Collisions.CenterIsFree(ijkBlock, ijk)) continue;
+
+					candidates.Add(ijk);
+				}
+			}
+
+			Vector3D blockCenter = (block.Min + block.Max) * 0.5;
+
+			if(grid.GridSizeEnum == MyCubeSize.Small)
 			{
-				var ijk = iter.Current;
+				Vector3I v;
 
-				var ijkBlock = grid.GetCubeBlock(ijk);
-				if (ijkBlock != null && !Collisions.CenterIsFree(ijkBlock, ijk)) continue;
+				for(v.Z = -1; v.Z <= 1; ++v.Z)
+					for(v.Y = -1; v.Y <= 1; ++v.Y)
+						for(v.X = -1; v.X <= 1; ++v.X)
+						{
+							if(v == Vector3I.Zero) continue;
 
-				candidates.Add(ijk);
+							var offset = blockCenter + new Vector3D(v) * 5.1;
+							var ijk = new Vector3I(offset);
+
+							candidates.Add(ijk);
+						}
 			}
 
 			// reorder
-
-			Vector3D blockCenter = (block.Min + block.Max) * 0.5;
 
 			Vector3D engineerCell = grid.WorldToGridInteger(engineerPosition);
 			Vector3D toEngineer = engineerCell - blockCenter;
