@@ -18,11 +18,12 @@ namespace LLE
 	public static class Debug
 	{
 		public static IMyCubeGrid grid;
+		public static Sandbox.Game.Entities.MyVoxelBase voxel;
 		
-		public static Vector3I? astarStart;
-		public static Vector3I? astarGoal;
-
-		private static AStarHelper aStarHelper;
+		private static Vector3D? octreeStart;
+		private static Vector3D? octreeGoal;
+		private static OctreeAStar octree;
+		private static List<OctreeNode> octreePath = new List<OctreeNode>();
 
 		private static List<LineD> lines = new List<LineD>();
 		private static List<Color> lineColors = new List<Color>();
@@ -39,73 +40,70 @@ namespace LLE
 
 		internal static void Start(IMyCubeGrid grid_)
 		{	grid = grid_;
+			voxel = null;
 
-			astarStart = null;
-			astarGoal = null;
+			ResetOctree();
 		}
 
-		internal static void Pathfinding(MatrixD hm)
+		internal static void StartVoxel(Sandbox.Game.Entities.MyVoxelBase voxel_)
+		{	voxel = voxel_;
+			grid = null;
+
+			ResetOctree();
+		}
+
+		private static void ResetOctree()
+		{	octreeStart = null;
+			octreeGoal = null;
+			octree = null;
+			octreePath.Clear();
+		}
+
+		// Octree A* test: Ctrl+LMB sets start, Ctrl+RMB sets goal (world position 5m ahead)
+		internal static void OctreePathfinding(MatrixD hm)
 		{
-			if (grid == null) return;
+			if (grid == null && voxel == null) return;
 
 			Vector3D ahead = hm.Translation + hm.Forward * 5;
-
-			var cell = grid.WorldToGridInteger(ahead);
-
-			Utilities.HighlightCell(grid, cell, Color.Green);
 
 			var lm = MyAPIGateway.Input.IsNewLeftMousePressed();
 			var rm = MyAPIGateway.Input.IsNewRightMousePressed();
 
 			if (lm)
-			{	astarStart = cell;
-				MyConsole.Add($"A* start: {cell}", Color.Green);
+			{	octreeStart = ahead;
+				MyConsole.Add($"Octree start: {ahead}", Color.Green);
 			}
 			if (rm)
-			{	astarGoal = cell;
-				MyConsole.Add($"A* goal: {cell}", Color.Red);
+			{	octreeGoal = ahead;
+				MyConsole.Add($"Octree goal: {ahead}", Color.Red);
 			}
 
-			if (lm || rm)
+			if ((lm || rm) && octreeStart != null && octreeGoal != null)
 			{
-				if(astarStart != null && astarGoal != null)
-				{
-					aStarHelper = new AStarHelper(grid, astarStart.Value, astarGoal.Value);
-				}
+				ICellSpace space;
+				if (grid != null) space = new GridCellSpace(grid);
+				else space = new VoxelCellSpace(voxel);
+
+				octree = new OctreeAStar(space);
+
+				var start = octree.GetNodeAtWorld(octreeStart.Value);
+				var goal = octree.GetNodeAtWorld(octreeGoal.Value);
+				MyConsole.Add($"Octree start node: {start?.Type} goal node: {goal?.Type}", Color.Yellow);
+
+				octreePath = octree.FindPath(start, goal);
+				MyConsole.Add($"Octree path: {octreePath.Count} nodes; {octree.Statistic}", Color.Yellow);
 			}
 
-			if(aStarHelper != null)
-			{	aStarHelper.Tick();
-				aStarHelper.DrawPath();
-			}
+			if (octreeStart != null) Drawing.RoundMarker(octreeStart.Value, Color.Green);
+			if (octreeGoal != null) Drawing.RoundMarker(octreeGoal.Value, Color.Red);
+
+			foreach (var node in octreePath)
+				octree.DrawOctNode(node, true);
 		}
 
 		internal static void Draw(MatrixD hm)
 		{
 			var material = MyStringId.GetOrCompute("Square");
-
-			if (grid != null && astarStart != null)
-			{
-				var block = grid.GetCubeBlock(astarStart.Value);
-				if(block != null)
-				{	List<EQSResult> results = new List<EQSResult>();
-					EQS.Query(block, hm.Translation, InteractionKind.Inventory, results, 5);
-				}
-			}
-
-			if (grid == null) return;
-
-			if(astarStart != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarStart.Value), Color.Green);
-			if(astarGoal != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarGoal.Value), Color.Red);
-
-			if(astarStart != null)
-			{	var block = grid.GetCubeBlock(astarStart.Value);
-				if(block != null)
-				{
-					Collisions.Draw(block);
-					Collisions.DrawTraversability(grid, astarStart.Value);
-				}
-			}
 
 			for(int i = 0; i < lines.Count; ++i)
 			{
@@ -228,7 +226,7 @@ namespace LLE
 			if(initialized)
 			{
 				var hm = ch.GetHeadMatrix(false, false);
-				Debug.Pathfinding(hm);
+				Debug.OctreePathfinding(hm);
 				Debug.Draw(hm);
 			}
 

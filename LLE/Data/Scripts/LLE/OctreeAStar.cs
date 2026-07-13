@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 using VRageMath;
 using VRage.Game;
+using VRage.Game.ModAPI;
 using VRage.Utils;
 using VRage.Voxels;
 using Sandbox.Game.Entities;
@@ -35,13 +36,149 @@ namespace LLE
 		public OctreeNode Node;
 	}
 
-	public class AsteroidNavigation
+	/// <summary>
+	/// Cell source for OctreeAStar: voxel map or cube grid.
+	/// Cell coordinates are lod-0, starting at (0,0,0).
+	/// </summary>
+	public interface ICellSpace
+	{
+		Vector3I Size { get; }        // in cells (lod 0)
+		int CoarseLod { get; }        // nodes with lod >= CoarseLod are always subdivided (Top)
+		double CellSize { get; }      // meters per cell
+		bool IsValid { get; }
+		NodeType CellType(Vector3I min, Vector3I max, int lod);
+		MatrixD LocalToWorld { get; } // cell space -> world (includes CellSize scale); queried per use (grids move)
+	}
+
+	public class VoxelCellSpace : ICellSpace
 	{
 		private readonly MyVoxelBase _voxel;
-		private readonly int _coarseLod;
-		private readonly OctreeNode _root;
 
 		private static readonly MyStorageData storage = new MyStorageData();
+
+		public VoxelCellSpace(MyVoxelBase voxel)
+		{
+			_voxel = voxel;
+		}
+
+		public Vector3I Size => _voxel.Storage.Size;
+		public int CoarseLod => 4; // 3 = 8m
+		public double CellSize => 1.0;
+		public bool IsValid => _voxel != null && !_voxel.MarkedForClose;
+		public MatrixD LocalToWorld => MatrixD.CreateTranslation(_voxel.PositionLeftBottomCorner);
+
+		public NodeType CellType(Vector3I min, Vector3I max, int lod)
+		{
+			return VoxelCellType(_voxel, min, max, lod - 1);
+		}
+
+		public static NodeType VoxelCellType(MyVoxelBase voxel, Vector3I min, Vector3I max, int lod = 0)
+		{
+			Vector3I storageMax = voxel.Storage.Size - 1;
+			Vector3I coordMin = min >> lod;
+			Vector3I coordMax = max >> lod;
+
+			storage.Resize(coordMin, coordMax);
+			voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, coordMin, coordMax);
+
+			Vector3I offset = Vector3I.Zero;
+
+			var index = storage.ComputeLinear(ref offset);
+			byte v0 = storage.Material(index);
+
+			Vector3I p;
+			for (p.X = coordMin.X; p.X <= coordMax.X; p.X++)
+			{
+				for (p.Y = coordMin.Y; p.Y <= coordMax.Y; p.Y++)
+				{
+					for (p.Z = coordMin.Z; p.Z <= coordMax.Z; p.Z++)
+					{
+						offset = p - coordMin;
+						index = storage.ComputeLinear(ref offset);
+
+						var v = storage.Material(index);
+						if(v != v0)
+							return NodeType.Mixed;
+					}
+				}
+			}
+
+			if (v0 == byte.MaxValue) return NodeType.Free;
+			return NodeType.Blocked;
+		}
+	}
+
+	public class GridCellSpace : ICellSpace
+	{
+		private readonly IMyCubeGrid _grid;
+
+		// Offset and Size are captured at construction; block add/remove or grid
+		// resize invalidates this space (rebuild it). Invalidation is future work.
+		private readonly Vector3I _offset; // cell (0,0,0) = grid cell (grid.Min - Border)
+		private readonly Vector3I _size;
+
+		private const int Border = 2;
+
+		public GridCellSpace(IMyCubeGrid grid)
+		{
+			_grid = grid;
+			_offset = grid.Min - Border;
+			_size = grid.Max - grid.Min + 1 + 2 * Border;
+		}
+
+		public Vector3I Size => _size;
+		public int CoarseLod => 3; // grids have no LOD, CellType scans cells: max 4x4x4 per node
+		public double CellSize => _grid.GridSize;
+		public bool IsValid => _grid != null && !_grid.MarkedForClose;
+
+		public MatrixD LocalToWorld
+		{
+			get
+			{	// corner of cell (0,0,0) lies at grid-local (_offset - 0.5) * GridSize
+				double s = _grid.GridSize;
+				return MatrixD.CreateScale(s)
+					* MatrixD.CreateTranslation((new Vector3D(_offset) - 0.5) * s)
+					* _grid.WorldMatrix;
+			}
+		}
+
+		public NodeType CellType(Vector3I min, Vector3I max, int lod)
+		{
+			var gridMin = min + _offset;
+			var gridMax = max + _offset;
+
+			// Entirely outside grid bounds - no blocks there
+			if (gridMin.X > _grid.Max.X || gridMax.X < _grid.Min.X ||
+				gridMin.Y > _grid.Max.Y || gridMax.Y < _grid.Min.Y ||
+				gridMin.Z > _grid.Max.Z || gridMax.Z < _grid.Min.Z)
+				return NodeType.Free;
+
+			bool anyBlocked = false;
+			bool anyFree = false;
+
+			Vector3I p;
+			for (p.X = gridMin.X; p.X <= gridMax.X; p.X++)
+			{
+				for (p.Y = gridMin.Y; p.Y <= gridMax.Y; p.Y++)
+				{
+					for (p.Z = gridMin.Z; p.Z <= gridMax.Z; p.Z++)
+					{
+						if (_grid.GetCubeBlock(p) != null) anyBlocked = true;
+						else anyFree = true;
+					}
+				}
+			}
+
+			if (!anyBlocked) return NodeType.Free;
+			if (!anyFree) return NodeType.Blocked;
+			return NodeType.Mixed;
+		}
+	}
+
+	public class OctreeAStar
+	{
+		private readonly ICellSpace _space;
+		private readonly OctreeNode _root;
 
 		public struct Statistic_
 		{	public int Unknown, Top, Free, Mixed, Blocked;
@@ -50,17 +187,20 @@ namespace LLE
 		}
 
 		public Statistic_ Statistic;
-		
-		public AsteroidNavigation(MyVoxelBase voxel)
+
+		public OctreeAStar(ICellSpace space)
 		{
-			_voxel = voxel;
-			_coarseLod = 4; // 3 = 8m
+			_space = space;
 
-			Vector3I size = voxel.Storage.Size;
+			Vector3I size = space.Size;
 			var maxDimension = Math.Max(size.X, Math.Max(size.Y, size.Z));
-			// in-game voxels are power-of-two sized - Debug.Assert(source.Size3D.IsPowerOfTwo)
 
-			_root = new OctreeNode { Min = Vector3I.Zero, Size = maxDimension, Type = NodeType.Unknown };
+			// In-game voxels are power-of-two sized (Debug.Assert(source.Size3D.IsPowerOfTwo));
+			// grids are not, so round the root up.
+			int rootSize = 1;
+			while (rootSize < maxDimension) rootSize <<= 1;
+
+			_root = new OctreeNode { Min = Vector3I.Zero, Size = rootSize, Type = NodeType.Unknown };
 			++Statistic.Unknown;
 		}
 
@@ -72,7 +212,7 @@ namespace LLE
 
 		public OctreeNode GetNodeAt(Vector3I pos)
 		{
-			if (_voxel == null || _voxel.MarkedForClose) return null;
+			if (!_space.IsValid) return null;
 
 			var result = new List<OctreeNode>();
 			CollectInRange(_root, pos, pos, result, false);
@@ -95,14 +235,14 @@ namespace LLE
 				--Statistic.Unknown;
 				int lod = CalculateLodLevel(node.Size);
 
-				if (lod >= _coarseLod)
+				if (lod >= _space.CoarseLod)
 					node.Type = NodeType.Top;
 				else
 				{
-					var voxelMin = node.Min;
-					var voxelMax = node.Min + node.Size - 1;
-					node.Type = VoxelCellType(_voxel, voxelMin, voxelMax, lod - 1);
-					//Utilities.Log($"VoxelCellType {node.Min} / {voxelMin}-{voxelMax} / {lod} / {node.Type}");
+					var cellMin = node.Min;
+					var cellMax = node.Min + node.Size - 1;
+					node.Type = _space.CellType(cellMin, cellMax, lod);
+					//Utilities.Log($"CellType {node.Min} / {cellMin}-{cellMax} / {lod} / {node.Type}");
 				}
 
 				switch(node.Type)
@@ -161,58 +301,34 @@ namespace LLE
 			node.Neighbors = set;
 		}
 
-		public static NodeType VoxelCellType(MyVoxelBase voxel, Vector3I min, Vector3I max, int lod = 0)
-		{
-			Vector3I storageMax = voxel.Storage.Size - 1;
-			Vector3I coordMin = min >> lod;
-			Vector3I coordMax = max >> lod;
-
-			storage.Resize(coordMin, coordMax);
-			voxel.Storage.ReadRange(storage, MyStorageDataTypeFlags.Material, lod, coordMin, coordMax);
-
-			Vector3I offset = Vector3I.Zero;
-
-			var index = storage.ComputeLinear(ref offset);
-			byte v0 = storage.Material(index);
-
-			Vector3I p;
-			for (p.X = coordMin.X; p.X <= coordMax.X; p.X++)
-			{
-				for (p.Y = coordMin.Y; p.Y <= coordMax.Y; p.Y++)
-				{
-					for (p.Z = coordMin.Z; p.Z <= coordMax.Z; p.Z++)
-					{
-						offset = p - coordMin;
-						index = storage.ComputeLinear(ref offset);
-
-						var v = storage.Material(index);
-						if(v != v0)
-							return NodeType.Mixed;
-					}
-				}
-			}
-
-			if (v0 == byte.MaxValue) return NodeType.Free;
-			return NodeType.Blocked;
-		}
-
 		/// <summary>
-		/// Converts an octree node (storage indices) to a world-space bounding box.
+		/// Converts an octree node (cell indices) to a world-space box.
+		/// Returned as center + local box because grids are rotated (OBB, not AABB).
 		/// </summary>
-		public BoundingBoxD NodeToWorldBB(OctreeNode node)
+		public void NodeToWorldBox(OctreeNode node, out MatrixD matrix, out BoundingBoxD localBox)
 		{
-			var min = new Vector3D(node.Min) + _voxel.PositionLeftBottomCorner;
-			var max = min + node.Size;
-			return new BoundingBoxD(min, max);
+			var lw = _space.LocalToWorld;
+			double s = _space.CellSize;
+
+			// lw rotation part carries uniform CellSize scale - strip it, localBox is in meters
+			matrix = lw;
+			matrix.Right = lw.Right / s;
+			matrix.Up = lw.Up / s;
+			matrix.Forward = lw.Forward / s;
+			matrix.Translation = Vector3D.Transform(node.Center, lw);
+
+			var half = new Vector3D(node.Size * 0.5 * s);
+			localBox = new BoundingBoxD(-half, half);
 		}
 
 		public OctreeNode GetNodeAtWorld(Vector3D worldPos)
 		{
-			var voxelPos = new Vector3I(
-				(int)Math.Floor(worldPos.X - _voxel.PositionLeftBottomCorner.X),
-				(int)Math.Floor(worldPos.Y - _voxel.PositionLeftBottomCorner.Y),
-				(int)Math.Floor(worldPos.Z - _voxel.PositionLeftBottomCorner.Z));
-			return GetNodeAt(voxelPos);
+			var local = Vector3D.Transform(worldPos, MatrixD.Invert(_space.LocalToWorld));
+			var cell = new Vector3I(
+				(int)Math.Floor(local.X),
+				(int)Math.Floor(local.Y),
+				(int)Math.Floor(local.Z));
+			return GetNodeAt(cell);
 		}
 
 		/// <summary>
@@ -301,6 +417,11 @@ namespace LLE
 			result.Reverse();
 		}
 
+		public Vector3D NodeCenterWorld(OctreeNode node)
+		{
+			return Vector3D.Transform(node.Center, _space.LocalToWorld);
+		}
+
 		public void DrawOctNode(OctreeNode node, bool marker)
 		{
 			Color color;
@@ -310,18 +431,14 @@ namespace LLE
 				default: color = Color.Gray; break;
 			}
 
-			var bb = NodeToWorldBB(node);
-
-			MatrixD matrix = MatrixD.Identity;
-			matrix.Translation = new Vector3D(
-				(bb.Min.X + bb.Max.X) * 0.5,
-				(bb.Min.Y + bb.Max.Y) * 0.5,
-				(bb.Min.Z + bb.Max.Z) * 0.5);
+			MatrixD matrix;
+			BoundingBoxD localBb;
+			NodeToWorldBox(node, out matrix, out localBb);
 
 			if(marker) Drawing.RoundMarker(matrix.Translation, color);
 
-			var half = (bb.Max - bb.Min) * 0.49;
-			var localBb = new BoundingBoxD(-half, half);
+			localBb.Min *= 0.98;
+			localBb.Max *= 0.98;
 
 			var material = MyStringId.GetOrCompute("Square");
 			MySimpleObjectDraw.DrawTransparentBox(ref matrix, ref localBb, ref color,

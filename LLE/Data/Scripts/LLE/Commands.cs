@@ -372,7 +372,8 @@ notes — print all keys.
 
 			var asteroid = match as MyVoxelBase;
 			if(asteroid != null)
-			{	selectedGrid = null;
+			{	Debug.StartVoxel(asteroid);
+				selectedGrid = null;
 				selectedAsteroid = asteroid;
 				return Success($"Selected {category} {Quote(name)}");
 			}
