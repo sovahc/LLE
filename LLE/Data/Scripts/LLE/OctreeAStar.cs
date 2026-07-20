@@ -296,8 +296,24 @@ namespace LLE
 			var queryMax = node.Min + node.Size;
 			CollectInRange(_root, queryMin, queryMax, neighbors, true);
 
-			var set = new HashSet<OctreeNode>(neighbors);
-			set.Remove(node);
+			var set = new HashSet<OctreeNode>();
+			var nodeMax = node.Min + node.Size - 1;
+			foreach (var n in neighbors)
+			{
+				if (n == node) continue;
+				var nMax = n.Min + n.Size - 1;
+
+				// Keep only 6-connected (face-adjacent) neighbors.
+				// Nodes are face-adjacent when they touch along exactly one axis
+				// and their projections on the other two axes overlap.
+				int touchingAxes = 0;
+				if (nodeMax.X + 1 == n.Min.X || nMax.X + 1 == node.Min.X) touchingAxes++;
+				if (nodeMax.Y + 1 == n.Min.Y || nMax.Y + 1 == node.Min.Y) touchingAxes++;
+				if (nodeMax.Z + 1 == n.Min.Z || nMax.Z + 1 == node.Min.Z) touchingAxes++;
+
+				if (touchingAxes == 1)
+					set.Add(n);
+			}
 			node.Neighbors = set;
 		}
 
