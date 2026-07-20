@@ -31,7 +31,7 @@ namespace LLE
 		public Vector3D Center => new Vector3D(Min.X + Size / 2.0, Min.Y + Size / 2.0, Min.Z + Size / 2.0);
 	}
 
-	class OctNodeItem : FastPriorityQueueNode
+	class FPQNode : FastPriorityQueueNode
 	{
 		public OctreeNode Node;
 	}
@@ -344,11 +344,11 @@ namespace LLE
 			var parent = new Dictionary<OctreeNode, OctreeNode>();
 			var closed = new HashSet<OctreeNode>();
 			var inOpen = new HashSet<OctreeNode>();
-			var items = new Dictionary<OctreeNode, OctNodeItem>();
-			var open = new FastPriorityQueue<OctNodeItem>(10*1024);
+			var items = new Dictionary<OctreeNode, FPQNode>();
+			var open = new FastPriorityQueue<FPQNode>(10*1024);
 
 			gScore[start] = 0f;
-			var startItem = new OctNodeItem { Node = start };
+			var startItem = new FPQNode { Node = start };
 			items[start] = startItem;
 			inOpen.Add(start);
 			open.Enqueue(startItem, Heuristic(start, goal));
@@ -389,7 +389,7 @@ namespace LLE
 						}
 						else
 						{
-							var item = new OctNodeItem { Node = neighbor };
+							var item = new FPQNode { Node = neighbor };
 							items[neighbor] = item;
 							inOpen.Add(neighbor);
 							open.Enqueue(item, f);
@@ -422,7 +422,7 @@ namespace LLE
 			return Vector3D.Transform(node.Center, _space.LocalToWorld);
 		}
 
-		public void DrawOctNode(OctreeNode node, bool marker)
+		public void DrawNode(OctreeNode node, bool marker)
 		{
 			Color color;
 			switch(node.Type)

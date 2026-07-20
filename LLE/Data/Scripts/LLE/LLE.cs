@@ -98,7 +98,7 @@ namespace LLE
 			if (octreeGoal != null) Drawing.RoundMarker(octreeGoal.Value, Color.Red);
 
 			foreach (var node in octreePath)
-				octree.DrawOctNode(node, true);
+				octree.DrawNode(node, true);
 		}
 
 		internal static void Draw(MatrixD hm)
