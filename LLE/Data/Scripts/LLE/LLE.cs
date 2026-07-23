@@ -79,6 +79,8 @@ namespace LLE
 
 		internal static void Draw(MatrixD hm)
 		{
+			SweptVolume.DrawDebugVolumes();
+
 			var material = MyStringId.GetOrCompute("Square");
 
 			if (grid != null && astarStart != null)
@@ -175,7 +177,7 @@ namespace LLE
 
 				commands = new Commands(ch);
 				commands.SetSystemPromptAndMemory();
-				
+
 				Vision.Initialize();
 				EQS.Initialize();
 				

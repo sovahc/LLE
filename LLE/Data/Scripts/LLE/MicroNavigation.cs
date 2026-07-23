@@ -86,58 +86,6 @@ namespace LLE
 			if (move.LengthSquared() > 1) move.Normalize();
 			return move;
 		}
-
-		/// <summary>
-		/// Probes ahead with a sphere; if blocked, tries a fan of alternative directions.
-		/// Returns adjusted velocity that steers around nearby obstacles.
-		/// </summary>
-		public Vector3D Whiskers(Vector3D position, Vector3D desiredVelocity, IMyCubeGrid navGrid)
-		{
-			if (navGrid == null) return desiredVelocity;
-
-			double speed = desiredVelocity.Length();
-			if (speed < 0.1) return desiredVelocity;
-
-			// Probe toward the target waypoint, not the (laggy) velocity direction
-			var toTarget = Target.v - position;
-			if (toTarget.LengthSquared() < 0.01) return desiredVelocity;
-
-			double radius = Constants.CollisionProbeRadius;
-			double lookahead = Math.Max(2.0, speed * 0.25);
-
-			var dir = toTarget.Normalized();
-			var probe = position + dir * lookahead;
-
-			// Direct probe
-			if (!Collisions.CheckSphereVsGrid(navGrid, probe, radius))
-				return desiredVelocity;
-
-			// Build orthonormal frame perpendicular to dir (grid-independent)
-			var arbitrary = Math.Abs(dir.X) < 0.9 ? Vector3D.UnitX : Vector3D.UnitY;
-			var perp1 = Vector3D.Cross(dir, arbitrary);
-			perp1.Normalize();
-			var perp2 = Vector3D.Cross(dir, perp1); // already normalized
-
-			// Fan around both perpendicular axes
-			double[] angles = { 30, -30, 60, -60 };
-
-			foreach (var deg in angles)
-			{
-				var altDir = Vector3D.Transform(dir, MatrixD.CreateFromAxisAngle(perp1, MathHelper.ToRadians(deg)));
-				if (!Collisions.CheckSphereVsGrid(navGrid, position + altDir * lookahead, radius))
-					return altDir * speed;
-			}
-
-			foreach (var deg in angles)
-			{
-				var altDir = Vector3D.Transform(dir, MatrixD.CreateFromAxisAngle(perp2, MathHelper.ToRadians(deg)));
-				if (!Collisions.CheckSphereVsGrid(navGrid, position + altDir * lookahead, radius))
-					return altDir * speed;
-			}
-
-			// All directions blocked — keep going, Stuck detector will catch it
-			return desiredVelocity;
-		}
 	}
 
 	class DampedSpringController

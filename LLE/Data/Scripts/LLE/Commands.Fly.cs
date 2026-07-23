@@ -9,7 +9,6 @@ using Sandbox.ModAPI;
 using System;
 
 using DoorStatus = Sandbox.ModAPI.Ingame.DoorStatus;
-using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
@@ -18,9 +17,12 @@ namespace LLE
 		private IMyCubeGrid grid;
 		private AStar astar;
 		private int AStarBorder;
+		private readonly List<Vector3D> sweptCapsule = new List<Vector3D>();
 
 		internal List<Vector3I> SmoothPath(List<Vector3I> path)
 		{
+			SweptVolume.ClearDebugVolumes();
+
 			if (path.Count <= 2) return path;
 
 			var result = new List<Vector3I> { path[0] };
@@ -39,35 +41,27 @@ namespace LLE
 		private bool LineIsClear(Vector3I a, Vector3I b)
 		{
 			var from = grid.GridIntegerToWorld(a);
-			var to = grid.GridIntegerToWorld(b);
-
-			if (!RayClear(from, to)) return false;
+			var to   = grid.GridIntegerToWorld(b);
 
 			var dir = to - from;
 			if (dir.LengthSquared() < 0.01) return true;
-			dir.Normalize();
 
-			var up = grid.WorldMatrix.Up;
-			var right = Vector3D.Cross(dir, up);
-			if (right.LengthSquared() < 0.01) return true;
-			right.Normalize();
+			var mid = (from + to) * 0.5;
+			var world = MatrixD.CreateWorld(mid, dir, grid.WorldMatrix.Up);
 
-			double r = Constants.CollisionProbeRadius;
-			double h = r * 0.7071; // r / sqrt(2)
+			sweptCapsule.Clear();
+			Geometry.SweptCapsule(
+				Constants.EngineerCapsuleHeight * 0.5,
+				Constants.EngineerCapsuleRadius,
+				dir.Length() * 0.5,
+				sweptCapsule);
 
-			// 4 parallel rays: 2 horizontal (walls/consoles beside path),
-			// 2 diagonal-down (tables/furniture below ray height).
-			return RayClear(from + right * r, to + right * r)
-				&& RayClear(from - right * r, to - right * r)
-				&& RayClear(from + right * h - up * h, to + right * h - up * h)
-				&& RayClear(from - right * h - up * h, to - right * h - up * h);
-		}
+			for (int i = 0; i < sweptCapsule.Count; i++)
+				sweptCapsule[i] = Vector3D.Transform(sweptCapsule[i], world);
 
-		private static bool RayClear(Vector3D from, Vector3D to)
-		{
-			IHitInfo hitInfo;
-			MyAPIGateway.Physics.CastRay(from, to, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
-			return hitInfo == null;
+			SweptVolume.AddDebugVolume(sweptCapsule);
+
+			return !SweptVolume.ConvexVsGridAlongLine(grid, sweptCapsule, from, to);
 		}
 
 		internal List<Vector3I> GetPath()
@@ -423,10 +417,9 @@ namespace LLE
 				Vector2 rotation = Vector2.Zero;
 				float roll = 0;
 
-				var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
-				desiredVelocity = micro.Whiskers(ec, desiredVelocity, exitGrid ?? selectedGrid);
+			var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
 
-				if(!micro.ShortSegment)
+			if(!micro.ShortSegment)
 					springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
 						micro.Target.v, up, 0.2, out rotation, out roll);
 				
