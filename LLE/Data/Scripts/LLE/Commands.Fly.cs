@@ -9,6 +9,7 @@ using Sandbox.ModAPI;
 using System;
 
 using DoorStatus = Sandbox.ModAPI.Ingame.DoorStatus;
+using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
@@ -17,6 +18,32 @@ namespace LLE
 		private IMyCubeGrid grid;
 		private AStar astar;
 		private int AStarBorder;
+
+		internal List<Vector3I> SmoothPath(List<Vector3I> path)
+		{
+			if (path.Count <= 2) return path;
+
+			var result = new List<Vector3I> { path[0] };
+			int i = 0;
+			while (i < path.Count - 1)
+			{
+				int j = path.Count - 1;
+				while (j > i + 1 && !LineIsClear(path[i], path[j]))
+					j--;
+				result.Add(path[j]);
+				i = j;
+			}
+			return result;
+		}
+
+		private bool LineIsClear(Vector3I a, Vector3I b)
+		{
+			var from = grid.GridIntegerToWorld(a);
+			var to = grid.GridIntegerToWorld(b);
+			IHitInfo hitInfo;
+			MyAPIGateway.Physics.CastRay(from, to, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
+			return hitInfo == null;
+		}
 
 		internal List<Vector3I> GetPath()
 		{
@@ -256,7 +283,7 @@ namespace LLE
 
 				while(!aStarHelper.Tick()) yield return null;
 
-				worldPath = MakePath(aStarHelper.GetPath());
+				worldPath = MakePath(aStarHelper.SmoothPath(aStarHelper.GetPath()));
 
 				if(worldPath.Count == 0) yield return "No exit path found from the grid found.";
 
@@ -280,7 +307,7 @@ namespace LLE
 
 			var tmp = aStarHelper.GetPath();
 			tmp.Reverse(); // ! Reverse back
-			worldPath = MakePath(tmp);
+			worldPath = MakePath(aStarHelper.SmoothPath(tmp));
 
 			if(worldPath.Count == 0) yield return "There is no path to your destination.";
 
