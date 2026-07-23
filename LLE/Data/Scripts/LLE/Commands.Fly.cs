@@ -67,7 +67,7 @@ namespace LLE
 		}
 
 		// Remove collinear points: keep only where direction changes.
-		internal List<Vector3I> RemoveCollinear(List<Vector3I> path)
+		internal static List<Vector3I> RemoveCollinear(List<Vector3I> path)
 		{
 			if (path.Count <= 2) return path;
 
@@ -134,15 +134,6 @@ namespace LLE
 			astar.Iteration();
 
 			return astar.Completed();
-		}
-
-		internal void DrawPath()
-		{	if(astar == null) return;
-
-			foreach(var p in astar.result)
-			{	var iv = p + grid.Min - AStarBorder;
-				Drawing.RoundMarker(grid.GridIntegerToWorld(iv), Color.DarkMagenta);
-			}
 		}
 	}
 

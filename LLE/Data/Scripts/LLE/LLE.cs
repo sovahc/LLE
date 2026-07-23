@@ -73,7 +73,12 @@ namespace LLE
 
 			if(aStarHelper != null)
 			{	aStarHelper.Tick();
-				aStarHelper.DrawPath();
+
+				var path = AStarHelper.RemoveCollinear(aStarHelper.GetPath());
+
+				foreach(var p in path)
+				{	Drawing.RoundMarker(grid.GridIntegerToWorld(p), Color.DarkMagenta);
+				}
 			}
 		}
 

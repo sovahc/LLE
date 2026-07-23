@@ -181,6 +181,25 @@ namespace LLE
 
 					float tentativeG = curG + 1;
 
+					if (_parent[currentI] != -1)
+					{
+						Vector3I parentPos;
+						_indexer.IndexToPosition(_parent[currentI], out parentPos);
+						if ((cv - parentPos) != direction)
+							tentativeG += Constants.AStarTurnPenalty;
+					}
+
+					// Obstacle proximity: penalize cells next to blocked neighbors
+					int blockedNeighbors = 0;
+					for (int n = 0; n < Constants.SixDirections.Length; n++)
+					{
+						var neighbor = next + Constants.SixDirections[n];
+						if (!_indexer.In(neighbor)) { blockedNeighbors++; continue; }
+						if (GetTraversability(_indexer.Index(neighbor)).Center)
+							blockedNeighbors++;
+					}
+					tentativeG += blockedNeighbors * Constants.AStarProximityPenalty;
+
 					bool isBetter = _parent[nextI] == -1 || tentativeG < _gScore[nextI];
 
 					if (!isBetter) continue;
