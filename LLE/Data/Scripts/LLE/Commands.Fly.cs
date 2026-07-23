@@ -424,6 +424,7 @@ namespace LLE
 				float roll = 0;
 
 				var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
+				desiredVelocity = micro.Whiskers(ec, desiredVelocity, exitGrid ?? selectedGrid);
 
 				if(!micro.ShortSegment)
 					springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
