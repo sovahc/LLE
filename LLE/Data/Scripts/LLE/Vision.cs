@@ -47,7 +47,6 @@ namespace LLE
 				state = new LastKnownState();
 				state.Type = type;
 				state.EntityId = entity.EntityId;
-				state.DisplayName = entity.DisplayName;
 				var p = entity.GetPosition();
 				state.X = p.X;
 				state.Y = p.Y;
@@ -60,7 +59,6 @@ namespace LLE
 
 			if (isVisible)
 			{
-				state.DisplayName = entity.DisplayName;
 				var p = entity.GetPosition();
 				state.X = p.X;
 				state.Y = p.Y;
@@ -156,7 +154,12 @@ namespace LLE
 
 					string state = v.Closed ? "GONE" : "NEW";
 					double distance = (engineer - new Vector3D(v.X, v.Y, v.Z)).Length();
-					visionReport.Append($"* {state} {v.Type} '{v.DisplayName}' ({Commands.Distance(distance)})\n");
+					string category, name;
+					var e = MyEntities.GetEntityById(v.EntityId);
+          			if (e == null) continue;
+					
+					Commands.Description(e, out category, out name);
+					visionReport.Append($"* {state} {category} '{name}' ({Commands.Distance(distance)})\n");
 				}
 			}
 

@@ -11,10 +11,15 @@ namespace LLE
 {
 	public partial class Commands
 	{
-		public static string Remove_MyObjectBuilder_(string type)
+		public static string Remove_MyVoxelMap(string name)
 		{
-			if (type.StartsWith("MyObjectBuilder_")) type = type.Substring("MyObjectBuilder_".Length);
-			return type;
+			string n0 = name;
+			name = name.Replace("MyVoxelMap ", "");
+			if(n0.Length != name.Length)
+			{	name = name.Replace("{", "");
+				name = name.Replace("}", "");
+			}
+			return name;
 		}
 
 		public static string Quote(string s)
@@ -56,7 +61,7 @@ namespace LLE
 		{
 			category = "Unknown";
 			name = e.DisplayName;
-			if(name == null) name = e.ToString();
+			if(name == null) name = Remove_MyVoxelMap(e.ToString());
 
 			var grid = e as IMyCubeGrid;
 			if (grid != null)

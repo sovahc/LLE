@@ -11,7 +11,6 @@ namespace LLE
 	{
 		public ObjectType Type;
 		public long EntityId;
-		public string DisplayName;
 		public double X, Y, Z;
 		public double LastSeenAt;
 		public bool Visible;
