@@ -334,9 +334,43 @@ namespace LLE
 		}
 
 		/// <summary>
+		/// Checks if a world-space sphere intersects a specific grid.
+		/// Narrow phase: CheckWorldSphere per candidate block.
+		/// </summary>
+		internal static bool CheckSphereVsGrid(IMyCubeGrid grid, Vector3D worldCenter, double radius)
+		{
+			// Sphere is rotation-invariant: center transforms, radius stays.
+			MatrixD invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
+			Vector3D localCenter = Vector3D.Transform(worldCenter, invWorld);
+			float gridSizeInv = 1f / grid.GridSize;
+
+			// Conservative cell range: Floor/Ceiling, CheckWorldSphere is the real filter.
+			Vector3I min = new Vector3I(
+				(int)Math.Floor((localCenter.X - radius) * gridSizeInv),
+				(int)Math.Floor((localCenter.Y - radius) * gridSizeInv),
+				(int)Math.Floor((localCenter.Z - radius) * gridSizeInv));
+			Vector3I max = new Vector3I(
+				(int)Math.Ceiling((localCenter.X + radius) * gridSizeInv),
+				(int)Math.Ceiling((localCenter.Y + radius) * gridSizeInv),
+				(int)Math.Ceiling((localCenter.Z + radius) * gridSizeInv));
+
+			var iter = new Vector3I_RangeIterator(ref min, ref max);
+			for (; iter.IsValid(); iter.MoveNext())
+			{
+				var block = grid.GetCubeBlock(iter.Current);
+				if (block == null) continue;
+
+				if (CheckWorldSphere(block, worldCenter, radius))
+					return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
 		/// Checks if a world-space sphere intersects any cube grid except ignoreGrid.
 		/// Broad phase: entity AABB overlap via GetTopMostEntitiesInSphere.
-		/// Narrow phase: CheckWorldSphere per candidate block.
+		/// Narrow phase: CheckSphereVsGrid per candidate grid.
 		/// </summary>
 		public static bool CheckWorldSphereAgainstGrids(Vector3D worldCenter, double radius, IMyCubeGrid ignoreGrid)
 		{
@@ -351,36 +385,13 @@ namespace LLE
 				if (grid == null) continue;
 				if (grid == ignoreGrid) continue;
 
-				// Sphere is rotation-invariant: center transforms, radius stays.
-				MatrixD invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
-				Vector3D localCenter = Vector3D.Transform(worldCenter, invWorld);
-				float gridSizeInv = 1f / grid.GridSize;
-
-				// Conservative cell range: Floor/Ceiling, CheckWorldSphere is the real filter.
-				Vector3I min = new Vector3I(
-					(int)Math.Floor((localCenter.X - radius) * gridSizeInv),
-					(int)Math.Floor((localCenter.Y - radius) * gridSizeInv),
-					(int)Math.Floor((localCenter.Z - radius) * gridSizeInv));
-				Vector3I max = new Vector3I(
-					(int)Math.Ceiling((localCenter.X + radius) * gridSizeInv),
-					(int)Math.Ceiling((localCenter.Y + radius) * gridSizeInv),
-					(int)Math.Ceiling((localCenter.Z + radius) * gridSizeInv));
-
-				var iter = new Vector3I_RangeIterator(ref min, ref max);
-				for (; iter.IsValid(); iter.MoveNext())
+				if (CheckSphereVsGrid(grid, worldCenter, radius))
 				{
-					var block = grid.GetCubeBlock(iter.Current);
-					if (block == null) continue;
-
-					if (CheckWorldSphere(block, worldCenter, radius))
-					{
-						blocked = true;
-						goto done;
-					}
+					blocked = true;
+					break;
 				}
 			}
 
-		done:
 			Drawing.ScreenSphere(worldCenter, (float)radius, (blocked ? Color.Gray : Color.Lime).ToVector4());
 				// XXX Debug
 			return blocked;

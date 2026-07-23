@@ -7,6 +7,7 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.Voxels;
 using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
 
 namespace LLE
 {
@@ -115,6 +116,7 @@ namespace LLE
 		private readonly IMyCubeGrid grid;
 		private readonly int border;
 		private readonly List<MyVoxelBase> intersectingVoxels = new List<MyVoxelBase>();
+		private readonly List<IMyCubeGrid> intersectingGrids = new List<IMyCubeGrid>();
 
 		public TraversabilityCalculator(IMyCubeGrid grid_, int border_)
 		{
@@ -122,8 +124,17 @@ namespace LLE
 			border = border_;
 
 			var worldAabb = grid.PositionComp.WorldAABB;
+			worldAabb.Inflate(border * grid.GridSize);
 			intersectingVoxels.Clear();
 			MyGamePruningStructure.GetAllVoxelMapsInBox(ref worldAabb, intersectingVoxels);
+
+			intersectingGrids.Clear();
+			foreach (var entity in MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref worldAabb))
+			{
+				var g = entity as IMyCubeGrid;
+				if (g != null && g != grid)
+					intersectingGrids.Add(g);
+			}
 		}
 
 		public Traversability GetForAstar(Vector3I astarPosition)
@@ -150,6 +161,11 @@ namespace LLE
 
 			foreach(var voxel in intersectingVoxels)
 				if(!IsVoxelTraversable(voxel, position)) return Traversability.Blocked;
+
+			var center = grid.GridIntegerToWorld(position);
+			foreach (var g in intersectingGrids)
+				if (Collisions.CheckSphereVsGrid(g, center, Constants.CollisionProbeRadius))
+					return Traversability.Blocked;
 
 			var slim = grid.GetCubeBlock(position);
 			if (slim == null)
