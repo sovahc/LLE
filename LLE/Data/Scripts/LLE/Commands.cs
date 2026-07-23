@@ -369,7 +369,9 @@ notes — print all keys.
 
 			var asteroid = match as MyVoxelBase;
 			if(asteroid != null)
-			{	selectedGrid = null;
+			{	return "Error: Operations on asteroids are not supported yet.";
+				
+				selectedGrid = null;
 				selectedAsteroid = asteroid;
 				return Success($"Selected {category} {Quote(name)}");
 			}
