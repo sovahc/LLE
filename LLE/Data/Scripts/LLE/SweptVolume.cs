@@ -56,22 +56,5 @@ namespace LLE
 			}
 			return false;
 		}
-
-		// ── Debug: store tested volumes for visualization ──
-		static readonly List<List<Vector3D>> _debugVolumes = new List<List<Vector3D>>();
-
-		internal static void ClearDebugVolumes() => _debugVolumes.Clear();
-
-		internal static void AddDebugVolume(List<Vector3D> volume)
-		{
-			var copy = new List<Vector3D>(volume);
-			_debugVolumes.Add(copy);
-		}
-
-		internal static void DrawDebugVolumes()
-		{
-			foreach (var vol in _debugVolumes)
-				Drawing.ConvexOutline(vol, 1e-4f, Color.Yellow);
-		}
 	}
 }

@@ -21,8 +21,6 @@ namespace LLE
 
 		internal List<Vector3I> SmoothPath(List<Vector3I> path)
 		{
-			SweptVolume.ClearDebugVolumes();
-
 			path = RemoveCollinear(path);
 
 			if (path.Count <= 2) return path;
@@ -60,8 +58,6 @@ namespace LLE
 
 			for (int i = 0; i < sweptCapsule.Count; i++)
 				sweptCapsule[i] = Vector3D.Transform(sweptCapsule[i], world);
-
-			SweptVolume.AddDebugVolume(sweptCapsule);
 
 			return !SweptVolume.ConvexVsGridAlongLine(grid, sweptCapsule, from, to);
 		}

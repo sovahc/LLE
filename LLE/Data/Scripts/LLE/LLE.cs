@@ -84,8 +84,6 @@ namespace LLE
 
 		internal static void Draw(MatrixD hm)
 		{
-			SweptVolume.DrawDebugVolumes();
-
 			var material = MyStringId.GetOrCompute("Square");
 
 			if (grid != null && astarStart != null)
