@@ -56,6 +56,8 @@ namespace LLE
 		
 		private readonly Stack<IEnumerator> coroutineStack = new Stack<IEnumerator>();
 
+		private readonly Dictionary<string, string> memory = new Dictionary<string, string>();
+
 		private double resumeTime;
 
 		private void SetPause(double time)
@@ -110,6 +112,13 @@ You operate on a selected grid (ship or station).
 
 * pause
   Puts the bot on pause. (If an event occurs in the world, the pause is automatically lifted)
+
+* memory 'key' 'value'
+  Save a key-value pair to persistent memory. Survives context resets. First argument is the key, second is the value.
+  Example: memory 'current_task' 'weld reactor at 5 0 2'
+
+* restart
+  Reset the conversation context. Memory (set via `memory`) is preserved.
 
 * select 'name'
   Select a large ship or station on which to grind, weld, fly, and perform other operations.
@@ -328,6 +337,32 @@ notes — print all keys.
 			if (string.IsNullOrEmpty(text))
 				return "Error: provide a note. Usage: note 'weld 3 0 2, then check integrity'";
 			return Success("Noted.");
+		}
+
+		internal CommandResult Memory(TokenParser tp)
+		{
+			var key = tp.NextString();
+			var value = tp.NextString();
+			if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value) || !tp.End)
+				return "Error: provide a key and value. Usage: memory 'current_task' 'weld reactor at 5 0 2'";
+			memory[key] = value;
+			return Success("Saved.");
+		}
+
+		internal void SetSystemPromptAndMemory()
+		{
+			var sb = new StringBuilder(Help());
+			sb.Append("\n## MEMORY\n");
+			if (memory.Count > 0)
+			{
+				foreach (var kv in memory)
+					sb.Append("* ").Append(kv.Key).Append(" = ").Append(kv.Value).Append('\n');
+			}
+			else
+			{
+				sb.Append("-- none --\n");
+			}
+			LLE_Loader.SetSystemPrompt(sb.ToString());
 		}
 
 		internal CommandResult Select(TokenParser tp)
@@ -603,6 +638,9 @@ notes — print all keys.
 			}
 			else if(tp.Match("Note"))
 			{	result = Note(tp);
+			}
+			else if(tp.Match("Memory"))
+			{	result = Memory(tp);
 			}
 			else if(tp.Match("Transfer"))
 			{	coroutineStack.Push(Transfer(tp));

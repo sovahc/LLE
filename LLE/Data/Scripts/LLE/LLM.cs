@@ -65,6 +65,7 @@ namespace LLE
 		private MessageType lastType = MessageType.Stop;
 		private bool waitingForResponse;
 		public static bool pause;
+		public static bool contextWarning;
 
 		private Commands commands;
 
@@ -170,6 +171,27 @@ namespace LLE
 
 			if (output.Length != 0) // We have data for LLM
 			{
+				int used, total;
+				LLE_Loader.GetContextStatus(out used, out total);
+
+				if (used + 2500 > total)
+				{
+					LLE_Loader.RestartContext();
+					commands.SetSystemPromptAndMemory();
+					Append("[CONTEXT AUTO-RESET — context was full]\n", Color.Red);
+					contextWarning = false;
+				}
+				else
+				{	int pct = used * 100 / total;
+					if(!contextWarning && pct >= 90)
+					{	contextWarning = true;
+
+						Append($"!WARNING: Context is {pct}% full."
+							+ " Save important info: Execute memory 'key' 'value'"
+							+ ", then reset: Execute restart\n", Color.Yellow);
+					}
+				}
+
 				// Send accumulated results to LLM
 				Log($"toLLM: {output}");
 				LLE_Loader.SendMessageToLLM(output.ToString());
@@ -283,6 +305,23 @@ namespace LLE
 
 			// Reverse back to original order (first command first)
 			cc.Reverse();
+
+			// restart — context management, not a game command
+			bool doRestart = false;
+			for (int i = cc.Count - 1; i >= 0; --i)
+			{
+				if (cc[i].Equals("restart", System.StringComparison.OrdinalIgnoreCase))
+				{	doRestart = true;
+					cc.RemoveAt(i);
+				}
+			}
+			if (doRestart)
+			{	LLE_Loader.RestartContext();
+				commands.SetSystemPromptAndMemory();
+				Append("[CONTEXT RESET]\n", Color.LightGreen);
+				loopDetector.Reset();
+			}
+			if (cc.Count == 0) return;
 
 			if(cc.Count == 1 && 0 == string.Compare(cc[0], "pause", true))
 			{}

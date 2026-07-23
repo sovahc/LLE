@@ -96,11 +96,11 @@ namespace LLELoader
 			var _ = AskLlmStreaming(context);
 		}
 
-		public static void SetHelp(string text)
+		public static void SetSystemPrompt(string text)
 		{
-			Logger.Write("[SetHelp] " + text);
+			Logger.Write("[SetSystemPrompt] length=" + text.Length);
 
-			_systemPrompt += "\n" + text;
+			_systemPrompt = text;
 		}
 
 		private static async Task AskLlmStreaming(string chatContext)
@@ -120,7 +120,7 @@ namespace LLELoader
 				};
 				if (_config.Provider == "local")
 					payload["chat_template_kwargs"] = new { enable_thinking = false };
-				else if (_config.Provider == "openrouter")
+				else //if (_config.Provider == "openrouter")
 					payload["reasoning"] = new { enabled = false };
 
 				var body = System.Text.Json.JsonSerializer.Serialize(payload);
@@ -221,7 +221,7 @@ namespace LLELoader
 		static class Patch_ScriptManagerLoadData
 		{
 			private static readonly string[] BridgeMethods =
-				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetHelp", "GetContextStatus", "RestartContext" ];
+				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetSystemPrompt", "GetContextStatus", "RestartContext" ];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -272,7 +272,7 @@ namespace LLELoader
 						case "IsPresent": prefix = new HarmonyMethod(smld, nameof(Prefix_IsPresent)); break;
 						case "GetChunkFromLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_GetChunkFromLLM)); break;
 						case "SendMessageToLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_SendMessageToLLM)); break;
-						case "SetHelp": prefix = new HarmonyMethod(smld, nameof(Prefix_SetHelp)); break;
+						case "SetSystemPrompt": prefix = new HarmonyMethod(smld, nameof(Prefix_SetSystemPrompt)); break;
 						case "GetContextStatus": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextStatus)); break;
 						case "RestartContext": prefix = new HarmonyMethod(smld, nameof(Prefix_RestartContext)); break;
 						default: continue;
@@ -306,9 +306,9 @@ namespace LLELoader
 				return false;
 			}
 
-			static bool Prefix_SetHelp(string text)
+			static bool Prefix_SetSystemPrompt(string text)
 			{
-				SetHelp(text);
+				SetSystemPrompt(text);
 				return false;
 			}
 

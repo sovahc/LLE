@@ -1,6 +1,6 @@
 {
-  "LlmUrl": "https://openrouter.ai/api/v1/chat/completions",
+  "LlmUrl": "http://localhost:8080/v1/chat/completions",
   "Model": "google/gemma-4-31b-it",
   "ApiKey": "",
-  "Provider": "openrouter"
+  "Provider": "local"
 }
