@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 using VRageMath;
@@ -306,32 +308,37 @@ namespace LLE
 			// Reverse back to original order (first command first)
 			cc.Reverse();
 
-			// restart — context management, not a game command
-			bool doRestart = false;
-			for (int i = cc.Count - 1; i >= 0; --i)
+			if (cc.Count == 0)
 			{
-				if (cc[i].Equals("restart", System.StringComparison.OrdinalIgnoreCase))
-				{	doRestart = true;
-					cc.RemoveAt(i);
-				}
+				Append("[ERROR] No valid commands found. Use 'Execute `command`' format.\n", Color.Red);
+				return;
 			}
-			if (doRestart)
+
+			// Control commands (pause, restart) must be issued alone
+			bool hasControl = cc.Any(c => c.Equals("restart", StringComparison.OrdinalIgnoreCase)
+				                       || c.Equals("pause", StringComparison.OrdinalIgnoreCase));
+			if (hasControl && cc.Count > 1)
+			{
+				Append("[ERROR] 'pause' and 'restart' must be used alone, not mixed with other commands.\n", Color.Red);
+				return;
+			}
+
+			if (cc[0].Equals("restart", StringComparison.OrdinalIgnoreCase))
 			{	LLE_Loader.RestartContext();
 				commands.SetSystemPromptAndMemory();
 				Append("[CONTEXT RESET]\n", Color.LightGreen);
 				loopDetector.Reset();
+				return;
 			}
-			if (cc.Count == 0) return;
 
-			if(cc.Count == 1 && 0 == string.Compare(cc[0], "pause", true))
-			{}
-			else
+			// pause is exempt from loop detection
+			if (!cc[0].Equals("pause", StringComparison.OrdinalIgnoreCase))
 			{
 				string loopMsg;
 				bool blocked = loopDetector.IsLoop(cc, out loopMsg);
 				if (loopMsg != null)
 					Append(loopMsg, blocked ? Color.Red : Color.Yellow);
-				if (blocked || cc.Count == 0)
+				if (blocked)
 				{	Append($"Your last message was:\n---\n{content}\n---\n", Color.Red);
 					return;
 				}
