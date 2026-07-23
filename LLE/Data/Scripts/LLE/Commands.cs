@@ -269,11 +269,6 @@ drop [quantity|all] 'name'
 ? move {forward|backward|left|right|up|down} {distance} - Move in a direction
 ? unstuck / recover - Recover from being stuck.
 
-remember 'key' 'value' — store a key-value pair (in the mod's static Dictionary<string,string>).
-recall 'key' — read.
-forget 'key' — delete.
-notes — print all keys.
-
 ! Pathfinding: safest (default) / shortest / scouting / prefer open space
 ? log - Return history of executed commands and their results
 ? place 'block_type' I J K [orientation]
