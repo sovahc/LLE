@@ -363,37 +363,29 @@ namespace LLE
 			return result;
 		}
 
+		private static readonly MyStringId _sphereMat = MyStringId.GetOrCompute("LLE-Sphere");
+
 		public static void ScreenSphere(Vector3D worldCenter, float radius, Vector4 color)
 		{
 			if(!Common.Enabled) return;
 			var camera = MyAPIGateway.Session.Camera;
-			Vector3D toCenter = worldCenter - camera.Position;
-			double d = toCenter.Length();
 
-			if (d <= radius) return; // camera inside sphere — no silhouette
+			Vector3D viewDir = Vector3D.Normalize(worldCenter - camera.Position);
+			double distance = (worldCenter - camera.Position).Length();
 
-			Vector3D viewDir = toCenter / d;
+			if (distance <= radius) return; // camera inside sphere
 
-			Vector3D right, localUp;
-			Geometry.OrthonormalBasis(viewDir, out right, out localUp);
+			Vector3D point = camera.Position + viewDir; // billboard 1m from camera
 
-			// True silhouette: plane at d - r²/d, radius r*sqrt(1 - r²/d²)
-			double rsq = (double)radius * radius;
-			double silhouetteRadius = radius * Math.Sqrt(Math.Max(0.0, 1.0 - rsq / (d * d)));
-			Vector3D silhouetteCenter = camera.Position + viewDir * (d - rsq / d);
+			// Scale so the ring subtends the same angular size as the sphere
+			float size = (float)(radius / distance);
 
-			int segments = 64;
-			var silhouettePoints = new List<Vector3D>();
-			for (int i = 0; i < segments; i++)
-			{
-				double angle = i * MathHelper.TwoPi / segments;
-				Vector3D worldPoint = silhouetteCenter
-					+ Math.Cos(angle) * right * silhouetteRadius
-					+ Math.Sin(angle) * localUp * silhouetteRadius;
-				silhouettePoints.Add(worldPoint);
-			}
-			var projected = WorldToScreen(silhouettePoints);
-			Contour(projected, true, 5e-5f, color);
+			Vector3 left = (Vector3)camera.WorldMatrix.Left;
+			Vector3 up = (Vector3)camera.WorldMatrix.Up;
+			MyQuadD quad;
+			MyUtils.GetBillboardQuadOriented(out quad, ref point, size, size, ref left, ref up);
+
+			Common.Billboard(quad, _sphereMat, color);
 		}
 
 		public static void ConvexOutline(List<Vector3D> worldSpace, float thickness, Color color)
