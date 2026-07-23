@@ -108,9 +108,6 @@ namespace LLE
 			var dir = toTarget.Normalized();
 			var probe = position + dir * lookahead;
 
-			Drawing.ScreenSphere(probe, (float)radius, Color.Magenta.ToVector4());
-			Drawing.RoundMarker(probe, Color.Magenta);
-
 			// Direct probe
 			if (!Collisions.CheckSphereVsGrid(navGrid, probe, radius))
 				return desiredVelocity;
@@ -127,8 +124,6 @@ namespace LLE
 			foreach (var deg in angles)
 			{
 				var altDir = Vector3D.Transform(dir, MatrixD.CreateFromAxisAngle(perp1, MathHelper.ToRadians(deg)));
-				Drawing.ScreenSphere(position + altDir * lookahead, (float)radius, Color.Yellow.ToVector4());
-				Drawing.RoundMarker(position + altDir, Color.Yellow);
 				if (!Collisions.CheckSphereVsGrid(navGrid, position + altDir * lookahead, radius))
 					return altDir * speed;
 			}
@@ -136,8 +131,6 @@ namespace LLE
 			foreach (var deg in angles)
 			{
 				var altDir = Vector3D.Transform(dir, MatrixD.CreateFromAxisAngle(perp2, MathHelper.ToRadians(deg)));
-				Drawing.ScreenSphere(position + altDir * lookahead, (float)radius, Color.GreenYellow.ToVector4());
-				Drawing.RoundMarker(position + altDir, Color.GreenYellow);
 				if (!Collisions.CheckSphereVsGrid(navGrid, position + altDir * lookahead, radius))
 					return altDir * speed;
 			}
