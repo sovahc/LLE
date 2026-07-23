@@ -242,7 +242,6 @@ namespace LLE
 					var cellMin = node.Min;
 					var cellMax = node.Min + node.Size - 1;
 					node.Type = _space.CellType(cellMin, cellMax, lod);
-					//Utilities.Log($"CellType {node.Min} / {cellMin}-{cellMax} / {lod} / {node.Type}");
 				}
 
 				switch(node.Type)

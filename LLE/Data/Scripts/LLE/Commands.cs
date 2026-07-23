@@ -553,8 +553,6 @@ notes — print all keys.
 
 		internal CommandResult Execute(string command)
 		{
-			//Utilities.Log($"Execute `{command}`");
-
 			CommandResult result = null;
 
 			var tp = new TokenParser(command);

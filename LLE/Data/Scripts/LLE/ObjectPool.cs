@@ -27,8 +27,6 @@ public class ObjectPool<T> where T : class, new()
 			var newSize = initialCapacity;
 			while (newSize < _peakUsage) newSize <<= 1;
 
-			//Utilities.Log($"ObjectPool reallocation: index {_ringIndex} oldSize {oldSize} newSize {newSize}");
-
 			Array.Resize(ref _activeBuffer, newSize);
 
 			_buffers[_ringIndex] = _activeBuffer;
