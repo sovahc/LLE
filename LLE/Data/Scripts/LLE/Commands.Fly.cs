@@ -40,6 +40,31 @@ namespace LLE
 		{
 			var from = grid.GridIntegerToWorld(a);
 			var to = grid.GridIntegerToWorld(b);
+
+			if (!RayClear(from, to)) return false;
+
+			var dir = to - from;
+			if (dir.LengthSquared() < 0.01) return true;
+			dir.Normalize();
+
+			var up = grid.WorldMatrix.Up;
+			var right = Vector3D.Cross(dir, up);
+			if (right.LengthSquared() < 0.01) return true;
+			right.Normalize();
+
+			double r = Constants.CollisionProbeRadius;
+			double h = r * 0.7071; // r / sqrt(2)
+
+			// 4 parallel rays: 2 horizontal (walls/consoles beside path),
+			// 2 diagonal-down (tables/furniture below ray height).
+			return RayClear(from + right * r, to + right * r)
+				&& RayClear(from - right * r, to - right * r)
+				&& RayClear(from + right * h - up * h, to + right * h - up * h)
+				&& RayClear(from - right * h - up * h, to - right * h - up * h);
+		}
+
+		private static bool RayClear(Vector3D from, Vector3D to)
+		{
 			IHitInfo hitInfo;
 			MyAPIGateway.Physics.CastRay(from, to, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
 			return hitInfo == null;
