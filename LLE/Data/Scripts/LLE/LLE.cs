@@ -80,9 +80,9 @@ namespace LLE
 
 			if ((lm || rm) && octreeStart != null && octreeGoal != null)
 			{
-				ICellSpace space;
-				if (grid != null) space = new GridCellSpace(grid);
-				else space = new VoxelCellSpace(voxel);
+				ICells space;
+				if (grid != null) space = new GridCells(grid);
+				else space = new VoxelCells(voxel);
 
 				octree = new OctreeAStar(space);
 

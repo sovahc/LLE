@@ -40,7 +40,7 @@ namespace LLE
 	/// Cell source for OctreeAStar: voxel map or cube grid.
 	/// Cell coordinates are lod-0, starting at (0,0,0).
 	/// </summary>
-	public interface ICellSpace
+	public interface ICells
 	{
 		Vector3I Size { get; }        // in cells (lod 0)
 		int CoarseLod { get; }        // nodes with lod >= CoarseLod are always subdivided (Top)
@@ -50,13 +50,13 @@ namespace LLE
 		MatrixD LocalToWorld { get; } // cell space -> world (includes CellSize scale); queried per use (grids move)
 	}
 
-	public class VoxelCellSpace : ICellSpace
+	public class VoxelCells : ICells
 	{
 		private readonly MyVoxelBase _voxel;
 
 		private static readonly MyStorageData storage = new MyStorageData();
 
-		public VoxelCellSpace(MyVoxelBase voxel)
+		public VoxelCells(MyVoxelBase voxel)
 		{
 			_voxel = voxel;
 		}
@@ -108,7 +108,7 @@ namespace LLE
 		}
 	}
 
-	public class GridCellSpace : ICellSpace
+	public class GridCells : ICells
 	{
 		private readonly IMyCubeGrid _grid;
 
@@ -119,7 +119,7 @@ namespace LLE
 
 		private const int Border = 2;
 
-		public GridCellSpace(IMyCubeGrid grid)
+		public GridCells(IMyCubeGrid grid)
 		{
 			_grid = grid;
 			_offset = grid.Min - Border;
@@ -177,7 +177,7 @@ namespace LLE
 
 	public class OctreeAStar
 	{
-		private readonly ICellSpace _space;
+		private readonly ICells _space;
 		private readonly OctreeNode _root;
 
 		public struct Statistic_
@@ -188,7 +188,7 @@ namespace LLE
 
 		public Statistic_ Statistic;
 
-		public OctreeAStar(ICellSpace space)
+		public OctreeAStar(ICells space)
 		{
 			_space = space;
 
