@@ -8,6 +8,8 @@ using Sandbox.Game.Entities.Character.Components;
 using Sandbox.ModAPI;
 using System;
 
+using DoorStatus = Sandbox.ModAPI.Ingame.DoorStatus;
+
 namespace LLE
 {
 	class AStarHelper
@@ -165,14 +167,18 @@ namespace LLE
 				Vector3I prevDir = path[i] - path[i - 1];
 				Vector3I nextDir = path[i + 1] - path[i];
 
-				bool doorAhead = GetDoorAt(path[i + 1]) != null;
-				bool doorBehind = GetDoorAt(path[i - 1]) != null;
+				var doorAhead = GetDoorAt(path[i + 1]);
+				var doorBehind = GetDoorAt(path[i - 1]);
+				
+				// Optimization: fly through open doors without stopping
+				if(doorAhead != null && doorAhead.Status == DoorStatus.Open) doorAhead = null;
+				if(doorBehind != null && doorBehind.Status == DoorStatus.Open) doorBehind = null;
 
-				if (prevDir != nextDir || doorAhead || doorBehind)
+				if (prevDir != nextDir || doorAhead != null || doorBehind != null)
 					result.Add(new PathNode()
 					{	v = ToWorld(path[i]),
-						openDoor = doorAhead ? (Vector3I?)path[i + 1] : null,
-						closeDoor = doorBehind ? (Vector3I?)path[i - 1] : null
+						openDoor = doorAhead != null ? (Vector3I?)path[i + 1] : null,
+						closeDoor = doorBehind != null ? (Vector3I?)path[i - 1] : null
 					});
 			}
 
@@ -320,11 +326,11 @@ namespace LLE
 						closeBehind = false;
 
 						var door = GetDoorAt(open.Value);
-						if(door != null && door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Open)
+						if(door != null && door.Status != DoorStatus.Open)
 						{	
 							character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
 							
-							if(door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Opening)
+							if(door.Status != DoorStatus.Opening)
 							{	var action = door.GetActionWithName("Open");
 								if (action != null) action.Apply(door);
 
@@ -337,12 +343,12 @@ namespace LLE
 							while(Time.Now < pause)
 							{	
 								door = GetDoorAt(open.Value);
-								if(door == null || door.Status == Sandbox.ModAPI.Ingame.DoorStatus.Open) break;
+								if(door == null || door.Status == DoorStatus.Open) break;
 						
 								yield return null; // wait for door to open
 							}
 
-							if(door == null || door.Status == Sandbox.ModAPI.Ingame.DoorStatus.Open)
+							if(door == null || door.Status == DoorStatus.Open)
 							{}
 							else
 							{	yield return $"Can't open door at {IJK(open.Value)}, current position: {CharacterCellText()}";
@@ -352,8 +358,8 @@ namespace LLE
 					if(close != null)
 					{	var door = GetDoorAt(close.Value);
 						if(door != null &&
-							door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Closed &&
-							door.Status != Sandbox.ModAPI.Ingame.DoorStatus.Closing &&
+							door.Status != DoorStatus.Closed &&
+							door.Status != DoorStatus.Closing &&
 							closeBehind)
 						{	var action = door.GetActionWithName("Open"); // Open/Close
 							if (action != null) action.Apply(door);
