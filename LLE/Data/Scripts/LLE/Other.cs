@@ -26,10 +26,9 @@ namespace LLE
 		public const float CharacterBatteryWh = 10f;
 		public const float CharacterBatteryMWh = 0.00001f; // 10 Wh = Sandbox.Game.MyEnergyConstants.BATTERY_MAX_CAPACITY
 
-			public const double MicronavigationDelay = 2.0;
+		public const double MicronavigationDelay = 2.0;
 
 		public const float AStarTurnPenalty = 0.5f;
-
 		public const float AStarProximityPenalty = 0.3f;
 
 		public static readonly Vector3I[] SixDirections = new Vector3I[]
