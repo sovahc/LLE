@@ -23,6 +23,8 @@ namespace LLE
 		{
 			SweptVolume.ClearDebugVolumes();
 
+			path = RemoveCollinear(path);
+
 			if (path.Count <= 2) return path;
 
 			var result = new List<Vector3I> { path[0] };
@@ -62,6 +64,31 @@ namespace LLE
 			SweptVolume.AddDebugVolume(sweptCapsule);
 
 			return !SweptVolume.ConvexVsGridAlongLine(grid, sweptCapsule, from, to);
+		}
+
+		// Remove collinear points: keep only where direction changes.
+		internal List<Vector3I> RemoveCollinear(List<Vector3I> path)
+		{
+			if (path.Count <= 2) return path;
+
+			const int maxStep = 5;
+			var result = new List<Vector3I>(path.Count) { path[0] };
+			int step = 0;
+
+			for (int i = 1; i < path.Count - 1; i++)
+			{
+				step++;
+				var prev = path[i] - path[i - 1];
+				var next = path[i + 1] - path[i];
+				if (prev != next || step >= maxStep)
+				{
+					result.Add(path[i]);
+					step = 0;
+				}
+			}
+
+			result.Add(path[path.Count - 1]);
+			return result;
 		}
 
 		internal List<Vector3I> GetPath()
