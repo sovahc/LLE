@@ -220,8 +220,10 @@ namespace LLE
 
 			if(initialized)
 			{
-				var hm = ch.GetHeadMatrix(false, false);
-				Debug.Pathfinding(hm);
+				if(MyConsole.Visible)
+				{	var hm = ch.GetHeadMatrix(false, false);
+					Debug.Pathfinding(hm);
+				}
 			}
 
 			MyConsole.Render(font);
