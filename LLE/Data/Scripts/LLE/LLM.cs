@@ -25,7 +25,7 @@ namespace LLE
 
 			if (commands.Count == 0)
 			{	message = "!ERROR: No commands found in your last message."
-					+ " Use 'Execute `command`' on separate lines.\n";
+					+ " Wrap your commands in <execute>...</execute>.\n";
 				return repeats >= 4;
 			}
 
@@ -40,7 +40,7 @@ namespace LLE
 			}
 			if (repeats == 3)
 			{	message = "!WARNING: Identical batch repeated again."
-					+ " Output \"Execute `pause`\" to stop.\n";
+					+ " Put `pause` inside <execute> to stop.\n";
 				return false;
 			}
 			// repeats >= 4
@@ -200,8 +200,8 @@ namespace LLE
 					{	contextWarning = true;
 
 						Append($"!WARNING: Context is {pct}% full."
-							+ " Save important info: Execute memory 'key' 'value'"
-							+ ", then reset: Execute restart\n", Color.Yellow);
+							+ " Save important info: memory 'key' 'value'"
+							+ ", then reset: restart\n", Color.Yellow);
 					}
 				}
 
@@ -301,27 +301,33 @@ namespace LLE
 		private void ProcessLlmContent(string content)
 		{
 			content = content.Trim();
-			const string prefix = "Execute ";
 
-			var lines = content.Split('\n');
+			const string openTag  = "<execute>";
+			const string closeTag = "</execute>";
+
+			int start = content.LastIndexOf(openTag, System.StringComparison.OrdinalIgnoreCase);
+			if (start < 0)
+			{	Append("[ERROR] No <execute> block found. Wrap your commands in <execute>...</execute>.\n", Color.Red);
+				return;
+			}
+			start += openTag.Length;
+
+			int end = content.IndexOf(closeTag, start, System.StringComparison.OrdinalIgnoreCase);
+			if (end < 0) end = content.Length;
+
+			var lines = content.Substring(start, end - start).Split('\n');
 			List<string> cc = new List<string>();
-
-			for (int i = lines.Length - 1; i >= 0; --i)
-			{
-				string l = lines[i].Trim();
-				if (!l.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase)) break;
-
-				var command = MyTrim(l.Substring(prefix.Length));
-
-				cc.Add(command);
+			foreach (var line in lines)
+			{	string l = line.Trim();
+				if (l.Length == 0) continue;
+				// Strip optional "Execute " prefix for backward compat
+				if (l.StartsWith("Execute ", System.StringComparison.OrdinalIgnoreCase))
+					l = l.Substring(8);
+				cc.Add(MyTrim(l));
 			}
 
-			// Reverse back to original order (first command first)
-			cc.Reverse();
-
 			if (cc.Count == 0)
-			{
-				Append("[ERROR] No valid commands found. Use 'Execute `command`' format.\n", Color.Red);
+			{	Append("[ERROR] No commands found inside <execute> block.\n", Color.Red);
 				return;
 			}
 
