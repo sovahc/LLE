@@ -312,12 +312,6 @@ namespace LLE
 			if(fatTo == null || !fatTo.HasInventory)
 				yield return $"Block {Quote(toName)} does not have an inventory.";
 
-			if(!IsAtInteractionPoint(blockFrom, InteractionKind.Inventory, out message) ||
-				!IsAtInteractionPoint(blockTo, InteractionKind.Inventory, out message))
-				yield return message;
-			
-			// TODO: Check conveyor connection between inventories
-
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
 
@@ -351,6 +345,20 @@ namespace LLE
 		internal bool InventoryTransfer(List<IMyInventory> fromList, List<WTF_IMyInventory> toList,
 			List<string> itemNames, MyFixedPoint amount, StringBuilder result)
 		{	
+			bool hasConnection = false;
+
+			foreach(var from in fromList)
+				foreach(var to in toList)
+					if(from.IsConnectedTo(to))
+					{	hasConnection = true;
+						break;						
+					}
+
+			if(!hasConnection)
+			{	result.Append("Error: Inventories are not connected via the conveyor system, direct transfer is not possible.");
+				return false;
+			}
+
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 
 			bool somethingTransferred = false;
@@ -415,7 +423,7 @@ namespace LLE
 				if (fits <= 0) continue;
 
 				MyFixedPoint toTransfer = MyFixedPoint.Min(amount - transferred, fits);
-				((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, toTransfer, false);
+				((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, toTransfer, true);
 				transferred += toTransfer;
 			}
 
