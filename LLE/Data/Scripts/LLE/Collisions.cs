@@ -194,65 +194,6 @@ namespace LLE
 			return ProbeIntersects(geometry, new Vector3D(center), radius);
 		}
 
-		internal static bool LineIntersects(CollisionGeometry geometry, Vector3 A, Vector3 B)
-		{
-			foreach (var shape in geometry.Shapes)
-			{
-				var convex = shape as ConvexHullShape;
-				if (convex != null && Intersections.LineSegmentVsConvex(A, B, convex.Vertices))
-					return true;
-				var sphere = shape as SphereShape;
-				if (sphere != null && Intersections.LineSegmentVsSphere(A, B, sphere.Center, sphere.Radius))
-					return true;
-			}
-			return false;
-		}
-
-		internal static bool LineIntersectsGridGeometry(IMyCubeGrid grid, LineD worldLine, Vector3I min, Vector3I max,
-			List<IMySlimBlock> outIntersected)
-		{
-			bool returnOnFirstFound = outIntersected == null;
-
-			// GridIntersection.Calculate works in grid-local space (meters from grid origin)
-			// and treats cell corners as cell centers, so convert the world-space line to
-			// local and add half a cell (matching MyCubeGrid.RayCastCells).
-			MatrixD invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
-			Vector3D halfOffset = new Vector3D(grid.GridSize * 0.5f);
-			Vector3D localFrom = Vector3D.Transform(worldLine.From, invWorld) + halfOffset;
-			Vector3D localTo   = Vector3D.Transform(worldLine.To,   invWorld) + halfOffset;
-
-			_gridLineCells.Clear();
-			GridIntersection.Calculate(_gridLineCells, grid.GridSize, localFrom, localTo, min, max);
-
-			foreach (var cell in _gridLineCells)
-			{
-				var slim = grid.GetCubeBlock(cell);
-				if (slim == null) continue;
-
-				if(outIntersected != null &&
-					outIntersected.Contains(slim)) continue; // Do not test twice
-
-				CollisionGeometry cellGeometry;
-				if (!_collisionGeometry.TryGetValue(slim.BlockDefinition.Id, out cellGeometry))
-				{	if(returnOnFirstFound) return true; // For unknown block
-
-					outIntersected.Add(slim);
-					continue;
-				}
-
-				var modelFrom = Transform.WorldToModel(slim, worldLine.From); // XX double inverse matrix calculation.
-				var modelTo = Transform.WorldToModel(slim, worldLine.To);
-				if (LineIntersects(cellGeometry, modelFrom, modelTo))
-				{	
-					if(returnOnFirstFound) return true;
-
-					outIntersected.Add(slim);
-				}
-			}
-
-			return outIntersected != null && outIntersected.Count != 0;
-		}
-
 		internal static bool ConvexVsBlockGeometry(CollisionGeometry geometry, List<Vector3> modelVerts)
 		{
 			foreach (var shape in geometry.Shapes)
@@ -367,36 +308,6 @@ namespace LLE
 			}
 
 			return false;
-		}
-
-		/// <summary>
-		/// Checks if a world-space sphere intersects any cube grid except ignoreGrid.
-		/// Broad phase: entity AABB overlap via GetTopMostEntitiesInSphere.
-		/// Narrow phase: CheckSphereVsGrid per candidate grid.
-		/// </summary>
-		public static bool CheckWorldSphereAgainstGrids(Vector3D worldCenter, double radius, IMyCubeGrid ignoreGrid)
-		{
-			var sphere = new BoundingSphereD(worldCenter, radius);
-			var entities = MyAPIGateway.Entities.GetTopMostEntitiesInSphere(ref sphere);
-
-			bool blocked = false;
-
-			foreach (var entity in entities)
-			{
-				var grid = entity as IMyCubeGrid;
-				if (grid == null) continue;
-				if (grid == ignoreGrid) continue;
-
-				if (CheckSphereVsGrid(grid, worldCenter, radius))
-				{
-					blocked = true;
-					break;
-				}
-			}
-
-			Drawing.ScreenSphere(worldCenter, (float)radius, (blocked ? Color.Gray : Color.Lime).ToVector4());
-				// XXX Debug
-			return blocked;
 		}
 
 		public static bool HasCollision(IMySlimBlock block)

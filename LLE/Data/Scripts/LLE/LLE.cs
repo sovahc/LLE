@@ -22,7 +22,7 @@ namespace LLE
 
 		public static void ClearLines()
 		{	lines.Clear();
-			lineColors.Clear();			
+			lineColors.Clear();
 		}
 
 		public static void AddLine(LineD line, Color color)
