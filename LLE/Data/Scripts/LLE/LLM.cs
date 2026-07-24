@@ -73,6 +73,8 @@ namespace LLE
 
 		private Queue<string> batch = new Queue<string>();
 
+		private double commandStartTime;
+
 		private readonly LoopDetector loopDetector = new LoopDetector();
 
 		public void ResetLoopDetector()
@@ -94,7 +96,14 @@ namespace LLE
 				case CommandStatus.Error: tag = "FAILED"; break;
 				default: tag = "???"; break;
 			}
-			Append($"→ {currentCommand}: [{tag}] {result.Message}\n", Color.Cornsilk);
+
+			string took = "";
+			double elapsed = Time.Now - commandStartTime;
+			if(elapsed >= 0.1)
+				took = $" (Took {elapsed:F1}s)";
+			commandStartTime = 0;
+
+			Append($"→ {currentCommand}: [{tag}] {result.Message}{took}\n", Color.Cornsilk);
 
 			if(result.Status != CommandStatus.Success && batch.Count > 0)
 			{	Append($"Remaining {batch.Count} command(s) ignored: {string.Join("; ", batch)}\n", Color.Cornsilk);
@@ -108,6 +117,8 @@ namespace LLE
 		private void RunNextPending()
 		{
 			if (batch.Count == 0) return;
+
+			commandStartTime = Time.Now;
 
 			var result = commands.Execute(batch.Peek());
 
