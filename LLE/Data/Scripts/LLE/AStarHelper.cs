@@ -35,8 +35,8 @@ namespace LLE
 
 		private bool LineIsClear(Vector3I a, Vector3I b)
 		{
-			var from = CoordToWorld(a);
-			var to   = CoordToWorld(b);
+			var from = CellToWorld(a);
+			var to = CellToWorld(b);
 
 			var dir = to - from;
 			if (dir.LengthSquared() < 0.01) return true;
@@ -94,7 +94,7 @@ namespace LLE
 			return result;
 		}
 
-		internal Vector3D CoordToWorld(Vector3I coord)
+		internal Vector3D CellToWorld(Vector3I coord)
 		{
 			var blockPos = coord / Resolution + grid.Min - AStarBorder;
 			var sub = new Vector3I(coord.X % Resolution, coord.Y % Resolution, coord.Z % Resolution);

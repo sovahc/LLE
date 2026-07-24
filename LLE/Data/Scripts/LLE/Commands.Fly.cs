@@ -89,16 +89,12 @@ namespace LLE
 			public Vector3I? closeDoor;
 		}
 
-		internal Vector3D ToWorld(Vector3I ijk)
-		{	return selectedGrid.GridIntegerToWorld(ijk);
-		}
-
 		private List<PathNode> MakePath(List<Vector3I> path, AStarHelper helper)
 		{
 			var result = new List<PathNode>();
 			if (path.Count == 0) return result;
 
-			result.Add(new PathNode() { v = helper.CoordToWorld(path[0]) });
+			result.Add(new PathNode() { v = helper.CellToWorld(path[0]) });
 			if (path.Count == 1) return result;
 
 			for (int i = 1; i < path.Count - 1; i++)
@@ -115,13 +111,13 @@ namespace LLE
 
 				if (prevDir != nextDir || doorAhead != null || doorBehind != null)
 					result.Add(new PathNode()
-					{	v = helper.CoordToWorld(path[i]),
+					{	v = helper.CellToWorld(path[i]),
 						openDoor = doorAhead != null ? (Vector3I?)helper.CellToBlock(path[i + 1]) : null,
 						closeDoor = doorBehind != null ? (Vector3I?)helper.CellToBlock(path[i - 1]) : null
 					});
 			}
 
-			result.Add(new PathNode() { v = helper.CoordToWorld(path[path.Count - 1]) });
+			result.Add(new PathNode() { v = helper.CellToWorld(path[path.Count - 1]) });
 
 			return result;
 		}
