@@ -16,6 +16,7 @@ namespace LLE
 	{
 		internal static Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
 		internal static Dictionary<MyDefinitionId, Traversability> _traversabilityCache;
+		internal static Dictionary<MyDefinitionId, Traversability> _subCellTraversabilityCache;
 
 		// Reusable buffer for DDA cell traversal. The mod is single-threaded.
 		static readonly List<Vector3I> _gridLineCells = new List<Vector3I>();
@@ -37,6 +38,7 @@ namespace LLE
 				var textDict = MyAPIGateway.Utilities.SerializeFromBinary<Dictionary<DefinitionIdAsText, CollisionGeometry>>(data);
 				_collisionGeometry = new Dictionary<MyDefinitionId, CollisionGeometry>(MyDefinitionId.Comparer);
 				_traversabilityCache = new Dictionary<MyDefinitionId, Traversability>(MyDefinitionId.Comparer);
+				_subCellTraversabilityCache = new Dictionary<MyDefinitionId, Traversability>(MyDefinitionId.Comparer);
 				foreach (var kv in textDict)
 				{
 					MyObjectBuilderType typeId;
@@ -52,12 +54,15 @@ namespace LLE
 					var defId = new MyDefinitionId(typeId, subtypeId);
 					_collisionGeometry[defId] = kv.Value;
 
+					MyCubeBlockDefinition blockDef;
+					if (!MyDefinitionManager.Static.TryGetCubeBlockDefinition(defId, out blockDef)) continue;
+
 					// Skip traversability precomputation for small-grid blocks:
 					// they are always treated as Blocked at runtime (see TraversabilityCalculator).
-					MyCubeBlockDefinition blockDef;
-					if (!(MyDefinitionManager.Static.TryGetCubeBlockDefinition(defId, out blockDef)
-					    && blockDef.CubeSize == MyCubeSize.Small))
-						_traversabilityCache[defId] = CalculateTraversability(kv.Value);
+					if(blockDef.CubeSize == MyCubeSize.Small) continue;
+
+					_traversabilityCache[defId] = CalculateTraversability(kv.Value);
+					_subCellTraversabilityCache[defId] = CalculateSubCellTraversability(kv.Value);
 				}
 			}
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);
@@ -170,6 +175,36 @@ namespace LLE
 			}
 
 			return trav;
+		}
+
+		private static Traversability CalculateSubCellTraversability(CollisionGeometry geometry)
+		{
+			float blockSize = MyDefinitionManager.Static.GetCubeSize(MyCubeSize.Large);
+			float sub = blockSize / 3f;
+
+			var trav = new Traversability();
+
+			for (int x = -1; x <= 1; x++)
+				for (int y = -1; y <= 1; y++)
+					for (int z = -1; z <= 1; z++)
+					{
+						Vector3 probeCenter = new Vector3(x, y, z) * sub;
+						if (ProbeIntersects(geometry, probeCenter, ProbeRadius))
+							trav[x, y, z] = true;
+					}
+
+			return trav;
+		}
+
+		public static bool IsSubCellBlocked(IMySlimBlock slim, Vector3I subOffset)
+		{
+			Traversability mask;
+			if (!_subCellTraversabilityCache.TryGetValue(slim.BlockDefinition.Id, out mask))
+				return true;
+
+			mask = Traversability.Rotate(mask, new MatrixI(slim.Orientation));
+			var idx = new Vector3I(subOffset.X - 1, subOffset.Y - 1, subOffset.Z - 1);
+			return mask[idx];
 		}
 
 		internal static bool ProbeIntersects(CollisionGeometry geometry, Vector3D center, double radius)

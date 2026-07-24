@@ -17,6 +17,7 @@ namespace LLE
 		private IMyCubeGrid grid;
 		private AStar astar;
 		private int AStarBorder;
+		private int Resolution;
 		private readonly List<Vector3D> sweptCapsule = new List<Vector3D>();
 
 		internal List<Vector3I> SmoothPath(List<Vector3I> path)
@@ -40,8 +41,8 @@ namespace LLE
 
 		private bool LineIsClear(Vector3I a, Vector3I b)
 		{
-			var from = grid.GridIntegerToWorld(a);
-			var to   = grid.GridIntegerToWorld(b);
+			var from = CoordToWorld(a);
+			var to   = CoordToWorld(b);
 
 			var dir = to - from;
 			if (dir.LengthSquared() < 0.01) return true;
@@ -63,11 +64,11 @@ namespace LLE
 		}
 
 		// Remove collinear points: keep only where direction changes.
-		internal static List<Vector3I> RemoveCollinear(List<Vector3I> path)
+		internal List<Vector3I> RemoveCollinear(List<Vector3I> path)
 		{
 			if (path.Count <= 2) return path;
 
-			const int maxStep = 5;
+			int maxStep = 5 * Resolution;
 			var result = new List<Vector3I>(path.Count) { path[0] };
 			int step = 0;
 
@@ -89,15 +90,28 @@ namespace LLE
 
 		internal List<Vector3I> GetPath()
 		{
-			var offset = grid.Min - AStarBorder;
 			var result = new List<Vector3I>(astar.result.Count);
 
 			for(int i = 0; i < astar.result.Count; ++i)
 			{
-				result.Add(astar.result[i] + offset);
+				result.Add(astar.result[i]);
 			}
 
 			return result;
+		}
+
+		internal Vector3D CoordToWorld(Vector3I coord)
+		{
+			var blockPos = coord / Resolution + grid.Min - AStarBorder;
+			var sub = new Vector3I(coord.X % Resolution, coord.Y % Resolution, coord.Z % Resolution);
+			double center = (Resolution - 1) * 0.5;
+			var offset = new Vector3D(sub.X - center, sub.Y - center, sub.Z - center) * (grid.GridSize / (double)Resolution);
+			return grid.GridIntegerToWorld(blockPos) + offset;
+		}
+
+		internal Vector3I CellToBlock(Vector3I coord)
+		{
+			return coord / Resolution + grid.Min - AStarBorder;
 		}
 
 		internal AStarHelper(IMyCubeGrid grid_, Vector3I point_A, Vector3I point_B)
@@ -110,16 +124,18 @@ namespace LLE
 
 			LLE.Log($"RunAstar {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
 
-			var astarSize = gridSize + AStarBorder + AStarBorder;
+			Resolution = grid.GridSizeEnum == MyCubeSize.Large ? 3 : 1;
 
-			var source = new TraversabilityCalculator(grid, AStarBorder);
+			var astarSize = (gridSize + AStarBorder + AStarBorder) * Resolution;
+
+			var source = new TraversabilityCalculator(grid, AStarBorder, Resolution);
 
 			astar = new AStar(astarSize, source);
 
 			astar.Reset();
 
-			var a = point_A - grid.Min + AStarBorder;
-			var b = point_B - grid.Min + AStarBorder;
+			var a = (point_A - grid.Min + AStarBorder) * Resolution + new Vector3I(Resolution / 2, Resolution / 2, Resolution / 2);
+			var b = (point_B - grid.Min + AStarBorder) * Resolution + new Vector3I(Resolution / 2, Resolution / 2, Resolution / 2);
 			astar.RunCalculation(a, b);
 		}
 
@@ -214,12 +230,12 @@ namespace LLE
 		{	return selectedGrid.GridIntegerToWorld(ijk);
 		}
 
-		private List<PathNode> MakePath(List<Vector3I> path)
+		private List<PathNode> MakePath(List<Vector3I> path, AStarHelper helper)
 		{
 			var result = new List<PathNode>();
 			if (path.Count == 0) return result;
 
-			result.Add(new PathNode() { v = ToWorld(path[0]) });
+			result.Add(new PathNode() { v = helper.CoordToWorld(path[0]) });
 			if (path.Count == 1) return result;
 
 			for (int i = 1; i < path.Count - 1; i++)
@@ -227,8 +243,8 @@ namespace LLE
 				Vector3I prevDir = path[i] - path[i - 1];
 				Vector3I nextDir = path[i + 1] - path[i];
 
-				var doorAhead = GetDoorAt(path[i + 1]);
-				var doorBehind = GetDoorAt(path[i - 1]);
+				var doorAhead = GetDoorAt(helper.CellToBlock(path[i + 1]));
+				var doorBehind = GetDoorAt(helper.CellToBlock(path[i - 1]));
 				
 				// Optimization: fly through open doors without stopping
 				if(doorAhead != null && doorAhead.Status == DoorStatus.Open) doorAhead = null;
@@ -236,13 +252,13 @@ namespace LLE
 
 				if (prevDir != nextDir || doorAhead != null || doorBehind != null)
 					result.Add(new PathNode()
-					{	v = ToWorld(path[i]),
-						openDoor = doorAhead != null ? (Vector3I?)path[i + 1] : null,
-						closeDoor = doorBehind != null ? (Vector3I?)path[i - 1] : null
+					{	v = helper.CoordToWorld(path[i]),
+						openDoor = doorAhead != null ? (Vector3I?)helper.CellToBlock(path[i + 1]) : null,
+						closeDoor = doorBehind != null ? (Vector3I?)helper.CellToBlock(path[i - 1]) : null
 					});
 			}
 
-			result.Add(new PathNode() { v = ToWorld(path[path.Count - 1]) });
+			result.Add(new PathNode() { v = helper.CoordToWorld(path[path.Count - 1]) });
 
 			return result;
 		}
@@ -316,7 +332,7 @@ namespace LLE
 
 				while(!aStarHelper.Tick()) yield return null;
 
-				worldPath = MakePath(aStarHelper.SmoothPath(aStarHelper.GetPath()));
+				worldPath = MakePath(aStarHelper.SmoothPath(aStarHelper.GetPath()), aStarHelper);
 
 				if(worldPath.Count == 0) yield return "No exit path found from the grid found.";
 
@@ -340,7 +356,7 @@ namespace LLE
 
 			var tmp = aStarHelper.GetPath();
 			tmp.Reverse(); // ! Reverse back
-			worldPath = MakePath(aStarHelper.SmoothPath(tmp));
+			worldPath = MakePath(aStarHelper.SmoothPath(tmp), aStarHelper);
 
 			if(worldPath.Count == 0) yield return "There is no path to your destination.";
 
