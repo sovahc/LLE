@@ -152,7 +152,7 @@ namespace LLE
 			var grid = block.CubeGrid;
 
 			if(!Collisions.HasCollision(block))
-			{	// light, camera, e.t.c.
+			{	// light, camera, etc.
 				min = block.Min;
 				max = block.Max;
 			}

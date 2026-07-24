@@ -59,7 +59,7 @@ namespace LLE
 					// they are always treated as Blocked at runtime (see TraversabilityCalculator).
 					if(blockDef.CubeSize == MyCubeSize.Small) continue;
 
-				_traversabilityCache[defId] = CalculateTraversability(kv.Value);
+					_traversabilityCache[defId] = CalculateTraversability(kv.Value);
 				}
 			}
 			MyConsole.Add($"Loaded {_collisionGeometry.Count} block collisions", Color.White);

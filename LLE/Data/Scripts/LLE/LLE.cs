@@ -288,7 +288,7 @@ namespace LLE
 			else if(message == ">spawn")
 			{	var bot = Bot.Spawn(player);
 				MyConsole.Add($"bot={bot}");
-				if(bot == null) return;				
+				if(bot == null) return;
 
 				commands = new Commands(bot);
 				llm = new LLM(commands);

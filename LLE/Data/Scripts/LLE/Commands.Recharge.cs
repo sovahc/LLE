@@ -150,7 +150,7 @@ namespace LLE
 				terminalBlocks.Clear();
 
 				if(!hasPower && !hasHydrogen)
-    				yield return "No power or hydrogen available for recharging.";
+					yield return "No power or hydrogen available for recharging.";
 
 				// Simulating the process since the game once again locked the necessary API
 
@@ -191,15 +191,15 @@ namespace LLE
 						sc.Health.Value = target;
 					}
 
-    				if(hasPower)
-    				{
+					if(hasPower)
+					{
 						float max = Constants.CharacterBatteryMWh;
 						float current = oc.CharacterGasSource.RemainingCapacityByType(electricityId);
 						float rate = dt / EnergyFillSeconds;
 						float target = current + max * rate;
-        				if(target > max) { target = max; needMoreEnergy = false; }
-        				oc.CharacterGasSource.SetRemainingCapacityByType(electricityId, target);
-    				}
+						if(target > max) { target = max; needMoreEnergy = false; }
+						oc.CharacterGasSource.SetRemainingCapacityByType(electricityId, target);
+					}
 
 					if(hasHydrogen)
 					{

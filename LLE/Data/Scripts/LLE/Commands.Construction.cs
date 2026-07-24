@@ -261,7 +261,7 @@ namespace LLE
 				yield return null;
 			}
 
-			// check if block still exist
+			// check if block still exists
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 

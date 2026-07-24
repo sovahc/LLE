@@ -197,7 +197,7 @@ namespace LLE
 
 				worldPath = MakePath(aStarHelper.SmoothPath(aStarHelper.GetPath()), aStarHelper);
 
-				if(worldPath.Count == 0) yield return "No exit path found from the grid found.";
+				if(worldPath.Count == 0) yield return "No exit path found from the grid.";
 
 				MyConsole.Add($"path.Count {worldPath.Count}", Color.IndianRed);
 
@@ -310,9 +310,9 @@ namespace LLE
 				Vector2 rotation = Vector2.Zero;
 				float roll = 0;
 
-			var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
+				var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
 
-			if(!micro.ShortSegment)
+				if(!micro.ShortSegment)
 					springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
 						micro.Target.v, up, 0.2, out rotation, out roll);
 				

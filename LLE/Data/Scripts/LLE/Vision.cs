@@ -156,7 +156,7 @@ namespace LLE
 					double distance = (engineer - new Vector3D(v.X, v.Y, v.Z)).Length();
 					string category, name;
 					var e = MyEntities.GetEntityById(v.EntityId);
-          			if (e == null) continue;
+		  			if (e == null) continue;
 					
 					Commands.Description(e, out category, out name);
 					visionReport.Append($"* {state} {category} '{name}' ({Commands.Distance(distance)})\n");
