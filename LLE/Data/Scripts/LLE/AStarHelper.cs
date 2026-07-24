@@ -20,7 +20,9 @@ namespace LLE
 
 			if (path.Count <= 2) return path;
 
-			var result = new List<Vector3I> { path[0] };
+			return path;
+
+			/*var result = new List<Vector3I> { path[0] };
 			int i = 0;
 			while (i < path.Count - 1)
 			{
@@ -30,7 +32,7 @@ namespace LLE
 				result.Add(path[j]);
 				i = j;
 			}
-			return result;
+			return result;*/
 		}
 
 		private bool LineIsClear(Vector3I a, Vector3I b)
@@ -62,7 +64,7 @@ namespace LLE
 		{
 			if (path.Count <= 2) return path;
 
-			int maxStep = 5 * Resolution;
+			int maxStep = 1000 * Resolution;
 			var result = new List<Vector3I>(path.Count) { path[0] };
 			int step = 0;
 

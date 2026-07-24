@@ -127,16 +127,16 @@ namespace LLE
 
 			var worldAabb = grid.PositionComp.WorldAABB;
 			worldAabb.Inflate(border * grid.GridSize);
-			intersectingVoxels.Clear();
 			MyGamePruningStructure.GetAllVoxelMapsInBox(ref worldAabb, intersectingVoxels);
 
-			intersectingGrids.Clear();
 			foreach (var entity in MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref worldAabb))
 			{
 				var g = entity as IMyCubeGrid;
 				if (g != null && g != grid)
 					intersectingGrids.Add(g);
 			}
+			MyConsole.Add($"intersectingVoxels.Count {intersectingVoxels.Count}");
+			MyConsole.Add($"intersectingGrids.Count {intersectingGrids.Count}");
 		}
 
 		public Traversability GetForAstar(Vector3I astarPosition)
@@ -147,7 +147,7 @@ namespace LLE
 				return GetTraversability(position);
 			}
 
-			var blockPos = astarPosition / resolution + grid.Min - border;
+			var blockIJK = astarPosition / resolution + grid.Min - border;
 			var sub = new Vector3I(astarPosition.X % resolution, astarPosition.Y % resolution, astarPosition.Z % resolution);
 
 			// Edges and corners: always blocked
@@ -156,11 +156,11 @@ namespace LLE
 
 			// Center sub-cell: use existing traversability
 			if (sub.X + sub.Y + sub.Z == 0)
-				return GetTraversability(blockPos);
+				return GetTraversability(blockIJK);
 
-			// Face sub-cell: passable iff both adjacent blocks' face probes are clear
-			var travA = GetTraversability(blockPos);
-			var travB = GetTraversability(blockPos + sub);
+			// Face sub-cell: passable if both adjacent blocks' face probes are clear
+			var travA = GetTraversability(blockIJK);
+			var travB = GetTraversability(blockIJK + sub);
 
 			if (travA[sub] || travB[-sub])
 				return Traversability.Blocked;

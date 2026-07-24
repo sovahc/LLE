@@ -169,7 +169,7 @@ namespace LLE
 			}
 
 			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
-			if(jetComp == null) yield return "Error: character has no jetpack component.";
+			if(jetComp == null) yield return "Error: character has no jetpack.";
 			jetComp.TurnOnJetpack(true);
 
 			Vector3D engineer = GetEngineerCenter();
@@ -315,6 +315,8 @@ namespace LLE
 				var move = micro.ComputeMoveInput(desiredVelocity, character.Physics.LinearVelocity, character.WorldMatrix);
 
 				character.MoveAndRotate(move, rotation, roll);
+
+				micro.DrawPath();
 
 				yield return null; // in progress
 			}

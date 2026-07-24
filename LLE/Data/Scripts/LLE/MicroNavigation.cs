@@ -30,6 +30,12 @@ namespace LLE
 		{	path.Clear();		
 		}
 
+		public void DrawPath()
+		{
+			for(int i = 0; i < path.Count; ++i)
+				Drawing.RoundMarker(path[i].v, i > currentWaypointIndex ? Color.HotPink : Color.Gray);
+		}
+
 		public bool Stuck;
 		public bool ShortSegment;
 		public Commands.PathNode Target;
@@ -40,8 +46,6 @@ namespace LLE
 			if (Arrived()) return Vector3D.Zero;
 
 			Target = path[currentWaypointIndex];
-
-			Drawing.RoundMarker(Target.v, Color.HotPink);
 
 			Vector3D toTarget = Target.v - currentPosition;
 			double distance = toTarget.Length();

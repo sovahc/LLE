@@ -33,7 +33,7 @@ namespace LLE
 		public static IMyCubeGrid grid;
 		public static Vector3I? astarStart;
 		public static Vector3I? astarGoal;
-		private static AStarHelper aStarHelper;
+		private static AStarHelper ash;
 
 		internal static void Start(IMyCubeGrid grid_)
 		{	grid = grid_;
@@ -67,47 +67,36 @@ namespace LLE
 			{
 				if(astarStart != null && astarGoal != null)
 				{
-					aStarHelper = new AStarHelper(grid, astarStart.Value, astarGoal.Value);
+					ash = new AStarHelper(grid, astarStart.Value, astarGoal.Value);
 				}
 			}
 
-			if(aStarHelper != null)
-			{	aStarHelper.Tick();
-
-				var path = aStarHelper.RemoveCollinear(aStarHelper.GetPath());
-
-				foreach(var p in path)
-				{	Drawing.RoundMarker(grid.GridIntegerToWorld(p), Color.DarkMagenta);
-				}
-			}
-		}
-
-		internal static void Draw(MatrixD hm)
-		{
 			var material = MyStringId.GetOrCompute("Square");
 
 			if (grid != null && astarStart != null)
 			{
 				var block = grid.GetCubeBlock(astarStart.Value);
 				if(block != null)
-				{	List<EQSResult> results = new List<EQSResult>();
+				{	
+					Collisions.Draw(block);
+					Collisions.DrawTraversability(grid, astarStart.Value);
+					
+					List<EQSResult> results = new List<EQSResult>();
 					EQS.Query(block, hm.Translation, InteractionKind.Inventory, results, 5);
 				}
 			}
 
-			if (grid == null) return;
+			if(ash != null)
+			{	ash.Tick();
+
+				var path = ash.GetPath();
+
+				foreach(var p in path)
+					Drawing.RoundMarker(ash.CellToWorld(p), Color.Yellow);
+			}
 
 			if(astarStart != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarStart.Value), Color.Green);
 			if(astarGoal != null) Drawing.RoundMarker(grid.GridIntegerToWorld(astarGoal.Value), Color.Red);
-
-			if(astarStart != null)
-			{	var block = grid.GetCubeBlock(astarStart.Value);
-				if(block != null)
-				{
-					Collisions.Draw(block);
-					Collisions.DrawTraversability(grid, astarStart.Value);
-				}
-			}
 
 			for(int i = 0; i < lines.Count; ++i)
 			{
@@ -233,7 +222,6 @@ namespace LLE
 			{
 				var hm = ch.GetHeadMatrix(false, false);
 				Debug.Pathfinding(hm);
-				Debug.Draw(hm);
 			}
 
 			MyConsole.Render(font);
