@@ -111,7 +111,7 @@ namespace LLE
 				return;
 			}
 
-			RunNextPending();
+			// Next command (if any) is driven by Tick() — one per tick.
 		}
 
 		private void RunNextPending()
@@ -159,10 +159,15 @@ namespace LLE
 				pause = false;
 			}
 			
-			if (batch.Count != 0) // We have running commands
-			{	var result = commands.Update();
-				if (result != null)
-					OnCommandFinished(result);
+			if (batch.Count != 0)
+			{
+				if(commands.InProgress())   // coroutine command — step it
+				{	var result = commands.Update();
+					if (result != null)
+						OnCommandFinished(result);
+				}
+				else                        // instant command — one per tick
+					RunNextPending();
 
 				return;
 			}

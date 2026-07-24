@@ -326,7 +326,7 @@ namespace LLE
 			StringBuilder sb = new StringBuilder();
 			sb.Append($"Transferring from {fromName} into {toName}\n");
 
-			var full = InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
+			var full = InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb, requireConveyor: true);
 
 			yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
 		}
@@ -343,20 +343,24 @@ namespace LLE
 		}
 
 		internal bool InventoryTransfer(List<IMyInventory> fromList, List<WTF_IMyInventory> toList,
-			List<string> itemNames, MyFixedPoint amount, StringBuilder result)
+			List<string> itemNames, MyFixedPoint amount, StringBuilder result,
+			bool requireConveyor = false)
 		{	
-			bool hasConnection = false;
+			if(requireConveyor)
+			{
+				bool hasConnection = false;
 
-			foreach(var from in fromList)
-				foreach(var to in toList)
-					if(from.IsConnectedTo(to))
-					{	hasConnection = true;
-						break;						
-					}
+				foreach(var from in fromList)
+					foreach(var to in toList)
+						if(from.IsConnectedTo(to))
+						{	hasConnection = true;
+							break;					
+						}
 
-			if(!hasConnection)
-			{	result.Append("Error: Inventories are not connected via the conveyor system, direct transfer is not possible.");
-				return false;
+				if(!hasConnection)
+				{	result.Append("Error: Inventories are not connected via the conveyor system, direct transfer is not possible.");
+					return false;
+				}
 			}
 
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
