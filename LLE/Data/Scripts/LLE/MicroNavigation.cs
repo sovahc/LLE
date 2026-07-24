@@ -102,43 +102,73 @@ namespace LLE
 		double rollPos, rollVel;
 
 		public void Update(Vector3D botPos, Vector3D Forward, Vector3D Up, Vector3D targetPoint, Vector3D gridUp,
-			double deltaTime, out Vector2 rotation, out float roll)
+			double deltaTime, bool headFirst, out Vector2 rotation, out float roll)
 		{
 			var toTarget = targetPoint - botPos;
 			gridUp.Normalize();
 
-			// 1. PITCH
-			var projUp = Vector3D.Dot(toTarget, gridUp) * gridUp;
-			var horizontal = toTarget - projUp;
-			double horizDist = Math.Max(horizontal.Length(), 0.1);
+			double relativePitch, relativeYaw, relativeRoll;
 
-			// Absolute target angle and current bot angle
-			double targetPitch = Math.Atan2(Vector3D.Dot(toTarget, gridUp), horizDist);
-			double currentPitch = Math.Asin(Vector3D.Dot(Forward, gridUp));
-			// Relative error
-			double relativePitch = targetPitch - currentPitch;
-
-			// 2. YAW
-			double relativeYaw = 0;
-			if (horizontal.LengthSquared() > 0.001)
+			if(headFirst)
 			{
-				var forwardFlat = Forward - Vector3D.Dot(Forward, gridUp) * gridUp;
-				if (forwardFlat.LengthSquared() > 0.001)
+				// Head-first: align Up toward target via pitch+roll, align Forward toward gridUp via yaw.
+				// Each error must match its rotation axis:
+				//   pitch (around Right) tilts Up toward Forward
+				//   roll  (around Forward) tilts Up toward Right
+				//   yaw   (around Up) rotates Forward toward gridUp
+				double toTargetLen = toTarget.Length();
+				if(toTargetLen < 0.001)
+				{ 	rotation = Vector2.Zero; roll = 0; return; 
+				}
+				Vector3D toTargetN = toTarget / toTargetLen;
+				Vector3D R = Vector3D.Cross(Up, Forward);
+
+				// Pitch: angle between Up and target in the U-F plane (negated for SE look-down convention)
+				relativePitch = -Math.Atan2(Vector3D.Dot(toTargetN, Forward), Vector3D.Dot(toTargetN, Up));
+
+				// Roll: angle between Up and target in the U-R plane (negated for SE roll convention)
+				relativeRoll = -Math.Atan2(Vector3D.Dot(toTargetN, R), Vector3D.Dot(toTargetN, Up));
+
+				// Yaw: angle between Forward and gridUp, measured around Up
+				relativeYaw = 0;
+				Vector3D Gperp = Vector3D.Dot(gridUp, Up) * Up - gridUp;
+				if(Gperp.LengthSquared() > 0.001)
 				{
-					forwardFlat.Normalize();
-					horizontal.Normalize();
-					var cross = Vector3D.Cross(forwardFlat, horizontal);
-					// Relative error (angle to target)
-					relativeYaw = Math.Atan2(Vector3D.Dot(cross, gridUp), Vector3D.Dot(forwardFlat, horizontal));
+					Gperp = Vector3D.Normalize(Gperp);
+					var cross = Vector3D.Cross(Forward, Gperp);
+					relativeYaw = Math.Atan2(Vector3D.Dot(cross, Up), Vector3D.Dot(Forward, Gperp));
 				}
 			}
+			else
+			{
+				// Normal mode: align Forward toward target (pitch+yaw), align Up toward gridUp (roll)
+				var projUp = Vector3D.Dot(toTarget, gridUp) * gridUp;
+				var horizontal = toTarget - projUp;
+				double horizDist = Math.Max(horizontal.Length(), 0.1);
 
-			// 3. ROLL
-			// Compute relative roll error (so the bot's "up" aligns with gridUp)
-			var crossRoll = Vector3D.Cross(Up, gridUp);
-			double sinRoll = Vector3D.Dot(crossRoll, Forward);
-			double cosRoll = Vector3D.Dot(Up, gridUp);
-			double relativeRoll = Math.Atan2(sinRoll, cosRoll);
+				// Absolute target angle and current bot angle
+				double targetPitch = Math.Atan2(Vector3D.Dot(toTarget, gridUp), horizDist);
+				double currentPitch = Math.Asin(Vector3D.Dot(Forward, gridUp));
+				relativePitch = targetPitch - currentPitch;
+
+				relativeYaw = 0;
+				if (horizontal.LengthSquared() > 0.001)
+				{
+					var forwardFlat = Forward - Vector3D.Dot(Forward, gridUp) * gridUp;
+					if (forwardFlat.LengthSquared() > 0.001)
+					{
+						forwardFlat.Normalize();
+						horizontal.Normalize();
+						var cross = Vector3D.Cross(forwardFlat, horizontal);
+						relativeYaw = Math.Atan2(Vector3D.Dot(cross, gridUp), Vector3D.Dot(forwardFlat, horizontal));
+					}
+				}
+
+				var crossRoll = Vector3D.Cross(Up, gridUp);
+				double sinRoll = Vector3D.Dot(crossRoll, Forward);
+				double cosRoll = Vector3D.Dot(Up, gridUp);
+				relativeRoll = Math.Atan2(sinRoll, cosRoll);
+			}
 
 			// 4. SPRING UPDATE
 			// We "anchor" the spring target to its current position + error.

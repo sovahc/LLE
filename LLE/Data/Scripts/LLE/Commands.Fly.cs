@@ -132,8 +132,17 @@ namespace LLE
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
 			// Optional intention: fly I J K grind|weld|get|put|recharge|enter
+			// Optional flag: fly I J K [intention] headfirst
 			string intentionWord = null;
-			if(!tp.End) intentionWord = tp.NextString();
+			bool headFirst = false;
+
+			while(!tp.End)
+			{
+				if(tp.Match("headfirst"))
+					headFirst = true;
+				else
+					intentionWord = tp.NextString();
+			}
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 
@@ -199,7 +208,7 @@ namespace LLE
 
 				micro.Fly(worldPath);
 
-				yield return NavigationCR(currentGrid);
+				yield return NavigationCR(currentGrid, null, headFirst);
 
 				MyConsole.Add("Fly out successful!");
 			}
@@ -223,14 +232,14 @@ namespace LLE
 
 			micro.Fly(worldPath);
 
-			yield return NavigationCR(null, arrivalMessage);
+			yield return NavigationCR(null, arrivalMessage, headFirst);
 		}
 
 		internal string CharacterCellText()
 		{	return IJK(selectedGrid.WorldToGridInteger(GetEngineerCenter()));
 		}
 
-		internal IEnumerator NavigationCR(IMyCubeGrid exitGrid = null, string arrivalMessage = null)
+		internal IEnumerator NavigationCR(IMyCubeGrid exitGrid = null, string arrivalMessage = null, bool headFirst = false)
 		{
 			bool closeBehind = false;
 
@@ -308,9 +317,9 @@ namespace LLE
 
 				var desiredVelocity = micro.ComputeDesiredVelocity(ec, character.Physics.LinearVelocity);
 
-				if(!micro.ShortSegment)
+				if(headFirst || !micro.ShortSegment)
 					springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
-						micro.Target.v, up, 0.2, out rotation, out roll);
+						micro.Target.v, up, 0.2, headFirst, out rotation, out roll);
 				
 				var move = micro.ComputeMoveInput(desiredVelocity, character.Physics.LinearVelocity, character.WorldMatrix);
 
@@ -330,7 +339,7 @@ namespace LLE
 			Vector2 rotation;
 			float roll;
 			springController.Update(center, cm.Forward, cm.Up,
-				target, cm.Up, 0.2, out rotation, out roll);
+				target, cm.Up, 0.2, false, out rotation, out roll);
 
 			character.MoveAndRotate(Vector3.Zero, rotation, roll);
 		}
