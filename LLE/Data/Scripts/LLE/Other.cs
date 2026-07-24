@@ -30,6 +30,7 @@ namespace LLE
 
 		public const float AStarTurnPenalty = 0.5f;
 		public const float AStarProximityPenalty = 0.3f;
+		public const float AStarDiagonalPenalty = 0.5f;
 
 		public static readonly Vector3I[] SixDirections = new Vector3I[]
 		{	

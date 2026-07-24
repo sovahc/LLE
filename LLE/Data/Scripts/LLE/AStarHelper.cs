@@ -100,8 +100,8 @@ namespace LLE
 		{
 			var blockPos = coord / Resolution + grid.Min - AStarBorder;
 			var sub = new Vector3I(coord.X % Resolution, coord.Y % Resolution, coord.Z % Resolution);
-			var offset = new Vector3D(sub) * (grid.GridSize / (double)Resolution);
-			return grid.GridIntegerToWorld(blockPos) + offset;
+			var localOffset = new Vector3D(sub) * (grid.GridSize / (double)Resolution);
+			return grid.GridIntegerToWorld(blockPos) + Vector3D.TransformNormal(localOffset, grid.WorldMatrix);
 		}
 
 		internal Vector3I CellToBlock(Vector3I coord)

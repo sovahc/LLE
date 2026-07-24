@@ -176,7 +176,7 @@ namespace LLE
 					else
 					{
 						direction = Constants.TwelveEdgeDirections[d - Constants.SixDirections.Length];
-						stepCost = 1.4142f;
+						stepCost = 1.4142f + Constants.AStarDiagonalPenalty;
 					}
 
 					Vector3I next = cv + direction;
