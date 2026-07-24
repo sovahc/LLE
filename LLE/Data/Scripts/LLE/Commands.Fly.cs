@@ -104,8 +104,7 @@ namespace LLE
 		{
 			var blockPos = coord / Resolution + grid.Min - AStarBorder;
 			var sub = new Vector3I(coord.X % Resolution, coord.Y % Resolution, coord.Z % Resolution);
-			double center = (Resolution - 1) * 0.5;
-			var offset = new Vector3D(sub.X - center, sub.Y - center, sub.Z - center) * (grid.GridSize / (double)Resolution);
+			var offset = new Vector3D(sub) * (grid.GridSize / (double)Resolution);
 			return grid.GridIntegerToWorld(blockPos) + offset;
 		}
 
@@ -124,7 +123,7 @@ namespace LLE
 
 			LLE.Log($"RunAstar {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
 
-			Resolution = grid.GridSizeEnum == MyCubeSize.Large ? 3 : 1;
+			Resolution = grid.GridSizeEnum == MyCubeSize.Large ? 2 : 1;
 
 			var astarSize = (gridSize + AStarBorder + AStarBorder) * Resolution;
 
@@ -134,8 +133,8 @@ namespace LLE
 
 			astar.Reset();
 
-			var a = (point_A - grid.Min + AStarBorder) * Resolution + new Vector3I(Resolution / 2, Resolution / 2, Resolution / 2);
-			var b = (point_B - grid.Min + AStarBorder) * Resolution + new Vector3I(Resolution / 2, Resolution / 2, Resolution / 2);
+			var a = (point_A - grid.Min + AStarBorder) * Resolution;
+			var b = (point_B - grid.Min + AStarBorder) * Resolution;
 			astar.RunCalculation(a, b);
 		}
 

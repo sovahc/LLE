@@ -149,7 +149,23 @@ namespace LLE
 
 			var blockPos = astarPosition / resolution + grid.Min - border;
 			var sub = new Vector3I(astarPosition.X % resolution, astarPosition.Y % resolution, astarPosition.Z % resolution);
-			return GetSubCellTraversability(blockPos, sub);
+
+			// Edges and corners: always blocked
+			if (sub.X + sub.Y + sub.Z > 1)
+				return Traversability.Blocked;
+
+			// Center sub-cell: use existing traversability
+			if (sub.X + sub.Y + sub.Z == 0)
+				return GetTraversability(blockPos);
+
+			// Face sub-cell: passable iff both adjacent blocks' face probes are clear
+			var travA = GetTraversability(blockPos);
+			var travB = GetTraversability(blockPos + sub);
+
+			if (travA[sub] || travB[-sub])
+				return Traversability.Blocked;
+
+			return Traversability.Free;
 		}
 
 		public Traversability GetTraversability(Vector3I position)
@@ -181,57 +197,6 @@ namespace LLE
 				return Traversability.Free;
 
 			return Collisions.GetBlockTraversability(slim, position);
-		}
-
-		private Traversability GetSubCellTraversability(Vector3I blockPos, Vector3I sub)
-		{
-			var blockCenter = grid.GridIntegerToWorld(blockPos);
-			double center = (resolution - 1) * 0.5;
-			var offset = new Vector3D(sub.X - center, sub.Y - center, sub.Z - center) * (grid.GridSize / (double)resolution);
-			var worldPos = blockCenter + offset;
-
-			foreach(var voxel in intersectingVoxels)
-				if(!IsVoxelTraversableAt(voxel, worldPos)) return Traversability.Blocked;
-
-			foreach (var g in intersectingGrids)
-				if (Collisions.CheckSphereVsGrid(g, worldPos, Constants.CollisionProbeRadius))
-					return Traversability.Blocked;
-
-			var slim = grid.GetCubeBlock(blockPos);
-			if (slim == null)
-				return Traversability.Free;
-
-			if (slim.Min == slim.Max)
-			{
-				// Single-cell block: precomputed sub-cell mask (fast)
-				if (Collisions.IsSubCellBlocked(slim, sub))
-					return Traversability.Blocked;
-			}
-			else
-			{
-				// Multi-block: on-the-fly probe (rare)
-				if (Collisions.CheckWorldSphere(slim, worldPos, Constants.CollisionProbeRadius))
-					return Traversability.Blocked;
-			}
-
-			return Traversability.Free;
-		}
-
-		private bool IsVoxelTraversableAt(MyVoxelBase voxel, Vector3D worldPos)
-		{
-			double sub = grid.GridSize / (double)resolution;
-			var half = new Vector3D(sub * 0.5);
-			BoundingBoxD wb = new BoundingBoxD(worldPos - half, worldPos + half);
-
-			bool hasMaterials, hasSpace;
-			HasMaterialsInBox(wb, voxel, 0, out hasMaterials, out hasSpace);
-
-			if(hasMaterials && hasSpace)
-			{	BoundingSphereD sphere = new BoundingSphereD(worldPos, Constants.CollisionProbeRadius);
-				return !voxel.GetIntersectionWithSphere(ref sphere);
-			}
-
-			return hasSpace;
 		}
 
 		private bool IsVoxelTraversable(MyVoxelBase voxel, Vector3I gridPosition)

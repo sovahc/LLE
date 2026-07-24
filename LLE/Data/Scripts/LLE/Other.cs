@@ -37,6 +37,16 @@ namespace LLE
 			new Vector3I(0, -1, 0), new Vector3I(0, 1, 0),
 			new Vector3I(0, 0, -1), new Vector3I(0, 0, 1)
 		};
+
+		public static readonly Vector3I[] TwelveEdgeDirections = new Vector3I[]
+		{
+			new Vector3I(-1,-1, 0), new Vector3I( 1, 1, 0),
+			new Vector3I(-1, 1, 0), new Vector3I( 1,-1, 0),
+			new Vector3I(-1, 0,-1), new Vector3I( 1, 0, 1),
+			new Vector3I(-1, 0, 1), new Vector3I( 1, 0,-1),
+			new Vector3I( 0,-1,-1), new Vector3I( 0, 1, 1),
+			new Vector3I( 0,-1, 1), new Vector3I( 0, 1,-1),
+		};
 	}
 
 	static class Utilities

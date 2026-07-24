@@ -163,9 +163,21 @@ namespace LLE
 				float curG = _gScore[currentI];
 				var currentT = GetTraversability(currentI);
 
-				for (int d = 0; d < Constants.SixDirections.Length; ++d)
+				int totalDirs = Constants.SixDirections.Length + Constants.TwelveEdgeDirections.Length;
+				for (int d = 0; d < totalDirs; ++d)
 				{
-					var direction = Constants.SixDirections[d];
+					Vector3I direction;
+					float stepCost;
+					if (d < Constants.SixDirections.Length)
+					{
+						direction = Constants.SixDirections[d];
+						stepCost = 1f;
+					}
+					else
+					{
+						direction = Constants.TwelveEdgeDirections[d - Constants.SixDirections.Length];
+						stepCost = 1.4142f;
+					}
 
 					Vector3I next = cv + direction;
 
@@ -179,7 +191,7 @@ namespace LLE
 					if (nextT.Center) continue;
 					if (currentT[direction] || nextT[-direction]) continue;
 
-					float tentativeG = curG + 1;
+					float tentativeG = curG + stepCost;
 
 					if (_parent[currentI] != -1)
 					{
