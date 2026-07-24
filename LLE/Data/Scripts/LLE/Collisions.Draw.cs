@@ -27,11 +27,6 @@ namespace LLE
 				if (convex != null)
 				{
 					Drawing.ConvexOutline(convex.Vertices, shape.Transform, modelToWorld, 1e-4f, new Vector4(1f, 0f, 0f, 1f));
-
-					// Debug: show vertex points
-					//var combined = (MatrixD)shape.Transform * modelToWorld;
-					//foreach (var v in convex.Vertices)
-					//	Drawing.RoundMarker(Vector3D.Transform(v, combined), Color.Yellow);
 				}
 
 				var sphere = shape as SphereShape;
