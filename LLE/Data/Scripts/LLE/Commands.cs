@@ -133,10 +133,13 @@ You operate on a selected grid (ship or station).
   Select a large ship or station on which to grind, weld, fly, and perform other operations.
 
 * overview
-  List grid blocks by category.
+  List grid blocks by category. On a projection preview, just confirms it's a projection — use `projection` instead.
 
 * integrity
-  Show damaged blocks on the selected grid.
+  Show damaged blocks on the selected grid. On a projection preview, checks the real, already-built blocks only.
+
+* projection
+  Build status of the selected projection preview: total/remaining/buildable counts, and the list of blocks buildable right now.
 
 * fly I J K [grind|weld|get|put|recharge|enter] [headfirst]
   Fly to specific grid coordinates. If block coordinates are specified instead of free space, the bot flies to the interaction point with the block.
@@ -625,6 +628,9 @@ drop [quantity|all] 'name'
 			}
 			else if(tp.Match("Integrity"))
 			{	result = Integrity();
+			}
+			else if(tp.Match("Projection"))
+			{	result = Projection();
 			}
 			else if(tp.Match("Select"))
 			{	result = Select(tp);

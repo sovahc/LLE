@@ -135,8 +135,9 @@ namespace LLE
 				if(!describer.TryGetValue(name, out pp))
 				{	pp = new List<Vector3I>();
 					describer[name] = pp;
-					if (cubeBlock != null && cubeBlock.FatBlock != null)
-						nameToSample[name] = cubeBlock.FatBlock as IMyTerminalBlock;
+					var terminalBlock = cubeBlock?.FatBlock as IMyTerminalBlock;
+					if (terminalBlock != null)
+						nameToSample[name] = terminalBlock;
 				}
 				pp.Add(position);
 			}
@@ -178,6 +179,14 @@ namespace LLE
 
 			var md = new MyMarkdown();
 			md.Append($"# {category} '{name}'");
+
+			if(IsProjection(selectedGrid))
+			{
+				md.Append("This is a projector's projection preview, not a built object.");
+				md.Append("Use `projection` for build status.");
+				return Success(md.Result());
+			}
+
 			md.Append($"## Information");
 
 			md.Append($"Powered: {GridHasPower(selectedGrid)}");
@@ -229,6 +238,56 @@ namespace LLE
 			return Success(md.Result());
 		}
 
+		// Compact, bot-facing build status for a projection preview: counts plus the actual
+		// list of what's buildable right now. Deliberately does not dump the "blocked" list —
+		// it's not actionable and would be pure context noise for a bot polling this repeatedly.
+		internal CommandResult Projection()
+		{
+			string message;
+			if(!GridIsSet(out message)) return message;
+
+			if(!IsProjection(selectedGrid))
+				return "Error: selected grid is not a projection.";
+
+			var mcg = selectedGrid as MyCubeGrid;
+			var projector = mcg.Projector as IMyProjector;
+			if(projector == null)
+				return "Error: could not find the projector owning this projection.";
+
+			var realGrid = projector.CubeGrid;
+
+			var md = new MyMarkdown();
+			md.Append($"Real grid (select this to weld already-placed blocks): {Quote(Name(realGrid))}");
+			md.Append($"Total blocks: {projector.TotalBlocks}");
+			md.Append($"Not yet built: {projector.RemainingBlocks}");
+			md.Append($"Buildable now: {projector.BuildableBlocksCount}");
+
+			if(projector.BuildableBlocksCount > 0)
+			{
+				var allBlocks = new List<IMySlimBlock>();
+				selectedGrid.GetBlocks(allBlocks);
+
+				var buildable = new List<Vector3I>();
+				foreach(var ghost in allBlocks)
+				{
+					// CanBuild's AlreadyBuilt result isn't reliable for hidden (already-built) ghosts —
+					// rule those out by direct position + definition match first, per ProjectorInterface.md.
+					var worldPos = selectedGrid.GridIntegerToWorld(ghost.Position);
+					var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
+					if(realBlock != null && realBlock.BlockDefinition.Id == ghost.BlockDefinition.Id)
+						continue; // already built
+
+					if(projector.CanBuild(ghost, false) == BuildCheckResult.OK)
+						buildable.Add(ghost.Position);
+				}
+
+				md.Append($"### Buildable now");
+				ListDescription(buildable, false, md);
+			}
+
+			return Success(md.Result());
+		}
+
 		internal CommandResult Integrity()
 		{
 			string message;
@@ -240,17 +299,54 @@ namespace LLE
 			var md = new MyMarkdown();
 			md.Append($"# Integrity Check {Quote(name)}");
 
-			var damaged = new List<IMySlimBlock>();
-			foreach (IMySlimBlock block in (selectedGrid as MyCubeGrid).CubeBlocks)
-			{
-				if (block.Integrity < block.MaxIntegrity)
-					damaged.Add(block);
-			}
+			List<IMySlimBlock> damaged;
 
-			if (damaged.Count == 0)
+			if(IsProjection(selectedGrid))
 			{
-				md.Append("All blocks are intact.");
-				return Success(md.Result());
+				var mcg = selectedGrid as MyCubeGrid;
+				var projector = mcg.Projector as IMyProjector;
+				if(projector == null)
+					return "Error: could not find the projector owning this projection.";
+
+				var realGrid = projector.CubeGrid;
+
+				var ghosts = new List<IMySlimBlock>();
+				selectedGrid.GetBlocks(ghosts);
+
+				damaged = new List<IMySlimBlock>();
+				foreach(var ghost in ghosts)
+				{
+					// CanBuild's AlreadyBuilt result isn't reliable for this (hidden ghosts don't report it) —
+					// match position + definition against the real grid directly, per ProjectorInterface.md.
+					var worldPos = selectedGrid.GridIntegerToWorld(ghost.Position);
+					var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
+					if(realBlock == null || realBlock.BlockDefinition.Id != ghost.BlockDefinition.Id)
+						continue; // not built yet, that's `projection`'s job
+
+					if(realBlock.Integrity < realBlock.MaxIntegrity)
+						damaged.Add(realBlock);
+				}
+
+				if(damaged.Count == 0)
+				{
+					md.Append("All built blocks are intact. (Use `overview` to see what's still unbuilt.)");
+					return Success(md.Result());
+				}
+			}
+			else
+			{
+				damaged = new List<IMySlimBlock>();
+				foreach (IMySlimBlock block in (selectedGrid as MyCubeGrid).CubeBlocks)
+				{
+					if (block.Integrity < block.MaxIntegrity)
+						damaged.Add(block);
+				}
+
+				if (damaged.Count == 0)
+				{
+					md.Append("All blocks are intact.");
+					return Success(md.Result());
+				}
 			}
 
 			var byCategory = new Dictionary<string, List<IMySlimBlock>>();

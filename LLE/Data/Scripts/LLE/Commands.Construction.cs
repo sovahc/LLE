@@ -49,7 +49,6 @@ namespace LLE
 			string message;
 
 			if(!GridIsSet(out message)) yield return message;
-			if(!NotProjection(out message)) yield return message;
 
 			Vector3I ijk;
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
@@ -225,7 +224,6 @@ namespace LLE
 		{
 			string message;
 			if (!GridIsSet(out message)) yield return message;
-			if (!NotProjection(out message)) yield return message;
 
 			Vector3I ijk;
 			if (!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
@@ -233,7 +231,9 @@ namespace LLE
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if (block == null) yield return $"Error: no block at {IJK(ijk)}";
 
-			if (block.Integrity >= block.MaxIntegrity)
+			bool projection = IsProjection(block.CubeGrid);
+
+			if (block.Integrity >= block.MaxIntegrity && !projection)
 				yield return Success("The block is fully intact; no repairs needed.");
 
 			if (!EquipTool("Welder"))
@@ -270,7 +270,7 @@ namespace LLE
 			var inventory = character.GetInventory();
 			if (inventory == null) yield return IE_NO_INVENTORY;
 
-			if (!block.CanContinueBuild(inventory))
+			if (!projection && !block.CanContinueBuild(inventory))
 			{	StringBuilder sb = new StringBuilder();
 				sb.Append("You don't have the required components in your inventory\n");
 				AddMissingComponentsString(block, sb);
