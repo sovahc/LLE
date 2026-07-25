@@ -329,7 +329,7 @@ namespace LLE
 
 				if(damaged.Count == 0)
 				{
-					md.Append("All built blocks are intact. (Use `overview` to see what's still unbuilt.)");
+					md.Append("All built blocks are intact. (Use `projection` to see what's still unbuilt.)");
 					return Success(md.Result());
 				}
 			}
