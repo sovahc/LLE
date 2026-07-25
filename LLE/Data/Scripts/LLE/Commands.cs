@@ -155,9 +155,6 @@ You operate on a selected grid (ship or station).
 * near I J K
   Return all blocks in 3x3x3 cube around specified coordinates.
 
-* slice Xmin Xmax Ymin Ymax Zmin Zmax
-  Return blocks in a 2D table. One axis must be length 1 (min=max), max slice size 10x10.
-
 * inventory
   Return the items in your inventory.
 
@@ -632,9 +629,6 @@ drop [quantity|all] 'name'
 			}
 			else if(tp.Match("Near"))
 			{	result = Near(tp);
-			}
-			else if(tp.Match("Slice"))
-			{	result = Slice(tp);
 			}
 			else if(tp.Match("Inventory"))
 			{	result = Inventory(tp);
