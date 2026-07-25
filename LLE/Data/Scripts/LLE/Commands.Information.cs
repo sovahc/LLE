@@ -142,8 +142,11 @@ namespace LLE
 				pp.Add(position);
 			}
 
+			if(describer.Count == 0)
+				md.Append(" -- none --");
+
 			foreach (var kv in describer)
-			{	
+			{
 				var name = kv.Key;
 				IMyTerminalBlock sample;
 				var category = byCategory && nameToSample.TryGetValue(name, out sample) ? Categorize(sample) : null;

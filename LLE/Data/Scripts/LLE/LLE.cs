@@ -275,6 +275,10 @@ namespace LLE
 			{	var result = commands.Execute("select Miner");
 				MyConsole.AddMultiline(result?.Message, Color.SeaGreen);
 			}
+			else if(message == ">sh")
+			{	var result = commands.Execute("select Huyator");
+				MyConsole.AddMultiline(result?.Message, Color.SeaGreen);
+			}
 			else if(message == ">spawn")
 			{	var bot = Bot.Spawn(player);
 				MyConsole.Add($"bot={bot}");

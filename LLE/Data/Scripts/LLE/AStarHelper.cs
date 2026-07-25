@@ -117,7 +117,7 @@ namespace LLE
 
 			Vector3I gridSize = grid.Max - grid.Min + 1;
 
-			LLE.Log($"RunAstar {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
+			MyConsole.Add($"RunAstar '{grid.DisplayName}' {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
 
 			Resolution = grid.GridSizeEnum == MyCubeSize.Large ? 2 : 1;
 

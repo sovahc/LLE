@@ -38,12 +38,14 @@ namespace LLE
 			terminalBlocks.Clear();
 			ts.GetBlocks(terminalBlocks);
 
+			bool any = false;
+
 			foreach (var block in terminalBlocks)
 			{
 				if (block.CubeGrid != grid) continue;
 
 				if (IsSurvivalKit(block) || block is IMyCockpit || block is IMyMedicalRoom)
-				{	
+				{
 					bool hasHydrogen = IsHydrogenReachable(block, terminalBlocks);
 
 					string occupiedBy = "";
@@ -61,10 +63,15 @@ namespace LLE
 						ecat = "## Energy";
 
 					if(ecat != null)
-						md.Add(ecat, $"* {Name(block.SlimBlock)} at {IJK(block.Position)}{occupiedBy}");
+					{	md.Add(ecat, $"* {Name(block.SlimBlock)} at {IJK(block.Position)}{occupiedBy}");
+						any = true;
+					}
 				}
 			}
 			terminalBlocks.Clear();
+
+			if(!any)
+				md.Append(" -- none --");
 
 			return Success(md.Result());
 		}

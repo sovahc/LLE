@@ -4,10 +4,11 @@ using System.Collections.Generic;
 using System.Text;
 
 using VRageMath;
-
 using VRage.Game;
 using VRage.Game.ModAPI;
+using Sandbox.ModAPI;
 using Sandbox.Definitions;
+using Sandbox.Game.Entities;
 using Sandbox.Game;
 
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
@@ -270,12 +271,43 @@ namespace LLE
 			var inventory = character.GetInventory();
 			if (inventory == null) yield return IE_NO_INVENTORY;
 
-			if (!projection && !block.CanContinueBuild(inventory))
-			{	StringBuilder sb = new StringBuilder();
-				sb.Append("You don't have the required components in your inventory\n");
-				AddMissingComponentsString(block, sb);
+			StringBuilder result = new StringBuilder();
+
+			if(projection)
+			{	
+				var mcg = selectedGrid as MyCubeGrid;
+				var projector = mcg.Projector as IMyProjector;
+				if(projector == null)
+					yield return "Error: could not find the projector owning this projection.";
 				
-				yield return Incomplete(sb.ToString());
+				var realGrid = projector.CubeGrid;
+				var worldPos = selectedGrid.GridIntegerToWorld(block.Position);
+				var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
+
+				if(realBlock == null)
+				{	welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
+					if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
+
+					// place block
+					welderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
+					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
+				
+					realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
+					if(realBlock == null)
+						yield return "Error: can't place block using projection.";
+
+					// switch to real block
+					block = realBlock;
+					result.Append($"Block placed on grid '{realGrid.DisplayName}'\n");
+				}
+			}
+
+			if (!block.CanContinueBuild(inventory))
+			{	
+				result.Append("You don't have the required components in your inventory\n");
+				AddMissingComponentsString(block, result);
+				
+				yield return Incomplete(result.ToString());
 			}
 
 			var current = new Dictionary<string, double>();
@@ -314,20 +346,18 @@ namespace LLE
 				{	
 					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 
-					StringBuilder sb = new StringBuilder();
-
-					if(full) sb.Append("Done! Block integrity is full.");
+					if(full) result.Append("Done! Block integrity is full.");
 					else
 					{	var p0 = integrity0 / block.MaxIntegrity;
 						var p1 = block.Integrity / block.MaxIntegrity;
-						sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
+						result.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
 
-						if(stale) AddMissingComponentsString(block, sb);
+						if(stale) AddMissingComponentsString(block, result);
 						if(integrity0 == block.Integrity)
-							sb.Append("If this repeats, try a different interaction point.\n");
+							result.Append("If this repeats, try a different interaction point.\n");
 					}
 
-					yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
+					yield return full ? Success(result.ToString()) : Incomplete(result.ToString());
 				}
 
 				yield return null;
