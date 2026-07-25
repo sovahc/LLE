@@ -133,10 +133,10 @@ You operate on a selected grid (ship or station).
   Select a large ship or station on which to grind, weld, fly, and perform other operations.
 
 * overview
-  List grid blocks by category. On a projection preview, just confirms it's a projection — use `projection` instead.
+  List grid blocks by category.
 
 * integrity
-  Show damaged blocks on the selected grid. On a projection preview, checks the real, already-built blocks only.
+  Show damaged blocks on the selected grid.
 
 * projection
   Build status of the selected projection preview: total/remaining/buildable counts, and the list of blocks buildable right now.
@@ -204,7 +204,7 @@ You operate on a selected grid (ship or station).
 
 * note 'text'
   Leave a note to yourself in the conversation. Carries forward your plan across multiple steps.
-  Example: note 'base has no iron — grind 'old rover', then build reactor'
+  Example: note 'base has no iron — grind Old Rover, then build reactor'
 
 * enter I J K
   Enter the cockpit or seat at the given grid coordinates. Use `fly I J K` first to get close enough.
