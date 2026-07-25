@@ -41,6 +41,9 @@ namespace LLE
 
 		private static Vector3D? CalculateInteractionPoint_Collision(IMySlimBlock block, Vector3D worldFrom)
 		{
+			if(block.CubeGrid.Physics == null)
+				MyConsole.Add($"Physics == null", Color.DarkRed);
+
 			var a = worldFrom;
 			Vector3D b;
 

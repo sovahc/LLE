@@ -83,13 +83,8 @@ namespace LLE
 			Vector3D boxMin = new Vector3D(min) - 0.5;
 			Vector3D boxMax = new Vector3D(max) + 0.5;
 
-			double tExit = double.MaxValue;
-			tExit = NearestPositive(tExit, dir.X, center.X, boxMin.X, boxMax.X);
-			tExit = NearestPositive(tExit, dir.Y, center.Y, boxMin.Y, boxMax.Y);
-			tExit = NearestPositive(tExit, dir.Z, center.Z, boxMin.Z, boxMax.Z);
-			if (tExit == double.MaxValue) return false;
-
-			Vector3D start = center + dir * tExit;
+			Vector3D start;
+			if(!ClipLineByBox(center, dir, boxMin, boxMax, out start)) return false;
 
 			// March from surface point back to center, half-cell steps.
 			Vector3D path = center - start;
@@ -117,11 +112,27 @@ namespace LLE
 			return false;
 		}
 
-		private static double NearestPositive(double best, double d, double c, double lo, double hi)
+		// assumes center starts inside (or on) the box
+		private static bool ClipLineByBox(Vector3D center, Vector3D direction, Vector3D min, Vector3D max, out Vector3D start)
 		{
-			if (Math.Abs(d) < 1e-9) return best;
-			double t = ((d > 0 ? hi : lo) - c) / d;
-			return (t > 0 && t < best) ? t : best;
+			double exitAtLength = double.MaxValue;
+			exitAtLength = ClipLength(exitAtLength, direction.X, center.X, min.X, max.X);
+			exitAtLength = ClipLength(exitAtLength, direction.Y, center.Y, min.Y, max.Y);
+			exitAtLength = ClipLength(exitAtLength, direction.Z, center.Z, min.Z, max.Z);
+			if (exitAtLength == double.MaxValue)
+			{	start = Vector3D.Zero;
+				return false;
+			}
+
+			start = center + direction * exitAtLength;
+			return true;
+		}
+
+		private static double ClipLength(double lowest, double direction, double center, double low, double high)
+		{
+			if (Math.Abs(direction) < 1e-9) return lowest;
+			double t = ((direction > 0 ? high : low) - center) / direction;
+			return (t > 0 && t < lowest) ? t : lowest;
 		}
 	}
 }
