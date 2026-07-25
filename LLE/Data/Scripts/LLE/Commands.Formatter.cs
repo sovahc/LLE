@@ -68,6 +68,8 @@ namespace LLE
 			{	if(grid.IsStatic) category = "STATION";
 				else if(grid.GridSizeEnum == MyCubeSize.Large) category = "LARGE GRID";
 				else if(grid.GridSizeEnum == MyCubeSize.Small) category = "SMALL GRID";
+
+				if(!grid.IsStatic && grid.Physics == null) category += " (PROJECTION)";
 				return;
 			}
 			var voxel = e as MyVoxelBase;
