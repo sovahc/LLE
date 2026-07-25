@@ -177,6 +177,30 @@ namespace LLE
 			return (distanceX * distanceX + distanceY * distanceY + distanceZ * distanceZ) <= (sphereRadius * sphereRadius);
 		}
 
+		// Clip a ray (center + t*direction, t>0) against an axis-aligned box, returning the exit point.
+		// assumes center starts inside (or on) the box
+		public static bool ClipLineByBox(Vector3D center, Vector3D direction, Vector3D min, Vector3D max, out Vector3D start)
+		{
+			double exitAtLength = double.MaxValue;
+			exitAtLength = ClipLength(exitAtLength, direction.X, center.X, min.X, max.X);
+			exitAtLength = ClipLength(exitAtLength, direction.Y, center.Y, min.Y, max.Y);
+			exitAtLength = ClipLength(exitAtLength, direction.Z, center.Z, min.Z, max.Z);
+			if (exitAtLength == double.MaxValue)
+			{	start = Vector3D.Zero;
+				return false;
+			}
+
+			start = center + direction * exitAtLength;
+			return true;
+		}
+
+		private static double ClipLength(double lowest, double direction, double center, double low, double high)
+		{
+			if (Math.Abs(direction) < 1e-9) return lowest;
+			double t = ((direction > 0 ? high : low) - center) / direction;
+			return (t > 0 && t < lowest) ? t : lowest;
+		}
+
 		// ! Modified ! Möller–Trumbore Ray-Triangle Intersection
 		public static float? GetLineParallelogramIntersection(ref Line line, ref Parallelogram parallelogram)
 		{

@@ -5,6 +5,7 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.ModAPI;
+using Sandbox.Game.Entities;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
@@ -42,7 +43,12 @@ namespace LLE
 		private static Vector3D? CalculateInteractionPoint_Collision(IMySlimBlock block, Vector3D worldFrom)
 		{
 			if(block.CubeGrid.Physics == null)
-				MyConsole.Add($"Physics == null", Color.DarkRed);
+			{	// projected block: not worth navigating to at all if it can't actually be built yet
+				var mcg = block.CubeGrid as MyCubeGrid;
+				var projector = mcg?.Projector as IMyProjector;
+				if(projector == null || projector.CanBuild(block, true) != BuildCheckResult.OK)
+					return null;
+			}
 
 			var a = worldFrom;
 			Vector3D b;
@@ -51,16 +57,20 @@ namespace LLE
 			{	// light, camera, etc.
 				var fat = block.FatBlock;
 				if (fat == null) return null;
-				
+
 				b = fat.PositionComp.WorldAABB.Center;
 				return b;
 			}
 
 			if(block.Min != block.Max)
-			{	/// nearest cell??				
+			{	/// nearest cell??
 			}
 
 			b = Collisions.GetGrindWeldTarget(block, a);
+
+			if(block.CubeGrid.Physics == null)
+				// projector preview block: no physics body to raycast against, clip to the block's own bounding box instead
+				return ClipToBlockBoundingBox(block, a, b);
 
 			IHitInfo hitInfo;
 			MyAPIGateway.Physics.CastRay(a, b, out hitInfo, CollisionLayers.CollisionLayerWithoutCharacter);
@@ -75,6 +85,39 @@ namespace LLE
 			if (hitBlock != block) return null;
 
 			return hit;
+		}
+
+		// Crude interaction point when there's no physics to raycast against (projector previews):
+		// clip the line from the block center toward the viewer against the block's own local
+		// bounding box, in the block's model space (so grid/block rotation is accounted for).
+		private static Vector3D ClipToBlockBoundingBox(IMySlimBlock block, Vector3D worldFrom, Vector3D worldCenter)
+		{
+			var modelFrom = Transform.WorldToModel(block, worldFrom);
+			var modelCenter = Transform.WorldToModel(block, worldCenter);
+
+			Vector3D boxMin, boxMax;
+
+			CollisionGeometry geometry;
+			Vector3 localMin, localMax;
+			if (Collisions._collisionGeometry.TryGetValue(block.BlockDefinition.Id, out geometry) &&
+				Collisions.GetLocalBounds(geometry, out localMin, out localMax))
+			{	// shape bounds are already in the block's model space (see PreprocessCG) — same space as modelFrom/modelCenter
+				boxMin = new Vector3D(localMin);
+				boxMax = new Vector3D(localMax);
+			}
+			else
+			{	// no known geometry: fall back to the block's cell footprint (grid-axis-aligned, exact only for single-cell blocks)
+				double cellSize = block.CubeGrid.GridSize;
+				var halfExtents = new Vector3D(block.Max - block.Min + Vector3I.One) * cellSize * 0.5;
+				boxMin = -halfExtents;
+				boxMax = halfExtents;
+			}
+
+			Vector3D clipped;
+			if (!Intersections.ClipLineByBox(modelCenter, modelFrom - modelCenter, boxMin, boxMax, out clipped))
+				return worldCenter;
+
+			return Transform.ModelToWorld(block, clipped);
 		}
 
 		private static Vector3D? CalculateInteractionPoint_Detectors(

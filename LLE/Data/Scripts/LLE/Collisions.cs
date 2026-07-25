@@ -380,6 +380,41 @@ namespace LLE
 			return true;
 		}
 
+		// Bounds (in the block's own model space, see PreprocessCG) of all known collision shapes.
+		// Returns false if the block has no known shapes.
+		internal static bool GetLocalBounds(CollisionGeometry geometry, out Vector3 min, out Vector3 max)
+		{
+			min = new Vector3(float.MaxValue);
+			max = new Vector3(float.MinValue);
+			bool any = false;
+
+			foreach (var shape in geometry.Shapes)
+			{
+				var convex = shape as ConvexHullShape;
+				if (convex != null)
+				{
+					foreach (var v in convex.Vertices)
+					{
+						min = Vector3.Min(min, v);
+						max = Vector3.Max(max, v);
+						any = true;
+					}
+					continue;
+				}
+
+				var sphere = shape as SphereShape;
+				if (sphere != null)
+				{
+					var r = new Vector3(sphere.Radius);
+					min = Vector3.Min(min, sphere.Center - r);
+					max = Vector3.Max(max, sphere.Center + r);
+					any = true;
+				}
+			}
+
+			return any;
+		}
+
 		// Returns the best available world-space target point for a block:
 		// nearest collision center, or model AABB center, or cell center.
 		public static Vector3D GetGrindWeldTarget(IMySlimBlock block, Vector3D worldPoint)

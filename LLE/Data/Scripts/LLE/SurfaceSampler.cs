@@ -84,7 +84,7 @@ namespace LLE
 			Vector3D boxMax = new Vector3D(max) + 0.5;
 
 			Vector3D start;
-			if(!ClipLineByBox(center, dir, boxMin, boxMax, out start)) return false;
+			if(!Intersections.ClipLineByBox(center, dir, boxMin, boxMax, out start)) return false;
 
 			// March from surface point back to center, half-cell steps.
 			Vector3D path = center - start;
@@ -110,29 +110,6 @@ namespace LLE
 				}
 			}
 			return false;
-		}
-
-		// assumes center starts inside (or on) the box
-		private static bool ClipLineByBox(Vector3D center, Vector3D direction, Vector3D min, Vector3D max, out Vector3D start)
-		{
-			double exitAtLength = double.MaxValue;
-			exitAtLength = ClipLength(exitAtLength, direction.X, center.X, min.X, max.X);
-			exitAtLength = ClipLength(exitAtLength, direction.Y, center.Y, min.Y, max.Y);
-			exitAtLength = ClipLength(exitAtLength, direction.Z, center.Z, min.Z, max.Z);
-			if (exitAtLength == double.MaxValue)
-			{	start = Vector3D.Zero;
-				return false;
-			}
-
-			start = center + direction * exitAtLength;
-			return true;
-		}
-
-		private static double ClipLength(double lowest, double direction, double center, double low, double high)
-		{
-			if (Math.Abs(direction) < 1e-9) return lowest;
-			double t = ((direction > 0 ? high : low) - center) / direction;
-			return (t > 0 && t < lowest) ? t : lowest;
 		}
 	}
 }
