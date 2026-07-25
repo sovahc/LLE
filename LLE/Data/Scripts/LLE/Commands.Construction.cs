@@ -49,6 +49,7 @@ namespace LLE
 			string message;
 
 			if(!GridIsSet(out message)) yield return message;
+			if(!NotProjection(out message)) yield return message;
 
 			Vector3I ijk;
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
@@ -224,6 +225,7 @@ namespace LLE
 		{
 			string message;
 			if (!GridIsSet(out message)) yield return message;
+			if (!NotProjection(out message)) yield return message;
 
 			Vector3I ijk;
 			if (!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";

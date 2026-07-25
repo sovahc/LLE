@@ -43,6 +43,7 @@ namespace LLE
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
+			if(!NotProjection(out message)) return message;
 
 			Vector3I ijk;
 			if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";

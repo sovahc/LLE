@@ -438,6 +438,17 @@ drop [quantity|all] 'name'
 			return true;
 		}
 
+		// Guard for commands that assume a real, physical grid. A projector's preview grid has no
+		// physics, no real inventories/power/seats — not supported yet, use grind/weld instead.
+		internal bool NotProjection(out string message)
+		{	if(IsProjection(selectedGrid))
+			{	message = "Error: selected grid is a projection preview, not a built object. Not supported for this command.";
+				return false;
+			}
+			message = null;
+			return true;
+		}
+
 		internal Vector3I NearestToEngineer(List<Vector3I> list)
 		{	Vector3D ec = GetEngineerCenter();
 

@@ -42,10 +42,10 @@ namespace LLE
 
 		private static Vector3D? CalculateInteractionPoint_Collision(IMySlimBlock block, Vector3D worldFrom)
 		{
-			if(block.CubeGrid.Physics == null)
+			if(Commands.IsProjection(block.CubeGrid))
 			{	// projected block: not worth navigating to at all if it can't actually be built yet
 				var mcg = block.CubeGrid as MyCubeGrid;
-				var projector = mcg?.Projector as IMyProjector;
+				var projector = mcg.Projector as IMyProjector;
 				if(projector == null || projector.CanBuild(block, true) != BuildCheckResult.OK)
 					return null;
 			}
@@ -68,7 +68,7 @@ namespace LLE
 
 			b = Collisions.GetGrindWeldTarget(block, a);
 
-			if(block.CubeGrid.Physics == null)
+			if(Commands.IsProjection(block.CubeGrid))
 				// projector preview block: no physics body to raycast against, clip to the block's own bounding box instead
 				return ClipToBlockBoundingBox(block, a, b);
 

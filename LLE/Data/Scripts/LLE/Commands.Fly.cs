@@ -157,6 +157,10 @@ namespace LLE
 					yield return $"Error: unknown fly intention '{intentionWord}'. Expected: grind, weld, get, put, recharge, enter";
 				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
+				// Only grind/weld make sense on a projection preview — it has no real inventory, power, or seats yet.
+				if(intention.Value != InteractionKind.GrindWeld && IsProjection(selectedGrid))
+					yield return $"Error: selected grid is a projection preview — '{intentionWord}' is not supported on it yet.";
+
 				var eqsr = new List<EQSResult>();
 				EQS.Query(block, GetEngineerCenter(), intention.Value, eqsr, 10);
 
