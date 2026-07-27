@@ -23,6 +23,8 @@ using Sandbox.ModAPI;
 //   yield return IEnumerator;  = run nested coroutine to completion, then resume parent
 //   yield break;              = done at this level (parent resumes, or command ends)
 // ! Re-query engine objects after `yield return null;` don't cache references.
+// ! A top-level coroutine MUST end with a CommandResult (Success/Incomplete/string).
+//   Falling off the end or `yield break` at top level is reported as Incomplete by Update().
 //
 // Design note: `yield return "error msg"` without a trailing `yield break;` works because
 // Commands.Update() disposes the entire coroutine stack the moment it receives a string.
@@ -607,8 +609,13 @@ drop [quantity|all] 'name'
 
 				coroutineStack.Pop(); // parent resumes next tick, or command ends
 
+				// Top-level coroutine ended without yielding a result. Every command must answer
+				// the LLM: LLM.Tick() dequeues the batch head only in OnCommandFinished, so a
+				// silent end would re-run this command every tick, forever.
 				if(coroutineStack.Count == 0)
-					MyConsole.Add("!yield break!", Color.DarkRed);
+				{	MyConsole.Add("!yield break!", Color.DarkRed);
+					return Incomplete("Command stopped early.");
+				}
 			}
 			return null;
 		}

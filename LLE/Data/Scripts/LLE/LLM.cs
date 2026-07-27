@@ -122,6 +122,11 @@ namespace LLE
 
 			var result = commands.Execute(batch.Peek());
 
+			// Execute() returns null only when it pushed a coroutine. If it didn't, the head
+			// would never be dequeued and Tick() would re-run this command every tick.
+			if (result == null && !commands.InProgress())
+				result = $"Internal error: command '{batch.Peek()}' produced no result.";
+
 			if (result != null)
 			{
 				// Synchronous command — continue immediately

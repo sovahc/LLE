@@ -138,6 +138,9 @@ namespace LLE
 			}
 
 			var tb = block.FatBlock as IMyTerminalBlock;
+			if(tb == null || !(IsSurvivalKit(tb) || tb is IMyMedicalRoom))
+				yield return $"There is no way to recharge from {Name(block)} at {IJK(ijk)}.";
+
 			if(IsSurvivalKit(tb) || tb is IMyMedicalRoom)
 			{
 				if(!IsAtInteractionPoint(block, InteractionKind.Recharge, out message))

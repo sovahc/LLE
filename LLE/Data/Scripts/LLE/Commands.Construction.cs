@@ -106,7 +106,8 @@ namespace LLE
 				MyGunStatusEnum status = MyGunStatusEnum.Cooldown;
 				for(int i = 0; i < 30; ++i)
 				{	grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-					if(grinderGun == null) yield break; // intentional stop on user interaction
+					if(grinderGun == null)
+						yield return Incomplete("Grinder was unequipped — grinding stopped.");
 					
 					if(grinderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
 						break;
@@ -320,7 +321,8 @@ namespace LLE
 				MyGunStatusEnum status = MyGunStatusEnum.Cooldown;
 				for(int i = 0; i < 30; ++i)
 				{	welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-					if(welderGun == null) yield break; // intentional stop on user interaction
+					if(welderGun == null)
+						yield return Incomplete("Welder was unequipped — welding stopped.");
 					
 					if(welderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
 						break;
