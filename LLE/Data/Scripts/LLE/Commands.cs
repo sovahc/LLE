@@ -572,6 +572,12 @@ drop [quantity|all] 'name'
 		{	return coroutineStack.Count > 0;
 		}
 
+		// Dispose the whole coroutine stack. The command is over — nothing will resume.
+		internal void AbortCommand()
+		{	foreach(var c in coroutineStack) (c as IDisposable)?.Dispose();
+			coroutineStack.Clear();
+		}
+
 		internal CommandResult Update()
 		{
 			if (coroutineStack.Count == 0) return null;
@@ -590,11 +596,8 @@ drop [quantity|all] 'name'
 				}
 
 				if(result != null)
-				{ 
-					// Dispose all
-					foreach(var c in coroutineStack) (c as IDisposable)?.Dispose();
-					coroutineStack.Clear();
-
+				{
+					AbortCommand();
 					return result;
 				}
 
@@ -625,6 +628,13 @@ drop [quantity|all] 'name'
 			CommandResult result = null;
 
 			var tp = new TokenParser(command);
+
+			// A coroutine command is still running (LLM.Tick() only calls this when idle, so
+			// this is a manual chat command). Pushing now would stack the new coroutine on top
+			// of the running one, and the first result would dispose the whole stack — which
+			// LLM.Tick() would then charge to the LLM's own in-flight command.
+			if(coroutineStack.Count != 0)
+				return "Error: another command is still running. Wait for it to finish.";
 
 			if(tp.Match("Pause"))
 			{	LLM.pause = true;

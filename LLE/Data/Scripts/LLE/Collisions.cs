@@ -14,8 +14,12 @@ namespace LLE
 {
 	public partial class Collisions
 	{
-		internal static Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry;
-		internal static Dictionary<MyDefinitionId, Traversability> _traversabilityCache;
+		// Never null: every lookup treats a miss as "unknown block = solid", which degrades
+		// gracefully. A null dictionary would NRE on the first query instead.
+		internal static readonly Dictionary<MyDefinitionId, CollisionGeometry> _collisionGeometry =
+			new Dictionary<MyDefinitionId, CollisionGeometry>(MyDefinitionId.Comparer);
+		internal static readonly Dictionary<MyDefinitionId, Traversability> _traversabilityCache =
+			new Dictionary<MyDefinitionId, Traversability>(MyDefinitionId.Comparer);
 
 		// Reusable buffer for DDA cell traversal. The mod is single-threaded.
 		static readonly List<Vector3I> _gridLineCells = new List<Vector3I>();
@@ -24,6 +28,10 @@ namespace LLE
 
 		public static void Load(IMyModContext ModContext)
 		{
+			// Load() runs per session start — drop anything left over from a previous world.
+			_collisionGeometry.Clear();
+			_traversabilityCache.Clear();
+
 			const string collisions_bin = "Data/collisions.bin";
 			if (!MyAPIGateway.Utilities.FileExistsInModLocation(collisions_bin, ModContext.ModItem))
 			{
@@ -35,8 +43,10 @@ namespace LLE
 			{
 				var data = reader.ReadBytes((int)reader.BaseStream.Length);
 				var textDict = MyAPIGateway.Utilities.SerializeFromBinary<Dictionary<DefinitionIdAsText, CollisionGeometry>>(data);
-				_collisionGeometry = new Dictionary<MyDefinitionId, CollisionGeometry>(MyDefinitionId.Comparer);
-				_traversabilityCache = new Dictionary<MyDefinitionId, Traversability>(MyDefinitionId.Comparer);
+				if (textDict == null)
+				{	MyConsole.Add($"ERROR: failed to deserialize {collisions_bin}", Color.Red);
+					return;
+				}
 				foreach (var kv in textDict)
 				{
 					MyObjectBuilderType typeId;
