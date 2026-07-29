@@ -67,7 +67,7 @@ namespace LLE
 		private MessageType lastType = MessageType.Stop;
 		private bool waitingForResponse;
 		public static bool pause;
-		public static bool contextWarning;
+		public static int contextWarnStage;
 
 		private Commands commands;
 
@@ -202,16 +202,29 @@ namespace LLE
 					LLE_Loader.RestartContext();
 					commands.SetSystemPromptAndMemory();
 					Append("[CONTEXT AUTO-RESET — context was full]\n", Color.Red);
-					contextWarning = false;
+					contextWarnStage = 0;
 				}
 				else
 				{	int pct = used * 100 / total;
-					if(!contextWarning && pct >= 90)
-					{	contextWarning = true;
 
-						Append($"!WARNING: Context is {pct}% full."
-							+ " Save important info: memory 'key' 'value'"
-							+ ", then reset: restart\n", Color.Yellow);
+					// Escalating warnings: a weak model ignores a single polite notice,
+					// so each stage gets louder and the last one is an order.
+					int stage = pct >= 90 ? 3 : pct >= 80 ? 2 : pct >= 70 ? 1 : 0;
+
+					if(stage > contextWarnStage)
+					{	contextWarnStage = stage;
+
+						if(stage == 1)
+							Append($"!Warning: Context is {pct}% full."
+								+ " Save anything you must not forget: memory 'key' 'value'\n", Color.Yellow);
+						else if(stage == 2)
+							Append($"!WARNING: Context is {pct}% full."
+								+ " Save your state now: memory 'key' 'value'"
+								+ ", then reset it yourself: restart\n", Color.Yellow);
+						else
+							Append($"!ERROR: Context is {pct}% full and will be wiped automatically very soon."
+								+ " You must save your state with memory 'key' 'value' and then issue restart."
+								+ " Everything not in memory will be lost.\n", Color.Red);
 					}
 				}
 
