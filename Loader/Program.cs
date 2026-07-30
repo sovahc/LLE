@@ -46,7 +46,11 @@ namespace LLELoader
 	static class MessageBroker
 	{
 		private const int ContextWindow = 100000;
-		private const int max_tokens = 1000;
+		// Thinking on: without the channel Gemma matches patterns, with it she checks her own
+		// trace — 70% against 98% on placement. Measured in the GemmaBuilder project.
+		// The budget covers the reasoning too, which runs to ~10k tokens on a multi-block job.
+		private const int max_tokens = 20000;
+		private const bool EnableThinking = true;
 
 		private static string _systemPrompt = "";
 
@@ -119,9 +123,9 @@ namespace LLELoader
 					["stream"] = true,
 				};
 				if (_config.Provider == "local")
-					payload["chat_template_kwargs"] = new { enable_thinking = false };
+					payload["chat_template_kwargs"] = new { enable_thinking = EnableThinking };
 				else //if (_config.Provider == "openrouter")
-					payload["reasoning"] = new { enabled = false };
+					payload["reasoning"] = new { enabled = EnableThinking };
 
 				var body = System.Text.Json.JsonSerializer.Serialize(payload);
 

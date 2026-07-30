@@ -325,6 +325,12 @@ namespace LLE
 		{
 			content = content.Trim();
 
+			// The bot's own words go back into the transcript. Without them it reads a list of
+			// results with no record of what it said or meant. Reasoning stays out: the chat
+			// template drops thought from previous turns anyway.
+			// Straight into output, not through Append — the console printed it while streaming.
+			output.Append("[YOU]:\n").Append(content).Append("\n");
+
 			const string openTag  = "<execute>";
 			const string closeTag = "</execute>";
 
