@@ -47,9 +47,12 @@ namespace LLE
 		{	return $"{v.X} {v.Y} {v.Z}";
 		}
 
+		// Name of an empty cell in listings; const so callers need not match a literal.
+		public const string FreeSpace = "Free space";
+
 		public static string Name(IMySlimBlock block)
 		{
-			if(block == null) return "Free space";
+			if(block == null) return FreeSpace;
 			return block.BlockDefinition.DisplayNameText;
 		}
 

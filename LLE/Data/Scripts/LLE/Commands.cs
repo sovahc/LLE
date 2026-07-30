@@ -87,6 +87,10 @@ namespace LLE
 			return character.GetPosition() + Constants.EngineerHeight/2 * character.WorldMatrix.Up;
 		}
 
+		// Never add an exemplar answering with a bare <execute> block: with thinking off —
+		// the shipping mode — that cost placement 77%→57% and orientation 77%→50% by
+		// teaching terseness instead of method. Harmless with thinking on. Whether the
+		// illustration below does the same is unchecked. 2026-07-30, ~/Projects/GemmaBuilder.
 		internal static string Help()
 		{
 			return @"
