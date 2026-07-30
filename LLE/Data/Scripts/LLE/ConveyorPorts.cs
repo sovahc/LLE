@@ -3,17 +3,25 @@ using System.Collections.Generic;
 using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
-using VRage.Game.Models;
 using Sandbox.Definitions;
+using Sandbox.Common.ObjectBuilders;
 
-// Conveyor port geometry, read out of the game's own data instead of tabulated.
+// Conveyor port geometry. There is no port data in a block definition — in this engine a port
+// is a model dummy named `detector_conveyor*`, and the game reads those in
+// MyConveyorLine.GetBlockLinePositions (Sandbox.Game.decompiled.cs:313961).
 //
-// A block's ports live in its model as dummies named `detector_conveyor*`. The game reads
-// them in MyConveyorLine.GetBlockLinePositions (Sandbox.Game.decompiled.cs:313961) and caches
-// the result per definition. That method takes a MyCubeBlock instance and we need the ports
-// of a block that does not exist yet, so the computation is repeated here — verbatim, so it
-// cannot drift from the engine. Placing a port into grid coordinates follows
-// MyConveyorConnector.PositionToGridCoords (same file, :418595).
+// That method, and MyModels with it, is outside the mod whitelist, so the dummies are read
+// through the mod API instead: IMyModel.GetDummies, the same call the published LeakFinder and
+// RealEnergy mods use. It needs a block that is actually standing, so ports are learned from
+// real blocks and cached per definition — which is enough, because every block a run is routed
+// to or from is on the grid by definition.
+//
+// The one case with no instance to learn from is the tube about to be built. For a conveyor
+// tube or junction — and only for those two object builder types — the mount points are the
+// ports: the block attaches by exactly the faces its ports are on. Checked in
+// CubeBlocks_Logistics.sbc: ConveyorTube mounts Top+Bottom, ConveyorTubeCurved Bottom+Right,
+// ConveyorTubeSmall Back+Front (so this is not a fact about `up`), LargeBlockConveyor carries
+// no MountPoints element and MyCubeBlockDefinition.InitMountPoints then generates all six.
 
 namespace LLE
 {
@@ -30,6 +38,9 @@ namespace LLE
 
 		private static readonly Dictionary<MyDefinitionId, ConveyorPort[]> localCache =
 			new Dictionary<MyDefinitionId, ConveyorPort[]>();
+
+		private static readonly Dictionary<string, IMyModelDummy> dummies =
+			new Dictionary<string, IMyModelDummy>();
 
 		// +X -X +Y -Y +Z -Z, the order the model reads and writes directions in. AllOrientations
 		// inherits it, so where several orientations put the ports in the same place — the four
@@ -56,56 +67,95 @@ namespace LLE
 			return list.ToArray();
 		}
 
-		/// <summary>Ports in the block's own coordinates. Empty if the block has none.</summary>
+		private static void AddOnce(List<ConveyorPort> list, Vector3I cell, Base6Directions.Direction d)
+		{
+			for (int i = 0; i < list.Count; ++i)
+				if (list[i].Cell == cell && list[i].Direction == d) return;
+
+			list.Add(new ConveyorPort { Cell = cell, Direction = d });
+		}
+
+		/// <summary>Ports in the block's own coordinates. Empty when they are not known.</summary>
 		public static ConveyorPort[] Local(MyCubeBlockDefinition def)
 		{
 			ConveyorPort[] cached;
 			if (localCache.TryGetValue(def.Id, out cached)) return cached;
 
-			var found = new List<ConveyorPort>();
-
-			if (!string.IsNullOrEmpty(def.Model))
-			{
-				float cubeSize = MyDefinitionManager.Static.GetCubeSize(def.CubeSize);
-				Vector3 half = new Vector3(def.Size) * 0.5f * cubeSize;
-
-				var model = MyModels.GetModelOnlyDummies(def.Model);
-
-				foreach (var dummy in model.Dummies)
-				{
-					var parts = dummy.Key.ToLower().Split('_');
-					if (parts.Length < 2 || parts[0] != "detector" || !parts[1].StartsWith("conveyor")) continue;
-
-					// The dummy sits on a face of one of the block's cells; its offset from that
-					// cell's centre, snapped to the dominant axis, is the port direction.
-					Vector3 p = dummy.Value.Matrix.Translation + def.ModelOffset + half;
-					Vector3I cell = Vector3I.Min(
-						Vector3I.Max(Vector3I.Floor(p / cubeSize), Vector3I.Zero),
-						def.Size - Vector3I.One);
-
-					Vector3 centre = (new Vector3(cell) + Vector3.Half) * cubeSize;
-					Vector3 v = Vector3.Normalize(Vector3.DominantAxisProjection((p - centre) / cubeSize));
-
-					var port = new ConveyorPort
-					{	Cell = cell - def.Center,
-						Direction = Base6Directions.GetDirection(v)
-					};
-
-					// A large and a small line can share one face — one port each face is enough.
-					bool duplicate = false;
-					for (int i = 0; i < found.Count; ++i)
-						if (found[i].Cell == port.Cell && found[i].Direction == port.Direction) duplicate = true;
-					if (!duplicate) found.Add(port);
-				}
+			var fromMounts = FromMountPoints(def);
+			if (fromMounts != null)
+			{	localCache[def.Id] = fromMounts;
+				return fromMounts;
 			}
 
-			cached = found.Count == 0 ? None : found.ToArray();
-			localCache[def.Id] = cached;
-			return cached;
+			return None; // nothing built yet to learn from
 		}
 
 		public static bool HasPorts(MyCubeBlockDefinition def)
 		{	return Local(def).Length != 0;
+		}
+
+		// Conveyor tubes and junctions only — for anything else a mount face says nothing about
+		// a port, and a reactor would come out claiming ports on all six.
+		private static ConveyorPort[] FromMountPoints(MyCubeBlockDefinition def)
+		{
+			if (def.Size != Vector3I.One) return null;
+
+			if (def.Id.TypeId != typeof(MyObjectBuilder_Conveyor) &&
+				def.Id.TypeId != typeof(MyObjectBuilder_ConveyorConnector)) return null;
+
+			if (def.MountPoints == null || def.MountPoints.Length == 0) return null;
+
+			var found = new List<ConveyorPort>();
+
+			for (int i = 0; i < def.MountPoints.Length; ++i)
+			{
+				if (!def.MountPoints[i].Enabled) continue;
+				AddOnce(found, Vector3I.Zero, Commands.DirOf(def.MountPoints[i].Normal));
+			}
+
+			return found.Count == 0 ? null : found.ToArray();
+		}
+
+		// Exact: the dummies of the block that is standing there. Returns null when the model has
+		// none to offer, which also happens on a half-welded block — its construction model
+		// carries no conveyor dummies, and an empty answer from one must not be cached.
+		private static ConveyorPort[] FromModel(IMySlimBlock block, MyCubeBlockDefinition def)
+		{
+			var fat = block.FatBlock;
+			if (fat == null || fat.Model == null) return null;
+
+			dummies.Clear();
+			if (fat.Model.GetDummies(dummies) == 0) return null;
+
+			float cubeSize = MyDefinitionManager.Static.GetCubeSize(def.CubeSize);
+			Vector3 half = new Vector3(def.Size) * 0.5f * cubeSize;
+
+			var found = new List<ConveyorPort>();
+
+			foreach (var dummy in dummies)
+			{
+				var parts = dummy.Key.ToLower().Split('_');
+				if (parts.Length < 2 || parts[0] != "detector" || !parts[1].StartsWith("conveyor")) continue;
+
+				// GetBlockLinePositions, verbatim: which cell of the block the dummy sits in, then
+				// its offset from that cell's centre snapped to the dominant axis.
+				Vector3 p = dummy.Value.Matrix.Translation + def.ModelOffset + half;
+				Vector3I cell = Vector3I.Min(
+					Vector3I.Max(Vector3I.Floor(p / cubeSize), Vector3I.Zero),
+					def.Size - Vector3I.One);
+
+				Vector3 centre = (new Vector3(cell) + Vector3.Half) * cubeSize;
+				Vector3 v = Vector3.Normalize(Vector3.DominantAxisProjection((p - centre) / cubeSize));
+
+				AddOnce(found, cell - def.Center, Base6Directions.GetDirection(v));
+			}
+
+			dummies.Clear();
+
+			if (found.Count != 0) return found.ToArray();
+
+			// Genuinely no ports — but only believe it once the block is finished.
+			return block.Integrity >= block.MaxIntegrity ? None : null;
 		}
 
 		/// <summary>Ports of a block standing on the grid: grid cells and grid directions.</summary>
@@ -117,11 +167,18 @@ namespace LLE
 			var def = block.BlockDefinition as MyCubeBlockDefinition;
 			if (def == null) return;
 
+			ConveyorPort[] local;
+			if (!localCache.TryGetValue(def.Id, out local))
+			{
+				local = FromModel(block, def);
+				if (local != null) localCache[def.Id] = local;
+				else local = Local(def); // mount points, or nothing
+			}
+
 			var orientation = block.Orientation;
 			Matrix rotation;
 			orientation.GetMatrix(out rotation);
 
-			var local = Local(def);
 			for (int i = 0; i < local.Length; ++i)
 			{
 				result.Add(new ConveyorPort
