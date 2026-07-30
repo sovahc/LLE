@@ -285,11 +285,17 @@ namespace LLE
 			if(!GridIsSet(out message)) yield return message;
 			if(!NotProjection(out message)) yield return message;
 
-			double count; Vector3I ijkFrom, ijkTo;
+			double count = 0; Vector3I ijkFrom, ijkTo;
+			bool allItems = false;
+			string item = null;
 
-			if(!tp.NextDouble(out count)) yield return "Error: expected count";
-
-			var item = tp.NextString();
+			if(tp.Match("all") && tp.Match("items"))
+			{	allItems = true;
+			}
+			else
+			{	if(!tp.NextDouble(out count)) yield return "Error: expected count";
+				item = tp.NextString();
+			}
 
 			if(!tp.Match("from")) yield return "Error: expected 'from'";
 
@@ -326,19 +332,24 @@ namespace LLE
 			for (int ii = 0; ii < fatTo.InventoryCount; ++ii)
 				toList.Add(fatTo.GetInventory(ii));
 
-			List<string> items = new List<string>() { item };
-
 			StringBuilder sb = new StringBuilder();
 			sb.Append($"Transferring from {fromName} into {toName}\n");
 
-			var full = InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb, requireConveyor: true);
-
-			yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
+			if(allItems)
+			{	var full = InventoryTransfer(fromList, toList, new List<string>(), MyFixedPoint.MaxValue, sb, requireConveyor: true);
+				yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
+			}
+			else
+			{	List<string> items = new List<string>() { item };
+				var full = InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb, requireConveyor: true);
+				yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
+			}
 		}
 
 		private static bool Include(MyPhysicalItemDefinition def, List<string> itemNames)
 		{
 			if(def == null) return false; // shouldn't happen
+			if(itemNames.Count == 0) return true; // empty filter = match every item
 
 			foreach(var name in itemNames)
 			{	if(def.DisplayNameText == name) return true;

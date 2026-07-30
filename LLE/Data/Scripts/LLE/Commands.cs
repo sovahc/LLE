@@ -189,6 +189,9 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 * transfer N 'item' from I J K to I₂ J₂ K₂
   Transfer N items from one inventory to another.
 
+* transfer all items from I J K to I₂ J₂ K₂
+  Transfer every item from one inventory to another.
+
 * search item 'substring' [N]
   Find items across nearby grids by partial name match. Returns N closest results (default 5).
   Example: search item 'Welder'
