@@ -135,8 +135,8 @@ namespace LLE
 				if (g != null && g != grid)
 					intersectingGrids.Add(g);
 			}
-			MyConsole.Add($"intersectingVoxels.Count {intersectingVoxels.Count}");
-			MyConsole.Add($"intersectingGrids.Count {intersectingGrids.Count}");
+			//MyConsole.Add($"intersectingVoxels.Count {intersectingVoxels.Count}");
+			//MyConsole.Add($"intersectingGrids.Count {intersectingGrids.Count}");
 		}
 
 		public Traversability GetForAstar(Vector3I astarPosition)
