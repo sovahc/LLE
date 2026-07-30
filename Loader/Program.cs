@@ -221,6 +221,36 @@ namespace LLELoader
 			}
 		}
 
+		[HarmonyPatchCategory("Early")]
+		static class Patch_ExperimentalText
+		{
+			// The HUD plate draws MyTexts.GetString(PerformanceWarningHeading_ExperimentalMode)
+			// every frame (Sandbox.Game MyGuiScreenHudBase.DrawString), so overwriting the entry
+			// in the localization package is enough. LoadLanguage() calls MyTexts.Clear() before
+			// every LoadTexts(), hence the postfix — it re-applies on a language switch too.
+			[HarmonyPatch(typeof(VRage.MyTexts), nameof(VRage.MyTexts.LoadTexts))]
+			[HarmonyPostfix]
+			static void Postfix()
+			{
+				try
+				{
+					var package = AccessTools.Field(typeof(VRage.MyTexts), "m_package")
+						.GetValue(null) as VRage.MyLocalizationPackage;
+					if (package == null)
+					{
+						Logger.Write("[LLELoader] MyTexts.m_package not found");
+						return;
+					}
+					package.AddMessage("PerformanceWarningHeading_ExperimentalMode", "VERY EXPERIMENTAL MODE", true);
+					Logger.Write("[LLELoader] Experimental mode plate text replaced");
+				}
+				catch (Exception ex)
+				{
+					Logger.Write("[LLELoader] Experimental text patch failed: " + ex);
+				}
+			}
+		}
+
 		[HarmonyPatchCategory("Late")]
 		static class Patch_ScriptManagerLoadData
 		{
