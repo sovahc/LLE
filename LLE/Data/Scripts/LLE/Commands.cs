@@ -108,7 +108,7 @@ number shrinks.
 
 ## EXECUTION RULES
 
-1. Think first, then put your commands inside a single <execute> block.
+1. Think first, then output your intent, then put your commands inside a single <execute> block.
    Each command on its own line:
 
    <execute>
@@ -118,7 +118,7 @@ number shrinks.
    </execute>
 
    You can write reasoning before or after the block — only its contents are executed.
-2. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
+2. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command, do not act yourself.
 3. Only report results after completing a task using `say 'text'`. Do not send progress updates during execution.
 4. If a task is complex or you hit an obstacle, use `note 'text'` to record your intent or how you'll adapt — it carries forward to your next step.
 5. At most 3 commands per <execute> block.
@@ -523,7 +523,7 @@ drop [quantity|all] 'name'
 				return Success($"Selected {category} {Quote(name)}");
 			}
 			
-			return $"Error: can't select {category} '{name}'";
+			return $"Error: you can't select {category} '{name}'";
 		}
 
 		internal bool GridIsSet(out string message)

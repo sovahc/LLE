@@ -46,11 +46,11 @@ namespace LLELoader
 	static class MessageBroker
 	{
 		private const int ContextWindow = 100000;
-		// Thinking on: without the channel Gemma matches patterns, with it she checks her own
+		// Thinking: without the channel Gemma matches patterns, with it she checks her own
 		// trace — 70% against 98% on placement. Measured in the GemmaBuilder project.
 		// The budget covers the reasoning too, which runs to ~10k tokens on a multi-block job.
 		private const int max_tokens = 20000;
-		private const bool EnableThinking = true;
+		private const bool EnableThinking = false;
 
 		private static string _systemPrompt = "";
 
