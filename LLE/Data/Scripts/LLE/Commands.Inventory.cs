@@ -388,7 +388,7 @@ namespace LLE
 					var transfer = amount;
 					if(transfer > item.Amount) transfer = item.Amount;
 					
-					MyFixedPoint transferred = InventoryTransfer(fromInv, i, toList, transfer);
+					MyFixedPoint transferred = InventoryTransfer(fromInv, i, toList, transfer, requireConveyor);
 					if(transferred > 0)
 					{
 						somethingTransferred = true;
@@ -413,7 +413,8 @@ namespace LLE
 			return somethingTransferred && !noSpaceWarning;
 		}
 
-		internal static MyFixedPoint InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount)
+		internal static MyFixedPoint InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount,
+			bool checkConnection = false)
 		{
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
 			from.GetItems(items);
@@ -432,7 +433,12 @@ namespace LLE
 				if (fits <= 0) continue;
 
 				MyFixedPoint toTransfer = MyFixedPoint.Min(amount - transferred, fits);
-				((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, toTransfer, true);
+
+				// checkConnection makes the game require a conveyor path between the two
+				// inventories; a character has no conveyor endpoint, so it must stay off there.
+				if(!((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, toTransfer, checkConnection))
+					continue;
+
 				transferred += toTransfer;
 			}
 
