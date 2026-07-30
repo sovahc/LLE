@@ -1,0 +1,212 @@
+using System.Collections.Generic;
+
+using VRageMath;
+using VRage.Game;
+using VRage.Game.ModAPI;
+using VRage.Game.Models;
+using Sandbox.Definitions;
+
+// Conveyor port geometry, read out of the game's own data instead of tabulated.
+//
+// A block's ports live in its model as dummies named `detector_conveyor*`. The game reads
+// them in MyConveyorLine.GetBlockLinePositions (Sandbox.Game.decompiled.cs:313961) and caches
+// the result per definition. That method takes a MyCubeBlock instance and we need the ports
+// of a block that does not exist yet, so the computation is repeated here — verbatim, so it
+// cannot drift from the engine. Placing a port into grid coordinates follows
+// MyConveyorConnector.PositionToGridCoords (same file, :418595).
+
+namespace LLE
+{
+	struct ConveyorPort
+	{
+		/// <summary>Which cell the port sits on: block-local offset from Local(), grid cell from OfBlock().</summary>
+		public Vector3I Cell;
+		public Base6Directions.Direction Direction;
+	}
+
+	static class ConveyorPorts
+	{
+		private static readonly ConveyorPort[] None = new ConveyorPort[0];
+
+		private static readonly Dictionary<MyDefinitionId, ConveyorPort[]> localCache =
+			new Dictionary<MyDefinitionId, ConveyorPort[]>();
+
+		// +X -X +Y -Y +Z -Z, the order the model reads and writes directions in. AllOrientations
+		// inherits it, so where several orientations put the ports in the same place — the four
+		// rolls of a straight tube around its own axis, the two of an elbow — the one answered is
+		// always the same one, and it is the one with `facing` earliest in this list. Checked
+		// against the orientation tables this replaced: every line of theirs is reproduced or
+		// answered with an equivalent roll, none with a wrong `up`.
+		public static readonly Base6Directions.Direction[] Six =
+		{	Base6Directions.Direction.Right,    Base6Directions.Direction.Left,
+			Base6Directions.Direction.Up,       Base6Directions.Direction.Down,
+			Base6Directions.Direction.Backward, Base6Directions.Direction.Forward
+		};
+
+		// The 24 orientations a cube block can be built in.
+		public static readonly MyBlockOrientation[] AllOrientations = BuildOrientations();
+
+		private static MyBlockOrientation[] BuildOrientations()
+		{
+			var list = new List<MyBlockOrientation>();
+			for (int f = 0; f < Six.Length; ++f)
+				for (int u = 0; u < Six.Length; ++u)
+					if (Base6Directions.IsValidBlockOrientation(Six[f], Six[u]))
+						list.Add(new MyBlockOrientation(Six[f], Six[u]));
+			return list.ToArray();
+		}
+
+		/// <summary>Ports in the block's own coordinates. Empty if the block has none.</summary>
+		public static ConveyorPort[] Local(MyCubeBlockDefinition def)
+		{
+			ConveyorPort[] cached;
+			if (localCache.TryGetValue(def.Id, out cached)) return cached;
+
+			var found = new List<ConveyorPort>();
+
+			if (!string.IsNullOrEmpty(def.Model))
+			{
+				float cubeSize = MyDefinitionManager.Static.GetCubeSize(def.CubeSize);
+				Vector3 half = new Vector3(def.Size) * 0.5f * cubeSize;
+
+				var model = MyModels.GetModelOnlyDummies(def.Model);
+
+				foreach (var dummy in model.Dummies)
+				{
+					var parts = dummy.Key.ToLower().Split('_');
+					if (parts.Length < 2 || parts[0] != "detector" || !parts[1].StartsWith("conveyor")) continue;
+
+					// The dummy sits on a face of one of the block's cells; its offset from that
+					// cell's centre, snapped to the dominant axis, is the port direction.
+					Vector3 p = dummy.Value.Matrix.Translation + def.ModelOffset + half;
+					Vector3I cell = Vector3I.Min(
+						Vector3I.Max(Vector3I.Floor(p / cubeSize), Vector3I.Zero),
+						def.Size - Vector3I.One);
+
+					Vector3 centre = (new Vector3(cell) + Vector3.Half) * cubeSize;
+					Vector3 v = Vector3.Normalize(Vector3.DominantAxisProjection((p - centre) / cubeSize));
+
+					var port = new ConveyorPort
+					{	Cell = cell - def.Center,
+						Direction = Base6Directions.GetDirection(v)
+					};
+
+					// A large and a small line can share one face — one port each face is enough.
+					bool duplicate = false;
+					for (int i = 0; i < found.Count; ++i)
+						if (found[i].Cell == port.Cell && found[i].Direction == port.Direction) duplicate = true;
+					if (!duplicate) found.Add(port);
+				}
+			}
+
+			cached = found.Count == 0 ? None : found.ToArray();
+			localCache[def.Id] = cached;
+			return cached;
+		}
+
+		public static bool HasPorts(MyCubeBlockDefinition def)
+		{	return Local(def).Length != 0;
+		}
+
+		/// <summary>Ports of a block standing on the grid: grid cells and grid directions.</summary>
+		public static void OfBlock(IMySlimBlock block, List<ConveyorPort> result)
+		{
+			result.Clear();
+			if (block == null) return;
+
+			var def = block.BlockDefinition as MyCubeBlockDefinition;
+			if (def == null) return;
+
+			var orientation = block.Orientation;
+			Matrix rotation;
+			orientation.GetMatrix(out rotation);
+
+			var local = Local(def);
+			for (int i = 0; i < local.Length; ++i)
+			{
+				result.Add(new ConveyorPort
+				{	Cell = Vector3I.Round(Vector3.Transform(new Vector3(local[i].Cell), rotation)) + block.Position,
+					Direction = orientation.TransformDirection(local[i].Direction)
+				});
+			}
+		}
+
+		/// <summary>Directions of a block's ports at one particular cell of it.</summary>
+		public static void AtCell(IMySlimBlock block, Vector3I cell, List<Base6Directions.Direction> result)
+		{
+			result.Clear();
+
+			var ports = new List<ConveyorPort>();
+			OfBlock(block, ports);
+
+			for (int i = 0; i < ports.Count; ++i)
+				if (ports[i].Cell == cell) result.Add(ports[i].Direction);
+		}
+
+		/// <summary>Port directions a 1x1x1 block would have if built in this orientation.</summary>
+		public static void InOrientation(MyCubeBlockDefinition def, MyBlockOrientation orientation,
+			List<Base6Directions.Direction> result)
+		{
+			result.Clear();
+			var local = Local(def);
+			for (int i = 0; i < local.Length; ++i)
+				result.Add(orientation.TransformDirection(local[i].Direction));
+		}
+
+		public static bool Contains(List<Base6Directions.Direction> list, Base6Directions.Direction d)
+		{
+			for (int i = 0; i < list.Count; ++i) if (list[i] == d) return true;
+			return false;
+		}
+
+		// --- the two run pieces ------------------------------------------------------------
+
+		// Vanilla subtypes, preferred when present. The geometric test below is the real
+		// criterion, so a mod's own tube is found too; the list only makes the choice stable.
+		private static readonly string[] PreferredStraight = { "ConveyorTube", "ConveyorTubeSmall" };
+		private static readonly string[] PreferredCurved = { "ConveyorTubeCurved", "ConveyorTubeSmallCurved" };
+
+		private static readonly Dictionary<int, MyCubeBlockDefinition> pieceCache =
+			new Dictionary<int, MyCubeBlockDefinition>();
+
+		/// <summary>The 1x1x1 two-port piece for a run: straight, or a 90-degree bend.</summary>
+		public static MyCubeBlockDefinition FindPiece(MyCubeSize size, bool curved)
+		{
+			int key = (int)size * 2 + (curved ? 1 : 0);
+
+			MyCubeBlockDefinition cached;
+			if (pieceCache.TryGetValue(key, out cached)) return cached;
+
+			var preferred = curved ? PreferredCurved : PreferredStraight;
+
+			MyCubeBlockDefinition best = null;
+
+			foreach (var d in MyDefinitionManager.Static.GetAllDefinitions())
+			{
+				var def = d as MyCubeBlockDefinition;
+				if (def == null || !def.Public) continue;
+				if (def.CubeSize != size) continue;
+				if (def.Size != Vector3I.One) continue;
+
+				var ports = Local(def);
+				if (ports.Length != 2) continue;
+
+				bool opposite = ports[0].Direction == Base6Directions.GetFlippedDirection(ports[1].Direction);
+				if (opposite == curved) continue; // straight wants opposite ports, curved wants perpendicular
+
+				for (int i = 0; i < preferred.Length; ++i)
+					if (def.Id.SubtypeName == preferred[i])
+					{	pieceCache[key] = def;
+						return def;
+					}
+
+				// no preferred subtype yet — keep the first by name, so the answer is stable
+				if (best == null || string.CompareOrdinal(def.Id.SubtypeName, best.Id.SubtypeName) < 0)
+					best = def;
+			}
+
+			pieceCache[key] = best;
+			return best;
+		}
+	}
+}

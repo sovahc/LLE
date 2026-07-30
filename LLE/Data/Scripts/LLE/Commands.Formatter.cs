@@ -47,6 +47,28 @@ namespace LLE
 		{	return $"{v.X} {v.Y} {v.Z}";
 		}
 
+		// `+X` … `-Z` as the LLM reads and writes them. Both of these go through
+		// Base6Directions.GetIntVector rather than a table, because Forward is -Z
+		// (Vector3I.cs:104-109) and every hand-written mapping gets that one wrong.
+		public static string Dir(Base6Directions.Direction d)
+		{	return Dir(Base6Directions.GetIntVector(d));
+		}
+
+		public static string Dir(Vector3I unit)
+		{
+			if (unit.X != 0) return unit.X > 0 ? "+X" : "-X";
+			if (unit.Y != 0) return unit.Y > 0 ? "+Y" : "-Y";
+			if (unit.Z != 0) return unit.Z > 0 ? "+Z" : "-Z";
+			return "?";
+		}
+
+		public static Base6Directions.Direction DirOf(Vector3I unit)
+		{
+			if (unit.X != 0) return unit.X > 0 ? Base6Directions.Direction.Right : Base6Directions.Direction.Left;
+			if (unit.Y != 0) return unit.Y > 0 ? Base6Directions.Direction.Up : Base6Directions.Direction.Down;
+			return unit.Z > 0 ? Base6Directions.Direction.Backward : Base6Directions.Direction.Forward;
+		}
+
 		// Name of an empty cell in listings; const so callers need not match a literal.
 		public const string FreeSpace = "Free space";
 

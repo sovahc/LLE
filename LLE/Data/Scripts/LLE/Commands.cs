@@ -170,9 +170,21 @@ number shrinks.
   The cell must be empty and must share a whole face with a block that is already on the grid.
   You must be within arm's reach of the cell — fly to a free cell beside it, not into it.
   The new block arrives at minimum integrity, so weld it immediately afterwards.
-  `facing` and `up` must lie on different axes. Omit both for blocks that attach by any face.
-  See PLACING BLOCKS below for the orientation of each type.
+  Do not work the orientation out yourself — run `orient` and copy the line it gives you.
   Example: place 'Gyroscope' 3 2 4 facing +X up +Y
+
+* orient 'block_type' I J K [ports D D₂]
+  Ask how to build 'block_type' in that cell. The answer is the whole `place` line, ready to copy.
+  Blocks that attach by any face get a line with no orientation at all — that is not an omission.
+  With `ports`, the answer is the single line whose conveyor ports look along those two directions.
+  Example: orient 'Gyroscope' 3 2 4
+  Example: orient 'Curved Conveyor Tube' 3 2 6 ports -Y +Z
+
+* route I J K I₂ J₂ K₂
+  The shortest conveyor run between two blocks that already stand on the grid. For every cell of
+  the run it gives the piece to put there and the two directions that piece's ports have to look.
+  Run it again from the piece you have just built to the same target, and it gives what is left.
+  Example: route 3 2 4 3 6 9
 
 * near
   Return all blocks in 3x3x3 cube around you (27 positions).
@@ -256,58 +268,29 @@ in your inventory to weld it.
 You have to be within arm's reach of the cell to build in it. If `place` says the cell is out
 of reach, fly to a free cell beside it — never into the cell you are about to fill.
 
-Orientation is two directions, `facing` and `up`, and they must lie on different axes. What
-matters is where the block's own faces end up: its bottom face looks along `-up`, its top face
-along `+up`, and its right face along `facing` × `up`.
+Never derive an orientation. Run `orient 'block_type' I J K` and copy the `place` line it
+answers with. It knows which faces the block mounts by and which way its conveyor ports look,
+and it only offers orientations that actually attach in that cell.
 
-### Light Armor Block, Heavy Armor Block
-They attach by all six faces, so the orientation makes no difference. Leave it out:
+## CONNECTING TWO BLOCKS WITH A CONVEYOR
 
-place 'Light Armor Block' 3 2 4
+`route I J K I₂ J₂ K₂` gives the shortest run of conveyor pieces between two built blocks. Each
+line of the answer is one piece: the block type, the cell to put it in, and the two directions
+its ports have to look. Turn a line into a command with `orient`.
 
-### Gyroscope
-It attaches by its bottom face and by nothing else, so `up` must point away from the block it
-stands on. Work out where that supporting block is, then copy the matching line:
+Build the run one piece at a time, in the order `route` gives them:
 
-  supporting block at I+1 : facing +Y up -X
-  supporting block at I-1 : facing +Y up +X
-  supporting block at J+1 : facing +X up -Y
-  supporting block at J-1 : facing +X up +Y
-  supporting block at K+1 : facing +Y up -Z
-  supporting block at K-1 : facing +Y up +Z
+route 3 2 4 3 6 9
+orient 'Conveyor Tube' 3 3 4 ports -Y +Y
 
-A Gyroscope at 3 2 4 resting on the block at 3 1 4 — that supporting block is at J-1:
+then, from what `orient` answered:
 
-place 'Gyroscope' 3 2 4 facing +X up +Y
+place 'Conveyor Tube' 3 3 4 facing +X up +Y
+fly 3 3 4 weld
+weld 3 3 4
 
-### Conveyor Tube
-A straight tube. Its two ports look along `+up` and along `-up`, so `up` is the axis the run
-goes along and only the axis matters:
-
-  run along the I axis : facing +Y up +X
-  run along the J axis : facing +X up +Y
-  run along the K axis : facing +Y up +Z
-
-### Curved Conveyor Tube
-A 90-degree bend. Its two ports look along `-up` and along `facing` × `up`. Decide which two
-directions the ports have to point, then copy the matching line:
-
-  ports +X and +Y : facing -Z up -X
-  ports +X and -Y : facing +Z up -X
-  ports +X and +Z : facing +Y up -X
-  ports +X and -Z : facing -Y up -X
-  ports -X and +Y : facing +Z up +X
-  ports -X and -Y : facing -Z up +X
-  ports -X and +Z : facing -Y up +X
-  ports -X and -Z : facing +Y up +X
-  ports +Y and +Z : facing -X up -Y
-  ports +Y and -Z : facing +X up -Y
-  ports -Y and +Z : facing +X up +Y
-  ports -Y and -Z : facing -X up +Y
-
-Two conveyor blocks are connected only when a port of one meets a port of the other face to
-face. A run is straight tubes with a curved tube at every corner. Check each joint against the
-cell next to it before you commit to the whole run.
+Then run `route` again — from the piece you have just welded to the same target — and it gives
+what is left of the run. You never have to remember the rest of it.
 
 ## TYPICAL WORKFLOWS
 ### Get items from cargo:
@@ -319,6 +302,10 @@ fly 5 0 2 weld
 weld 5 0 2
 
 ### Build a new block:
+orient 'Gyroscope' 3 2 4
+
+then, from what it answered:
+
 place 'Gyroscope' 3 2 4 facing +X up +Y
 fly 3 2 4 weld
 weld 3 2 4
@@ -794,6 +781,12 @@ drop [quantity|all] 'name'
 			}
 			else if(tp.Match("Place"))
 			{	result = Place(tp);
+			}
+			else if(tp.Match("Orient"))
+			{	result = Orient(tp);
+			}
+			else if(tp.Match("Route"))
+			{	coroutineStack.Push(Route(tp));
 			}
 			else if(tp.Match("Enter"))
 			{	result = Enter(tp);
