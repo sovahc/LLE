@@ -107,7 +107,7 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 ## EXECUTION RULES
 
 1. Think first, then output your intent, then put your commands inside an <execute> block.
-   Check that everything is correct; if you see an error, output a corrected <execute> block — only the last block will be executed.
+   Output exactly one <execute> block. Multiple blocks are rejected and nothing is executed.
    Each command must be on its own line.
 
    <execute>

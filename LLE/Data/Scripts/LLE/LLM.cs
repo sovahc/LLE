@@ -334,11 +334,24 @@ namespace LLE
 			const string openTag  = "<execute>";
 			const string closeTag = "</execute>";
 
-			int start = content.LastIndexOf(openTag, StringComparison.OrdinalIgnoreCase);
-			if (start < 0)
+			// Exactly one <execute> block is allowed; multiple blocks are rejected (not "keep the last").
+			int count = 0, scan = 0;
+			while (true)
+			{	int at = content.IndexOf(openTag, scan, StringComparison.OrdinalIgnoreCase);
+				if (at < 0) break;
+				count++;
+				scan = at + openTag.Length;
+			}
+			if (count == 0)
 			{	Append("[ERROR] No <execute> block found. Wrap your commands in <execute>...</execute>.\n", Color.Red);
 				return;
 			}
+			if (count > 1)
+			{	Append("[ERROR] Found " + count + " <execute> blocks; exactly one is allowed. No commands were executed. Put all commands into a single <execute> block.\n", Color.Red);
+				return;
+			}
+
+			int start = content.IndexOf(openTag, StringComparison.OrdinalIgnoreCase);
 			start += openTag.Length;
 
 			int end = content.IndexOf(closeTag, start, StringComparison.OrdinalIgnoreCase);
