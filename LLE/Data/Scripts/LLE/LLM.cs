@@ -334,14 +334,14 @@ namespace LLE
 			const string openTag  = "<execute>";
 			const string closeTag = "</execute>";
 
-			int start = content.LastIndexOf(openTag, System.StringComparison.OrdinalIgnoreCase);
+			int start = content.LastIndexOf(openTag, StringComparison.OrdinalIgnoreCase);
 			if (start < 0)
 			{	Append("[ERROR] No <execute> block found. Wrap your commands in <execute>...</execute>.\n", Color.Red);
 				return;
 			}
 			start += openTag.Length;
 
-			int end = content.IndexOf(closeTag, start, System.StringComparison.OrdinalIgnoreCase);
+			int end = content.IndexOf(closeTag, start, StringComparison.OrdinalIgnoreCase);
 			if (end < 0) end = content.Length;
 
 			var lines = content.Substring(start, end - start).Split('\n');
@@ -350,7 +350,7 @@ namespace LLE
 			{	string l = line.Trim();
 				if (l.Length == 0) continue;
 				// Strip optional "Execute " prefix for backward compat
-				if (l.StartsWith("Execute ", System.StringComparison.OrdinalIgnoreCase))
+				if (l.StartsWith("Execute ", StringComparison.OrdinalIgnoreCase))
 					l = l.Substring(8);
 				cc.Add(MyTrim(l));
 			}

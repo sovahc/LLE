@@ -102,14 +102,13 @@ You are inside the Space Engineers game.
 You control a character that can fly, weld, grind, build, and manage inventories.
 You operate on a selected grid (ship or station).
 
-Grid coordinates are written `I J K`. I is the X axis, J is the Y axis, K is the Z axis,
-so moving toward +Z means the third number grows and moving toward -Y means the second
-number shrinks.
+Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is the Z axis)
 
 ## EXECUTION RULES
 
-1. Think first, then output your intent, then put your commands inside a single <execute> block.
-   Each command on its own line:
+1. Think first, then output your intent, then put your commands inside an <execute> block.
+   Check that everything is correct; if you see an error, output a corrected <execute> block — only the last block will be executed.
+   Each command must be on its own line.
 
    <execute>
    inventory
@@ -117,18 +116,15 @@ number shrinks.
    weld 5 0 2
    </execute>
 
-   You can write reasoning before or after the block — only its contents are executed.
-2. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command, do not act yourself.
-3. Only report results after completing a task using `say 'text'`. Do not send progress updates during execution.
-4. If a task is complex or you hit an obstacle, use `note 'text'` to record your intent or how you'll adapt — it carries forward to your next step.
-5. At most 3 commands per <execute> block.
-6. Think as little as you possibly can. One paragraph is enough for any command — decide,
-   then act. Do not re-check a step you have already finished, and do not verify a result
-   that a command will report back to you anyway.
+2. At most 3 commands per <execute> block.
+3. Most commands, such as `grind`, `weld`, `put`, require you to be directly next to the target block.
+4. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
+5. The game chat is very small; use very short phrases, and write only once you have completed the task or cannot complete it.
+6. Save what matters most to memory on your own, without being asked.
 
 ## HINTS
 
-1. If you are missing required components or tools, run `inventories` on all grids to list all containers.
+1. If the `weld` command reports missing components, search for them with the `inventories` command on all grids near you.
 
 ## AVAILABLE COMMANDS
 
@@ -136,8 +132,9 @@ number shrinks.
   Puts the bot on pause. (If an event occurs in the world, the pause is automatically lifted)
 
 * memory 'key' 'value'
-  Save a key-value pair to persistent memory. Survives context resets. First argument is the key, second is the value.
+  Save a key-value pair to persistent memory. Survives context resets. The key and value are arbitrary. Writing again overwrites the previous value.
   Example: memory 'current_task' 'weld reactor at 5 0 2'
+  Example 2: memory 'user_preference' 'The user asked to follow him at a distance of 50 meters.'
 
 * restart
   Reset the conversation context. Memory (set via `memory`) is preserved.
@@ -160,31 +157,10 @@ number shrinks.
   With `headfirst`, flies in a dive orientation (head first, body along travel direction) to reduce the physical collision profile. Use this to unstick when stuck in tight spaces.
 
 * grind I J K
-  Grind a block at specific coordinates.
+  Grind a block at specific coordinates. You must be in a cell next to the block to grind it.
 
 * weld I J K
-  Weld a block at specific coordinates.
-
-* place 'block_type' I J K [facing D up D]
-  Build a new block at the given cell. D is one of +X -X +Y -Y +Z -Z.
-  The cell must be empty and must share a whole face with a block that is already on the grid.
-  You must be within arm's reach of the cell — fly to a free cell beside it, not into it.
-  The new block arrives at minimum integrity, so weld it immediately afterwards.
-  Do not work the orientation out yourself — run `orient` and copy the line it gives you.
-  Example: place 'Gyroscope' 3 2 4 facing +X up +Y
-
-* orient 'block_type' I J K [ports D D₂]
-  Ask how to build 'block_type' in that cell. The answer is the whole `place` line, ready to copy.
-  Blocks that attach by any face get a line with no orientation at all — that is not an omission.
-  With `ports`, the answer is the single line whose conveyor ports look along those two directions.
-  Example: orient 'Gyroscope' 3 2 4
-  Example: orient 'Curved Conveyor Tube' 3 2 6 ports -Y +Z
-
-* route I J K I₂ J₂ K₂
-  The shortest conveyor run between two blocks that already stand on the grid. For every cell of
-  the run it gives the piece to put there and the two directions that piece's ports have to look.
-  Run it again from the piece you have just built to the same target, and it gives what is left.
-  Example: route 3 2 4 3 6 9
+  Weld a block at specific coordinates. You must be in a cell next to the block to weld it.
 
 * near
   Return all blocks in 3x3x3 cube around you (27 positions).
@@ -236,12 +212,8 @@ number shrinks.
 * say 'message'
   Send a message to the in-game chat.
 
-* note 'text'
-  Leave a note to yourself in the conversation. Carries forward your plan across multiple steps.
-  Example: note 'base has no iron — grind Old Rover, then build reactor'
-
 * enter I J K
-  Enter the cockpit or seat at the given grid coordinates. Use `fly I J K` first to get close enough.
+  Enter the cockpit or seat at the given grid coordinates. 
 
 * exit
   Leave the current cockpit or seat.
@@ -250,10 +222,28 @@ number shrinks.
   List blocks on the selected grid that can recharge you.
 
 * recharge I J K
-  Recharge at the block at the given grid coordinates. Use `fly I J K` first to get close enough.
+  Recharge at the block at the given grid coordinates.
   For cockpits, cryo-chambers and seats: sits the bot in it, exits automatically when done.
   For medblocks and survival kits: collects energy near the block through a port.
 
+## TYPICAL WORKFLOWS
+### Get items from cargo:
+fly 5 3 1 get
+get 10 'Steel Plate' from 5 3 1
+
+### Weld a damaged block:
+fly 5 0 2 weld
+weld 5 0 2
+
+### Recharge:
+fly -4 3 5 recharge
+recharge -4 3 5
+";
+}
+// 5. Disabled: weak LLMs ignore this rule. Left for testing with stronger models.
+//    Do not work with multiple objects at once; the character's inventory is limited, so it is better to perform tasks sequentially.
+
+/*
 ## PLACING BLOCKS
 
 A block can only be built in an empty cell that shares a whole face with a block already on
@@ -292,32 +282,27 @@ weld 3 3 4
 Then run `route` again — from the piece you have just welded to the same target — and it gives
 what is left of the run. You never have to remember the rest of it.
 
-## TYPICAL WORKFLOWS
-### Get items from cargo:
-fly 5 3 1 get
-get 10 'Steel Plate' from 5 3 1
+* place 'block_type' I J K [facing D up D]
+  Build a new block at the given cell. D is one of +X -X +Y -Y +Z -Z.
+  The cell must be empty and must share a whole face with a block that is already on the grid.
+  You must be within arm's reach of the cell — fly to a free cell beside it, not into it.
+  The new block arrives at minimum integrity, so weld it immediately afterwards.
+  Do not work the orientation out yourself — run `orient` and copy the line it gives you.
+  Example: place 'Gyroscope' 3 2 4 facing +X up +Y
 
-### Weld a damaged block:
-fly 5 0 2 weld
-weld 5 0 2
+* orient 'block_type' I J K [ports D D₂]
+  Ask how to build 'block_type' in that cell. The answer is the whole `place` line, ready to copy.
+  Blocks that attach by any face get a line with no orientation at all — that is not an omission.
+  With `ports`, the answer is the single line whose conveyor ports look along those two directions.
+  Example: orient 'Gyroscope' 3 2 4
+  Example: orient 'Curved Conveyor Tube' 3 2 6 ports -Y +Z
 
-### Build a new block:
-orient 'Gyroscope' 3 2 4
-
-then, from what it answered:
-
-place 'Gyroscope' 3 2 4 facing +X up +Y
-fly 3 2 4 weld
-weld 3 2 4
-
-### Recharge:
-fly -4 3 5 recharge
-recharge -4 3 5
-";
-}
-// 5. Disabled: weak LLMs ignore this rule. Left for testing with stronger models.
-//    Do not work with multiple objects at once; the character's inventory is limited, so it is better to perform tasks sequentially.
-
+* route I J K I₂ J₂ K₂
+  The shortest conveyor run between two blocks that already stand on the grid. For every cell of
+  the run it gives the piece to put there and the two directions that piece's ports have to look.
+  Run it again from the piece you have just built to the same target, and it gives what is left.
+  Example: route 3 2 4 3 6 9
+*/
 /*
 * power — state of the grid's power system: reactors/batteries/solar/wind, total output, battery charge
 
@@ -428,14 +413,6 @@ drop [quantity|all] 'name'
 			MyVisualScriptLogicProvider.SendChatMessage(
 				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
 			return Success("Done");
-		}
-
-		internal CommandResult Note(TokenParser tp)
-		{
-			var text = tp.NextString();
-			if (string.IsNullOrEmpty(text))
-				return "Error: provide a note. Usage: note 'weld 3 0 2, then check integrity'";
-			return Success("Noted.");
 		}
 
 		internal CommandResult Memory(TokenParser tp)
@@ -760,9 +737,6 @@ drop [quantity|all] 'name'
 			}
 			else if(tp.Match("Say"))
 			{	result = Say(tp);
-			}
-			else if(tp.Match("Note"))
-			{	result = Note(tp);
 			}
 			else if(tp.Match("Memory"))
 			{	result = Memory(tp);
