@@ -475,13 +475,18 @@ namespace LLE
 				return ra.CompareTo(rb);
 			});
 
+			int freeCount = 0;
 			foreach(var pos in positions)
 			{	var blockName = Name(selectedGrid.GetCubeBlock(pos));
 				var isFree = blockName == FreeSpace;
 				if(pos != ijk && isFree != freeSpace) continue;
 				var desc = DirLabel(pos - ijk);
 				md.Append($"* [{desc}] {Quote(blockName)} ({IJK(pos)})");
+				if(freeSpace && pos != ijk && isFree) freeCount++;
 			}
+
+			if(freeSpace && freeCount == 0)
+				md.Append("No free adjacent cells: every neighbor of the central block is occupied.");
 
 			return Success(md.Result());
 		}
