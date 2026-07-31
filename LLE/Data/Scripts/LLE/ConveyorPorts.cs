@@ -198,55 +198,5 @@ namespace LLE
 			for (int i = 0; i < list.Count; ++i) if (list[i] == d) return true;
 			return false;
 		}
-
-		// --- the two run pieces ------------------------------------------------------------
-
-		// Vanilla subtypes, preferred when present. The geometric test below is the real
-		// criterion, so a mod's own tube is found too; the list only makes the choice stable.
-		private static readonly string[] PreferredStraight = { "ConveyorTube", "ConveyorTubeSmall" };
-		private static readonly string[] PreferredCurved = { "ConveyorTubeCurved", "ConveyorTubeSmallCurved" };
-
-		private static readonly Dictionary<int, MyCubeBlockDefinition> pieceCache =
-			new Dictionary<int, MyCubeBlockDefinition>();
-
-		/// <summary>The 1x1x1 two-port piece for a run: straight, or a 90-degree bend.</summary>
-		public static MyCubeBlockDefinition FindPiece(MyCubeSize size, bool curved)
-		{
-			int key = (int)size * 2 + (curved ? 1 : 0);
-
-			MyCubeBlockDefinition cached;
-			if (pieceCache.TryGetValue(key, out cached)) return cached;
-
-			var preferred = curved ? PreferredCurved : PreferredStraight;
-
-			MyCubeBlockDefinition best = null;
-
-			foreach (var d in MyDefinitionManager.Static.GetAllDefinitions())
-			{
-				var def = d as MyCubeBlockDefinition;
-				if (def == null || !def.Public) continue;
-				if (def.CubeSize != size) continue;
-				if (def.Size != Vector3I.One) continue;
-
-				var ports = Local(def);
-				if (ports.Length != 2) continue;
-
-				bool opposite = ports[0].Direction == Base6Directions.GetFlippedDirection(ports[1].Direction);
-				if (opposite == curved) continue; // straight wants opposite ports, curved wants perpendicular
-
-				for (int i = 0; i < preferred.Length; ++i)
-					if (def.Id.SubtypeName == preferred[i])
-					{	pieceCache[key] = def;
-						return def;
-					}
-
-				// no preferred subtype yet — keep the first by name, so the answer is stable
-				if (best == null || string.CompareOrdinal(def.Id.SubtypeName, best.Id.SubtypeName) < 0)
-					best = def;
-			}
-
-			pieceCache[key] = best;
-			return best;
-		}
 	}
 }

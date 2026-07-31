@@ -4,9 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 
 using VRageMath;
-using VRage.Game;
 using VRage.Game.ModAPI;
-using Sandbox.Definitions;
 
 namespace LLE
 {
@@ -86,41 +84,26 @@ namespace LLE
 
 			if (path.Count == 0)
 			{
-				if (search.Exhausted)
-					yield return "Error: gave up searching for a route. Route to a nearer block first, then onward from there.";
-
-				yield return $"Error: no run of empty cells connects {Quote(Name(blockA))} at {IJK(a)}"
-					+ $" to {Quote(Name(blockB))} at {IJK(b)}. Everything between them is occupied,"
-					+ " or their ports do not look toward each other. Use `orient` on the target to see where its ports are.";
+				yield return $"Error: no run of empty cells connects "
+					+ $" {Quote(Name(blockA))} at {IJK(a)} to"
+					+ $" {Quote(Name(blockB))} at {IJK(b)}.";
 			}
-
-			var straight = ConveyorPorts.FindPiece(selectedGrid.GridSizeEnum, false);
-			var curved = ConveyorPorts.FindPiece(selectedGrid.GridSizeEnum, true);
-
-			if (straight == null || curved == null)
-				yield return "Internal error: no straight and curved conveyor tube found for this grid size.";
 
 			int pieces = path.Count - 2;
 
 			var md = new MyMarkdown();
-			md.Append($"Route from {Quote(Name(blockA))} at {IJK(a)} to {Quote(Name(blockB))} at {IJK(b)}: {pieces} pieces.");
-			md.Append("Legend: `Name at I J K, ports D1 D2` means put a block called Name into that empty cell,"
-				+ " turned so that its two conveyor ports look along D1 and D2."
-				+ " Run `orient 'Name' I J K ports D1 D2` to get the line that builds it.");
+			md.Append($"Route from {Quote(Name(blockA))} at {IJK(a)} to {Quote(Name(blockB))} at {IJK(b)} ({pieces} conveyor pieces required)");
 
 			for (int i = 1; i < path.Count - 1; ++i)
 			{
 				Vector3I back = path[i - 1] - path[i];
 				Vector3I forward = path[i + 1] - path[i];
 
-				var def = back == -forward ? straight : curved;
+				var curved = back != -forward;
+				var type = curved ? "curved" : "straight";
 
-				md.Append($"* {Quote(def.DisplayNameText)} at {IJK(path[i])}, ports {Dir(back)} {Dir(forward)}");
+				md.Append($"* [{type}] at {IJK(path[i])}, ports {Dir(back)} {Dir(forward)}");
 			}
-
-			md.Append("Build them in this order, one at a time: `orient`, `place`, `fly I J K weld`, `weld`."
-				+ " After a piece is welded, run `route` again from that piece to the same target"
-				+ " and it answers with what is left — you do not have to remember the rest.");
 
 			yield return Success(md.Result());
 		}

@@ -31,9 +31,6 @@ namespace LLE
 
 		public readonly List<Vector3I> Result = new List<Vector3I>();
 
-		/// <summary>Set when the search gave up on its own budget rather than on the geometry.</summary>
-		public bool Exhausted { get; private set; }
-
 		// Same order as Constants.SixDirections, so the two are indexed together. Spelled out
 		// rather than derived, because Base6Directions.Forward is -Z and a naive conversion
 		// silently flips the Z sign of every direction it touches.
