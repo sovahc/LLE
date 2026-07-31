@@ -9,11 +9,6 @@ using VRage.ObjectBuilders;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 
-// AddBlock refuses occupied cells by itself, but it does not check mount points, so a
-// disconnected block would just hang in the air — hence the face-adjacency test below.
-// Which face the block mounts by is left to the model on purpose: that is the thing we
-// are here to watch.
-
 namespace LLE
 {
 	public partial class Commands
@@ -24,7 +19,7 @@ namespace LLE
 			Vector3I.Backward, Vector3I.Forward
 		};
 
-		private const string PlaceUsage = "Usage: place 'Gyroscope' 3 2 4 facing +X up +Y";
+		private const string PlaceUsage = "Usage: place 'Gyroscope' 3 2 4 [forward|backward|left|right] [up|down]";
 
 		// `+X` … `-Z` as the LLM writes them. Vector3I.cs:104-109 — note that Forward is -Z,
 		// so a naive reading flips the sign of every rotated block on the Z axis.
@@ -41,6 +36,32 @@ namespace LLE
 				case 'X': dir = plus ? Base6Directions.Direction.Right    : Base6Directions.Direction.Left;    return true;
 				case 'Y': dir = plus ? Base6Directions.Direction.Up       : Base6Directions.Direction.Down;    return true;
 				case 'Z': dir = plus ? Base6Directions.Direction.Backward : Base6Directions.Direction.Forward; return true;
+			}
+			return false;
+		}
+
+		private static bool ParseHorizDir(string s, out Base6Directions.Direction dir)
+		{
+			dir = Base6Directions.Direction.Forward;
+			if (s == null) return false;
+			switch (s.ToLowerInvariant())
+			{
+				case "forward":  dir = Base6Directions.Direction.Forward;  return true;
+				case "backward": dir = Base6Directions.Direction.Backward; return true;
+				case "left":     dir = Base6Directions.Direction.Left;     return true;
+				case "right":    dir = Base6Directions.Direction.Right;    return true;
+			}
+			return false;
+		}
+
+		private static bool ParseVertDir(string s, out Base6Directions.Direction dir)
+		{
+			dir = Base6Directions.Direction.Up;
+			if (s == null) return false;
+			switch (s.ToLowerInvariant())
+			{
+				case "up":   dir = Base6Directions.Direction.Up;   return true;
+				case "down": dir = Base6Directions.Direction.Down; return true;
 			}
 			return false;
 		}
@@ -108,20 +129,16 @@ namespace LLE
 
 			if (!tp.End)
 			{
-				// Keywords optional: on long answers Gemma emits a bare `+Y +X` in argument
-				// order about a third of the time. Measured in the GemmaBuilder project.
-				tp.Match("facing");
 				var fs = tp.NextString();
-				if (!ParseDirection(fs, out forward))
-					return $"Error: {Quote(fs)} is not a direction. Expected one of +X -X +Y -Y +Z -Z. " + PlaceUsage;
+				if (!ParseHorizDir(fs, out forward))
+					return $"Error: {Quote(fs)} is not a facing direction. Expected one of forward backward left right. " + PlaceUsage;
 
-				tp.Match("up");
-				var us = tp.NextString();
-				if (!ParseDirection(us, out up))
-					return $"Error: {Quote(us)} is not a direction. Expected one of +X -X +Y -Y +Z -Z. " + PlaceUsage;
-
-				if (char.ToUpperInvariant(fs[1]) == char.ToUpperInvariant(us[1]))
-					return $"Error: facing {fs} and up {us} are on the same axis. They must be perpendicular.";
+				if (!tp.End)
+				{
+					var us = tp.NextString();
+					if (!ParseVertDir(us, out up))
+						return $"Error: {Quote(us)} is not an up direction. Expected up or down. " + PlaceUsage;
+				}
 
 				if (!tp.End)
 					return "Error: too many arguments. " + PlaceUsage;
@@ -164,6 +181,11 @@ namespace LLE
 
 			ob.IntegrityPercent = MyComponentStack.MOUNT_THRESHOLD;
 			ob.BuildPercent = MyComponentStack.MOUNT_THRESHOLD;
+
+			// AddBlock refuses occupied cells by itself, but it does not check mount points, so a
+			// disconnected block would just hang in the air — hence the face-adjacency test below.
+			// Which face the block mounts by is left to the model on purpose: that is the thing we
+			// are here to watch.
 
 			var placed = selectedGrid.AddBlock(ob, false);
 			if (placed == null)

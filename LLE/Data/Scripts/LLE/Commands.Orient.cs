@@ -12,6 +12,10 @@ namespace LLE
 
 		private const int MaxOrientationLines = 8;
 
+		// Of the 24 cube orientations, only 8 have forward horizontal and up vertical —
+		// the ones the simplified `place` format can express.
+		private const int PlaceableOrientations = 8;
+
 		private struct OrientOption
 		{
 			public MyBlockOrientation Orientation;
@@ -106,6 +110,13 @@ namespace LLE
 
 			foreach (var orientation in ConveyorPorts.AllOrientations)
 			{
+				// The simplified `place` format expresses only forward-horizontal / up-vertical
+				// orientations; skip the rest so every line below is copy-pasteable.
+				var of = orientation.Forward;
+				if (of == Base6Directions.Direction.Up || of == Base6Directions.Direction.Down) continue;
+				var ou = orientation.Up;
+				if (ou != Base6Directions.Direction.Up && ou != Base6Directions.Direction.Down) continue;
+
 				var ports = new List<Base6Directions.Direction>();
 				if (hasPorts) ConveyorPorts.InOrientation(definition, orientation, ports);
 
@@ -166,14 +177,14 @@ namespace LLE
 			if (wantPorts)
 			{
 				if (attaching.Count != 0)
-				{	md.Append($"place {name} {IJK(ijk)} facing {Dir(attaching[0].Orientation.Forward)} up {Dir(attaching[0].Orientation.Up)}");
+				{	md.Append($"place {name} {IJK(ijk)} {DirKeyword(attaching[0].Orientation.Forward)} {DirKeyword(attaching[0].Orientation.Up)}");
 					return Success(md.Result());
 				}
 
 				if (portMatchAnywhere.Count != 0)
 				{
 					var o = portMatchAnywhere[0];
-					md.Append($"place {name} {IJK(ijk)} facing {Dir(o.Forward)} up {Dir(o.Up)}");
+					md.Append($"place {name} {IJK(ijk)} {DirKeyword(o.Forward)} {DirKeyword(o.Up)}");
 					md.Append($"Careful: nothing built touches {IJK(ijk)} on a face this block can mount by,"
 						+ " so `place` will refuse it until the piece before it stands. Build the run in order.");
 					return Success(md.Result());
@@ -199,17 +210,17 @@ namespace LLE
 
 			if (!hasPorts)
 			{
-				if (attaching.Count == ConveyorPorts.AllOrientations.Length)
+				if (attaching.Count == PlaceableOrientations)
 				{	md.Append($"{name} attaches by any face — it needs no orientation at {IJK(ijk)}.");
 					md.Append($"place {name} {IJK(ijk)}");
 					return Success(md.Result());
 				}
 
-				md.Append($"{name} at {IJK(ijk)}: {attaching.Count} of {ConveyorPorts.AllOrientations.Length}"
+				md.Append($"{name} at {IJK(ijk)}: {attaching.Count} of {PlaceableOrientations}"
 					+ " orientations attach to the grid. Copy one of these:");
 
 				for (int i = 0; i < attaching.Count && i < 3; ++i)
-					md.Append($"place {name} {IJK(ijk)} facing {Dir(attaching[i].Orientation.Forward)} up {Dir(attaching[i].Orientation.Up)}");
+					md.Append($"place {name} {IJK(ijk)} {DirKeyword(attaching[i].Orientation.Forward)} {DirKeyword(attaching[i].Orientation.Up)}");
 
 				return Success(md.Result());
 			}
@@ -223,7 +234,7 @@ namespace LLE
 			{
 				var o = attaching[i];
 				var line = new StringBuilder();
-				line.Append($"place {name} {IJK(ijk)} facing {Dir(o.Orientation.Forward)} up {Dir(o.Orientation.Up)}");
+				line.Append($"place {name} {IJK(ijk)} {DirKeyword(o.Orientation.Forward)} {DirKeyword(o.Orientation.Up)}");
 				line.Append("   -- ports ");
 				line.Append(PortText(o.Ports));
 				if (o.Connections != 0) line.Append($", connects to {o.ConnectsTo}");

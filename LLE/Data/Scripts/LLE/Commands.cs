@@ -98,7 +98,7 @@ Your goal is to execute instructions from the chat.
 
 ## ENVIRONMENT
 You are inside the Space Engineers game.
-You control a character that can fly, weld, grind, build, and manage inventories.
+You control a character that can fly, weld, grind, place, and manage inventories.
 You operate on a selected grid (ship or station).
 
 Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is the Z axis)
@@ -235,6 +235,12 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
   Conveyor-capable blocks at I J K and at I₂ J₂ K₂ must already exist.
   Returns the conveyor block types that need to be built.
 
+* place 'block_type' I J K [forward|backward|left|right] [up|down]
+  Build a new block at the given cell.
+  The cell must be empty and must share a whole face with a block that is already on the grid.
+  The new block arrives at minimum integrity, so weld it afterwards.
+  Example: place 'Gyroscope' 3 2 4 right up
+
 ## TYPICAL WORKFLOWS
 ### Get items from cargo:
 fly 5 3 1 get
@@ -253,64 +259,12 @@ recharge -4 3 5
 //    Do not work with multiple objects at once; the character's inventory is limited, so it is better to perform tasks sequentially.
 
 /*
-## PLACING BLOCKS
-
-A block can only be built in an empty cell that shares a whole face with a block already on
-the grid. Run `near I J K` on the cell you have in mind and read what is around it before you
-place anything.
-
-Building one block is `place`, then `fly I J K weld`, then `weld I J K`. A placed block comes
-out at minimum integrity — a bare construction site, not a working block — and every block you
-place is yours to weld up before you move on to the next one. You need the block's components
-in your inventory to weld it.
-
-You have to be within arm's reach of the cell to build in it. If `place` says the cell is out
-of reach, fly to a free cell beside it — never into the cell you are about to fill.
-
-Never derive an orientation. Run `orient 'block_type' I J K` and copy the `place` line it
-answers with. It knows which faces the block mounts by and which way its conveyor ports look,
-and it only offers orientations that actually attach in that cell.
-
-## CONNECTING TWO BLOCKS WITH A CONVEYOR
-
-`route I J K I₂ J₂ K₂` gives the shortest run of conveyor pieces between two built blocks. Each
-line of the answer is one piece: the block type, the cell to put it in, and the two directions
-its ports have to look. Turn a line into a command with `orient`.
-
-Build the run one piece at a time, in the order `route` gives them:
-
-route 3 2 4 3 6 9
-orient 'Conveyor Tube' 3 3 4 ports -Y +Y
-
-then, from what `orient` answered:
-
-place 'Conveyor Tube' 3 3 4 facing +X up +Y
-fly 3 3 4 weld
-weld 3 3 4
-
-Then run `route` again — from the piece you have just welded to the same target — and it gives
-what is left of the run. You never have to remember the rest of it.
-
-* place 'block_type' I J K [facing D up D]
-  Build a new block at the given cell. D is one of +X -X +Y -Y +Z -Z.
-  The cell must be empty and must share a whole face with a block that is already on the grid.
-  You must be within arm's reach of the cell — fly to a free cell beside it, not into it.
-  The new block arrives at minimum integrity, so weld it immediately afterwards.
-  Do not work the orientation out yourself — run `orient` and copy the line it gives you.
-  Example: place 'Gyroscope' 3 2 4 facing +X up +Y
-
 * orient 'block_type' I J K [ports D D₂]
   Ask how to build 'block_type' in that cell. The answer is the whole `place` line, ready to copy.
   Blocks that attach by any face get a line with no orientation at all — that is not an omission.
   With `ports`, the answer is the single line whose conveyor ports look along those two directions.
   Example: orient 'Gyroscope' 3 2 4
   Example: orient 'Curved Conveyor Tube' 3 2 6 ports -Y +Z
-
-* route I J K I₂ J₂ K₂
-  The shortest conveyor run between two blocks that already stand on the grid. For every cell of
-  the run it gives the piece to put there and the two directions that piece's ports have to look.
-  Run it again from the piece you have just built to the same target, and it gives what is left.
-  Example: route 3 2 4 3 6 9
 */
 /*
 * power — state of the grid's power system: reactors/batteries/solar/wind, total output, battery charge
@@ -369,7 +323,6 @@ drop [quantity|all] 'name'
 
 ! Pathfinding: safest (default) / shortest / scouting / prefer open space
 ? log - Return history of executed commands and their results
-? place 'block_type' I J K [orientation]
 */
 		private MyEntity3DSoundEmitter soundEmitter;
 
