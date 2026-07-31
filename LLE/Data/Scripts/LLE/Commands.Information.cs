@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -447,6 +448,63 @@ namespace LLE
 		{
 			public double Distance;
 			public string Text;
+			public bool Exact;
+		}
+
+		// How many query words may go unmatched and a name still counts as "partial".
+		// 0 = only all-words-present names qualify (see LLE-search-fix.md). Raise to admit
+		// looser matches like "3 of 4 words".
+		private const int SearchMinWordsSlack = 0;
+
+		private static string[] SearchWords(string s)
+		{
+			var raw = s.ToLowerInvariant().Split(' ');
+			var words = new List<string>(raw.Length);
+			foreach (var w in raw) if (w.Length > 0) words.Add(w);
+			return words.ToArray();
+		}
+
+		private static int WordsMatched(string[] queryWords, string[] textWords)
+		{
+			int count = 0;
+			foreach (var qw in queryWords)
+			{
+				foreach (var tw in textWords)
+				{
+					if (tw == qw) { count++; break; }
+				}
+			}
+			return count;
+		}
+
+		// Classifies `text` against `query`: exact (contiguous substring, case-insensitive),
+		// partial (all-but-slack query words present as whole words), or excluded (returns false).
+		// On a match, `tag` is set to what to show: "[exact]", "[N/N]", or "[*]" for wildcard.
+		private static bool ClassifyMatch(string query, string[] queryWords, string text, out bool exact, out string tag)
+		{
+			exact = false;
+			tag = null;
+
+			if (string.IsNullOrEmpty(query) || query == "*")
+			{	tag = "[*]";
+				return true;
+			}
+
+			if (text.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+			{	exact = true;
+				tag = "[exact]";
+				return true;
+			}
+
+			var textWords = SearchWords(text);
+			int matched = WordsMatched(queryWords, textWords);
+			int threshold = System.Math.Max(1, queryWords.Length - SearchMinWordsSlack);
+			if (matched >= threshold)
+			{	tag = $"[{matched}/{queryWords.Length}]";
+				return true;
+			}
+
+			return false;
 		}
 
 		internal CommandResult Search(TokenParser tp)
@@ -459,6 +517,7 @@ namespace LLE
 			else return "Error: expected 'item' or 'block'. e.g. `search item 'substring' [N]`";
 
 			string query = tp.NextString();
+			var queryWords = SearchWords(query);
 			int limit;
 			if (!tp.NextInt(out limit)) limit = 5;
 
@@ -485,22 +544,25 @@ namespace LLE
 					string blockName = Name(block.SlimBlock);
 
 					if(searchBlocks)
-					{	if(Include(query, blockName))
-						{	
+					{	bool exact;
+						string tag;
+						if(ClassifyMatch(query, queryWords, blockName, out exact, out tag))
+						{
 							Vector3D wc;
 							block.SlimBlock.ComputeWorldCenter(out wc);
 							double distance = (wc - engineer).Length();
-							
+
 							matches.Add(new SearchMatch
 							{
 								Distance = distance,
+								Exact = exact,
 								Text =
-									$"* block {Quote(blockName)} at {IJK(block.Position)}" +
+									$"* {tag} block {Quote(blockName)} at {IJK(block.Position)}" +
 									$" on {Quote(Name(grid))} (distance {Distance(distance)})\n"
-							});					
+							});
 						}
 					}
-					
+
 					if(searchItems && block.HasInventory)
 					{	Vector3D wc;
 						block.SlimBlock.ComputeWorldCenter(out wc);
@@ -518,12 +580,15 @@ namespace LLE
 								if (itemDef == null) continue;
 
 								string itemName = itemDef.DisplayNameText;
-								if(Include(query, itemName))
+								bool exact;
+								string tag;
+								if(ClassifyMatch(query, queryWords, itemName, out exact, out tag))
 								{	matches.Add(new SearchMatch
 									{
 										Distance = distance,
+										Exact = exact,
 										Text =
-											$"* {Quote(itemName)} → {(double)item.Amount:F2}" +
+											$"* {tag} {Quote(itemName)} → {(double)item.Amount:F2}" +
 											$" in block {Quote(blockName)} at {IJK(block.Position)}" +
 											$" on {Quote(Name(grid))} (distance {Distance(distance)})\n"
 									});
@@ -536,19 +601,28 @@ namespace LLE
 			}
 
 			matches.Sort((a, b) => a.Distance.CompareTo(b.Distance));
-			
+
+			var exactMatches = matches.FindAll(m => m.Exact);
+			var partialMatches = matches.FindAll(m => !m.Exact);
+
+			int partialShown = System.Math.Min(limit, partialMatches.Count);
+			int partialDropped = partialMatches.Count - partialShown;
+
+			var shown = new List<SearchMatch>(exactMatches);
+			shown.AddRange(partialMatches.GetRange(0, partialShown));
+			shown.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+
 			StringBuilder sb = new StringBuilder();
-			int total = matches.Count;
-			if (total > limit) matches.RemoveRange(limit, total - limit);
 
 			string what = "";
 			if(searchItems && searchBlocks) what = "items and blocks";
 			else if(searchItems) what = "items";
 			else if(searchBlocks) what = "blocks";
 
-			string qualifier = total > limit ? $" (showing {limit} closest)" : "";
-			sb.Append($"Found {total} {what} matching {Quote(query)}{qualifier}:\n");
-			foreach (var m in matches) sb.Append(m.Text);
+			string qualifier = partialDropped > 0 ? $" (showing {partialShown} closest partial)" : "";
+			sb.Append($"Found {matches.Count} {what} matching {Quote(query)}" +
+				$" ({exactMatches.Count} exact, {partialMatches.Count} partial){qualifier}:\n");
+			foreach (var m in shown) sb.Append(m.Text);
 
 			return Success(sb.ToString());
 		}

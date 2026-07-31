@@ -387,8 +387,8 @@ drop [quantity|all] 'name'
 		}
 
 		private static bool Include(string searchTerm, string text)
-		{	if(searchTerm == "" || searchTerm == "*") return true;
-			return text.Contains(searchTerm);
+		{	if(string.IsNullOrEmpty(searchTerm) || searchTerm == "*") return true;
+			return text.IndexOf(searchTerm, StringComparison.OrdinalIgnoreCase) >= 0;
 		}
 
 		private string MyError(Vector3D engineer, string query, List<IMyEntity> matches)
