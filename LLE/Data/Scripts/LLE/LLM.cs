@@ -203,6 +203,16 @@ namespace LLE
 			if(waitingForResponse) return;
 			if(pause) return;
 
+			// Process a finished response BEFORE any send. Otherwise an async sensor
+			// report (VISION/STATUS) can fire the send below and orphan it; the next
+			// response then appends onto it ("Found 2 <execute> blocks").
+			if(contentToProcess.Length != 0)
+			{	ProcessLlmContent(contentToProcess.ToString());
+				contentToProcess.Clear();
+				if(batch.Count != 0) return;   // commands enqueued — execute before talking to LLM
+				if(pause) return;              // response was pause/restart — do not send this turn
+			}
+
 			if (output.Length != 0) // We have data for LLM
 			{
 				int used, total;
@@ -248,14 +258,6 @@ namespace LLE
 				return;
 			}
 
-			// Only accept new commands if everything is complete
-
-			var ctp = contentToProcess;
-
-			if(ctp.Length != 0)
-			{	ProcessLlmContent(ctp.ToString());
-				ctp.Clear();
-			}
 		}
 
 		private void ContextStatistic()
