@@ -117,10 +117,9 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
    Each command must be on its own line.
 
 5. At most 3 commands per <execute> block.
-6. Most commands, such as `grind`, `weld`, `put`, require you to be directly next to the target block.
-7. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
-8. The game chat is very small; use very short phrases, and write only once you have completed the task or cannot complete it.
-9. Save what matters most to memory on your own, without being asked.
+6. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
+7. The game chat is very small; use very short phrases, and write only once you have completed the task or cannot complete it.
+8. Save what matters most to memory on your own, without being asked.
 
 ## HINTS
 
@@ -128,6 +127,16 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 2. `weld` is incremental: it consumes whatever components you carry and raises block integrity by that much. You never need all missing components at once — weld with a partial load, then fetch more and weld again.
 
 ## AVAILABLE COMMANDS
+
+### 1. Movement
+
+* fly I J K [headfirst]
+  Fly to specific grid coordinates and land exactly at that cell. The cell must be free space; if it is occupied by a block, the command fails and names the blocking block.
+
+* fly to I J K for grind|weld|get|put|recharge|enter
+  Fly to the nearest interaction point of the block at I J K, ready to perform the given action (e.g. `fly to 5 0 2 for weld`).
+
+### 2. Remote — no need to be next to a block
 
 * pause
   Puts the bot on pause. (If an event occurs in the world, the pause is automatically lifted)
@@ -147,6 +156,15 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 * position
   Returns the character's coordinates on the currently selected grid.
 
+* status
+  Check bot vitals: Health, Oxygen, Hydrogen, Energy.
+
+* say 'message'
+  Send a message to the in-game chat.
+
+* exit
+  Leave the current cockpit or seat.
+
 * overview
   List grid blocks by category.
 
@@ -155,18 +173,6 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 
 * projection
   Build status of the selected projection preview: total/remaining/buildable counts, and the list of blocks buildable right now.
-
-* fly I J K [headfirst]
-  Fly to specific grid coordinates and land exactly at that cell. The cell must be free space; if it is occupied by a block, the command fails and names the blocking block.
-
-* fly to I J K for grind|weld|get|put|recharge|enter
-  Fly to the nearest interaction point of the block at I J K, ready to perform the given action (e.g. `fly to 5 0 2 for weld`).
-
-* grind I J K
-  Grind a block at specific coordinates. You must be in a cell next to the block to grind it.
-
-* weld I J K
-  Weld a block at specific coordinates. You must be in a cell next to the block to weld it.
 
 * near [I J K]
   Return occupied blocks in a 3x3x3 cube around you or specified coordinates.
@@ -183,23 +189,8 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 * inventories
   Return all inventories on the selected grid.
 
-* get N 'item' from I J K
-  Transfer N items from a container to your inventory, e.g. `get 10 'Gold Ingot' from -1 5 2`
-
-* put N 'item' into I J K
-  Transfer N items from your inventory to a container, e.g. `put 1 'Medkit' into 14 0 2`
-
-* put all 'item' into I J K
-  Transfer ALL of one item type from your inventory to a container, e.g. `put all 'Steel Plate' into 5 3 1`
-
-* put all components into I J K
-  Transfer all block components from your inventory to a container (very useful shortcut).
-
-* transfer N 'item' from I J K to I₂ J₂ K₂
-  Transfer N items from one inventory to another.
-
-* transfer all items from I J K to I₂ J₂ K₂
-  Transfer every item from one inventory to another.
+* recharge
+  List blocks on the selected grid that can recharge you.
 
 * search item 'substring' [N]
   Find items across nearby grids by partial name match. Returns the N closest results (default 5).
@@ -212,43 +203,58 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 * distance I J K
   Distance from you to the block at the given grid coordinates.
 
-* points I J K
-  List all interaction points for the block at the given grid coordinates.
-
 * distance from I J K to I₂ J₂ K₂
   Distance between two grid coordinates (measuring tape).
 
-* status
-  Check bot vitals: Health, Oxygen, Hydrogen, Energy.
-
-* say 'message'
-  Send a message to the in-game chat.
-
-* enter I J K
-  Enter the cockpit or seat at the given grid coordinates. 
-
-* exit
-  Leave the current cockpit or seat.
-
-* recharge
-  List blocks on the selected grid that can recharge you.
-
-* recharge I J K
-  Recharge at the block at the given grid coordinates.
-  For cockpits, cryo-chambers and seats: the bot sits in it and exits automatically when done.
-  For medblocks and survival kits: collects energy near the block through a port.
+* points I J K
+  List all interaction points for the block at the given grid coordinates.
 
 * route from I J K to I₂ J₂ K₂
   Compute the shortest conveyor path between the given points.
   Conveyor-capable blocks at I J K and at I₂ J₂ K₂ must already exist.
   Returns the conveyor block types that need to be built.
 
+* transfer N 'item' from I J K to I₂ J₂ K₂
+  Transfer N items from one inventory to another.
+
+* transfer all items from I J K to I₂ J₂ K₂
+  Transfer every item from one inventory to another.
+
+### 3. Proximity — you must be in a cell next to the target block
+
+* grind I J K
+  Grind a block at specific coordinates. You must be in a cell next to the block to grind it.
+
+* weld I J K
+  Weld a block at specific coordinates. You must be in a cell next to the block to weld it.
+
+* get N 'item' from I J K
+  Transfer N items from a container to your inventory, e.g. `get 10 'Gold Ingot' from -1 5 2`
+
+* put N 'item' into I J K
+  Transfer N items from your inventory to a container, e.g. `put 1 'Medkit' into 14 0 2`
+
+* put all 'item' into I J K
+  Transfer ALL of one item type from your inventory to a container, e.g. `put all 'Steel Plate' into 5 3 1`
+
+* put all components into I J K
+  Transfer all block components from your inventory to a container (very useful shortcut).
+
 * place 'block_type' at I J K [facing forward|backward|left|right] [up|down]
   Build a new block at the given cell.
   The cell must be empty and must share a whole face with a block that is already on the grid.
+  You must be in an adjacent cell.
   The facing direction and up/down are relative to the grid's own axes (see `select`).
   The new block arrives at minimum integrity, so weld it afterwards.
-  Example: place 'Gyroscope' at 3 2 4 facing right up
+  Example: place 'Gyroscope' at 3 2 4 facing forward up
+
+* enter I J K
+  Enter the cockpit or seat at the given grid coordinates. 
+
+* recharge I J K
+  Recharge at the block at the given grid coordinates.
+  For cockpits, cryo-chambers and seats: the bot sits in it and exits automatically when done.
+  For medblocks and survival kits: collects energy near the block through a port.
 
 ## TYPICAL WORKFLOWS
 ### Get items from cargo:
