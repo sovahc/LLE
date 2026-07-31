@@ -12,8 +12,6 @@ namespace LLE
 {
 	public partial class Commands
 	{
-		private const string RouteUsage = "Usage: route 3 2 4 3 6 9";
-
 		private string NoPortsHere(IMySlimBlock block, Vector3I cell)
 		{
 			var all = new List<ConveyorPort>();
@@ -41,12 +39,14 @@ namespace LLE
 			if (!GridIsSet(out message)) yield return message;
 			if (CurrentGridIsProjection(out message)) yield return message;
 
+			const string usage = "Usage: route from 3 2 4 to 3 6 9";
+
 			Vector3I a, b;
-			if (!tp.Match("from")) yield return "Error: expected 'from'";
-			if (!tp.NextVector3I(out a)) yield return "Error: expected two positions. " + RouteUsage;
-			if (!tp.Match("to")) yield return "Error: expected 'to'";
-			if (!tp.NextVector3I(out b)) yield return "Error: expected a second position. " + RouteUsage;
-			if (!tp.End) yield return "Error: too many arguments. " + RouteUsage;
+			if (!tp.Match("from")) yield return "Error: expected 'from' " + usage;
+			if (!tp.NextVector3I(out a)) yield return "Error: expected two positions. " + usage;
+			if (!tp.Match("to")) yield return "Error: expected 'to' " + usage;
+			if (!tp.NextVector3I(out b)) yield return "Error: expected a second position. " + usage;
+			if (!tp.End) yield return "Error: too many arguments. " + usage;
 
 			var blockA = selectedGrid.GetCubeBlock(a);
 			if (blockA == null)

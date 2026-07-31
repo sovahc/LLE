@@ -121,10 +121,6 @@ namespace LLE
 			return "Other";
 		}
 
-		// Was "Name → count (positions on the grid)": 23% of Gemma's answers read that as
-		// a menu of free slots and built inside the hull. `at` is the spelling that works
-		// (140/140), and the relation is now stated, not hinted — the shipping mode does
-		// not think. Measured 2026-07-30, ~/Projects/GemmaBuilder.
 		internal void ListDescription(List<Vector3I> coordinates, bool byCategory, MyMarkdown md)
 		{	md.Append($"Legend: `Name at P1; P2; ...` means a block called Name stands at each of those positions."
 				+ $" `{FreeSpace} at ...` means those cells are empty.");
