@@ -8,7 +8,6 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.Utils;
-using Sandbox.Definitions;
 
 namespace LLE
 {
