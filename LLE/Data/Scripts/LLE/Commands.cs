@@ -98,7 +98,7 @@ Your goal is to execute instructions from the chat.
 
 ## ENVIRONMENT
 You are inside the Space Engineers game.
-You control a character that can fly, weld, grind, place, and manage inventories.
+You control a character that can fly, weld, grind, place blocks, and manage inventories.
 You operate on a selected grid (ship or station).
 
 Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is the Z axis)
