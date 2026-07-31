@@ -42,8 +42,9 @@ namespace LLE
 			if (CurrentGridIsProjection(out message)) yield return message;
 
 			Vector3I a, b;
+			if (!tp.Match("from")) yield return "Error: expected 'from'";
 			if (!tp.NextVector3I(out a)) yield return "Error: expected two positions. " + RouteUsage;
-			
+			if (!tp.Match("to")) yield return "Error: expected 'to'";
 			if (!tp.NextVector3I(out b)) yield return "Error: expected a second position. " + RouteUsage;
 			if (!tp.End) yield return "Error: too many arguments. " + RouteUsage;
 

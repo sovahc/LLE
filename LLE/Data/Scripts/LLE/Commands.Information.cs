@@ -682,7 +682,7 @@ namespace LLE
 
 			var grid = selectedGrid;
 
-			if(!tp.Match("from")) return "Error: expected from'";
+			if(!tp.Match("from")) return "Error: expected 'from'";
 
 			Vector3I a;
 			if(!tp.NextVector3I(out a)) return "Error: expected I J K";
