@@ -643,6 +643,10 @@ namespace LLE
 		}
 
 		internal static Vector3D CalculateUpVector(IMyCubeGrid grid)
+		{	return CalculateOrientation(grid).Up;
+		}
+
+		internal static MatrixD CalculateOrientation(IMyCubeGrid grid)
 		{
 			var cg = grid as MyCubeGrid;
 			MatrixD m = cg.WorldMatrix;
@@ -662,7 +666,28 @@ namespace LLE
 				}
 			}
 
-			return m.Up;
+			return m;
+		}
+
+		internal static string GridDirections(IMyCubeGrid grid)
+		{
+			var m = CalculateOrientation(grid);
+			var toLocal = grid.PositionComp.WorldMatrixNormalizedInv;
+
+			return $"up = {Axis(m.Up, ref toLocal)}, down = {Axis(m.Down, ref toLocal)}"
+				+ $", forward = {Axis(m.Forward, ref toLocal)}, backward = {Axis(m.Backward, ref toLocal)}"
+				+ $", left = {Axis(m.Left, ref toLocal)}, right = {Axis(m.Right, ref toLocal)}";
+		}
+
+		private static string Axis(Vector3D worldDir, ref MatrixD toLocal)
+		{
+			var v = Vector3D.TransformNormal(worldDir, toLocal);
+
+			double ax = System.Math.Abs(v.X), ay = System.Math.Abs(v.Y), az = System.Math.Abs(v.Z);
+
+			if (ax >= ay && ax >= az) return Dir(new Vector3I(System.Math.Sign(v.X), 0, 0));
+			if (ay >= az)             return Dir(new Vector3I(0, System.Math.Sign(v.Y), 0));
+			return Dir(new Vector3I(0, 0, System.Math.Sign(v.Z)));
 		}
 	}
 }

@@ -141,6 +141,7 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 
 * select 'name'
   Select a large ship or station on which to grind, weld, fly, and perform other operations.
+  Reports which grid axis each of the grid's own directions points along, e.g. `up = +Y, forward = -Z`.
 
 * overview
   List grid blocks by category.
@@ -478,7 +479,7 @@ drop [quantity|all] 'name'
 				Debug.Start(grid);
 				selectedGrid = grid;
 				selectedAsteroid = null;
-				return Success($"Selected {category} {Quote(name)}");
+				return Success($"Selected {category} {Quote(name)}\nGrid directions: {GridDirections(grid)}");
 			}
 
 			var asteroid = match as MyVoxelBase;
