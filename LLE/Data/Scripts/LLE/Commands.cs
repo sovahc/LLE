@@ -89,8 +89,7 @@ namespace LLE
 
 		// Never add an exemplar answering with a bare <execute> block: with thinking off —
 		// the shipping mode — that cost placement 77%→57% and orientation 77%→50% by
-		// teaching terseness instead of method. Harmless with thinking on. Whether the
-		// illustration below does the same is unchecked. 2026-07-30, ~/Projects/GemmaBuilder.
+		// teaching terseness instead of method. Harmless with thinking on.
 		internal static string Help()
 		{
 			return @"
@@ -208,7 +207,7 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 * points I J K
   List all interaction points for the block at the given grid coordinates.
 
-* distance I J K I₂ J₂ K₂
+* distance from I J K to I₂ J₂ K₂
   Distance between two grid coordinates (measuring tape).
 
 * status
