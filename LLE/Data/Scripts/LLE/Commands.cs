@@ -284,10 +284,8 @@ recharge -4 3 5
 /*
 * power — state of the grid's power system: reactors/batteries/solar/wind, total output, battery charge
 
-* where — where I am now: position in the world, which grid (or "in open space"), current grid cell.
 Radio subsystem (vision like)
 * approach I J K — fly close to coordinates, but without A* into the grid
-? help recharge  -> More detailed help for a specific command.
 ? wait N  -> Wait N seconds.
 ? sound 'name'  -> play sound
 
