@@ -71,13 +71,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="lle_loader.json">
+    <None Include="LLELoader.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
   <Target Name="CopyToBin64" AfterTargets="Build">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="/home/cat/Projects/SpaceEngineers/Bin64/" />
-    <Copy SourceFiles="$(TargetDir)lle_loader.json" DestinationFolder="/home/cat/Projects/SpaceEngineers/Bin64/" Condition="Exists('$(TargetDir)lle_loader.json')" />
+    <Copy SourceFiles="$(TargetDir)LLELoader.json" DestinationFolder="/home/cat/Projects/SpaceEngineers/Bin64/" Condition="Exists('$(TargetDir)LLELoader.json')" />
   </Target>
 </Project>

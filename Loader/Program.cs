@@ -14,7 +14,7 @@ namespace LLELoader
 {
 	static class Logger
 	{
-		public const string LogPath = "lle_loader.log";
+		public const string LogPath = "LLELoader.log";
 		private static StreamWriter _writer;
 
 		private static void Init()
@@ -61,7 +61,7 @@ namespace LLELoader
 			try
 			{
 				string exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-				string configPath = Path.Combine(exeDir, "lle_loader.json");
+				string configPath = Path.Combine(exeDir, "LLELoader.json");
 				if (File.Exists(configPath))
 				{
 					var text = File.ReadAllText(configPath);
