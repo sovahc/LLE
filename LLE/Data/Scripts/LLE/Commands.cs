@@ -723,7 +723,7 @@ drop [quantity|all] 'name'
 			{	result = Points(tp);
 			}
 			else if(tp.Match("Place"))
-			{	result = Place(tp);
+			{	coroutineStack.Push(Place(tp));
 			}
 			else if(tp.Match("Orient"))
 			{	result = Orient(tp);

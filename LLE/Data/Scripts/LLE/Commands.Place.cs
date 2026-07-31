@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
@@ -13,14 +14,6 @@ namespace LLE
 {
 	public partial class Commands
 	{
-		private static readonly Vector3I[] FaceNeighbours =
-		{	Vector3I.Right, Vector3I.Left,
-			Vector3I.Up, Vector3I.Down,
-			Vector3I.Backward, Vector3I.Forward
-		};
-
-		private const string PlaceUsage = "Usage: place 'Gyroscope' 3 2 4 [forward|backward|left|right] [up|down]";
-
 		// `+X` … `-Z` as the LLM writes them. Vector3I.cs:104-109 — note that Forward is -Z,
 		// so a naive reading flips the sign of every rotated block on the Z axis.
 		private static bool ParseDirection(string s, out Base6Directions.Direction dir)
@@ -105,24 +98,26 @@ namespace LLE
 			return null;
 		}
 
-		internal CommandResult Place(TokenParser tp)
+		internal IEnumerator Place(TokenParser tp)
 		{
+			const string usage = "Usage: place 'Gyroscope' 3 2 4 [forward|backward|left|right] [up|down]";
+
 			string message;
-			if (!GridIsSet(out message)) return message;
-			if (CurrentGridIsProjection(out message)) return message;
+			if (!GridIsSet(out message)) yield return message;
+			if (CurrentGridIsProjection(out message)) yield return message;
 
 			var query = tp.NextString();
 			if (string.IsNullOrEmpty(query))
-				return "Error: expected a block type. " + PlaceUsage;
+				yield return "Error: expected a block type. " + usage;
 
 			Vector3I ijk;
 			if (!tp.NextVector3I(out ijk))
-				return "Error: expected I J K after the block type. " + PlaceUsage;
+				yield return "Error: expected I J K after the block type. " + usage;
 
 			// The engineer builds with his hands, not across the map.
 			double reach = (selectedGrid.GridIntegerToWorld(ijk) - GetEngineerCenter()).Length();
 			if (reach > Constants.MaxInteractionDistance)
-				return $"Error: {IJK(ijk)} is too far from you ({Distance(reach)})";
+				yield return $"Error: {IJK(ijk)} is too far from you ({Distance(reach)})";
 
 			var forward = Base6Directions.Direction.Forward;
 			var up = Base6Directions.Direction.Up;
@@ -131,34 +126,34 @@ namespace LLE
 			{
 				var fs = tp.NextString();
 				if (!ParseHorizDir(fs, out forward))
-					return $"Error: {Quote(fs)} is not a facing direction. Expected one of forward backward left right. " + PlaceUsage;
+					yield return $"Error: {Quote(fs)} is not a facing direction. Expected one of forward backward left right. " + usage;
 
 				if (!tp.End)
 				{
 					var us = tp.NextString();
 					if (!ParseVertDir(us, out up))
-						return $"Error: {Quote(us)} is not an up direction. Expected up or down. " + PlaceUsage;
+						yield return $"Error: {Quote(us)} is not an up direction. Expected up or down. " + usage;
 				}
 
 				if (!tp.End)
-					return "Error: too many arguments. " + PlaceUsage;
+					yield return "Error: too many arguments. " + usage;
 			}
 
 			string error;
 			var definition = FindPlaceableBlock(query, out error);
-			if (definition == null) return error;
+			if (definition == null) yield return error;
 
 			if (definition.Size != Vector3I.One)
-				return $"Error: `place` handles 1x1x1 blocks only for now, and {Quote(definition.DisplayNameText)} is {definition.Size.X}x{definition.Size.Y}x{definition.Size.Z}.";
+				yield return $"Error: `place` handles 1x1x1 blocks only for now, and {Quote(definition.DisplayNameText)} is {definition.Size.X}x{definition.Size.Y}x{definition.Size.Z}.";
 
 			var occupant = selectedGrid.GetCubeBlock(ijk);
 			if (occupant != null)
-				return $"Error: {IJK(ijk)} is not empty — {Quote(Name(occupant))} stands there. Pick a free cell.";
+				yield return $"Error: {IJK(ijk)} is not empty — {Quote(Name(occupant))} stands there.";
 
 			IMySlimBlock neighbour = null;
 			Vector3I neighbourCell = Vector3I.Zero;
 
-			foreach (var offset in FaceNeighbours)
+			foreach (var offset in Constants.SixDirections)
 			{	var b = selectedGrid.GetCubeBlock(ijk + offset);
 				if (b == null) continue;
 				neighbour = b;
@@ -167,11 +162,20 @@ namespace LLE
 			}
 
 			if (neighbour == null)
-				return $"Error: no block touches {IJK(ijk)} by a face, so the new block would have nothing to hold on to. Place it against the existing structure.";
+				yield return $"Error: no block touches {IJK(ijk)} by a face, so the new block would have nothing to hold on to. Place it against the existing structure.";
 
 			var ob = MyObjectBuilderSerializer.CreateNewObject(definition.Id) as MyObjectBuilder_CubeBlock;
 			if (ob == null)
-				return $"Internal error: no object builder for {Quote(definition.DisplayNameText)}";
+				yield return $"Internal error: no object builder for {Quote(definition.DisplayNameText)}";
+
+			var target = selectedGrid.GridIntegerToWorld(ijk);
+
+			SetPause(Constants.MicronavigationDelay);
+			while(IsPaused())
+			{
+				CharacterRotateTo(target);
+				yield return null;
+			}
 
 			ob.EntityId = 0;
 			ob.Min = ijk;
@@ -189,9 +193,9 @@ namespace LLE
 
 			var placed = selectedGrid.AddBlock(ob, false);
 			if (placed == null)
-				return $"Error: the game refused to place {Quote(definition.DisplayNameText)} at {IJK(ijk)}.";
+				yield return $"Error: the game refused to place {Quote(definition.DisplayNameText)} at {IJK(ijk)}.";
 
-			return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}."
+			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}."
 				+ $" It stands at minimum integrity — weld it now: `weld {IJK(ijk)}`");
 		}
 	}
