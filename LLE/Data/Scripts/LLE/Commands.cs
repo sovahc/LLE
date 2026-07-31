@@ -143,6 +143,9 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
   Select a large ship or station on which to grind, weld, fly, and perform other operations.
   Reports which grid axis each of the grid's own directions points along, e.g. `up = +Y, forward = -Z`.
 
+* position
+  Returns the character's coordinates on the currently selected grid.
+
 * overview
   List grid blocks by category.
 
@@ -661,6 +664,9 @@ drop [quantity|all] 'name'
 			if(tp.Match("Pause"))
 			{	LLM.pause = true;
 				result = Success("OK");
+			}
+			else if(tp.Match("Position"))
+			{	result = Position();				
 			}
 			else if(tp.Match("Overview"))
 			{	result = Overview();

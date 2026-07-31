@@ -177,6 +177,16 @@ namespace LLE
 			nameToSample.Clear();
 		}
 
+		internal CommandResult Position()
+		{
+			string message;
+			if(!GridIsSet(out message)) return message;
+
+			var ijk = selectedGrid.WorldToGridInteger(GetEngineerCenter());
+
+			return Success($"Your position on the grid is {ijk}");
+		}
+
 		internal CommandResult Overview()
 		{
 			string message;
