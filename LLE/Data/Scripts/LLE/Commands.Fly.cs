@@ -128,20 +128,30 @@ namespace LLE
 
 			if(!GridIsSet(out message)) yield return message;
 
+			// Two forms:
+			//   fly I J K [headfirst]                     -> land exactly at the cell
+			//   fly to I J K for <intention> [headfirst]  -> land at nearest interaction point of the block
+			bool approach = tp.Match("To");
+
 			Vector3I ijk;
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
-			// Optional intention: fly I J K grind|weld|get|put|recharge|enter
-			// Optional flag: fly I J K [intention] headfirst
 			string intentionWord = null;
 			bool headFirst = false;
 
+			if(approach)
+			{	if(!tp.Match("For"))
+					yield return "Error: expected 'for <intention>' (grind|weld|get|put|recharge|enter)";
+				intentionWord = tp.NextString();
+				if(string.IsNullOrEmpty(intentionWord))
+					yield return "Error: expected intention after 'for' (grind|weld|get|put|recharge|enter)";
+			}
+
 			while(!tp.End)
-			{
-				if(tp.Match("headfirst"))
+			{	if(tp.Match("headfirst"))
 					headFirst = true;
 				else
-					intentionWord = tp.NextString();
+					yield return $"Error: unexpected token '{tp.NextString()}'";
 			}
 
 			var block = selectedGrid.GetCubeBlock(ijk);
@@ -176,8 +186,10 @@ namespace LLE
 			else
 			{
 				if(!Collisions.CenterIsFree(block, ijk))
-				{ 
-					yield return $"Destination is blocked. Use `points` to find interaction points";
+				{
+					yield return $"Destination {IJK(ijk)} is blocked by {Name(block)}. "
+						+ $"Use `fly to {IJK(ijk)} for <intention>` to land at an interaction point, "
+						+ $"or `points {IJK(ijk)}` to list them.";
 				}
 			}
 

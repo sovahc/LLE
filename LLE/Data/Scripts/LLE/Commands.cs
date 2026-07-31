@@ -156,10 +156,11 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 * projection
   Build status of the selected projection preview: total/remaining/buildable counts, and the list of blocks buildable right now.
 
-* fly I J K [grind|weld|get|put|recharge|enter] [headfirst]
-  Fly to specific grid coordinates. If block coordinates are specified instead of free space, the bot flies to the interaction point with the block.
-  With an intention keyword, flies directly to the nearest interaction point for that action (e.g. `fly 5 0 2 grind`).
-  With `headfirst`, flies in a dive orientation (head first, body along travel direction) to reduce the physical collision profile. Use this to unstick when stuck in tight spaces.
+* fly I J K [headfirst]
+  Fly to specific grid coordinates and land exactly at that cell. The cell must be free space; if it is occupied by a block, the command fails and names the blocking block.
+
+* fly to I J K for grind|weld|get|put|recharge|enter
+  Fly to the nearest interaction point of the block at I J K, ready to perform the given action (e.g. `fly to 5 0 2 for weld`).
 
 * grind I J K
   Grind a block at specific coordinates. You must be in a cell next to the block to grind it.
@@ -250,15 +251,15 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 
 ## TYPICAL WORKFLOWS
 ### Get items from cargo:
-fly 5 3 1 get
+fly to 5 3 1 for get
 get 10 'Steel Plate' from 5 3 1
 
 ### Weld a damaged block:
-fly 5 0 2 weld
+fly to 5 0 2 for weld
 weld 5 0 2
 
 ### Recharge:
-fly -4 3 5 recharge
+fly to -4 3 5 for recharge
 recharge -4 3 5
 ";
 }
