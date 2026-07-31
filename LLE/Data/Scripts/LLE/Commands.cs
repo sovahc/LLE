@@ -243,11 +243,12 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
   Conveyor-capable blocks at I J K and at I₂ J₂ K₂ must already exist.
   Returns the conveyor block types that need to be built.
 
-* place 'block_type' I J K [forward|backward|left|right] [up|down]
+* place 'block_type' at I J K [facing forward|backward|left|right] [up|down]
   Build a new block at the given cell.
   The cell must be empty and must share a whole face with a block that is already on the grid.
+  The facing direction and up/down are relative to the grid's own axes (see `select`).
   The new block arrives at minimum integrity, so weld it afterwards.
-  Example: place 'Gyroscope' 3 2 4 right up
+  Example: place 'Gyroscope' at 3 2 4 facing right up
 
 ## TYPICAL WORKFLOWS
 ### Get items from cargo:

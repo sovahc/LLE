@@ -85,7 +85,7 @@ namespace LLE
 			if (partial.Count == 1) return partial[0];
 
 			if (partial.Count == 0)
-			{	error = $"Error: no block type matches {Quote(query)} on this grid. Use the exact name, e.g. `place 'Light Armor Block' 3 2 4`.";
+			{	error = $"Error: no block type matches {Quote(query)} on this grid. Use the exact name, e.g. `place 'Light Armor Block' at 3 2 4`.";
 				return null;
 			}
 
@@ -100,7 +100,7 @@ namespace LLE
 
 		internal IEnumerator Place(TokenParser tp)
 		{
-			const string usage = "Usage: place 'Block Name' I J K [forward|backward|left|right] [up|down]";
+			const string usage = "Usage: place 'Block Name' at I J K [facing forward|backward|left|right] [up|down]";
 
 			string message;
 			if (!GridIsSet(out message)) yield return message;
@@ -110,9 +110,12 @@ namespace LLE
 			if (string.IsNullOrEmpty(query))
 				yield return "Error: expected a block type. " + usage;
 
+			if (!tp.Match("at"))
+				yield return "Error: expected `at` before the coordinates. " + usage;
+
 			Vector3I ijk;
 			if (!tp.NextVector3I(out ijk))
-				yield return "Error: expected I J K after the block type. " + usage;
+				yield return "Error: expected I J K after `at`. " + usage;
 
 			// The engineer builds with his hands, not across the map.
 			double reach = (selectedGrid.GridIntegerToWorld(ijk) - GetEngineerCenter()).Length();
@@ -124,6 +127,9 @@ namespace LLE
 
 			if (!tp.End)
 			{
+				if (!tp.Match("facing"))
+					yield return "Error: expected `facing` before the side direction. " + usage;
+
 				var fs = tp.NextString();
 				if (!ParseHorizDir(fs, out forward))
 					yield return $"Error: {Quote(fs)} is not a facing direction. Expected one of forward backward left right. " + usage;
