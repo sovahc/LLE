@@ -62,7 +62,17 @@ namespace LLE
 		private readonly StringBuilder Reasoning = new StringBuilder(); // input
 		private readonly StringBuilder Content = new StringBuilder(); // input
 		private readonly StringBuilder contentToProcess = new StringBuilder();
+		[Flags]
+		public enum Destination : byte
+		{	None    = 0,
+			Console = 1,
+			Log     = 2,
+			LLM     = 4,
+			All     = Console | Log | LLM,
+		}
+
 		private readonly StringBuilder output = new StringBuilder();
+		private readonly StringBuilder logBuf  = new StringBuilder();
 
 		private MessageType lastType = MessageType.Stop;
 		private bool waitingForResponse;
@@ -134,9 +144,10 @@ namespace LLE
 			}
 		}
 
-		public void Append(string text, Color consoleColor)
-		{	MyConsole.AddMultiline(text, consoleColor);
-			output.Append(text);
+		public void Append(string text, Color consoleColor, Destination d = Destination.All)
+		{	if((d & Destination.Console) != 0) MyConsole.AddMultiline(text, consoleColor);
+			if((d & Destination.Log)     != 0) logBuf.Append(text);
+			if((d & Destination.LLM)     != 0) output.Append(text);
 		}
 
 		public void Tick()
@@ -229,9 +240,10 @@ namespace LLE
 				}
 
 				// Send accumulated results to LLM
-				Log($"toLLM: {output}");
+				Log($"toLLM: {logBuf}");
 				LLE_Loader.SendMessageToLLM(output.ToString());
 				output.Clear();
+				logBuf.Clear();
 				waitingForResponse = true;
 				return;
 			}
@@ -328,8 +340,9 @@ namespace LLE
 			// The bot's own words go back into the transcript. Without them it reads a list of
 			// results with no record of what it said or meant. Reasoning stays out: the chat
 			// template drops thought from previous turns anyway.
-			// Straight into output, not through Append — the console printed it while streaming.
-			output.Append("[YOU]:\n").Append(content).Append("\n");
+			// Console already printed it while streaming; llmContent already logged it.
+			Append($"[YOU]:\n{content}\n", Color.Cyan, Destination.LLM);
+			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
 
 			const string openTag  = "<execute>";
 			const string closeTag = "</execute>";
