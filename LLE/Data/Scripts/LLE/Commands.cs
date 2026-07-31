@@ -163,11 +163,11 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 * weld I J K
   Weld a block at specific coordinates. You must be in a cell next to the block to weld it.
 
-* near
-  Return all blocks in a 3x3x3 cube around you (27 positions).
+* near [I J K]
+  Return occupied blocks in a 3x3x3 cube around you or specified coordinates.
 
-* near I J K
-  Return all blocks in a 3x3x3 cube around specified coordinates.
+* free [I J K]
+  Return free space cells in a 3x3x3 cube around you or specified coordinates.
 
 * inventory
   Return the items in your inventory.
@@ -491,9 +491,9 @@ drop [quantity|all] 'name'
 			if(asteroid != null)
 			{	return "Error: Operations on asteroids are not supported yet.";
 				
-				selectedGrid = null;
-				selectedAsteroid = asteroid;
-				return Success($"Selected {category} {Quote(name)}");
+				//selectedGrid = null;
+				//selectedAsteroid = asteroid;
+				//return Success($"Selected {category} {Quote(name)}");
 			}
 			
 			return $"Error: you can't select {category} '{name}'";
@@ -732,6 +732,9 @@ drop [quantity|all] 'name'
 			}
 			else if(tp.Match("Near"))
 			{	result = Near(tp);
+			}
+			else if(tp.Match("Free"))
+			{	result = Near(tp, true);
 			}
 			else if(tp.Match("Inventory"))
 			{	result = Inventory(tp);

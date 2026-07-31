@@ -15,7 +15,6 @@ using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 using WTF_IMyInventory = VRage.Game.ModAPI.IMyInventory;
 using Sandbox.Game.Entities;
-using System.Linq;
 
 namespace LLE
 {

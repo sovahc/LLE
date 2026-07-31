@@ -26,6 +26,8 @@ namespace LLE
 		private static readonly Dictionary<string, List<Vector3I>> describer = new Dictionary<string, List<Vector3I>>();
 		private static readonly Dictionary<string, IMyTerminalBlock> nameToSample = new Dictionary<string, IMyTerminalBlock>();
 		private static readonly List<Vector3I> positions = new List<Vector3I>();
+		private static readonly Dictionary<string, Vector3I> labelToAxis = new Dictionary<string, Vector3I>();
+		private static readonly string[] dirOrder = { "up", "down", "forward", "backward", "left", "right" };
 
 		private static string Categorize(IMyTerminalBlock block)
 		{
@@ -403,7 +405,7 @@ namespace LLE
 			return Success(sb.ToString());
 		}
 
-		internal CommandResult Near(TokenParser tp)
+		internal CommandResult Near(TokenParser tp, bool freeSpace = false)
 		{	
 			string message;
 			if(!GridIsSet(out message)) return message;
@@ -424,7 +426,19 @@ namespace LLE
 
 			var name = Name(selectedGrid.GetCubeBlock(ijk));
 			
-			md.Append($"# {hint}: {Quote(name)} Position: ({IJK(ijk)})");
+			// Build controller-relative axis mapping for direction labels
+			var m = CalculateOrientation(selectedGrid);
+			var toLocal = selectedGrid.PositionComp.WorldMatrixNormalizedInv;
+			labelToAxis.Clear();
+			labelToAxis["forward"]  = AxisVec(m.Forward, ref toLocal);
+			labelToAxis["backward"] = AxisVec(m.Backward, ref toLocal);
+			labelToAxis["up"]       = AxisVec(m.Up, ref toLocal);
+			labelToAxis["down"]     = AxisVec(m.Down, ref toLocal);
+			labelToAxis["left"]     = AxisVec(m.Left, ref toLocal);
+			labelToAxis["right"]    = AxisVec(m.Right, ref toLocal);
+
+			md.Append($"# {hint}: {Quote(name)} ({IJK(ijk)})");
+			md.Append($"Orientation: forward={Dir(labelToAxis["forward"])}, up={Dir(labelToAxis["up"])}, right={Dir(labelToAxis["right"])}");
 
 			positions.Clear();
 
@@ -435,7 +449,28 @@ namespace LLE
 			{	positions.Add(iter.Current);
 			}
 
-			ListDescription(positions, false, md);
+			var upAxis = labelToAxis["up"];
+			var fwdAxis = labelToAxis["forward"];
+			var rgtAxis = labelToAxis["right"];
+
+			positions.Sort((a, b) =>
+			{	var da = a - ijk;
+				var db = b - ijk;
+				int ua = IDot(da, upAxis),  ub = IDot(db, upAxis);
+				if(ua != ub) return ub.CompareTo(ua);
+				int fa = IDot(da, fwdAxis), fb = IDot(db, fwdAxis);
+				if(fa != fb) return fb.CompareTo(fa);
+				int ra = IDot(da, rgtAxis), rb = IDot(db, rgtAxis);
+				return ra.CompareTo(rb);
+			});
+
+			foreach(var pos in positions)
+			{	var blockName = Name(selectedGrid.GetCubeBlock(pos));
+				var isFree = blockName == FreeSpace;
+				if(pos != ijk && isFree != freeSpace) continue;
+				var desc = DirLabel(pos - ijk);
+				md.Append($"* [{desc}] {Quote(blockName)} ({IJK(pos)})");
+			}
 
 			return Success(md.Result());
 		}
@@ -753,15 +788,32 @@ namespace LLE
 				+ $", left = {Axis(m.Left, ref toLocal)}, right = {Axis(m.Right, ref toLocal)}";
 		}
 
-		private static string Axis(Vector3D worldDir, ref MatrixD toLocal)
+		private static Vector3I AxisVec(Vector3D worldDir, ref MatrixD toLocal)
 		{
 			var v = Vector3D.TransformNormal(worldDir, toLocal);
 
 			double ax = System.Math.Abs(v.X), ay = System.Math.Abs(v.Y), az = System.Math.Abs(v.Z);
 
-			if (ax >= ay && ax >= az) return Dir(new Vector3I(System.Math.Sign(v.X), 0, 0));
-			if (ay >= az)             return Dir(new Vector3I(0, System.Math.Sign(v.Y), 0));
-			return Dir(new Vector3I(0, 0, System.Math.Sign(v.Z)));
+			if (ax >= ay && ax >= az) return new Vector3I(System.Math.Sign(v.X), 0, 0);
+			if (ay >= az)             return new Vector3I(0, System.Math.Sign(v.Y), 0);
+			return new Vector3I(0, 0, System.Math.Sign(v.Z));
+		}
+
+		private static string Axis(Vector3D worldDir, ref MatrixD toLocal)
+		{	return Dir(AxisVec(worldDir, ref toLocal));
+		}
+
+		private static int IDot(Vector3I a, Vector3I b)
+		{	return a.X * b.X + a.Y * b.Y + a.Z * b.Z;
+		}
+
+		private static string DirLabel(Vector3I delta)
+		{	if (delta == Vector3I.Zero) return "center";
+			var parts = new List<string>(3);
+			foreach(var label in dirOrder)
+			{	if (IDot(delta, labelToAxis[label]) > 0) parts.Add(label);
+			}
+			return string.Join("-", parts);
 		}
 	}
 }
