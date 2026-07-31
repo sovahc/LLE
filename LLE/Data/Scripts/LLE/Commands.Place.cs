@@ -122,7 +122,7 @@ namespace LLE
 			// The engineer builds with his hands, not across the map.
 			double reach = (selectedGrid.GridIntegerToWorld(ijk) - GetEngineerCenter()).Length();
 			if (reach > Constants.MaxInteractionDistance)
-				return $"Error: {IJK(ijk)} на слишком большом расстоянии от тебя ({Distance(reach)})";
+				return $"Error: {IJK(ijk)} is too far from you ({Distance(reach)})";
 
 			var forward = Base6Directions.Direction.Forward;
 			var up = Base6Directions.Direction.Up;
