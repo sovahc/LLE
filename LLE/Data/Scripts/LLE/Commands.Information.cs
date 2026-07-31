@@ -412,6 +412,7 @@ namespace LLE
 			var sb = new StringBuilder();
 			sb.Append($"Interaction points for {Name(block)} at {IJK(ijk)}:\n");
 			AppendInteractionPoints(ijk, sb);
+			sb.Append($"You stand at the cells listed above. Use {IJK(ijk)} (the block itself) as the target for get/put/weld/grind.\n");
 			return Success(sb.ToString());
 		}
 

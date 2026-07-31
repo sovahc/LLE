@@ -214,8 +214,12 @@ namespace LLE
 
 			bool first = true;
 			foreach (var kv in missing)
-			{	if (!first) result.Append(", ");
-				result.Append($"{kv.Value} {Quote(kv.Key)}");
+			{	var id = new MyDefinitionId(typeof(MyObjectBuilder_Component), kv.Key);
+				var def = MyDefinitionManager.Static.GetDefinition(id) as MyPhysicalItemDefinition;
+				if(def == null) continue;
+				var name = def.DisplayNameText;
+				if (!first) result.Append(", ");
+				result.Append($"{kv.Value} {Quote(name)}");
 				first = false;
 			}
 			if(first) result.Append("-- none --");

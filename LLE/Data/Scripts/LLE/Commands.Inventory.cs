@@ -209,9 +209,15 @@ namespace LLE
 			string item = null;
 			double count = 0;
 			bool allComponents = false;
+			bool allOfItem = false;
 
-			if(tp.Match("all") && tp.Match("components"))
-			{	allComponents = true;
+			if(tp.Match("all"))
+			{	if(tp.Match("components"))
+					allComponents = true;
+				else
+				{	item = tp.NextString();
+					allOfItem = true;
+				}
 			}
 			else
 			{	if(!tp.NextDouble(out count)) yield return "Error: expected count";
@@ -272,7 +278,8 @@ namespace LLE
 			}
 			else
 			{	List<string> items = new List<string>() { item };
-				var full2 = InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
+				var amount = allOfItem ? MyFixedPoint.MaxValue : (MyFixedPoint)count;
+				var full2 = InventoryTransfer(fromList, toList, items, amount, sb);
 				yield return full2 ? Success(sb.ToString()) : Incomplete(sb.ToString());
 			}
 		}

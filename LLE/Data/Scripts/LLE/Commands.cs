@@ -125,6 +125,7 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 ## HINTS
 
 1. If the `weld` command reports missing components, search for them with the `inventories` command on all grids near you.
+2. `weld` is incremental: it consumes whatever components you carry and raises block integrity by that much. You never need all missing components at once — weld with a partial load, then fetch more and weld again.
 
 ## AVAILABLE COMMANDS
 
@@ -186,6 +187,9 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 
 * put N 'item' into I J K
   Transfer N items from your inventory to a container, e.g. `put 1 'Medkit' into 14 0 2`
+
+* put all 'item' into I J K
+  Transfer ALL of one item type from your inventory to a container, e.g. `put all 'Steel Plate' into 5 3 1`
 
 * put all components into I J K
   Transfer all block components from your inventory to a container (very useful shortcut).
