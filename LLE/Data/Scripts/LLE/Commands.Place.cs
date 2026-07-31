@@ -100,7 +100,7 @@ namespace LLE
 
 		internal IEnumerator Place(TokenParser tp)
 		{
-			const string usage = "Usage: place 'Gyroscope' 3 2 4 [forward|backward|left|right] [up|down]";
+			const string usage = "Usage: place 'Block Name' I J K [forward|backward|left|right] [up|down]";
 
 			string message;
 			if (!GridIsSet(out message)) yield return message;

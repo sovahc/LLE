@@ -37,7 +37,7 @@ namespace LLE
 			if (!GridIsSet(out message)) yield return message;
 			if (CurrentGridIsProjection(out message)) yield return message;
 
-			const string usage = "Usage: route from 3 2 4 to 3 6 9";
+			const string usage = "Usage: route from I J K to I₂ J₂ K₂";
 
 			Vector3I a, b;
 			if (!tp.Match("from")) yield return "Error: expected 'from' " + usage;
