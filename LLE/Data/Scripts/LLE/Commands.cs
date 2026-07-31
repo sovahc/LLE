@@ -117,16 +117,6 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
    Output exactly one <execute> block. Multiple blocks are rejected and nothing is executed.
    Each command must be on its own line.
 
-   Goal: repair the damaged reactor at 5 0 2.
-   State: `integrity` listed 5 0 2 as damaged; I am not next to it yet.
-   Plan: check what components I carry, fly to the weld point, then weld.
-
-   <execute>
-   inventory
-   fly 5 0 2 weld
-   weld 5 0 2
-   </execute>
-
 5. At most 3 commands per <execute> block.
 6. Most commands, such as `grind`, `weld`, `put`, require you to be directly next to the target block.
 7. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
