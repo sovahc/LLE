@@ -7,16 +7,6 @@ using VRage.Game.ModAPI;
 using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 
-// `orient` replaces the orientation tables that used to sit in the system prompt. Those tables
-// were the model's job to map — and mapping is exactly what the fast mode gets wrong: in the
-// GemmaBuilder probe a recipe written as a table of columns scored *below* no recipe at all,
-// while the same recipe written as the literal tail of a command scored 100%. So this command
-// answers with whole `place` lines and nothing to map.
-//
-// What is valid is not decided here: mounting goes through MyCubeGrid.CheckConnectivity, the
-// same function the game runs when a player places a block, and the ports come out of the
-// block's model. Nothing about any particular block type is written down.
-
 namespace LLE
 {
 	public partial class Commands

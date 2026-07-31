@@ -6,23 +6,6 @@ using VRage.Game.ModAPI;
 using Sandbox.Definitions;
 using Sandbox.Common.ObjectBuilders;
 
-// Conveyor port geometry. There is no port data in a block definition — in this engine a port
-// is a model dummy named `detector_conveyor*`, and the game reads those in
-// MyConveyorLine.GetBlockLinePositions (Sandbox.Game.decompiled.cs:313961).
-//
-// That method, and MyModels with it, is outside the mod whitelist, so the dummies are read
-// through the mod API instead: IMyModel.GetDummies, the same call the published LeakFinder and
-// RealEnergy mods use. It needs a block that is actually standing, so ports are learned from
-// real blocks and cached per definition — which is enough, because every block a run is routed
-// to or from is on the grid by definition.
-//
-// The one case with no instance to learn from is the tube about to be built. For a conveyor
-// tube or junction — and only for those two object builder types — the mount points are the
-// ports: the block attaches by exactly the faces its ports are on. Checked in
-// CubeBlocks_Logistics.sbc: ConveyorTube mounts Top+Bottom, ConveyorTubeCurved Bottom+Right,
-// ConveyorTubeSmall Back+Front (so this is not a fact about `up`), LargeBlockConveyor carries
-// no MountPoints element and MyCubeBlockDefinition.InitMountPoints then generates all six.
-
 namespace LLE
 {
 	struct ConveyorPort

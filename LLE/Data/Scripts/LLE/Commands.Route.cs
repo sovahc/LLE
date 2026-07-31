@@ -8,14 +8,6 @@ using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Definitions;
 
-// `route` answers the one question the fast (non-thinking) model was measured to fail:
-// finding a way around an obstacle. The mod does the search; the model only copies cells
-// and looks each piece's orientation up with `orient`.
-//
-// The answer is re-entrant on purpose. Every piece already built is itself a conveyor block,
-// so `route <last piece> <target>` returns the remainder of the run. The model never has to
-// hold the whole plan — which is exactly what it could not do.
-
 namespace LLE
 {
 	public partial class Commands
