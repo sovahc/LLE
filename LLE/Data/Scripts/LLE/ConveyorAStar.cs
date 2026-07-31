@@ -8,6 +8,8 @@ using Priority_Queue;
 
 namespace LLE
 {
+	// TODO Warning: Clunker code, not checked.
+
 	class ConveyorAStar
 	{
 		private const float BendPenalty = 0.4f;
