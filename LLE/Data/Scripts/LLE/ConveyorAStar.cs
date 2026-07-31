@@ -42,12 +42,6 @@ namespace LLE
 			Base6Directions.Direction.Forward, Base6Directions.Direction.Backward
 		};
 
-		private static long Cells(Vector3I min, Vector3I max)
-		{
-			Vector3I s = max - min + Vector3I.One;
-			return (long)s.X * s.Y * s.Z;
-		}
-
 		public ConveyorAStar(IMyCubeGrid grid_, Vector3I start_, Vector3I goal_,
 			List<Base6Directions.Direction> startPorts_, List<Base6Directions.Direction> goalPorts_)
 		{
