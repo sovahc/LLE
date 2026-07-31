@@ -90,7 +90,7 @@ namespace LLE
 		// Never add an exemplar answering with a bare <execute> block: with thinking off —
 		// the shipping mode — that cost placement 77%→57% and orientation 77%→50% by
 		// teaching terseness instead of method. Harmless with thinking on.
-		internal static string Help()
+		internal static string Prompt()
 		{
 			return @"
 You are an autonomous agent controlling a Space Engineer in-game character.
@@ -436,7 +436,7 @@ drop [quantity|all] 'name'
 
 		internal void SetSystemPromptAndMemory()
 		{
-			var sb = new StringBuilder(Help());
+			var sb = new StringBuilder(Prompt());
 			sb.Append("\n## MEMORY\n");
 			if (memory.Count > 0)
 			{
