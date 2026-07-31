@@ -79,9 +79,6 @@ namespace LLE
 				}
 			}
 
-			if (ConveyorAStar.TooBig(selectedGrid, a, b))
-				yield return "Error: those two blocks are too far apart to search between. Route to something nearer first.";
-
 			var search = new ConveyorAStar(selectedGrid, a, b, portsA, portsB);
 			while (!search.Tick()) yield return null;
 

@@ -6,35 +6,11 @@ using VRageMath;
 using VRage.Game.ModAPI;
 using Priority_Queue;
 
-// A* over whole cube cells, for a conveyor run.
-//
-// Not to be confused with AStar.cs, which routes the engineer's flight: that one works at
-// half-cell resolution, walks 12 diagonals as well as the 6 axes, asks TraversabilityCalculator
-// whether a capsule fits (voxels, foreign grids, collision probes), pushes away from walls and
-// doubles its heuristic to trade optimality for speed. A conveyor run needs the opposite of all
-// five — whole cells, six directions, plain occupancy, hugging the structure, and a shortest
-// path. Sharing one class would have meant five flags and an interface through the flight code.
-//
-// Start and goal are *occupied* here: they are the two blocks being connected. Neither is
-// traversable — the search leaves the start through one of its ports and enters the goal
-// through one of its.
-
 namespace LLE
 {
 	class ConveyorAStar
 	{
-		// A bend costs a curved tube, and by the GemmaBuilder measurements bends — not length —
-		// are what the model pays for. Priced above a straight step, below a detour of two cells.
 		private const float BendPenalty = 0.4f;
-
-		// The search covers the whole grid whenever that fits in MaxCells, so the route found is
-		// the shortest one there is. Only on a grid too big for that does it fall back to the
-		// endpoints' bounding box grown by Margin — which can miss a long way round, and is a
-		// concession to memory, not a rule about conveyors.
-		private const int Margin = 16;
-
-		private const int MaxExpanded = 150000;
-		private const int MaxCells = 2000000;
 
 		private readonly IMyCubeGrid grid;
 		private readonly Indexer indexer;
@@ -67,33 +43,10 @@ namespace LLE
 			Base6Directions.Direction.Forward, Base6Directions.Direction.Backward
 		};
 
-		public static bool TooBig(IMyCubeGrid grid, Vector3I a, Vector3I b)
-		{
-			Vector3I min, max;
-			Box(grid, a, b, out min, out max);
-			return Cells(min, max) > MaxCells;
-		}
-
 		private static long Cells(Vector3I min, Vector3I max)
 		{
 			Vector3I s = max - min + Vector3I.One;
 			return (long)s.X * s.Y * s.Z;
-		}
-
-		private static void Box(IMyCubeGrid grid, Vector3I a, Vector3I b, out Vector3I min, out Vector3I max)
-		{
-			// One cell outside the hull is allowed: a run may go over the skin.
-			Vector3I fullMin = grid.Min - Vector3I.One;
-			Vector3I fullMax = grid.Max + Vector3I.One;
-
-			if (Cells(fullMin, fullMax) <= MaxCells)
-			{	min = fullMin;
-				max = fullMax;
-				return;
-			}
-
-			min = Vector3I.Max(Vector3I.Min(a, b) - Margin, fullMin);
-			max = Vector3I.Min(Vector3I.Max(a, b) + Margin, fullMax);
 		}
 
 		public ConveyorAStar(IMyCubeGrid grid_, Vector3I start_, Vector3I goal_,
@@ -105,11 +58,8 @@ namespace LLE
 			startPorts = startPorts_;
 			goalPorts = goalPorts_;
 
-			Vector3I min, max;
-			Box(grid, start, goal, out min, out max);
-
-			origin = min;
-			indexer = new Indexer(max - min + Vector3I.One);
+			origin = grid.Min;
+			indexer = new Indexer(grid.Max - grid.Min + Vector3I.One);
 
 			int c = indexer.Count;
 
@@ -179,12 +129,6 @@ namespace LLE
 			{
 				++expanded;
 				if (expanded % 200 == 0) yield return null;
-
-				if (expanded > MaxExpanded)
-				{	Exhausted = true;
-					MyConsole.Add($"ConveyorAStar: gave up after {expanded} cells", Color.Red);
-					yield break;
-				}
 
 				var current = open.Dequeue();
 				int currentI = current.Index;
