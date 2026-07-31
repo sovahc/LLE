@@ -177,6 +177,11 @@ namespace LLE
 				yield return null;
 			}
 
+			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
+			controller.SwitchToWeapon(new MyDefinitionId(typeof(MyObjectBuilder_CubePlacer)));
+			SetPause(1);
+			while(IsPaused()) yield return null;
+
 			ob.EntityId = 0;
 			ob.Min = ijk;
 			ob.BlockOrientation = new SerializableBlockOrientation(forward, up);
@@ -194,6 +199,10 @@ namespace LLE
 			var placed = selectedGrid.AddBlock(ob, false);
 			if (placed == null)
 				yield return $"Error: the game refused to place {Quote(definition.DisplayNameText)} at {IJK(ijk)}.";
+
+			SetPause(1);
+			while(IsPaused()) yield return null;
+			controller.SwitchToWeapon(null);
 
 			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}."
 				+ $" It stands at minimum integrity — weld it now: `weld {IJK(ijk)}`");
