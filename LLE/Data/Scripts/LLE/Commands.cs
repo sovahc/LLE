@@ -164,10 +164,10 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
   Weld a block at specific coordinates. You must be in a cell next to the block to weld it.
 
 * near
-  Return all blocks in 3x3x3 cube around you (27 positions).
+  Return all blocks in a 3x3x3 cube around you (27 positions).
 
 * near I J K
-  Return all blocks in 3x3x3 cube around specified coordinates.
+  Return all blocks in a 3x3x3 cube around specified coordinates.
 
 * inventory
   Return the items in your inventory.
@@ -194,11 +194,11 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
   Transfer every item from one inventory to another.
 
 * search item 'substring' [N]
-  Find items across nearby grids by partial name match. Returns N closest results (default 5).
+  Find items across nearby grids by partial name match. Returns the N closest results (default 5).
   Example: search item 'Welder'
 
 * search block 'substring' [N]
-  Find blocks across nearby grids by partial name match. Returns N closest results (default 5).
+  Find blocks across nearby grids by partial name match. Returns the N closest results (default 5).
   Example: search block 'Assembler' 1
 
 * distance I J K
@@ -227,8 +227,13 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 
 * recharge I J K
   Recharge at the block at the given grid coordinates.
-  For cockpits, cryo-chambers and seats: sits the bot in it, exits automatically when done.
+  For cockpits, cryo-chambers and seats: the bot sits in it and exits automatically when done.
   For medblocks and survival kits: collects energy near the block through a port.
+
+* route from I J K to I₂ J₂ K₂
+  Compute the shortest conveyor path between the given points.
+  Conveyor-capable blocks at I J K and at I₂ J₂ K₂ must already exist.
+  Returns the conveyor block types that need to be built.
 
 ## TYPICAL WORKFLOWS
 ### Get items from cargo:
