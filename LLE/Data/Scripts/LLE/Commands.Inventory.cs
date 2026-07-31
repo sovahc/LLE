@@ -38,7 +38,7 @@ namespace LLE
 			{	string message;
 
 				if(!GridIsSet(out message)) return message;
-				if(!NotProjection(out message)) return message;
+				if(CurrentGridIsProjection(out message)) return message;
 
 				Vector3I ijk;
 				if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";
@@ -71,7 +71,7 @@ namespace LLE
 		{
 			string message;
 			if (!GridIsSet(out message)) return message;
-			if (!NotProjection(out message)) return message;
+			if (CurrentGridIsProjection(out message)) return message;
 
 			StringBuilder sb = new StringBuilder();
 			sb.Append($"# Inventories on {Quote(Name(selectedGrid))}\n");
@@ -145,7 +145,7 @@ namespace LLE
 			string message;
 
 			if(!GridIsSet(out message)) yield return message;
-			if(!NotProjection(out message)) yield return message;
+			if(CurrentGridIsProjection(out message)) yield return message;
 
 			double count; Vector3I ijk;
 
@@ -205,7 +205,7 @@ namespace LLE
 		{
 			string message;
 			if(!GridIsSet(out message)) yield return message;
-			if(!NotProjection(out message)) yield return message;
+			if(CurrentGridIsProjection(out message)) yield return message;
 
 			string item = null;
 			double count = 0;
@@ -283,7 +283,7 @@ namespace LLE
 			string message;
 
 			if(!GridIsSet(out message)) yield return message;
-			if(!NotProjection(out message)) yield return message;
+			if(CurrentGridIsProjection(out message)) yield return message;
 
 			double count = 0; Vector3I ijkFrom, ijkTo;
 			bool allItems = false;

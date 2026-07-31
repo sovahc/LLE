@@ -503,15 +503,19 @@ drop [quantity|all] 'name'
 			return true;
 		}
 
-		// Guard for commands that assume a real, physical grid. A projector's preview grid has no
-		// physics, no real inventories/power/seats — not supported yet, use grind/weld instead.
-		internal bool NotProjection(out string message)
+		public static bool IsProjection(IMyCubeGrid grid)
+		{
+			var mcg = grid as MyCubeGrid;
+			return mcg != null && mcg.Projector != null;
+		}
+
+		internal bool CurrentGridIsProjection(out string message)
 		{	if(IsProjection(selectedGrid))
 			{	message = "Error: selected grid is a projection preview, not a built object. Not supported for this command.";
-				return false;
+				return true;
 			}
 			message = null;
-			return true;
+			return false;
 		}
 
 		internal Vector3I NearestToEngineer(List<Vector3I> list)

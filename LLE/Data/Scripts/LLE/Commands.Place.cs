@@ -88,7 +88,7 @@ namespace LLE
 		{
 			string message;
 			if (!GridIsSet(out message)) return message;
-			if (!NotProjection(out message)) return message;
+			if (CurrentGridIsProjection(out message)) return message;
 
 			var query = tp.NextString();
 			if (string.IsNullOrEmpty(query))

@@ -82,14 +82,6 @@ namespace LLE
 		{	return grid.CustomName ?? "Unnamed Grid";
 		}
 
-		// A projector's preview/hologram grid: no physics, no real blocks, nothing that
-		// grind/weld/inventory/recharge/enter can meaningfully act on yet.
-		public static bool IsProjection(IMyCubeGrid grid)
-		{
-			var mcg = grid as MyCubeGrid;
-			return mcg != null && mcg.Projector != null;
-		}
-
 		public static void Description(IMyEntity e, out string category, out string name)
 		{
 			category = "Unknown";
