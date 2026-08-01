@@ -3,5 +3,6 @@
     <OutputPath>/tmp/LLE-build/</OutputPath>
     <BaseIntermediateOutputPath>/tmp/LLE-build/obj/</BaseIntermediateOutputPath>
     <MSBuildProjectExtensionsPath>/tmp/LLE-build/.nuget/</MSBuildProjectExtensionsPath>
+    <FrameworkPathOverride>/usr/lib/mono/4.8-api</FrameworkPathOverride>
   </PropertyGroup>
 </Project>

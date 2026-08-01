@@ -15,6 +15,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="netstandard">
+      <HintPath>$(FrameworkPathOverride)/Facades/netstandard.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Collections.Immutable">
+      <HintPath>$(SeBinDir)/System.Collections.Immutable.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe">
+      <HintPath>$(SeBinDir)/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
     <Reference Include="ProtoBuf.Net">
       <HintPath>$(SeBinDir)/ProtoBuf.Net.dll</HintPath>
     </Reference>
