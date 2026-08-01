@@ -675,10 +675,10 @@ namespace LLE
 
 			StringBuilder sb = new StringBuilder();
 
-			string what = "";
+			string what;
 			if(searchItems && searchBlocks) what = "items and blocks";
-			else if(searchItems) what = "items";
-			else if(searchBlocks) what = "blocks";
+			else if(searchItems) what = matches.Count == 1 ? "item" : "items";
+			else what = matches.Count == 1 ? "block" : "blocks";
 
 			string qualifier = partialDropped > 0 ? $" (showing {partialShown} closest partial)" : "";
 			sb.Append($"Found {matches.Count} {what} matching {Quote(query)}" +
