@@ -172,7 +172,7 @@ namespace LLE
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
 
-			SetPause(2.0);
+			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())
 			{	CharacterRotateTo(bp);
 				yield return null;
@@ -249,7 +249,7 @@ namespace LLE
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
 
-			SetPause(2.0);
+			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())
 			{	CharacterRotateTo(bp);
 				yield return null;
