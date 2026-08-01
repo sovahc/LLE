@@ -25,6 +25,7 @@ namespace LLE
 		private static readonly List<IMyTerminalBlock> terminalBlocks = new List<IMyTerminalBlock>();
 		private static readonly Dictionary<string, List<Vector3I>> describer = new Dictionary<string, List<Vector3I>>();
 		private static readonly Dictionary<string, IMyTerminalBlock> nameToSample = new Dictionary<string, IMyTerminalBlock>();
+		private static readonly Dictionary<string, bool> nameToLarge = new Dictionary<string, bool>();
 		private static readonly List<Vector3I> positions = new List<Vector3I>();
 		private static readonly Dictionary<string, Vector3I> labelToAxis = new Dictionary<string, Vector3I>();
 		private static readonly string[] dirOrder = { "up", "down", "forward", "backward", "left", "right" };
@@ -125,10 +126,12 @@ namespace LLE
 
 		internal void ListDescription(List<Vector3I> coordinates, bool byCategory, MyMarkdown md)
 		{	md.Append($"Legend: `Name at P1; P2; ...` means a block called Name stands at each of those positions."
-				+ $" `{FreeSpace} at ...` means those cells are empty.");
+				+ $" `{FreeSpace} at ...` means those cells are empty."
+				+ $" A name prefixed with `{LargeBlockMark}` is a large block occupying more than a single 1x1x1 cell.");
 
 			describer.Clear();
 			nameToSample.Clear();
+			nameToLarge.Clear();
 
 			foreach (var position in coordinates)
 			{	
@@ -139,6 +142,7 @@ namespace LLE
 				if(!describer.TryGetValue(name, out pp))
 				{	pp = new List<Vector3I>();
 					describer[name] = pp;
+					nameToLarge[name] = IsLargeBlock(cubeBlock);
 					var terminalBlock = cubeBlock?.FatBlock as IMyTerminalBlock;
 					if (terminalBlock != null)
 						nameToSample[name] = terminalBlock;
@@ -156,7 +160,9 @@ namespace LLE
 				var category = byCategory && nameToSample.TryGetValue(name, out sample) ? Categorize(sample) : null;
 
 				StringBuilder sb = new StringBuilder();
-				sb.Append($"* {Quote(kv.Key)} at ");
+				bool large;
+				var prefix = nameToLarge.TryGetValue(name, out large) && large ? LargeBlockMark + " " : "";
+				sb.Append($"* {prefix}{Quote(name)} at ");
 
 				bool semi = false;
 				foreach(var p in kv.Value)
@@ -390,7 +396,7 @@ namespace LLE
 				foreach (var block in kv.Value)
 				{
 					var p = block.Integrity / block.MaxIntegrity;
-					sb.Append($"* {Quote(Name(block))} at ({IJK(block.Position)}) [{Percent(p)}]\n");
+					sb.Append($"* {LargeBlockPrefix(block)}{Quote(Name(block))} at ({IJK(block.Position)}) [{Percent(p)}]\n");
 				}
 				md.Add($"## {kv.Key}", sb.ToString());
 			}
@@ -410,7 +416,7 @@ namespace LLE
 			if(block == null) return $"Error: no block at {IJK(ijk)}";
 
 			var sb = new StringBuilder();
-			sb.Append($"Interaction points for {Name(block)} at {IJK(ijk)}:\n");
+			sb.Append($"Interaction points for {LargeBlockPrefix(block)}{Name(block)} at {IJK(ijk)}:\n");
 			AppendInteractionPoints(ijk, sb);
 			sb.Append($"You stand at the cells listed above. Use {IJK(ijk)} (the block itself) as the target for get/put/weld/grind.\n");
 			return Success(sb.ToString());
@@ -435,7 +441,8 @@ namespace LLE
 				hint = "Central block";
 			}
 
-			var name = Name(selectedGrid.GetCubeBlock(ijk));
+			var centerBlock = selectedGrid.GetCubeBlock(ijk);
+			var name = Name(centerBlock);
 			
 			// Build controller-relative axis mapping for direction labels
 			var m = CalculateOrientation(selectedGrid);
@@ -448,7 +455,7 @@ namespace LLE
 			labelToAxis["left"]     = AxisVec(m.Left, ref toLocal);
 			labelToAxis["right"]    = AxisVec(m.Right, ref toLocal);
 
-			md.Append($"# {hint}: {Quote(name)} ({IJK(ijk)})");
+			md.Append($"# {hint}: {LargeBlockPrefix(centerBlock)}{Quote(name)} ({IJK(ijk)})");
 			md.Append($"Orientation: forward={Dir(labelToAxis["forward"])}, up={Dir(labelToAxis["up"])}, right={Dir(labelToAxis["right"])}");
 
 			positions.Clear();
@@ -477,11 +484,12 @@ namespace LLE
 
 			int freeCount = 0;
 			foreach(var pos in positions)
-			{	var blockName = Name(selectedGrid.GetCubeBlock(pos));
+			{	var block = selectedGrid.GetCubeBlock(pos);
+				var blockName = Name(block);
 				var isFree = blockName == FreeSpace;
 				if(pos != ijk && isFree != freeSpace) continue;
 				var desc = DirLabel(pos - ijk);
-				md.Append($"* [{desc}] {Quote(blockName)} ({IJK(pos)})");
+				md.Append($"* [{desc}] {LargeBlockPrefix(block)}{Quote(blockName)} ({IJK(pos)})");
 				if(freeSpace && pos != ijk && isFree) freeCount++;
 			}
 
@@ -604,7 +612,7 @@ namespace LLE
 								Distance = distance,
 								Exact = exact,
 								Text =
-									$"* {tag} block {Quote(blockName)} at {IJK(block.Position)}" +
+										$"* {tag} block {LargeBlockPrefix(block.SlimBlock)}{Quote(blockName)} at {IJK(block.Position)}" +
 									$" on {Quote(Name(grid))} (distance {Distance(distance)})\n"
 							});
 						}
@@ -636,7 +644,7 @@ namespace LLE
 										Exact = exact,
 										Text =
 											$"* {tag} {Quote(itemName)} → {(double)item.Amount:F2}" +
-											$" in block {Quote(blockName)} at {IJK(block.Position)}" +
+											$" in block {LargeBlockPrefix(block.SlimBlock)}{Quote(blockName)} at {IJK(block.Position)}" +
 											$" on {Quote(Name(grid))} (distance {Distance(distance)})\n"
 									});
 								}
@@ -748,8 +756,8 @@ namespace LLE
 				var blockB = grid.GetCubeBlock(b);
 				
 				return Success($"Distance from"
-					+ $" {Quote(Name(blockA))} at {IJK(a)} to"
-					+ $" {Quote(Name(blockB))} at {IJK(b)}: {Distance(d)}");
+					+ $" {LargeBlockPrefix(blockA)}{Quote(Name(blockA))} at {IJK(a)} to"
+					+ $" {LargeBlockPrefix(blockB)}{Quote(Name(blockB))} at {IJK(b)}: {Distance(d)}");
 			}
 			else
 			{
@@ -758,7 +766,7 @@ namespace LLE
 				
 				var d = (wa - we).Length();
 				var block = grid.GetCubeBlock(a);
-				return Success($"Distance from you to {Quote(Name(block))} at {IJK(a)}: {Distance(d)}");
+				return Success($"Distance from you to {LargeBlockPrefix(block)}{Quote(Name(block))} at {IJK(a)}: {Distance(d)}");
 			}
 		}
 

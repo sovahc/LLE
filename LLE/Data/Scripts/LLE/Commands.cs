@@ -102,6 +102,7 @@ You control a character that can fly, weld, grind, place blocks, and manage inve
 You operate on a selected grid (ship or station).
 
 Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is the Z axis)
+In command output, a block name prefixed with `█` is a large block occupying more than a single 1x1x1 cell.
 
 ## EXECUTION RULES
 

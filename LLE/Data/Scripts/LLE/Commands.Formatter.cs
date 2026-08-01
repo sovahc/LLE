@@ -5,6 +5,7 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Game.Entities;
+using Sandbox.Definitions;
 using VRage.ModAPI;
 
 namespace LLE
@@ -72,6 +73,22 @@ namespace LLE
 		{
 			if(block == null) return FreeSpace;
 			return block.BlockDefinition.DisplayNameText;
+		}
+
+		public const string LargeBlockMark = "█";
+
+		public static bool IsLargeBlock(IMySlimBlock block)
+		{
+			if(block == null) return false;
+			var def = block.BlockDefinition as MyCubeBlockDefinition;
+			if(def == null) return false;
+			var s = def.Size;
+			return s.X > 1 || s.Y > 1 || s.Z > 1;
+		}
+
+		public static string LargeBlockPrefix(IMySlimBlock block)
+		{
+			return IsLargeBlock(block) ? LargeBlockMark + " " : "";
 		}
 
 		public static string Name(IMyCubeGrid grid)
