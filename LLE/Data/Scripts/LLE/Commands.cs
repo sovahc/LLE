@@ -138,6 +138,9 @@ In command output, a block name prefixed with `█` is a large block occupying m
   Fly to the nearest interaction point of the block at I J K, ready to perform the given action (e.g. `fly to 5 0 2 for weld`).
   `place` flies to the nearest free cell next to the block, ready to build.
 
+* unstuck forward|backward|left|right|up|down
+  Turn on the jetpack and fly one cell in the given direction (relative to the grid's cockpit or remote control) to break free.
+
 ### 2. Remote — no need to be next to a block
 
 * pause
@@ -337,7 +340,6 @@ pickup 'name'
 drop [quantity|all] 'name'
   Drop a specified object.
 ? move {forward|backward|left|right|up|down} {distance} - Move in a direction
-? unstuck / recover - Recover from being stuck.
 
 ! Pathfinding: safest (default) / shortest / scouting / prefer open space
 ? log - Return history of executed commands and their results
@@ -764,6 +766,9 @@ drop [quantity|all] 'name'
 					result = GetRechargePoints(tp);
 				else
 					coroutineStack.Push(Recharge(tp));
+			}
+			else if(tp.Match("Unstuck"))
+			{	coroutineStack.Push(Unstuck(tp));
 			}
 			else
 			{	result = $"Unknown command '{tp.NextString()}'.";

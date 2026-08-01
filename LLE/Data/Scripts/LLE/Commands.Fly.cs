@@ -393,5 +393,48 @@ namespace LLE
 
 			character.MoveAndRotate(moveIndicator, Vector2.Zero, 0);
 		}
+
+		private static bool TryDirOffset(IMyCubeGrid grid, string s, out Vector3I offset)
+		{
+			offset = Vector3I.Zero;
+			if(s == null) return false;
+
+			var m = CalculateOrientation(grid);
+			Vector3D worldDir;
+
+			switch(s.ToLowerInvariant())
+			{
+				case "forward":  worldDir = m.Forward;  break;
+				case "backward": worldDir = m.Backward; break;
+				case "left":     worldDir = m.Left;     break;
+				case "right":    worldDir = m.Right;    break;
+				case "up":       worldDir = m.Up;       break;
+				case "down":     worldDir = m.Down;     break;
+				default:         return false;
+			}
+
+			var toLocal = grid.PositionComp.WorldMatrixNormalizedInv;
+			offset = AxisVec(worldDir, ref toLocal);
+			return true;
+		}
+
+		internal IEnumerator Unstuck(TokenParser tp)
+		{
+			string message;
+			if(!GridIsSet(out message)) yield return message;
+
+			var dirWord = tp.NextString();
+			if(string.IsNullOrEmpty(dirWord))
+				yield return "Error: expected direction (forward|backward|left|right|up|down)";
+
+			Vector3I offset;
+			if(!TryDirOffset(selectedGrid, dirWord, out offset))
+				yield return $"Error: {Quote(dirWord)} is not a direction. Expected: forward backward left right up down";
+
+			var here = selectedGrid.WorldToGridInteger(GetEngineerCenter());
+			var target = here + offset;
+
+			yield return Fly(new TokenParser($"{target.X} {target.Y} {target.Z}"));
+		}
 	}
 }
