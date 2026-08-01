@@ -51,20 +51,6 @@ namespace LLE
 		{	return Dir(Base6Directions.GetIntVector(d));
 		}
 
-		// forward / backward / left / right / up / down — the vocabulary `place` accepts.
-		public static string DirKeyword(Base6Directions.Direction d)
-		{
-			switch (d)
-			{	case Base6Directions.Direction.Right:    return "right";
-				case Base6Directions.Direction.Left:     return "left";
-				case Base6Directions.Direction.Up:       return "up";
-				case Base6Directions.Direction.Down:     return "down";
-				case Base6Directions.Direction.Backward: return "backward";
-				case Base6Directions.Direction.Forward:  return "forward";
-			}
-			return "?";
-		}
-
 		public static string Dir(Vector3I unit)
 		{
 			if (unit.X != 0) return unit.X > 0 ? "+X" : "-X";

@@ -98,6 +98,81 @@ namespace LLE
 			return null;
 		}
 
+		// Shared by `place` and `place conveyor`: the cell has to be within the engineer's reach,
+		// empty, and touched by a face of something already built. Returns the refusal, or null.
+		private string CheckBuildSite(Vector3I ijk, out IMySlimBlock neighbour, out Vector3I neighbourCell)
+		{
+			neighbour = null;
+			neighbourCell = Vector3I.Zero;
+
+			// The engineer builds with his hands, not across the map.
+			double reach = (selectedGrid.GridIntegerToWorld(ijk) - GetEngineerCenter()).Length();
+			if (reach > Constants.MaxInteractionDistance)
+				return $"Error: {IJK(ijk)} is too far from you ({Distance(reach)})";
+
+			var occupant = selectedGrid.GetCubeBlock(ijk);
+			if (occupant != null)
+				return $"Error: {IJK(ijk)} is not empty — {Quote(Name(occupant))} stands there.";
+
+			foreach (var offset in Constants.SixDirections)
+			{	var b = selectedGrid.GetCubeBlock(ijk + offset);
+				if (b == null) continue;
+				neighbour = b;
+				neighbourCell = ijk + offset;
+				return null;
+			}
+
+			return $"Error: no block touches {IJK(ijk)} by a face, so the new block would have nothing"
+				+ " to hold on to. Place it against the existing structure.";
+		}
+
+		// The placement itself: turn to the cell, take the cube placer, put the block down at
+		// minimum integrity. Yields an error string if the game refuses, and ends silently on
+		// success — the caller words the answer.
+		private IEnumerator BuildAt(MyCubeBlockDefinition definition, Vector3I ijk,
+			Base6Directions.Direction forward, Base6Directions.Direction up)
+		{
+			var ob = MyObjectBuilderSerializer.CreateNewObject(definition.Id) as MyObjectBuilder_CubeBlock;
+			if (ob == null)
+				yield return $"Internal error: no object builder for {Quote(definition.DisplayNameText)}";
+
+			var target = selectedGrid.GridIntegerToWorld(ijk);
+
+			SetPause(Constants.MicronavigationDelay);
+			while(IsPaused())
+			{
+				CharacterRotateTo(target);
+				yield return null;
+			}
+
+			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
+			controller.SwitchToWeapon(new MyDefinitionId(typeof(MyObjectBuilder_CubePlacer)));
+			SetPause(1);
+			while(IsPaused()) yield return null;
+
+			ob.EntityId = 0;
+			ob.Min = ijk;
+			ob.BlockOrientation = new SerializableBlockOrientation(forward, up);
+			ob.Owner = character.ControllerInfo.ControllingIdentityId;
+			ob.BuiltBy = ob.Owner;
+
+			ob.IntegrityPercent = MyComponentStack.MOUNT_THRESHOLD;
+			ob.BuildPercent = MyComponentStack.MOUNT_THRESHOLD;
+
+			// AddBlock refuses occupied cells by itself, but it does not check mount points, so a
+			// disconnected block would just hang in the air — hence the face-adjacency test in
+			// CheckBuildSite. Which face the block mounts by is left to the model on purpose: that
+			// is the thing we are here to watch.
+
+			var placed = selectedGrid.AddBlock(ob, false);
+			if (placed == null)
+				yield return $"Error: the game refused to place {Quote(definition.DisplayNameText)} at {IJK(ijk)}.";
+
+			SetPause(1);
+			while(IsPaused()) yield return null;
+			controller.SwitchToWeapon(null);
+		}
+
 		internal IEnumerator Place(TokenParser tp)
 		{
 			const string usage = "Usage: place 'Block Name' at I J K [facing forward|backward|left|right] [up|down]";
@@ -117,10 +192,10 @@ namespace LLE
 			if (!tp.NextVector3I(out ijk))
 				yield return "Error: expected I J K after `at`. " + usage;
 
-			// The engineer builds with his hands, not across the map.
-			double reach = (selectedGrid.GridIntegerToWorld(ijk) - GetEngineerCenter()).Length();
-			if (reach > Constants.MaxInteractionDistance)
-				yield return $"Error: {IJK(ijk)} is too far from you ({Distance(reach)})";
+			IMySlimBlock neighbour;
+			Vector3I neighbourCell;
+			var refusal = CheckBuildSite(ijk, out neighbour, out neighbourCell);
+			if (refusal != null) yield return refusal;
 
 			var forward = Base6Directions.Direction.Forward;
 			var up = Base6Directions.Direction.Up;
@@ -152,63 +227,7 @@ namespace LLE
 			if (definition.Size != Vector3I.One)
 				yield return $"Error: `place` handles 1x1x1 blocks only for now, and {Quote(definition.DisplayNameText)} is {definition.Size.X}x{definition.Size.Y}x{definition.Size.Z}.";
 
-			var occupant = selectedGrid.GetCubeBlock(ijk);
-			if (occupant != null)
-				yield return $"Error: {IJK(ijk)} is not empty — {Quote(Name(occupant))} stands there.";
-
-			IMySlimBlock neighbour = null;
-			Vector3I neighbourCell = Vector3I.Zero;
-
-			foreach (var offset in Constants.SixDirections)
-			{	var b = selectedGrid.GetCubeBlock(ijk + offset);
-				if (b == null) continue;
-				neighbour = b;
-				neighbourCell = ijk + offset;
-				break;
-			}
-
-			if (neighbour == null)
-				yield return $"Error: no block touches {IJK(ijk)} by a face, so the new block would have nothing to hold on to. Place it against the existing structure.";
-
-			var ob = MyObjectBuilderSerializer.CreateNewObject(definition.Id) as MyObjectBuilder_CubeBlock;
-			if (ob == null)
-				yield return $"Internal error: no object builder for {Quote(definition.DisplayNameText)}";
-
-			var target = selectedGrid.GridIntegerToWorld(ijk);
-
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
-			{
-				CharacterRotateTo(target);
-				yield return null;
-			}
-
-			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
-			controller.SwitchToWeapon(new MyDefinitionId(typeof(MyObjectBuilder_CubePlacer)));
-			SetPause(1);
-			while(IsPaused()) yield return null;
-
-			ob.EntityId = 0;
-			ob.Min = ijk;
-			ob.BlockOrientation = new SerializableBlockOrientation(forward, up);
-			ob.Owner = character.ControllerInfo.ControllingIdentityId;
-			ob.BuiltBy = ob.Owner;
-
-			ob.IntegrityPercent = MyComponentStack.MOUNT_THRESHOLD;
-			ob.BuildPercent = MyComponentStack.MOUNT_THRESHOLD;
-
-			// AddBlock refuses occupied cells by itself, but it does not check mount points, so a
-			// disconnected block would just hang in the air — hence the face-adjacency test below.
-			// Which face the block mounts by is left to the model on purpose: that is the thing we
-			// are here to watch.
-
-			var placed = selectedGrid.AddBlock(ob, false);
-			if (placed == null)
-				yield return $"Error: the game refused to place {Quote(definition.DisplayNameText)} at {IJK(ijk)}.";
-
-			SetPause(1);
-			while(IsPaused()) yield return null;
-			controller.SwitchToWeapon(null);
+			yield return BuildAt(definition, ijk, forward, up);
 
 			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}."
 				+ $" It stands at minimum integrity — weld it now: `weld {IJK(ijk)}`");

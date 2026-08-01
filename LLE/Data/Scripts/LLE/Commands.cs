@@ -248,6 +248,16 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
   The new block arrives at minimum integrity, so weld it afterwards.
   Example: place 'Gyroscope' at 3 2 4 facing forward up
 
+* place conveyor I J K D D₂ [square|round|reinforced]
+  Build a conveyor tube at the given cell with its two openings looking along D and D₂,
+  each one of +X -X +Y -Y +Z -Z. The tube is picked for you: a straight one when the two
+  directions are opposite, a curved one when they are perpendicular. No junctions yet.
+  The last word chooses the looks: square is the plain tube and the default, round needs
+  the Heavy Industry pack and exists on large grids only, reinforced is the armoured duct.
+  Cell rules and welding are the same as for `place`.
+  Example: place conveyor 3 2 4 -X +X
+  Example: place conveyor 3 2 5 -X +Y reinforced
+
 * enter I J K
   Enter the cockpit or seat at the given grid coordinates. 
 
@@ -273,14 +283,6 @@ recharge -4 3 5
 // 5. Disabled: weak LLMs ignore this rule. Left for testing with stronger models.
 //    Do not work with multiple objects at once; the character's inventory is limited, so it is better to perform tasks sequentially.
 
-/*
-* orient 'block_type' I J K [ports D D₂]
-  Ask how to build 'block_type' in that cell. The answer is the whole `place` line, ready to copy.
-  Blocks that attach by any face get a line with no orientation at all — that is not an omission.
-  With `ports`, the answer is the single line whose conveyor ports look along those two directions.
-  Example: orient 'Gyroscope' 3 2 4
-  Example: orient 'Curved Conveyor Tube' 3 2 6 ports -Y +Z
-*/
 /*
 * power — state of the grid's power system: reactors/batteries/solar/wind, total output, battery charge
 
@@ -739,10 +741,7 @@ drop [quantity|all] 'name'
 			{	result = Points(tp);
 			}
 			else if(tp.Match("Place"))
-			{	coroutineStack.Push(Place(tp));
-			}
-			else if(tp.Match("Orient"))
-			{	result = Orient(tp);
+			{	coroutineStack.Push(tp.Match("conveyor") ? PlaceConveyor(tp) : Place(tp));
 			}
 			else if(tp.Match("Route"))
 			{	coroutineStack.Push(Route(tp));
