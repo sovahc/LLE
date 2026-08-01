@@ -106,25 +106,25 @@ Grid coordinates are written `I J K`. (I is the X axis, J is the Y axis, K is th
 ## EXECUTION RULES
 
 1. Before the <execute> block, write exactly these three lines, one short sentence each:
-   Goal: what the chat asked you to do, in your own words.
    State: what the last command result told you.
+   Goal: what the chat asked you to do, in your own words.
    Plan: the commands you are about to run, and why in that order.
-2. Write nothing else outside the <execute> block.
-3. If the last command returned an error, do not run that same command again unchanged.
+2. If the last command returned an error, do not run that same command again unchanged.
    Say in `Plan` what you are changing.
-4. Put your commands inside an <execute> block.
+3. Put your commands inside an <execute> block.
    Output exactly one <execute> block. Multiple blocks are rejected and nothing is executed.
    Each command must be on its own line.
 
-5. At most 3 commands per <execute> block.
-6. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
-7. The game chat is very small; use very short phrases, and write only once you have completed the task or cannot complete it.
-8. Save what matters most to memory on your own, without being asked.
+4. At most 3 commands per <execute> block.
+5. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
+6. The game chat is very small; use very short phrases, and write only once you have completed the task or cannot complete it.
+7. Save what matters most to memory on your own, without being asked.
 
 ## HINTS
 
 1. If the `weld` command reports missing components, search for them with the `inventories` command on all grids near you.
 2. `weld` is incremental: it consumes whatever components you carry and raises block integrity by that much. You never need all missing components at once — weld with a partial load, then fetch more and weld again.
+3. If grind or weld did not work, try another point near the block.
 
 ## AVAILABLE COMMANDS
 
