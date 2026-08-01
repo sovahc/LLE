@@ -171,7 +171,13 @@ namespace LLE
 					semi = true;
 				}
 				// count last: nothing between the name and the positions
-				sb.Append(kv.Key == FreeSpace ? $" ({kv.Value.Count} cells)" : $" ({kv.Value.Count} blocks)");
+				var n = kv.Value.Count;
+				string unit;
+				if(kv.Key == FreeSpace)
+					unit = n == 1 ? "cell" : "cells";
+				else
+					unit = n == 1 ? "block" : "blocks";
+				sb.Append($" ({n} {unit})");
 
 				if(byCategory)
 					md.Add($"## {category}", sb.ToString());
