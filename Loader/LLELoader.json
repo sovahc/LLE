@@ -2,5 +2,8 @@
   "LlmUrl": "http://localhost:8080/v1/chat/completions",
   "Model": "google/gemma-4-31b-it",
   "ApiKey": "",
-  "Provider": "local"
+  "Provider": "local",
+  "EnableThinking": false,
+  "ContextWindow": 100000,
+  "MaxTokens": 20000
 }

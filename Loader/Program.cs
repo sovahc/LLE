@@ -41,17 +41,13 @@ namespace LLELoader
 		public string Model { get; set; } = "qwen";
 		public string ApiKey { get; set; } = "";
 		public string Provider { get; set; } = "local";
+		public bool EnableThinking { get; set; } = false;
+		public int ContextWindow { get; set; } = 100000;
+		public int MaxTokens { get; set; } = 20000;
 	}
 
 	static class MessageBroker
 	{
-		private const int ContextWindow = 100000;
-		// Thinking: without the channel Gemma matches patterns, with it she checks her own
-		// trace — 70% against 98% on placement. Measured in the GemmaBuilder project.
-		// The budget covers the reasoning too, which runs to ~10k tokens on a multi-block job.
-		private const int max_tokens = 20000;
-		private const bool EnableThinking = false;
-
 		private static string _systemPrompt = "";
 
 		private static readonly LlmConfig _config = LoadConfig();
@@ -68,7 +64,7 @@ namespace LLELoader
 					var c = System.Text.Json.JsonSerializer.Deserialize<LlmConfig>(text);
 					if (c != null)
 					{
-						Logger.Write($"[Config] Loaded {configPath}: url={c.LlmUrl} model={c.Model} provider={c.Provider}");
+						Logger.Write($"[Config] Loaded {configPath}: url={c.LlmUrl} model={c.Model} provider={c.Provider} thinking={c.EnableThinking} contextWindow={c.ContextWindow} maxTokens={c.MaxTokens}");
 						return c;
 					}
 				}
@@ -111,6 +107,9 @@ namespace LLELoader
 		{
 			try
 			{
+				// Thinking: without the channel Gemma matches patterns, with it she checks her own
+				// trace — 70% against 98% on placement. Measured in the GemmaBuilder project.
+				// The budget covers the reasoning too, which runs to ~10k tokens on a multi-block job.
 				var payload = new Dictionary<string, object>
 				{
 					["model"] = _config.Model,
@@ -119,13 +118,13 @@ namespace LLELoader
 						new { role = "system", content = _systemPrompt },
 						new { role = "user",   content = chatContext }
 					},
-					["max_tokens"] = max_tokens,
+					["max_tokens"] = _config.MaxTokens,
 					["stream"] = true,
 				};
 				if (_config.Provider == "local")
-					payload["chat_template_kwargs"] = new { enable_thinking = EnableThinking };
+					payload["chat_template_kwargs"] = new { enable_thinking = _config.EnableThinking };
 				else //if (_config.Provider == "openrouter")
-					payload["reasoning"] = new { enabled = EnableThinking };
+					payload["reasoning"] = new { enabled = _config.EnableThinking };
 
 				var body = System.Text.Json.JsonSerializer.Serialize(payload);
 
@@ -351,7 +350,7 @@ namespace LLELoader
 				int chars = _systemPrompt.Length;
 				foreach (var s in _chatContext) chars += s.Length;
 				usedChars = chars;
-				totalChars = ContextWindow;
+				totalChars = _config.ContextWindow;
 				return false;
 			}
 
