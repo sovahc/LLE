@@ -428,6 +428,69 @@ namespace LLE
 			return Success(sb.ToString());
 		}
 
+		internal CommandResult Info(TokenParser tp)
+		{
+			string message;
+			if(!GridIsSet(out message)) return message;
+
+			Vector3I ijk;
+			if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";
+
+			var block = selectedGrid.GetCubeBlock(ijk);
+			if(block == null) return $"Error: no block at {IJK(ijk)}";
+
+			var md = new MyMarkdown();
+			md.Append($"# {LargeBlockPrefix(block)}{Quote(Name(block))} at {IJK(ijk)}");
+
+			var def = block.BlockDefinition as MyCubeBlockDefinition;
+			var tb = block.FatBlock as IMyTerminalBlock;
+
+			if(def != null)
+			{	md.Append($"Definition: {def.Id.SubtypeName}");
+				md.Append($"Cube size: {(def.CubeSize == MyCubeSize.Large ? "Large" : "Small")}");
+			}
+			if(tb != null)
+				md.Append($"Category: {Categorize(tb)}");
+
+			var size = block.Max - block.Min + Vector3I.One;
+			md.Append($"Coordinate range: Min {IJK(block.Min)} Max {IJK(block.Max)}");
+			md.Append($"Size: {size.X}x{size.Y}x{size.Z}");
+
+			var maxI = block.MaxIntegrity;
+			md.Append(maxI > 0
+				? $"Integrity: {Percent(block.Integrity / maxI)} ({block.Integrity:F0}/{maxI:F0})"
+				: "Integrity: --");
+			if(block.FatBlock != null)
+			{	md.Append($"Functional: {block.FatBlock.IsFunctional}");
+				md.Append($"Working: {block.FatBlock.IsWorking}");
+			}
+			if(tb != null && !string.IsNullOrEmpty(tb.CustomName))
+				md.Append($"Custom name: {Quote(tb.CustomName)}");
+
+			// Surrounding cells: one-cell ring around the block's bounding box, free and occupied.
+			// ListDescription groups them by name with counts (same format as overview).
+			md.Append($"## Surrounding cells");
+			var ring = new List<Vector3I>();
+			var ringMin = block.Min - Vector3I.One;
+			var ringMax = block.Max + Vector3I.One;
+			var iter = new Vector3I_RangeIterator(ref ringMin, ref ringMax);
+			for(; iter.IsValid(); iter.MoveNext())
+			{	var p = iter.Current;
+				if(p.X >= block.Min.X && p.X <= block.Max.X &&
+				   p.Y >= block.Min.Y && p.Y <= block.Max.Y &&
+				   p.Z >= block.Min.Z && p.Z <= block.Max.Z) continue;
+				ring.Add(p);
+			}
+			ListDescription(ring, false, md);
+
+			md.Append($"## Interaction points");
+			var ipSb = new StringBuilder();
+			AppendInteractionPoints(ijk, ipSb);
+			md.Append(ipSb.ToString().TrimEnd('\n'));
+
+			return Success(md.Result());
+		}
+
 		internal CommandResult Near(TokenParser tp, bool freeSpace = false)
 		{	
 			string message;

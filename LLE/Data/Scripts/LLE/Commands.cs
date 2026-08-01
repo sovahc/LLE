@@ -210,6 +210,9 @@ In command output, a block name prefixed with `█` is a large block occupying m
 * points I J K
   List all interaction points for the block at the given grid coordinates.
 
+* info I J K
+  Detailed info about the block at the given grid coordinates: definition, size (Min/Max in grid coords), integrity and working state, surrounding cells (free and occupied), and interaction points.
+
 * route from I J K to I₂ J₂ K₂
   Compute the shortest conveyor path between the given points.
   Conveyor-capable blocks at I J K and at I₂ J₂ K₂ must already exist.
@@ -320,8 +323,6 @@ Radio subsystem (vision like)
 
 * press I J K [buttonIndex] - Press a button on a Button Panel.
 
-* info 'name'
-  Get detailed information about a specific object.
 look at 'name'
   Rotate to face an object
 symmetric command returning - "what am I looking at"
@@ -740,6 +741,9 @@ drop [quantity|all] 'name'
 			}
 			else if(tp.Match("Points"))
 			{	result = Points(tp);
+			}
+			else if(tp.Match("Info"))
+			{	result = Info(tp);
 			}
 			else if(tp.Match("Place"))
 			{	coroutineStack.Push(tp.Match("conveyor") ? PlaceConveyor(tp) : Place(tp));
