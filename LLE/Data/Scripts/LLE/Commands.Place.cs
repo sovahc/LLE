@@ -114,6 +114,10 @@ namespace LLE
 			if (occupant != null)
 				return $"Error: {IJK(ijk)} is not empty — {Quote(Name(occupant))} stands there.";
 
+			// A block built in the engineer's own cell would embed him in the wall.
+			if (selectedGrid.WorldToGridInteger(GetEngineerCenter()) == ijk)
+				return $"Error: {IJK(ijk)} is where you stand — you cannot place a block on yourself.";
+
 			foreach (var offset in Constants.SixDirections)
 			{	var b = selectedGrid.GetCubeBlock(ijk + offset);
 				if (b == null) continue;
