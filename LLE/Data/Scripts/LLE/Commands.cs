@@ -134,8 +134,9 @@ In command output, a block name prefixed with `█` is a large block occupying m
 * fly I J K [headfirst]
   Fly to specific grid coordinates and land exactly at that cell. The cell must be free space; if it is occupied by a block, the command fails and names the blocking block.
 
-* fly to I J K for grind|weld|get|put|recharge|enter
+* fly to I J K for grind|weld|get|put|recharge|enter|place
   Fly to the nearest interaction point of the block at I J K, ready to perform the given action (e.g. `fly to 5 0 2 for weld`).
+  `place` flies to the nearest free cell next to the block, ready to build.
 
 ### 2. Remote — no need to be next to a block
 

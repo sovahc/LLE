@@ -141,10 +141,10 @@ namespace LLE
 
 			if(approach)
 			{	if(!tp.Match("For"))
-					yield return "Error: expected 'for <intention>' (grind|weld|get|put|recharge|enter)";
+					yield return "Error: expected 'for <intention>' (grind|weld|get|put|recharge|enter|place)";
 				intentionWord = tp.NextString();
 				if(string.IsNullOrEmpty(intentionWord))
-					yield return "Error: expected intention after 'for' (grind|weld|get|put|recharge|enter)";
+					yield return "Error: expected intention after 'for' (grind|weld|get|put|recharge|enter|place)";
 			}
 
 			while(!tp.End)
@@ -160,11 +160,25 @@ namespace LLE
 			Vector3I destinationCell = ijk;
 			string arrivalMessage = null;
 
-			if(intentionWord != null)
+			if(string.Equals(intentionWord, "place", StringComparison.OrdinalIgnoreCase))
+			{
+				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
+
+				var placeCells = new List<Vector3I>();
+				foreach(var c in EQS.ProduceCells(block, block.Min - 1, block.Max + 1, GetEngineerCenter()))
+					placeCells.Add(c);
+
+				if(placeCells.Count == 0)
+					yield return $"Error: no free cells next to {Name(block)} at {IJK(ijk)} to place at";
+
+				destinationCell = NearestToEngineer(placeCells);
+				arrivalMessage = $"Arrived next to {Quote(Name(block))} at {IJK(ijk)}. Position: {IJK(destinationCell)}. Ready to place.";
+			}
+			else if(intentionWord != null)
 			{
 				var intention = ParseIntention(intentionWord, block);
 				if(intention == null)
-					yield return $"Error: unknown fly intention '{intentionWord}'. Expected: grind, weld, get, put, recharge, enter";
+					yield return $"Error: unknown fly intention '{intentionWord}'. Expected: grind, weld, get, put, recharge, enter, place";
 				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 				// Only grind/weld make sense on a projection preview — it has no real inventory, power, or seats yet.
