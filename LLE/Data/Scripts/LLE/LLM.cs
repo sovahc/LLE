@@ -339,6 +339,19 @@ namespace LLE
 		{
 			content = content.Trim();
 
+			// The model may keep generating past </execute> (hallucinated command results,
+			// [VISION]/[YOU] lines, a second reasoning + a second <execute>). Keep only up to
+			// the first </execute>: the parser then sees one block and the tail never re-enters
+			// the transcript (no token leak into later turns).
+			/*int cut = content.IndexOf("</execute>", StringComparison.OrdinalIgnoreCase);
+			if (cut >= 0)
+			{	int after = cut + "</execute>".Length;
+				if (after < content.Length)
+				{	Append("[NOTE] Discarded text after </execute> (model continued past the block).\n", Color.Yellow, Destination.Console | Destination.Log);
+					content = content.Substring(0, after);
+				}
+			}*/
+
 			// The bot's own words go back into the transcript. Without them it reads a list of
 			// results with no record of what it said or meant. Reasoning stays out: the chat
 			// template drops thought from previous turns anyway.

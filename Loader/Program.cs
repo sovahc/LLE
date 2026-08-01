@@ -123,6 +123,8 @@ namespace LLELoader
 				};
 				if (_config.Provider == "local")
 					payload["chat_template_kwargs"] = new { enable_thinking = _config.EnableThinking };
+				else if (_config.Provider == "zai")
+					payload["thinking"] = new { type = _config.EnableThinking ? "enabled" : "disabled" };
 				else //if (_config.Provider == "openrouter")
 					payload["reasoning"] = new { enabled = _config.EnableThinking };
 
