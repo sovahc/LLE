@@ -115,6 +115,7 @@ pause
 4. Your task will be described in [GAME CHAT].
 5. Once you receive a task, write in your own words what you need to do and which commands you need to execute for it.
 6. The game chat is very small; use very short phrases, and write only once you have completed the task or cannot complete it.
+7. Do not build conveyor blocks yourself; you must use the results from the `route` command.
 
 ## HINTS
 
