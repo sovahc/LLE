@@ -233,8 +233,7 @@ namespace LLE
 
 			yield return BuildAt(definition, ijk, forward, up);
 
-			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}."
-				+ $" It stands at minimum integrity — weld it now: `weld {IJK(ijk)}`");
+			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}");
 		}
 	}
 }

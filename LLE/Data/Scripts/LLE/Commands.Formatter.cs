@@ -54,9 +54,9 @@ namespace LLE
 
 		public static string Dir(Vector3I unit)
 		{
-			if (unit.X != 0) return unit.X > 0 ? "+X" : "-X";
-			if (unit.Y != 0) return unit.Y > 0 ? "+Y" : "-Y";
-			if (unit.Z != 0) return unit.Z > 0 ? "+Z" : "-Z";
+			if (unit.X != 0) return unit.X > 0 ? "+I" : "-I";
+			if (unit.Y != 0) return unit.Y > 0 ? "+J" : "-J";
+			if (unit.Z != 0) return unit.Z > 0 ? "+K" : "-K";
 			return "?";
 		}
 
