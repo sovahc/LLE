@@ -76,8 +76,12 @@
     </None>
   </ItemGroup>
 
+  <PropertyGroup>
+    <Bin64Dir>/home/cat/Projects/SpaceEngineers/Bin64/</Bin64Dir>
+  </PropertyGroup>
+
   <Target Name="CopyToBin64" AfterTargets="Build">
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="/home/cat/Projects/SpaceEngineers/Bin64/" />
-    <Copy SourceFiles="$(TargetDir)LLELoader.json" DestinationFolder="/home/cat/Projects/SpaceEngineers/Bin64/" Condition="Exists('$(TargetDir)LLELoader.json')" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(Bin64Dir)" />
+    <Copy SourceFiles="$(TargetDir)LLELoader.json" DestinationFolder="$(Bin64Dir)" Condition="!Exists('$(Bin64Dir)LLELoader.json')" />
   </Target>
 </Project>

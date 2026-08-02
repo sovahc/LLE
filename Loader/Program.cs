@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Collections.Concurrent;
 using System.Reflection;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -42,9 +43,11 @@ namespace LLELoader
 		public string ApiKey { get; set; } = "";
 		public string Provider { get; set; } = "local";
 		public bool EnableThinking { get; set; } = false;
-		public int ContextWindow { get; set; } = 100000;
-		public int MaxTokens { get; set; } = 20000;
-	}
+    public int ContextWindow { get; set; } = 100000;
+    public int MaxTokens { get; set; } = 20000;
+    public bool EnableProxy { get; set; } = false;
+    public string ProxyUrl { get; set; } = "";
+}
 
 	static class MessageBroker
 	{
@@ -64,7 +67,7 @@ namespace LLELoader
 					var c = System.Text.Json.JsonSerializer.Deserialize<LlmConfig>(text);
 					if (c != null)
 					{
-						Logger.Write($"[Config] Loaded {configPath}: url={c.LlmUrl} model={c.Model} provider={c.Provider} thinking={c.EnableThinking} contextWindow={c.ContextWindow} maxTokens={c.MaxTokens}");
+						Logger.Write($"[Config] Loaded {configPath}: url={c.LlmUrl} model={c.Model} provider={c.Provider} thinking={c.EnableThinking} contextWindow={c.ContextWindow} maxTokens={c.MaxTokens} proxy={c.EnableProxy}/{c.ProxyUrl}");
 						return c;
 					}
 				}
@@ -79,7 +82,11 @@ namespace LLELoader
 
 		private static readonly Queue<string> _chatContext = new Queue<string>();
 
-		private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(300) };
+		private static readonly HttpClient _http = new HttpClient(new HttpClientHandler
+		{
+			Proxy = (_config.EnableProxy && !string.IsNullOrEmpty(_config.ProxyUrl))
+				? new WebProxy(_config.ProxyUrl) : null
+		}) { Timeout = TimeSpan.FromSeconds(300) };
 		
 		private static readonly ConcurrentQueue<LLE.FromLLM> _commandQueue = new ConcurrentQueue<LLE.FromLLM>();
 
@@ -120,6 +127,7 @@ namespace LLELoader
 					},
 					["max_tokens"] = _config.MaxTokens,
 					["stream"] = true,
+					//["stop"] = new[] { "</execute>" },
 				};
 				if (_config.Provider == "local")
 					payload["chat_template_kwargs"] = new { enable_thinking = _config.EnableThinking };
@@ -149,6 +157,13 @@ namespace LLELoader
 
 				string line;
 
+				// finish_reason distinguishes a clean stop from a max_tokens cut (length) from a
+				// stream that broke before the terminating chunk. The loop below ends the same way
+				// for all three, so without finish_reason an empty response is ambiguous.
+				string finishReason = null;
+				bool sawFinishReason = false;
+				int contentChunks = 0, reasoningChunks = 0;
+
 				using var reader = new StreamReader(stream);
 				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
 				{
@@ -158,6 +173,16 @@ namespace LLELoader
 
 					using var doc = System.Text.Json.JsonDocument.Parse(data);
 					var root = doc.RootElement;
+					// finish_reason is a sibling of delta under choices[0]; read it independently so it is
+					// captured even on the terminating chunk where delta is absent or empty.
+					if (root.TryGetProperty("choices", out var frChoices) && frChoices.GetArrayLength() > 0
+						&& frChoices[0].TryGetProperty("finish_reason", out var fr)
+						&& fr.ValueKind == System.Text.Json.JsonValueKind.String)
+					{
+						finishReason = fr.GetString();
+						sawFinishReason = true;
+					}
+
 					if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
 						&& choices[0].TryGetProperty("delta", out var delta))
 					{
@@ -172,6 +197,7 @@ namespace LLELoader
 
 						if (!string.IsNullOrEmpty(reasoning))
 						{
+							reasoningChunks++;
 							_commandQueue.Enqueue(new LLE.FromLLM
 							{
 								Type = LLE.MessageType.Reasoning,
@@ -183,6 +209,7 @@ namespace LLELoader
 							var content = contentProp.GetString();
 							if (!string.IsNullOrEmpty(content))
 							{
+								contentChunks++;
 								_commandQueue.Enqueue(new LLE.FromLLM
 								{
 									Type = LLE.MessageType.Content,
@@ -192,6 +219,13 @@ namespace LLELoader
 						}
 					}
 				}
+
+				// finish_reason tells us why the response ended; a missing finish_reason means the
+				// stream closed before the terminating chunk (proxy/network drop).
+				Logger.Write("[LLM] stream done: "
+					+ (sawFinishReason ? "finish_reason=" + (finishReason ?? "null") : "STREAM-ENDED-WITHOUT-FINISH-REASON")
+					+ " contentChunks=" + contentChunks
+					+ " reasoningChunks=" + reasoningChunks);
 
 				_commandQueue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Stop, Payload = null });
 			}

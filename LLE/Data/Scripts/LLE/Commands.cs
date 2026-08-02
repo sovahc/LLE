@@ -106,26 +106,20 @@ In command output, a block name prefixed with `█` is a large block occupying m
 
 ## EXECUTION RULES
 
-1. Before the <execute> block, write exactly these three lines, one short sentence each:
-   State: what the last command result told you.
-   Goal: what the chat asked you to do, in your own words.
-   Plan: the commands you are about to run, and why in that order.
-2. CRITICAL: After <execute> block, output nothing and stop -> wait for the results from the game.
-3. If the last command returned an error, do not run that same command again unchanged.
-   Say in `Plan` what you are changing.
-4. Put your commands inside an <execute> block.
-   Output exactly one <execute> block. Multiple blocks are rejected and nothing is executed.
-   Each command must be on its own line.
-
-5. At most 3 commands per <execute> block.
-6. Your tasks will be described in the [GAME CHAT]. If you don't have a task, use the `pause` command.
-7. The game chat is very small; use very short phrases, and write only once you have completed the task or cannot complete it.
-8. Save what matters most to memory on your own, without being asked.
+1. If you have no task, execute a standalone `pause` command, like this
+<execute>
+pause
+</execute>
+2. After outputting the execute block, stop generation.
+3. Execute commands from the Movement section strictly one at a time; the others in any quantity.
+4. Your task will be described in [GAME CHAT].
+5. Once you receive a task, write in your own words what you need to do and which commands you need to execute for it.
+6. The game chat is very small; use very short phrases, and write only once you have completed the task or cannot complete it.
 
 ## HINTS
 
 1. If the `weld` command reports missing components, search for them with the `inventories` command on all grids near you.
-2. `weld` is incremental: it consumes whatever components you carry and raises block integrity by that much. You never need all missing components at once — weld with a partial load, then fetch more and weld again.
+2. The `weld` command is incremental and consumes components from your inventory; for some blocks you will need to fly back several times for components.
 3. If grind or weld did not work, try another point near the block.
 
 ## AVAILABLE COMMANDS
@@ -277,16 +271,22 @@ In command output, a block name prefixed with `█` is a large block occupying m
 
 ## TYPICAL WORKFLOWS
 ### Get items from cargo:
+<execute>
 fly to 5 3 1 for get
 get 10 'Steel Plate' from 5 3 1
+</execute>
 
 ### Weld a damaged block:
+<execute>
 fly to 5 0 2 for weld
 weld 5 0 2
+</execute>
 
 ### Recharge:
+<execute>
 fly to -4 3 5 for recharge
 recharge -4 3 5
+</execute>
 ";
 }
 // 5. Disabled: weak LLMs ignore this rule. Left for testing with stronger models.
