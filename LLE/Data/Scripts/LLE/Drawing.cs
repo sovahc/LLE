@@ -134,7 +134,8 @@ namespace LLE
 				Glyph glyph;
 				if (!_characters.TryGetValue(ch, out glyph))
 				{
-					glyph = _characters['\u25A1']; // Keen unknown character
+					if (!_characters.TryGetValue('\u25A1', out glyph)) // Keen unknown character
+						continue;
 				}
 
 				float screenCharWidth = glyph.sx * scale;
