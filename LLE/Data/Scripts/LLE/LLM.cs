@@ -267,10 +267,8 @@ namespace LLE
 		{
 			int used, total;
 			LLE_Loader.GetContextStatus(out used, out total);
-			if (total > 0)
-			{	int percent = used * 100 / total;
-				MyConsole.Add($"[CONTEXT] {used}/{total} chars ({percent}%)", Color.LightPink);
-			}
+			int percent = used * 100 / total;
+			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({percent}%)", Color.LightPink);
 		}
 
 		private void PollNewChunksFromLLM()

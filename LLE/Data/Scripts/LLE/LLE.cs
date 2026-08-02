@@ -313,7 +313,7 @@ namespace LLE
 		public static bool GetChunkFromLLM(out FromLLM m) { m = null; return false; }
 		public static void SendMessageToLLM(string text) { }
 		public static void SetSystemPrompt(string text, string stop) { }
-		public static void GetContextStatus(out int usedChars, out int totalChars) { usedChars = 0; totalChars = 0; }
+		public static void GetContextStatus(out int usedChars, out int totalChars) { usedChars = 0; totalChars = -1; }
 		public static void RestartContext() { }
 	}
 }
