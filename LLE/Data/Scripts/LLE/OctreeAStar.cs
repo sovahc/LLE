@@ -360,7 +360,7 @@ namespace LLE
 			var closed = new HashSet<OctreeNode>();
 			var inOpen = new HashSet<OctreeNode>();
 			var items = new Dictionary<OctreeNode, FPQNode>();
-			var open = new FastPriorityQueue<FPQNode>(10*1024);
+			var open = new FastPriorityQueue<FPQNode>(10*1024); // TODO: InvalidOperationException on owerflow
 
 			gScore[start] = 0f;
 			var startItem = new FPQNode { Node = start };
