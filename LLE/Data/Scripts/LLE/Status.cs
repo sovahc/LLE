@@ -106,8 +106,8 @@ namespace LLE
 
 		private void EmitWarning(int bucket, string parameter)
 		{
-			if(bucket <= 2) report.Append($"\nWARNING: {parameter} is critical!");
-			else if(bucket <= 5) report.Append($"\nWarning: {parameter} is low!");
+			if(bucket <= 2) report.Append($"\nWARNING: {parameter} is critical! Recharge immediately!");
+			else if(bucket <= 5) report.Append($"\nWarning: {parameter} is low! Recharge!");
 		}
 
 		private void MakeReport()
