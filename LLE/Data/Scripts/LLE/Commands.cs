@@ -111,11 +111,11 @@ In command output, a block name prefixed with `█` is a large block occupying m
 pause
 </execute>
 2. After outputting the execute block, stop generation.
-3. Execute commands from the Movement section strictly one at a time; the others in any quantity.
+3. Execute Movement commands strictly one at a time. Non-movement commands may be bundled together in a single execution block.
 4. Your task will be described in [GAME CHAT].
 5. Once you receive a task, write in your own words what you need to do and which commands you need to execute for it.
 6. The game chat is very small; use very short phrases, and write only once you have completed the task or cannot complete it.
-7. Do not build conveyor blocks yourself; you must use the results from the `route` command.
+7. Always use the 'route' command first to determine the required conveyor pieces before attempting to build any conveyor path.
 
 ## HINTS
 
@@ -252,12 +252,10 @@ pause
   The new block arrives at minimum integrity, so weld it afterwards.
   Example: place 'Gyroscope' at 3 2 4 facing forward up
 
-* place conveyor I J K D D₂ [square|round|reinforced]
-  Build a conveyor tube at the given cell with its two openings looking along D and D₂,
+* place conveyor I J K dir1 dir2 [square|round|reinforced]
+  Build a conveyor tube at the given cell with its two openings looking along dir1 and dir2,
   each one of +X -X +Y -Y +Z -Z. The tube is picked for you: a straight one when the two
   directions are opposite, a curved one when they are perpendicular. No junctions yet.
-  The last word chooses the looks: square is the plain tube and the default, round needs
-  the Heavy Industry pack and exists on large grids only, reinforced is the armoured duct.
   Cell rules and welding are the same as for `place`.
   Example: place conveyor 3 2 4 -X +X
   Example: place conveyor 3 2 5 -X +Y reinforced
