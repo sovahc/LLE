@@ -421,21 +421,31 @@ namespace LLE
 			return true;
 		}
 
-		internal IEnumerator Unstuck(TokenParser tp)
+		// Matches and consumes a direction word if the next token is one; returns null otherwise.
+		private static string MatchDirection(TokenParser tp)
+		{
+			foreach(var d in new[] { "forward", "backward", "left", "right", "up", "down" })
+				if(tp.Match(d)) return d;
+			return null;
+		}
+
+		internal IEnumerator Fly_Direction_N(string dirWord, TokenParser tp)
 		{
 			string message;
 			if(!GridIsSet(out message)) yield return message;
-
-			var dirWord = tp.NextString();
-			if(string.IsNullOrEmpty(dirWord))
-				yield return "Error: expected direction (forward|backward|left|right|up|down)";
 
 			Vector3I offset;
 			if(!TryDirOffset(selectedGrid, dirWord, out offset))
 				yield return $"Error: {Quote(dirWord)} is not a direction. Expected: forward backward left right up down";
 
+			int n;
+			if(!tp.NextInt(out n))
+				yield return "Error: expected cell count N after direction";
+			if(n <= 0)
+				yield return $"Error: N must be positive, got {n}";
+
 			var here = selectedGrid.WorldToGridInteger(GetEngineerCenter());
-			var target = here + offset;
+			var target = here + offset * n;
 
 			yield return Fly(new TokenParser($"{target.X} {target.Y} {target.Z}"));
 		}

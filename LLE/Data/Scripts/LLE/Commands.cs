@@ -689,7 +689,11 @@ drop [quantity|all] 'name'
 			else if(tp.Match("Integrity")) result = Integrity();
 			else if(tp.Match("Projection")) result = Projection();
 			else if(tp.Match("Select")) result = Select(tp);
-			else if(tp.Match("Fly")) coroutineStack.Push(Fly(tp));
+			else if(tp.Match("Fly"))
+			{	var dir = MatchDirection(tp);
+				if(dir != null) coroutineStack.Push(Fly_Direction_N(dir, tp));
+				else            coroutineStack.Push(Fly(tp));
+			}
 			else if(tp.Match("Approach")) coroutineStack.Push(Approach(tp));
 			else if(tp.Match("Grind")) coroutineStack.Push(Grind(tp));
 			else if(tp.Match("Weld")) coroutineStack.Push(Weld(tp));
@@ -723,7 +727,6 @@ drop [quantity|all] 'name'
 					coroutineStack.Push(Recharge(tp));
 				else return "Error: expected 'list' or 'from'";
 			}
-			else if(tp.Match("Unstuck")) coroutineStack.Push(Unstuck(tp));
 			else
 			{	result = $"Unknown command '{tp.NextString()}'.";
 			}
