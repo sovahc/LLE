@@ -421,7 +421,7 @@ drop [quantity|all] 'name'
 			{
 				sb.Append("-- none --\n");
 			}
-			LLE_Loader.SetSystemPrompt(sb.ToString());
+			LLE_Loader.SetSystemPrompt(sb.ToString(), LLM.ExecuteCloseTag);
 		}
 
 		internal CommandResult Select(TokenParser tp)

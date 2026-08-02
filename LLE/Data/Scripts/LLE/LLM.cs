@@ -57,6 +57,9 @@ namespace LLE
 
 	class LLM
 	{
+		public const string ExecuteOpenTag  = "<execute>";
+		public const string ExecuteCloseTag = "</execute>";
+
 		private void Log(string s) => LLE.Log(s);
 
 		private readonly StringBuilder Reasoning = new StringBuilder(); // input

@@ -43,15 +43,16 @@ namespace LLELoader
 		public string ApiKey { get; set; } = "";
 		public string Provider { get; set; } = "local";
 		public bool EnableThinking { get; set; } = false;
-    public int ContextWindow { get; set; } = 100000;
-    public int MaxTokens { get; set; } = 20000;
-    public bool EnableProxy { get; set; } = false;
-    public string ProxyUrl { get; set; } = "";
-}
+    	public int ContextWindow { get; set; } = 100000;
+    	public int MaxTokens { get; set; } = 20000;
+    	public bool EnableProxy { get; set; } = false;
+    	public string ProxyUrl { get; set; } = "";
+	}
 
 	static class MessageBroker
 	{
 		private static string _systemPrompt = "";
+		private static string _stopString;
 
 		private static readonly LlmConfig _config = LoadConfig();
 
@@ -103,11 +104,12 @@ namespace LLELoader
 			var _ = AskLlmStreaming(context);
 		}
 
-		public static void SetSystemPrompt(string text)
+		public static void SetSystemPrompt(string text, string stop)
 		{
-			Logger.Write("[SetSystemPrompt] length=" + text.Length);
+			Logger.Write("[SetSystemPrompt] length=" + text.Length + " stop=" + stop);
 
 			_systemPrompt = text;
+			_stopString = stop;
 		}
 
 		private static async Task AskLlmStreaming(string chatContext)
@@ -127,7 +129,6 @@ namespace LLELoader
 					},
 					["max_tokens"] = _config.MaxTokens,
 					["stream"] = true,
-					//["stop"] = new[] { "</execute>" },
 				};
 				if (_config.Provider == "local")
 					payload["chat_template_kwargs"] = new { enable_thinking = _config.EnableThinking };
@@ -135,6 +136,9 @@ namespace LLELoader
 					payload["thinking"] = new { type = _config.EnableThinking ? "enabled" : "disabled" };
 				else //if (_config.Provider == "openrouter")
 					payload["reasoning"] = new { enabled = _config.EnableThinking };
+
+				if (!string.IsNullOrEmpty(_stopString))
+					payload["stop"] = _stopString;
 
 				var body = System.Text.Json.JsonSerializer.Serialize(payload);
 
@@ -375,9 +379,9 @@ namespace LLELoader
 				return false;
 			}
 
-			static bool Prefix_SetSystemPrompt(string text)
+			static bool Prefix_SetSystemPrompt(string text, string stop)
 			{
-				SetSystemPrompt(text);
+				SetSystemPrompt(text, stop);
 				return false;
 			}
 
