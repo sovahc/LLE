@@ -189,7 +189,7 @@ pause
 * inventories
   Return all inventories on the selected grid.
 
-* recharge
+* recharge list
   List blocks on the selected grid that can recharge you.
 
 * search item 'substring' [N]
@@ -264,7 +264,7 @@ pause
 * enter I J K
   Enter the cockpit or seat at the given grid coordinates. 
 
-* recharge I J K
+* recharge from I J K
   Recharge at the block at the given grid coordinates.
   For cockpits, cryo-chambers and seats: the bot sits in it and exits automatically when done.
   For medblocks and survival kits: collects energy near the block through a port.
@@ -276,16 +276,12 @@ fly to 5 3 1 for get
 get 10 'Steel Plate' from 5 3 1
 </execute>
 
-### Weld a damaged block:
+### Find blocks from which you can recharge:
 <execute>
-fly to 5 0 2 for weld
-weld 5 0 2
-</execute>
-
-### Recharge:
-<execute>
-fly to -4 3 5 for recharge
-recharge -4 3 5
+select 'Station'
+recharege list
+select 'Ship'
+recharege list
 </execute>
 ";
 }
@@ -714,10 +710,13 @@ drop [quantity|all] 'name'
 			else if(tp.Match("Exit")) result = Exit(tp);
 			else if(tp.Match("Recharge"))
 			{	
-				if(tp.End)
+				var action = tp.NextString();
+
+				if(action == "list")
 					result = GetRechargePoints(tp);
-				else
+				else if (action == "from")
 					coroutineStack.Push(Recharge(tp));
+				else return "Error: expected 'list' or 'from'";
 			}
 			else if(tp.Match("Unstuck")) coroutineStack.Push(Unstuck(tp));
 			else
