@@ -367,5 +367,26 @@ namespace LLE
 
 			foreach (var ijk in candidates) yield return ijk;
 		}
+
+		// XX For 1x1x1 blocks only
+		public static IEnumerable<Vector3I> ProduceCells(IMyCubeGrid grid, Vector3I freeSpace,
+			Vector3D engineerPosition)
+		{
+			var min = freeSpace - 1;
+			var max = freeSpace + 1;
+
+			if(grid.GridSizeEnum == MyCubeSize.Large)
+			{	var iter = new Vector3I_RangeIterator(ref min, ref max);
+				for (; iter.IsValid(); iter.MoveNext())
+				{
+					var ijk = iter.Current;
+
+					var ijkBlock = grid.GetCubeBlock(ijk);
+					if (ijkBlock != null && !Collisions.CenterIsFree(ijkBlock, ijk)) continue;
+
+					yield return ijk;
+				}
+			}
+		}
 	}
 }

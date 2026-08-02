@@ -59,6 +59,7 @@ namespace LLE
 	{
 		public const string ExecuteOpenTag  = "<execute>";
 		public const string ExecuteCloseTag = "</execute>";
+		public const string StopWorld = "[YOU]"; // don't hallucinate, please.
 
 		private void Log(string s) => LLE.Log(s);
 
@@ -360,16 +361,13 @@ namespace LLE
 			Append($"[YOU]:\n{content}\n", Color.Cyan, Destination.LLM);
 			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
 
-			const string openTag  = "<execute>";
-			const string closeTag = "</execute>";
-
 			// Exactly one <execute> block is allowed; multiple blocks are rejected (not "keep the last").
 			int count = 0, scan = 0;
 			while (true)
-			{	int at = content.IndexOf(openTag, scan, StringComparison.OrdinalIgnoreCase);
+			{	int at = content.IndexOf(ExecuteOpenTag, scan, StringComparison.OrdinalIgnoreCase);
 				if (at < 0) break;
 				count++;
-				scan = at + openTag.Length;
+				scan = at + ExecuteOpenTag.Length;
 			}
 			if (count == 0)
 			{	Append("[ERROR] No <execute> block found. Wrap your commands in <execute>...</execute>.\n", Color.Red);
@@ -380,10 +378,10 @@ namespace LLE
 				return;
 			}
 
-			int start = content.IndexOf(openTag, StringComparison.OrdinalIgnoreCase);
-			start += openTag.Length;
+			int start = content.IndexOf(ExecuteOpenTag, StringComparison.OrdinalIgnoreCase);
+			start += ExecuteOpenTag.Length;
 
-			int end = content.IndexOf(closeTag, start, StringComparison.OrdinalIgnoreCase);
+			int end = content.IndexOf(ExecuteCloseTag, start, StringComparison.OrdinalIgnoreCase);
 			if (end < 0) end = content.Length;
 
 			var lines = content.Substring(start, end - start).Split('\n');

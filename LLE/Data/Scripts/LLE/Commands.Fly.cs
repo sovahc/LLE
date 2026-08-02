@@ -136,45 +136,53 @@ namespace LLE
 			if(string.IsNullOrEmpty(intentionWord))
 				yield return "Error: expected intention after 'for'";
 
-			// calculate free cell
+			var block = selectedGrid.GetCubeBlock(ijk);
+			
+			Vector3I destinationCell;
+			string arrivalMessage;
 
-			/*if(string.Equals(intentionWord, "place", StringComparison.OrdinalIgnoreCase))
+			if(string.Equals(intentionWord, "place", StringComparison.OrdinalIgnoreCase))
 			{
-				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
+				if(block != null)
+					yield return $"Error: {IJK(ijk)} is occupied by block {Quote(Name(block))}. Cannot build a block on an occupied cell.";
 
+				var producer = EQS.ProduceCells(selectedGrid, ijk, GetEngineerCenter());
 				var placeCells = new List<Vector3I>();
-				foreach(var c in EQS.ProduceCells(block, block.Min - 1, block.Max + 1, GetEngineerCenter()))
+				
+				foreach (var c in producer)
+				{	if(c == ijk) continue;
 					placeCells.Add(c);
+				}
 
 				if(placeCells.Count == 0)
-					yield return $"Error: no free cells next to {Name(block)} at {IJK(ijk)} to place at";
+					yield return $"Error: no free cells next to {IJK(ijk)}";
 
 				destinationCell = NearestToEngineer(placeCells);
-				arrivalMessage = $"Arrived next to {Quote(Name(block))} at {IJK(ijk)}. Position: {IJK(destinationCell)}. Ready to place.";
-			}*/
+				arrivalMessage = $"Arrived next to free space at {IJK(ijk)}. Your position: {IJK(destinationCell)}";
+			}
+			else
+			{	// calculate free cell
+				var intention = ParseIntention(intentionWord, block);
+				if(intention == null)
+					yield return $"Error: unknown fly intention '{intentionWord}'. Expected: grind, weld, get, put, recharge, enter, place";
+				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
-			var block = selectedGrid.GetCubeBlock(ijk);
+				// Only grind/weld make sense on a projection preview — it has no real inventory, power, or seats yet.
+				if(intention.Value != InteractionKind.GrindWeld && IsProjection(selectedGrid))
+					yield return $"Error: selected grid is a projection preview — '{intentionWord}' is not supported on it yet.";
 
-			var intention = ParseIntention(intentionWord, block);
-			if(intention == null)
-				yield return $"Error: unknown fly intention '{intentionWord}'. Expected: grind, weld, get, put, recharge, enter, place";
-			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
+				var eqsr = new List<EQSResult>();
+				EQS.Query(block, GetEngineerCenter(), intention.Value, eqsr, 10);
 
-			// Only grind/weld make sense on a projection preview — it has no real inventory, power, or seats yet.
-			if(intention.Value != InteractionKind.GrindWeld && IsProjection(selectedGrid))
-				yield return $"Error: selected grid is a projection preview — '{intentionWord}' is not supported on it yet.";
+				if(eqsr.Count == 0)
+					yield return $"Error: no {intentionWord} interaction points found for {Name(block)} at {IJK(ijk)}";
 
-			var eqsr = new List<EQSResult>();
-			EQS.Query(block, GetEngineerCenter(), intention.Value, eqsr, 10);
-
-			if(eqsr.Count == 0)
-				yield return $"Error: no {intentionWord} interaction points found for {Name(block)} at {IJK(ijk)}";
-
-			var cells = new List<Vector3I>();
-			foreach(var r in eqsr) cells.Add(r.Cell);
-			var destinationCell = NearestToEngineer(cells);
-
-			var arrivalMessage = $"Arrived at '{intentionWord}' point for {Quote(Name(block))} at {IJK(ijk)}. Your position: {IJK(destinationCell)}.";
+				var cells = new List<Vector3I>();
+				foreach(var r in eqsr) cells.Add(r.Cell);
+				
+				destinationCell = NearestToEngineer(cells);
+				arrivalMessage = $"Arrived at '{intentionWord}' point for {Quote(Name(block))} at {IJK(ijk)}. Your position: {IJK(destinationCell)}.";
+			}
 
 			yield return RealFly(destinationCell, arrivalMessage, false);
 		}

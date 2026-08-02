@@ -133,7 +133,7 @@ pause
 * fly forward|backward|left|right|up|down N
   Fly N cells in the given direction (relative to the grid).
 
-* approach I J K for grind|weld|get|put|recharge|enter
+* approach I J K for grind|weld|get|put|recharge|enter|place
   Fly to the nearest interaction point of the block, ready to perform the given action (e.g. `approach 2 3 2 for weld`).
 
 ### 2. Remote — no need to be next to a block
@@ -283,6 +283,12 @@ recharege list
 select 'Ship'
 recharege list
 </execute>
+
+### Place the block
+<execute>
+approach 4 4 3 for place
+place 'Interior Pillar' at 4 4 3 facing forward
+<execute>
 ";
 }
 // 5. Disabled: weak LLMs ignore this rule. Left for testing with stronger models.
@@ -417,7 +423,7 @@ drop [quantity|all] 'name'
 			{
 				sb.Append("-- none --\n");
 			}
-			LLE_Loader.SetSystemPrompt(sb.ToString(), LLM.ExecuteCloseTag);
+			LLE_Loader.SetSystemPrompt(sb.ToString(), LLM.StopWorld);
 		}
 
 		internal CommandResult Select(TokenParser tp)
