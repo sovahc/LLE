@@ -203,7 +203,7 @@ pause
 * distance I J K
   Distance from you to the block at the given grid coordinates.
 
-* distance from I J K to I₂ J₂ K₂
+* distance I J K I₂ J₂ K₂
   Distance between two grid coordinates (measuring tape).
 
 * points I J K
