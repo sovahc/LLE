@@ -8,6 +8,7 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.Utils;
+using System.Globalization;
 
 namespace LLE
 {
@@ -325,7 +326,8 @@ namespace LLE
 		public bool NextDouble(out double value)
 		{
 			Peek();
-			if (double.TryParse(s.Substring(tStart, tLength), out value))
+			if (double.TryParse(s.Substring(tStart, tLength),
+				NumberStyles.Float, CultureInfo.InvariantCulture, out value))
 			{	index = nextIndex;
 				return true;
 			}
