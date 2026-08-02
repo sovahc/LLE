@@ -127,14 +127,14 @@ pause
 ### 1. Movement
 
 * fly I J K [headfirst]
-  Fly to specific grid coordinates and land exactly at that cell. The cell must be free space; if it is occupied by a block, the command fails and names the blocking block.
+  Fly to specific grid coordinates and land exactly at that cell. The cell must be free space.
+  The headfirst parameter reduces your profile during flight. Try using it if you get stuck.
 
-* fly to I J K for grind|weld|get|put|recharge|enter|place
-  Fly to the nearest interaction point of the block at I J K, ready to perform the given action (e.g. `fly to 5 0 2 for weld`).
-  `place` flies to the nearest free cell next to the block, ready to build.
+* fly forward|backward|left|right|up|down N
+  Fly N cells in the given direction (relative to the grid).
 
-* unstuck forward|backward|left|right|up|down
-  Turn on the jetpack and fly one cell in the given direction (relative to the grid's cockpit or remote control) to break free.
+* approach I J K for grind|weld|get|put|recharge|enter
+  Fly to the nearest interaction point of the block, ready to perform the given action (e.g. `approach 2 3 2 for weld`).
 
 ### 2. Remote — no need to be next to a block
 
@@ -683,84 +683,35 @@ drop [quantity|all] 'name'
 			{	LLM.pause = true;
 				result = Success("OK");
 			}
-			else if(tp.Match("Position"))
-			{	result = Position();				
-			}
-			else if(tp.Match("Overview"))
-			{	result = Overview();
-			}
-			else if(tp.Match("Integrity"))
-			{	result = Integrity();
-			}
-			else if(tp.Match("Projection"))
-			{	result = Projection();
-			}
-			else if(tp.Match("Select"))
-			{	result = Select(tp);
-			}
-			else if(tp.Match("Fly"))
-			{	coroutineStack.Push(Fly(tp));
-			}
-			else if(tp.Match("Grind"))
-			{	coroutineStack.Push(Grind(tp));
-			}
-			else if(tp.Match("Weld"))
-			{	coroutineStack.Push(Weld(tp));
-			}
-			else if(tp.Match("Near"))
-			{	result = Near(tp);
-			}
-			else if(tp.Match("Free"))
-			{	result = Near(tp, true);
-			}
-			else if(tp.Match("Inventory"))
-			{	result = Inventory(tp);
-			}
-			else if(tp.Match("Inventories"))
-			{	result = Inventories();
-			}
-			else if(tp.Match("Get"))
-			{	coroutineStack.Push(Get(tp));
-			}
-			else if(tp.Match("Put"))
-			{	coroutineStack.Push(Put(tp));
-			}
-			else if(tp.Match("Status"))
-			{	result = Success(status.ReportAll());
-			}
-			else if(tp.Match("Say"))
-			{	result = Say(tp);
-			}
-			else if(tp.Match("Memory"))
-			{	result = Memory(tp);
-			}
-			else if(tp.Match("Transfer"))
-			{	coroutineStack.Push(Transfer(tp));
-			}
-			else if(tp.Match("Search"))
-			{	result = Search(tp);
-			}
-			else if(tp.Match("Distance"))
-			{	result = Distance(tp);
-			}
-			else if(tp.Match("Points"))
-			{	result = Points(tp);
-			}
-			else if(tp.Match("Info"))
-			{	result = Info(tp);
-			}
+			else if(tp.Match("Position")) result = Position();
+			else if(tp.Match("Overview")) result = Overview();
+			else if(tp.Match("Integrity")) result = Integrity();
+			else if(tp.Match("Projection")) result = Projection();
+			else if(tp.Match("Select")) result = Select(tp);
+			else if(tp.Match("Fly")) coroutineStack.Push(Fly(tp));
+			else if(tp.Match("Approach")) coroutineStack.Push(Approach(tp));
+			else if(tp.Match("Grind")) coroutineStack.Push(Grind(tp));
+			else if(tp.Match("Weld")) coroutineStack.Push(Weld(tp));
+			else if(tp.Match("Near")) result = Near(tp);
+			else if(tp.Match("Free")) result = Near(tp, true);
+			else if(tp.Match("Inventory")) result = Inventory(tp);
+			else if(tp.Match("Inventories")) result = Inventories();
+			else if(tp.Match("Get")) coroutineStack.Push(Get(tp));
+			else if(tp.Match("Put")) coroutineStack.Push(Put(tp));
+			else if(tp.Match("Status")) result = Success(status.ReportAll());
+			else if(tp.Match("Say")) result = Say(tp);
+			else if(tp.Match("Memory")) result = Memory(tp);
+			else if(tp.Match("Transfer")) coroutineStack.Push(Transfer(tp));
+			else if(tp.Match("Search")) result = Search(tp);
+			else if(tp.Match("Distance")) result = Distance(tp);
+			else if(tp.Match("Points")) result = Points(tp);
+			else if(tp.Match("Info")) result = Info(tp);
 			else if(tp.Match("Place"))
 			{	coroutineStack.Push(tp.Match("conveyor") ? PlaceConveyor(tp) : Place(tp));
 			}
-			else if(tp.Match("Route"))
-			{	coroutineStack.Push(Route(tp));
-			}
-			else if(tp.Match("Enter"))
-			{	result = Enter(tp);
-			}
-			else if(tp.Match("Exit"))
-			{	result = Exit(tp);
-			}
+			else if(tp.Match("Route")) coroutineStack.Push(Route(tp));
+			else if(tp.Match("Enter")) result = Enter(tp);
+			else if(tp.Match("Exit")) result = Exit(tp);
 			else if(tp.Match("Recharge"))
 			{	
 				if(tp.End)
@@ -768,9 +719,7 @@ drop [quantity|all] 'name'
 				else
 					coroutineStack.Push(Recharge(tp));
 			}
-			else if(tp.Match("Unstuck"))
-			{	coroutineStack.Push(Unstuck(tp));
-			}
+			else if(tp.Match("Unstuck")) coroutineStack.Push(Unstuck(tp));
 			else
 			{	result = $"Unknown command '{tp.NextString()}'.";
 			}

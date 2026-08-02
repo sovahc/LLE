@@ -62,27 +62,6 @@ namespace LLE
 			return block?.FatBlock as IMyDoor;
 		}
 
-		private InteractionKind? ParseIntention(string word, IMySlimBlock block)
-		{
-			if(string.Equals(word, "grind", StringComparison.OrdinalIgnoreCase) ||
-			   string.Equals(word, "weld", StringComparison.OrdinalIgnoreCase))
-				return InteractionKind.GrindWeld;
-
-			if(string.Equals(word, "get", StringComparison.OrdinalIgnoreCase) ||
-			   string.Equals(word, "put", StringComparison.OrdinalIgnoreCase) ||
-			   string.Equals(word, "enter", StringComparison.OrdinalIgnoreCase))
-				return InteractionKind.Inventory;
-
-			if(string.Equals(word, "recharge", StringComparison.OrdinalIgnoreCase))
-			{
-				if(block?.FatBlock is IMyCockpit)
-					return InteractionKind.Inventory;
-				return InteractionKind.Recharge;
-			}
-
-			return null;
-		}
-
 		internal class PathNode
 		{	public Vector3D v;
 			public Vector3I? openDoor;
@@ -122,45 +101,44 @@ namespace LLE
 			return result;
 		}
 
-		internal IEnumerator Fly(TokenParser tp)
+		private InteractionKind? ParseIntention(string word, IMySlimBlock block)
+		{
+			if(string.Equals(word, "grind", StringComparison.OrdinalIgnoreCase) ||
+			   string.Equals(word, "weld", StringComparison.OrdinalIgnoreCase))
+				return InteractionKind.GrindWeld;
+
+			if(string.Equals(word, "get", StringComparison.OrdinalIgnoreCase) ||
+			   string.Equals(word, "put", StringComparison.OrdinalIgnoreCase) ||
+			   string.Equals(word, "enter", StringComparison.OrdinalIgnoreCase))
+				return InteractionKind.Inventory;
+
+			if(string.Equals(word, "recharge", StringComparison.OrdinalIgnoreCase))
+			{
+				if(block?.FatBlock is IMyCockpit)
+					return InteractionKind.Inventory;
+				return InteractionKind.Recharge;
+			}
+
+			return null;
+		}
+
+		internal IEnumerator Approach(TokenParser tp)
 		{
 			string message;
-
 			if(!GridIsSet(out message)) yield return message;
-
-			// Two forms:
-			//   fly I J K [headfirst]                     -> land exactly at the cell
-			//   fly to I J K for <intention> [headfirst]  -> land at nearest interaction point of the block
-			bool approach = tp.Match("To");
 
 			Vector3I ijk;
 			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
 
-			string intentionWord = null;
-			bool headFirst = false;
+			if(!tp.Match("For"))
+				yield return "Error: expected 'for <intention>'";
+			var intentionWord = tp.NextString();
+			if(string.IsNullOrEmpty(intentionWord))
+				yield return "Error: expected intention after 'for'";
 
-			if(approach)
-			{	if(!tp.Match("For"))
-					yield return "Error: expected 'for <intention>' (grind|weld|get|put|recharge|enter|place)";
-				intentionWord = tp.NextString();
-				if(string.IsNullOrEmpty(intentionWord))
-					yield return "Error: expected intention after 'for' (grind|weld|get|put|recharge|enter|place)";
-			}
+			// calculate free cell
 
-			while(!tp.End)
-			{	if(tp.Match("headfirst"))
-					headFirst = true;
-				else
-					yield return $"Error: unexpected token '{tp.NextString()}'";
-			}
-
-			var block = selectedGrid.GetCubeBlock(ijk);
-
-			// Destination cell: raw coords, or nearest interaction point for the intention.
-			Vector3I destinationCell = ijk;
-			string arrivalMessage = null;
-
-			if(string.Equals(intentionWord, "place", StringComparison.OrdinalIgnoreCase))
+			/*if(string.Equals(intentionWord, "place", StringComparison.OrdinalIgnoreCase))
 			{
 				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
@@ -173,40 +151,57 @@ namespace LLE
 
 				destinationCell = NearestToEngineer(placeCells);
 				arrivalMessage = $"Arrived next to {Quote(Name(block))} at {IJK(ijk)}. Position: {IJK(destinationCell)}. Ready to place.";
-			}
-			else if(intentionWord != null)
+			}*/
+
+			var block = selectedGrid.GetCubeBlock(ijk);
+
+			var intention = ParseIntention(intentionWord, block);
+			if(intention == null)
+				yield return $"Error: unknown fly intention '{intentionWord}'. Expected: grind, weld, get, put, recharge, enter, place";
+			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
+
+			// Only grind/weld make sense on a projection preview — it has no real inventory, power, or seats yet.
+			if(intention.Value != InteractionKind.GrindWeld && IsProjection(selectedGrid))
+				yield return $"Error: selected grid is a projection preview — '{intentionWord}' is not supported on it yet.";
+
+			var eqsr = new List<EQSResult>();
+			EQS.Query(block, GetEngineerCenter(), intention.Value, eqsr, 10);
+
+			if(eqsr.Count == 0)
+				yield return $"Error: no {intentionWord} interaction points found for {Name(block)} at {IJK(ijk)}";
+
+			var cells = new List<Vector3I>();
+			foreach(var r in eqsr) cells.Add(r.Cell);
+			var destinationCell = NearestToEngineer(cells);
+
+			var arrivalMessage = $"Arrived at '{intentionWord}' point for {Quote(Name(block))} at {IJK(ijk)}. Your position: {IJK(destinationCell)}.";
+
+			yield return RealFly(destinationCell, arrivalMessage, false);
+		}
+
+		internal IEnumerator Fly(TokenParser tp)
+		{
+			string message;
+			if(!GridIsSet(out message)) yield return message;
+
+			Vector3I ijk;
+			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
+
+			var headFirst = tp.Match("headfirst");
+
+			var block = selectedGrid.GetCubeBlock(ijk);
+
+			if(!Collisions.CenterIsFree(block, ijk))
 			{
-				var intention = ParseIntention(intentionWord, block);
-				if(intention == null)
-					yield return $"Error: unknown fly intention '{intentionWord}'. Expected: grind, weld, get, put, recharge, enter, place";
-				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
-
-				// Only grind/weld make sense on a projection preview — it has no real inventory, power, or seats yet.
-				if(intention.Value != InteractionKind.GrindWeld && IsProjection(selectedGrid))
-					yield return $"Error: selected grid is a projection preview — '{intentionWord}' is not supported on it yet.";
-
-				var eqsr = new List<EQSResult>();
-				EQS.Query(block, GetEngineerCenter(), intention.Value, eqsr, 10);
-
-				if(eqsr.Count == 0)
-					yield return $"Error: no {intentionWord} interaction points found for {Name(block)} at {IJK(ijk)}";
-
-				var cells = new List<Vector3I>();
-				foreach(var r in eqsr) cells.Add(r.Cell);
-				destinationCell = NearestToEngineer(cells);
-
-				arrivalMessage = $"Arrived at {intentionWord} point for {Quote(Name(block))} at {IJK(ijk)}. Position: {IJK(destinationCell)}. Ready to {intentionWord}.";
-			}
-			else
-			{
-				if(!Collisions.CenterIsFree(block, ijk))
-				{
-					yield return $"Destination {IJK(ijk)} is blocked by {Name(block)}. "
-						+ $"Use `fly to {IJK(ijk)} for <intention>` to land at an interaction point, "
-						+ $"or `points {IJK(ijk)}` to list them.";
-				}
+				yield return $"Destination {IJK(ijk)} is blocked by {Name(block)}. "
+					+ $"Use approach if you need interact with the block.";
 			}
 
+			yield return RealFly(ijk, "", headFirst);
+		}
+
+		internal IEnumerator RealFly(Vector3I destinationCell, string arrivalMessage, bool headFirst)
+		{
 			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
 			if(jetComp == null) yield return "Error: character has no jetpack.";
 			jetComp.TurnOnJetpack(true);
