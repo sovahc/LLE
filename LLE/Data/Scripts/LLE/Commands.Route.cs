@@ -56,43 +56,38 @@ namespace LLE
 
 			if (a == b) yield return "Error: both positions point at the same cell.";
 
-			var portsA = new List<Base6Directions.Direction>();
-			var portsB = new List<Base6Directions.Direction>();
-			ConveyorPorts.AtCell(blockA, a, portsA);
-			ConveyorPorts.AtCell(blockB, b, portsB);
+			var portsA = new List<ConveyorPort>();
+			var portsB = new List<ConveyorPort>();
+			ConveyorPorts.OfBlock(blockA, portsA);
+			ConveyorPorts.OfBlock(blockB, portsB);
 
-			if (portsA.Count == 0) yield return NoPortsHere(blockA, a);
-			if (portsB.Count == 0) yield return NoPortsHere(blockB, b);
+			if (portsA.Count == 0)
+				yield return $"Error: {Quote(Name(blockA))} at {IJK(a)} has no conveyor ports at all, so nothing can be piped to it.";
+			if (portsB.Count == 0)
+				yield return $"Error: {Quote(Name(blockB))} at {IJK(b)} has no conveyor ports at all, so nothing can be piped to it.";
 
-			// Already face to face — the only case with nothing to build.
-			Vector3I delta = b - a;
-			if (Math.Abs(delta.X) + Math.Abs(delta.Y) + Math.Abs(delta.Z) == 1)
-			{
-				var towards = DirOf(delta);
-				if (ConveyorPorts.Contains(portsA, towards) &&
-					ConveyorPorts.Contains(portsB, Base6Directions.GetFlippedDirection(towards)))
-				{
-					yield return Success($"{Quote(Name(blockA))} at {IJK(a)} and {Quote(Name(blockB))} at {IJK(b)}"
-						+ " already touch port to port. There is nothing to build.");
-				}
-			}
-
-			var search = new ConveyorAStar(selectedGrid, a, b, portsA, portsB);
+			var search = new ConveyorAStar(selectedGrid, portsA, portsB);
 			while (!search.Tick()) yield return null;
 
 			var path = search.Result;
 
 			if (path.Count == 0)
 			{
-				yield return $"Error: no run of empty cells connects "
+				yield return $"Error: no run of empty cells connects"
 					+ $" {Quote(Name(blockA))} at {IJK(a)} to"
 					+ $" {Quote(Name(blockB))} at {IJK(b)}.";
 			}
 
 			int pieces = path.Count - 2;
 
+			if (pieces == 0)
+			{
+				yield return Success($"{Quote(Name(blockA))} at {IJK(path[0])} and {Quote(Name(blockB))} at {IJK(path[path.Count - 1])}"
+					+ " already touch port to port. There is nothing to build.");
+			}
+
 			var md = new MyMarkdown();
-			md.Append($"Route from {Quote(Name(blockA))} at {IJK(a)} to {Quote(Name(blockB))} at {IJK(b)} ({pieces} conveyor pieces required)");
+			md.Append($"Route from {Quote(Name(blockA))} at {IJK(path[0])} to {Quote(Name(blockB))} at {IJK(path[path.Count - 1])} ({pieces} conveyor pieces required)");
 
 			for (int i = 1; i < path.Count - 1; ++i)
 			{

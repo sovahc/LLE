@@ -8,18 +8,18 @@ using Priority_Queue;
 
 namespace LLE
 {
-	// TODO Warning: Clunker code, not checked.
-
 	class ConveyorAStar
 	{
 		private const float BendPenalty = 0.4f;
+		private const int Border = 10;
 
 		private readonly IMyCubeGrid grid;
 		private readonly Indexer indexer;
 		private readonly Vector3I origin;
 
-		private readonly Vector3I start, goal;
-		private readonly List<Base6Directions.Direction> startPorts, goalPorts;
+		private readonly Dictionary<int, List<Base6Directions.Direction>> startCells;
+		private readonly Dictionary<int, List<Base6Directions.Direction>> goalCells;
+		private readonly List<Vector3I> goalPositions;
 
 		private readonly BitField closed;
 		private readonly BitField inOpen;
@@ -42,17 +42,20 @@ namespace LLE
 			Base6Directions.Direction.Forward, Base6Directions.Direction.Backward
 		};
 
-		public ConveyorAStar(IMyCubeGrid grid_, Vector3I start_, Vector3I goal_,
-			List<Base6Directions.Direction> startPorts_, List<Base6Directions.Direction> goalPorts_)
+		public ConveyorAStar(IMyCubeGrid grid_,
+			List<ConveyorPort> startPorts_, List<ConveyorPort> goalPorts_)
 		{
 			grid = grid_;
-			start = start_;
-			goal = goal_;
-			startPorts = startPorts_;
-			goalPorts = goalPorts_;
 
-			origin = grid.Min;
-			indexer = new Indexer(grid.Max - grid.Min + Vector3I.One);
+			// Bounding box: all port cells + a fixed border, clamped to the grid.
+			Vector3I lo = new Vector3I(int.MaxValue), hi = new Vector3I(int.MinValue);
+			foreach (var p in startPorts_) { lo = Vector3I.Min(lo, p.Cell); hi = Vector3I.Max(hi, p.Cell); }
+			foreach (var p in goalPorts_)  { lo = Vector3I.Min(lo, p.Cell); hi = Vector3I.Max(hi, p.Cell); }
+			lo = Vector3I.Max(lo - new Vector3I(Border), grid.Min);
+			hi = Vector3I.Min(hi + new Vector3I(Border), grid.Max);
+
+			origin = lo;
+			indexer = new Indexer(hi - lo + Vector3I.One);
 
 			int c = indexer.Count;
 
@@ -67,9 +70,37 @@ namespace LLE
 
 			for (int i = 0; i < c; ++i) parent[i] = -1;
 
-			MyConsole.Add($"ConveyorAStar '{grid.DisplayName}' {start} -> {goal} box {indexer.Size} ({c} cells)");
+			startCells = BuildPortMap(startPorts_);
+			goalCells = BuildPortMap(goalPorts_);
+
+			goalPositions = new List<Vector3I>();
+			foreach (var entry in goalCells)
+			{	Vector3I local;
+				indexer.IndexToPosition(entry.Key, out local);
+				goalPositions.Add(local + origin);
+			}
+
+			MyConsole.Add($"ConveyorAStar '{grid.DisplayName}' {startCells.Count} -> {goalCells.Count} ports, box {indexer.Size} ({c} cells)");
 
 			iterator = FindPath();
+		}
+
+		private Dictionary<int, List<Base6Directions.Direction>> BuildPortMap(List<ConveyorPort> ports)
+		{
+			var map = new Dictionary<int, List<Base6Directions.Direction>>();
+			foreach (var p in ports)
+			{	Vector3I local = p.Cell - origin;
+				if (!indexer.In(local)) continue;
+				int idx = indexer.Index(local);
+				List<Base6Directions.Direction> dirs;
+				if (!map.TryGetValue(idx, out dirs))
+				{	dirs = new List<Base6Directions.Direction>();
+					map[idx] = dirs;
+				}
+				if (!ConveyorPorts.Contains(dirs, p.Direction))
+					dirs.Add(p.Direction);
+			}
+			return map;
 		}
 
 		public bool Tick()
@@ -101,20 +132,17 @@ namespace LLE
 
 		private IEnumerator FindPath()
 		{
-			Vector3I startLocal = start - origin;
-			Vector3I goalLocal = goal - origin;
-
-			if (!indexer.In(startLocal) || !indexer.In(goalLocal))
-			{	MyConsole.Add("ConveyorAStar: an endpoint fell outside the search box", Color.Red);
-				yield break;
+			// Seed every start cell with g = 0.
+			foreach (var entry in startCells)
+			{
+				int idx = entry.Key;
+				gScore[idx] = 0f;
+				parent[idx] = -1;
+				Vector3I local;
+				indexer.IndexToPosition(idx, out local);
+				open.Enqueue(Node(idx), Heuristic(local + origin));
+				inOpen.Set(idx, 1);
 			}
-
-			int startIndex = indexer.Index(startLocal);
-			int goalIndex = indexer.Index(goalLocal);
-
-			gScore[startIndex] = 0f;
-			open.Enqueue(Node(startIndex), Manhattan(start, goal));
-			inOpen.Set(startIndex, 1);
 
 			int expanded = 0;
 
@@ -129,8 +157,8 @@ namespace LLE
 				if (closed.Get(currentI) != 0) continue;
 				closed.Set(currentI, 1);
 
-				if (currentI == goalIndex)
-				{	Reconstruct(goalIndex);
+				if (goalCells.ContainsKey(currentI))
+				{	Reconstruct(currentI);
 					MyConsole.Add($"ConveyorAStar: found, {expanded} cells analysed, {Result.Count} long");
 					yield break;
 				}
@@ -161,13 +189,16 @@ namespace LLE
 					Vector3I nextCell = nextLocal + origin;
 					var direction = SixAsDirections[d];
 
-					// Leaving the source block: only through one of its ports.
-					if (currentI == startIndex && !ConveyorPorts.Contains(startPorts, direction))
+					// Leaving a start cell: only through one of its ports.
+					List<Base6Directions.Direction> exitDirs;
+					if (startCells.TryGetValue(currentI, out exitDirs) &&
+						!ConveyorPorts.Contains(exitDirs, direction))
 						continue;
 
-					if (nextI == goalIndex)
-					{	// Entering the target block: it must have a port looking back at us.
-						if (!ConveyorPorts.Contains(goalPorts, Base6Directions.GetFlippedDirection(direction)))
+					// Entering a goal cell: it must have a port looking back at us.
+					List<Base6Directions.Direction> entryDirs;
+					if (goalCells.TryGetValue(nextI, out entryDirs))
+					{	if (!ConveyorPorts.Contains(entryDirs, Base6Directions.GetFlippedDirection(direction)))
 							continue;
 					}
 					else if (!Free(nextCell, nextI)) continue;
@@ -181,7 +212,7 @@ namespace LLE
 					gScore[nextI] = tentativeG;
 					parent[nextI] = currentI;
 
-					float f = tentativeG + Manhattan(nextCell, goal);
+					float f = tentativeG + Heuristic(nextCell);
 
 					if (inOpen.Get(nextI) != 0)
 						open.UpdatePriority(Node(nextI), f);
@@ -210,9 +241,16 @@ namespace LLE
 			Result.Reverse();
 		}
 
-		private static float Manhattan(Vector3I a, Vector3I b)
+		private float Heuristic(Vector3I cell)
 		{
-			return Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) + Math.Abs(a.Z - b.Z);
+			float min = float.MaxValue;
+			for (int i = 0; i < goalPositions.Count; ++i)
+			{	float d = Math.Abs(cell.X - goalPositions[i].X)
+					   + Math.Abs(cell.Y - goalPositions[i].Y)
+					   + Math.Abs(cell.Z - goalPositions[i].Z);
+				if (d < min) min = d;
+			}
+			return min;
 		}
 	}
 }
