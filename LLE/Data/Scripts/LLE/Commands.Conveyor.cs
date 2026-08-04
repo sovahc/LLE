@@ -149,6 +149,18 @@ namespace LLE
 			return null;
 		}
 
+		// A tube drafted by name takes whatever orientation `facing` gives it, and the model gets
+		// that wrong every time — the openings end up in a wall. Which two directions the openings
+		// look along is the only thing that matters about a tube, so it has to say them out loud.
+		private static string RefuseTubeByName(MyCubeBlockDefinition definition)
+		{
+			if (definition.Id.TypeId != typeof(MyObjectBuilder_ConveyorConnector)) return null;
+
+			return $"Error: {Quote(definition.DisplayNameText)} is a conveyor tube, and a tube is not"
+				+ " drafted by name — name its two openings instead and the right tube is chosen for you."
+				+ " " + DraftConveyorUsage;
+		}
+
 		internal CommandResult DraftConveyor(TokenParser tp)
 		{
 			string message;

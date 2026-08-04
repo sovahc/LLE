@@ -271,6 +271,9 @@ namespace LLE
 			var definition = ResolvePlaceable(query, out error);
 			if(definition == null) return error;
 
+			refusal = RefuseTubeByName(definition);
+			if(refusal != null) return refusal;
+
 			AddToDraft(definition, ijk, forward, up);
 
 			return Success($"Drafted {Quote(definition.DisplayNameText)} at {IJK(ijk)}."
