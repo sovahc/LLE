@@ -146,7 +146,9 @@ namespace LLE
 				yield return $"Internal error: no orientation of {Quote(definition.DisplayNameText)}"
 					+ $" puts its openings on {Dir(port1)} and {Dir(port2)}.";
 
-			yield return BuildAt(definition, ijk, orientation.Forward, orientation.Up);
+			yield return HoldCubePlacer(true);
+			yield return PlaceCube(definition, ijk, orientation.Forward, orientation.Up);
+			yield return HoldCubePlacer(false);
 
 			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)},"
 				+ $" openings on {Dir(port1)} and {Dir(port2)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}."

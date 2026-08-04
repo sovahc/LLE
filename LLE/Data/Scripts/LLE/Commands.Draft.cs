@@ -1,0 +1,358 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+
+using VRageMath;
+using VRage;
+using VRage.Game;
+using VRage.Game.ModAPI;
+using VRage.ModAPI;
+using VRage.ObjectBuilders;
+using Sandbox.Definitions;
+using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
+
+namespace LLE
+{
+	public partial class Commands
+	{
+		// A draft is a plan, not a structure: the blocks the bot intends to build, shown to the
+		// player as a ghost grid so he can approve them in chat before anything is touched.
+		// `build` then places them at minimum integrity — a wrong frame is cut away with a
+		// grinder in seconds, which is what makes placing the whole draft at once affordable.
+
+		internal const string DraftGridName = "LLE_Draft";
+
+		private struct DraftBlock
+		{
+			public MyCubeBlockDefinition Definition;
+			public Vector3I Cell;
+			public Base6Directions.Direction Forward;
+			public Base6Directions.Direction Up;
+		}
+
+		private readonly List<DraftBlock> draft = new List<DraftBlock>();
+
+		private IMyCubeGrid draftBase;      // grid the draft's I J K belong to
+		private IMyCubeGrid draftPreview;   // the ghost, rebuilt whenever the draft settles
+		private double draftSettleAt;       // 0 = the ghost matches the draft
+
+		// A batch drops one `draft` command per tick, and rebuilding the ghost on each of them
+		// would spawn and close an entity thirty times in half a second. Wait for the quiet.
+		private void TouchDraft()
+		{	draftSettleAt = Time.Now + 0.3;
+		}
+
+		internal void Draft_Tick()
+		{
+			if(draftSettleAt != 0 && Time.Now >= draftSettleAt)
+			{	draftSettleAt = 0;
+				RebuildDraftPreview();
+			}
+
+			// The ghost is an entity of its own — it does not follow the grid it was aligned to.
+			if(draftPreview == null || draftPreview.Closed) return;
+			if(draftBase == null || draftBase.Closed) return;
+
+			if(draftPreview.WorldMatrix != draftBase.WorldMatrix)
+				draftPreview.WorldMatrix = draftBase.WorldMatrix;
+		}
+
+		private void ClearDraft()
+		{	draft.Clear();
+			draftBase = null;
+			draftSettleAt = 0;
+			CloseDraftPreview();
+		}
+
+		private void CloseDraftPreview()
+		{	if(draftPreview == null) return;
+			if(!draftPreview.Closed) draftPreview.Close();
+			draftPreview = null;
+		}
+
+		private void RebuildDraftPreview()
+		{
+			CloseDraftPreview();
+
+			if(draft.Count == 0) return;
+			if(draftBase == null || draftBase.Closed) return;
+
+			var gridOB = MyObjectBuilderSerializer.CreateNewObject<MyObjectBuilder_CubeGrid>();
+			gridOB.EntityId = 0;
+			gridOB.DisplayName = DraftGridName;
+			gridOB.GridSizeEnum = draftBase.GridSizeEnum;
+			gridOB.CreatePhysics = false;
+			gridOB.IsStatic = true;
+			gridOB.Editable = false;
+			gridOB.DestructibleBlocks = false;
+			gridOB.IsRespawnGrid = false;
+			gridOB.PersistentFlags = MyPersistentEntityFlags2.InScene;
+
+			// Cell 0 0 0 of a grid sits at its origin, so giving the ghost the same origin and
+			// orientation makes its I J K identical to the real grid's — nothing to translate.
+			var m = draftBase.WorldMatrix;
+			gridOB.PositionAndOrientation = new MyPositionAndOrientation(
+				m.Translation, (Vector3)m.Forward, (Vector3)m.Up);
+
+			foreach(var d in draft)
+			{
+				var ob = MyObjectBuilderSerializer.CreateNewObject(d.Definition.Id) as MyObjectBuilder_CubeBlock;
+				if(ob == null) continue;
+
+				ob.EntityId = 0;
+				ob.Min = d.Cell;
+				ob.BlockOrientation = new SerializableBlockOrientation(d.Forward, d.Up);
+				gridOB.CubeBlocks.Add(ob);
+			}
+
+			var grid = MyAPIGateway.Entities.CreateFromObjectBuilderParallel(
+				gridOB, true, OnDraftPreviewReady) as MyCubeGrid;
+			if(grid == null) return;
+
+			grid.IsPreview = true;
+			grid.Save = false;
+
+			draftPreview = grid;
+		}
+
+		// TempBlockSpawn.cs: touching a spawned grid before it finishes initializing crashes on
+		// some block types, so the ghosting waits for the spawn callback.
+		private void OnDraftPreviewReady(IMyEntity entity)
+		{
+			var grid = entity as MyCubeGrid;
+			if(grid == null || grid.Closed) return;
+
+			// Keep the ghost out of every sphere query — `select`, Vision and `search` all go
+			// through the pruning structure, and a phantom grid there would reach the model.
+			if(grid.TopMostPruningProxyId != -1) MyGamePruningStructure.Remove(grid);
+
+			// MyProjectorBase.SetTransparency: the value is NEGATED on purpose. A negative
+			// dithering is what switches the shader to the projection look; a positive one
+			// only fades the block out.
+			float transparency = -MyGridConstants.PROJECTOR_TRANSPARENCY;
+			grid.Render.Transparency = transparency;
+
+			var blocks = new List<IMySlimBlock>();
+			((IMyCubeGrid)grid).GetBlocks(blocks);
+
+			foreach(var b in blocks)
+			{	b.Dithering = transparency;
+				b.UpdateVisual();
+			}
+		}
+
+		private bool FindInDraft(Vector3I ijk, out int index)
+		{
+			for(index = 0; index < draft.Count; ++index)
+				if(draft[index].Cell == ijk) return true;
+
+			index = -1;
+			return false;
+		}
+
+		// A drafted cell has to be empty and touch something by a face — a built block or
+		// another drafted one. Reach is deliberately not checked: drafting is planning at a
+		// distance, and `build` is what has to be within arm's length.
+		private string CheckDraftSite(Vector3I ijk)
+		{
+			var occupant = selectedGrid.GetCubeBlock(ijk);
+			if(occupant != null)
+				return $"Error: {IJK(ijk)} is not empty — {Quote(Name(occupant))} stands there.";
+
+			int index;
+			if(FindInDraft(ijk, out index))
+				return $"Error: {IJK(ijk)} is already in the draft — {Quote(draft[index].Definition.DisplayNameText)}.";
+
+			foreach(var offset in Constants.SixDirections)
+			{	if(selectedGrid.GetCubeBlock(ijk + offset) != null) return null;
+				if(FindInDraft(ijk + offset, out index)) return null;
+			}
+
+			return $"Error: nothing touches {IJK(ijk)} by a face — neither a built block nor a drafted one."
+				+ " The structure has to grow out of what is already there.";
+		}
+
+		internal CommandResult Draft(TokenParser tp)
+		{
+			const string usage = "Usage: draft 'Block Name' at I J K [facing forward|backward|left|right] [up|down]";
+
+			if(tp.End || tp.Match("show")) return DraftShow();
+
+			if(tp.Match("clear"))
+			{	if(draft.Count == 0) return Success("The draft is already empty.");
+
+				int dropped = draft.Count;
+				ClearDraft();
+				return Success($"Draft cleared, {dropped} block(s) dropped.");
+			}
+
+			if(tp.Match("undo"))
+			{	if(draft.Count == 0) return "Error: the draft is empty, nothing to undo.";
+
+				var last = draft[draft.Count - 1];
+				draft.RemoveAt(draft.Count - 1);
+				if(draft.Count == 0) ClearDraft(); else TouchDraft();
+
+				return Success($"Removed {Quote(last.Definition.DisplayNameText)} at {IJK(last.Cell)}"
+					+ $" from the draft. {draft.Count} block(s) left.");
+			}
+
+			string message;
+			if(!GridIsSet(out message)) return message;
+			if(CurrentGridIsProjection(out message)) return message;
+
+			if(draft.Count != 0 && draftBase != selectedGrid)
+				return $"Error: the draft belongs to {Quote(Name(draftBase))}, but {Quote(Name(selectedGrid))}"
+					+ " is selected. Select that grid again, or drop the draft with `draft clear`.";
+
+			var query = tp.NextString();
+			if(string.IsNullOrEmpty(query))
+				return "Error: expected a block type. " + usage;
+
+			if(!tp.Match("at"))
+				return "Error: expected `at` before the coordinates. " + usage;
+
+			Vector3I ijk;
+			if(!tp.NextVector3I(out ijk))
+				return "Error: expected I J K after `at`. " + usage;
+
+			var refusal = CheckDraftSite(ijk);
+			if(refusal != null) return refusal;
+
+			Base6Directions.Direction forward, up;
+			refusal = ParseFacing(tp, usage, out forward, out up);
+			if(refusal != null) return refusal;
+
+			string error;
+			var definition = ResolvePlaceable(query, out error);
+			if(definition == null) return error;
+
+			draftBase = selectedGrid;
+			draft.Add(new DraftBlock
+			{	Definition = definition,
+				Cell = ijk,
+				Forward = forward,
+				Up = up,
+			});
+			TouchDraft();
+
+			return Success($"Drafted {Quote(definition.DisplayNameText)} at {IJK(ijk)}."
+				+ $" {draft.Count} block(s) in the draft.");
+		}
+
+		private CommandResult DraftShow()
+		{
+			if(draft.Count == 0)
+				return Success("The draft is empty. Add blocks with `draft 'Block Name' at I J K`.");
+
+			var md = new MyMarkdown();
+			md.Append($"# Draft on {Quote(Name(draftBase))} — {draft.Count} block(s), none built yet");
+
+			// Identical blocks collapse into one line: a wall of armour is a line, not forty.
+			var order = new List<string>();
+			var cells = new Dictionary<string, StringBuilder>();
+
+			foreach(var d in draft)
+			{
+				var key = $"{Quote(d.Definition.DisplayNameText)} facing {d.Forward.ToString().ToLowerInvariant()}"
+					+ $" {d.Up.ToString().ToLowerInvariant()}";
+
+				StringBuilder sb;
+				if(!cells.TryGetValue(key, out sb))
+				{	sb = new StringBuilder();
+					cells[key] = sb;
+					order.Add(key);
+				}
+				else sb.Append("; ");
+
+				sb.Append(IJK(d.Cell));
+			}
+
+			foreach(var key in order)
+				md.Append($"* {key} at ({cells[key]})");
+
+			md.Append("The player sees this as a projection. Get his confirmation, then `build`.");
+			return Success(md.Result());
+		}
+
+		internal IEnumerator Build()
+		{
+			string message;
+			if(!GridIsSet(out message)) yield return message;
+			if(CurrentGridIsProjection(out message)) yield return message;
+
+			if(draft.Count == 0)
+				yield return "Error: the draft is empty. Add blocks with `draft 'Block Name' at I J K` first.";
+
+			if(draftBase != selectedGrid)
+				yield return $"Error: the draft belongs to {Quote(Name(draftBase))}."
+					+ " Select that grid before building.";
+
+			yield return HoldCubePlacer(true);
+
+			var built = new List<Vector3I>();
+
+			// Repeated passes: a drafted block may lean on another drafted one, so the order the
+			// model wrote them in is not necessarily a valid build order. Each pass places
+			// whatever has support by now; when a pass places nothing, the rest is out of reach
+			// or blocked and there is no point looping again.
+			for(;;)
+			{
+				int placedThisPass = 0;
+
+				for(int i = 0; i < draft.Count; ++i)
+				{
+					var d = draft[i];
+
+					IMySlimBlock neighbour;
+					Vector3I neighbourCell;
+					if(CheckBuildSite(d.Cell, out neighbour, out neighbourCell) != null) continue;
+
+					yield return PlaceCube(d.Definition, d.Cell, d.Forward, d.Up);
+
+					built.Add(d.Cell);
+					draft.RemoveAt(i);
+					--i;
+					++placedThisPass;
+				}
+
+				if(placedThisPass == 0) break;
+			}
+
+			yield return HoldCubePlacer(false);
+
+			if(draft.Count == 0) ClearDraft(); else TouchDraft();
+
+			var result = new StringBuilder();
+			result.Append($"Placed {built.Count} block(s) at minimum integrity");
+			if(built.Count != 0)
+			{	result.Append(": ");
+				for(int i = 0; i < built.Count; ++i)
+				{	if(i != 0) result.Append("; ");
+					result.Append(IJK(built[i]));
+				}
+			}
+			result.Append(".\n");
+
+			if(draft.Count == 0)
+			{	result.Append("The draft is done. Weld the frames now — `integrity` lists what is unfinished.");
+				yield return Success(result.ToString());
+			}
+
+			var remaining = new List<Vector3I>();
+			foreach(var d in draft) remaining.Add(d.Cell);
+
+			var nearest = NearestToEngineer(remaining);
+
+			IMySlimBlock n;
+			Vector3I nc;
+			var why = CheckBuildSite(nearest, out n, out nc);
+
+			result.Append($"{draft.Count} block(s) still in the draft. Nearest is {IJK(nearest)} — {why}\n");
+			result.Append($"Move to it (`approach {IJK(nearest)} for place`) and run `build` again.");
+
+			yield return Incomplete(result.ToString());
+		}
+	}
+}

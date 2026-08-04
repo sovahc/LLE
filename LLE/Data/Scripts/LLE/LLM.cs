@@ -171,6 +171,8 @@ namespace LLE
 				pause = false;
 			}
 
+			commands.Draft_Tick();
+
 			// Status subsystem reports
 			commands.Status_Tick();
 			string sr = commands.Status_ReportChanged();

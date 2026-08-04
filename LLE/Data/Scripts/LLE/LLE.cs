@@ -235,6 +235,9 @@ namespace LLE
 			var grid = entity as IMyCubeGrid;
 			if (grid != null)
 			{
+				// The draft ghost is a plan, not an object in the world — it must not reach Vision.
+				if (grid.DisplayName == Commands.DraftGridName) return;
+
 				grid.OnClose += OnClose;
 
 				grid.OnBlockAdded += Vision.OnBlockAdded;

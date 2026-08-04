@@ -55,7 +55,7 @@ namespace LLE
 
 		internal string Status_ReportChanged() => status.ReportChanged();
 		internal void Status_Tick() => status.Tick();
-		
+
 		private readonly Stack<IEnumerator> coroutineStack = new Stack<IEnumerator>();
 
 		private readonly Dictionary<string, string> memory = new Dictionary<string, string>();
@@ -105,6 +105,7 @@ Space Engineers game. You control a character (fly, weld, grind, place, inventor
 6. Keep chat messages extremely short (e.g., 'Done', 'Stuck').
 7. Grid coords: `I J K` same as X Y Z.
 8. `weld` is incremental; you may need multiple trips for components.
+9. NEW STRUCTURES: `draft` them, show the plan, WAIT for the player to approve it in [GAME CHAT], only then `build`. Never `build` unasked. `place` is for a single block the player asked for by name.
 
 ## COMMANDS
 
@@ -139,6 +140,8 @@ Space Engineers game. You control a character (fly, weld, grind, place, inventor
 * info I J K - Detailed block info (size, state, etc).
 * route from I J K to I2 J2 K2 - Shortest conveyor path (returns required types).
 * transfer [N|all] 'item' from I J K to I2 J2 K2 - Move items.
+* draft 'type' at I J K [facing forward|backward|left|right] [up|down] - Plan a block. Nothing is built; the player sees the whole draft as a projection.
+* draft / draft show - List the draft. draft undo - Drop the last block. draft clear - Drop all.
 
 ### 4. Proximity (Must be in adjacent cell)
 * grind/weld I J K - Grind/weld block.
@@ -146,6 +149,7 @@ Space Engineers game. You control a character (fly, weld, grind, place, inventor
 * put [N|all|all components] 'item' into I J K - Put in container.
 * place 'type' at I J K facing [forward|backward|left|right] - Build block (requires welding).
 * place conveyor I J K dir1 dir2 [square|round|reinforced] - Build tube.
+* build - Build every drafted block within reach (needs approval first). Repeat after moving.
 * enter I J K - Enter cockpit/seat.
 * recharge from I J K - Recharge at block.
 
@@ -167,6 +171,19 @@ Place block
 <execute>
 approach 4 4 3 for place
 place 'Interior Pillar' at 4 4 3 facing forward
+</execute>
+
+Build a structure — plan, ask, wait:
+<execute>
+draft 'Light Armor Block' at 4 4 3
+draft 'Light Armor Block' at 4 4 4
+say 'Drafted 2 armor blocks at 4 4 3 and 4 4 4. Approve?'
+pause
+</execute>
+Then, and only after the player agrees in [GAME CHAT]:
+<execute>
+approach 4 4 3 for place
+build
 </execute>
 ";
 }
@@ -592,6 +609,8 @@ drop [quantity|all] 'name'
 			else if(tp.Match("Place"))
 			{	coroutineStack.Push(tp.Match("conveyor") ? PlaceConveyor(tp) : Place(tp));
 			}
+			else if(tp.Match("Draft")) result = Draft(tp);
+			else if(tp.Match("Build")) coroutineStack.Push(Build());
 			else if(tp.Match("Route")) coroutineStack.Push(Route(tp));
 			else if(tp.Match("Enter")) result = Enter(tp);
 			else if(tp.Match("Exit")) result = Exit(tp);

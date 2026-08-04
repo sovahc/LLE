@@ -130,10 +130,25 @@ namespace LLE
 				+ " to hold on to. Place it against the existing structure.";
 		}
 
-		// The placement itself: turn to the cell, take the cube placer, put the block down at
-		// minimum integrity. Yields an error string if the game refuses, and ends silently on
-		// success — the caller words the answer.
-		private IEnumerator BuildAt(MyCubeBlockDefinition definition, Vector3I ijk,
+		// Taking the cube placer out and putting it away is a second of animation each way, so
+		// it is separate from the placement: `build` pays for it once per draft, not per block.
+		private IEnumerator HoldCubePlacer(bool hold)
+		{
+			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
+
+			// SwitchToWeapon(null) binds to the MyToolbarItemWeapon overload — that is how the
+			// tool is put away; MyDefinitionId is a struct and cannot express "nothing".
+			if (hold) controller.SwitchToWeapon(new MyDefinitionId(typeof(MyObjectBuilder_CubePlacer)));
+			else      controller.SwitchToWeapon(null);
+
+			SetPause(1);
+			while(IsPaused()) yield return null;
+		}
+
+		// The placement itself: turn to the cell and put the block down at minimum integrity.
+		// The cube placer must already be in hand. Yields an error string if the game refuses,
+		// and ends silently on success — the caller words the answer.
+		private IEnumerator PlaceCube(MyCubeBlockDefinition definition, Vector3I ijk,
 			Base6Directions.Direction forward, Base6Directions.Direction up)
 		{
 			var ob = MyObjectBuilderSerializer.CreateNewObject(definition.Id) as MyObjectBuilder_CubeBlock;
@@ -148,11 +163,6 @@ namespace LLE
 				CharacterRotateTo(target);
 				yield return null;
 			}
-
-			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
-			controller.SwitchToWeapon(new MyDefinitionId(typeof(MyObjectBuilder_CubePlacer)));
-			SetPause(1);
-			while(IsPaused()) yield return null;
 
 			ob.EntityId = 0;
 			ob.Min = ijk;
@@ -171,10 +181,51 @@ namespace LLE
 			var placed = selectedGrid.AddBlock(ob, false);
 			if (placed == null)
 				yield return $"Error: the game refused to place {Quote(definition.DisplayNameText)} at {IJK(ijk)}.";
+		}
 
-			SetPause(1);
-			while(IsPaused()) yield return null;
-			controller.SwitchToWeapon(null);
+		// `facing forward|backward|left|right [up|down]` — the optional tail `place` and `draft`
+		// share. Returns the refusal, or null.
+		private static string ParseFacing(TokenParser tp, string usage,
+			out Base6Directions.Direction forward, out Base6Directions.Direction up)
+		{
+			forward = Base6Directions.Direction.Forward;
+			up = Base6Directions.Direction.Up;
+
+			if (tp.End) return null;
+
+			if (!tp.Match("facing"))
+				return "Error: expected `facing` before the side direction. " + usage;
+
+			var fs = tp.NextString();
+			if (!ParseHorizDir(fs, out forward))
+				return $"Error: {Quote(fs)} is not a facing direction. Expected one of forward backward left right. " + usage;
+
+			if (!tp.End)
+			{
+				var us = tp.NextString();
+				if (!ParseVertDir(us, out up))
+					return $"Error: {Quote(us)} is not an up direction. Expected up or down. " + usage;
+			}
+
+			if (!tp.End)
+				return "Error: too many arguments. " + usage;
+
+			return null;
+		}
+
+		// FindPlaceableBlock plus the 1x1x1 restriction, shared by `place` and `draft`.
+		private MyCubeBlockDefinition ResolvePlaceable(string query, out string error)
+		{
+			var definition = FindPlaceableBlock(query, out error);
+			if (definition == null) return null;
+
+			if (definition.Size != Vector3I.One)
+			{	error = $"Error: only 1x1x1 blocks can be placed for now, and {Quote(definition.DisplayNameText)}"
+					+ $" is {definition.Size.X}x{definition.Size.Y}x{definition.Size.Z}.";
+				return null;
+			}
+
+			return definition;
 		}
 
 		internal IEnumerator Place(TokenParser tp)
@@ -201,37 +252,17 @@ namespace LLE
 			var refusal = CheckBuildSite(ijk, out neighbour, out neighbourCell);
 			if (refusal != null) yield return refusal;
 
-			var forward = Base6Directions.Direction.Forward;
-			var up = Base6Directions.Direction.Up;
-
-			if (!tp.End)
-			{
-				if (!tp.Match("facing"))
-					yield return "Error: expected `facing` before the side direction. " + usage;
-
-				var fs = tp.NextString();
-				if (!ParseHorizDir(fs, out forward))
-					yield return $"Error: {Quote(fs)} is not a facing direction. Expected one of forward backward left right. " + usage;
-
-				if (!tp.End)
-				{
-					var us = tp.NextString();
-					if (!ParseVertDir(us, out up))
-						yield return $"Error: {Quote(us)} is not an up direction. Expected up or down. " + usage;
-				}
-
-				if (!tp.End)
-					yield return "Error: too many arguments. " + usage;
-			}
+			Base6Directions.Direction forward, up;
+			refusal = ParseFacing(tp, usage, out forward, out up);
+			if (refusal != null) yield return refusal;
 
 			string error;
-			var definition = FindPlaceableBlock(query, out error);
+			var definition = ResolvePlaceable(query, out error);
 			if (definition == null) yield return error;
 
-			if (definition.Size != Vector3I.One)
-				yield return $"Error: `place` handles 1x1x1 blocks only for now, and {Quote(definition.DisplayNameText)} is {definition.Size.X}x{definition.Size.Y}x{definition.Size.Z}.";
-
-			yield return BuildAt(definition, ijk, forward, up);
+			yield return HoldCubePlacer(true);
+			yield return PlaceCube(definition, ijk, forward, up);
+			yield return HoldCubePlacer(false);
 
 			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}");
 		}
