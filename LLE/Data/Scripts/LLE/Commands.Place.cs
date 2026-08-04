@@ -16,6 +16,8 @@ namespace LLE
 	{
 		// `+X` … `-Z` as the LLM writes them. Vector3I.cs:104-109 — note that Forward is -Z,
 		// so a naive reading flips the sign of every rotated block on the Z axis.
+		// I J K are accepted as well: that is how `route` prints the ports of the pieces it
+		// found, and those lines are meant to be copied straight into `draft conveyor`.
 		private static bool ParseDirection(string s, out Base6Directions.Direction dir)
 		{
 			dir = Base6Directions.Direction.Forward;
@@ -26,9 +28,9 @@ namespace LLE
 
 			switch (char.ToUpperInvariant(s[1]))
 			{
-				case 'X': dir = plus ? Base6Directions.Direction.Right    : Base6Directions.Direction.Left;    return true;
-				case 'Y': dir = plus ? Base6Directions.Direction.Up       : Base6Directions.Direction.Down;    return true;
-				case 'Z': dir = plus ? Base6Directions.Direction.Backward : Base6Directions.Direction.Forward; return true;
+				case 'X': case 'I': dir = plus ? Base6Directions.Direction.Right    : Base6Directions.Direction.Left;    return true;
+				case 'Y': case 'J': dir = plus ? Base6Directions.Direction.Up       : Base6Directions.Direction.Down;    return true;
+				case 'Z': case 'K': dir = plus ? Base6Directions.Direction.Backward : Base6Directions.Direction.Forward; return true;
 			}
 			return false;
 		}

@@ -94,18 +94,22 @@ namespace LLE
 		{
 			return @"
 ## ENVIRONMENT
-Space Engineers game. You control a character (fly, weld, grind, place, inventory) on a selected grid.
+Space Engineers game. You control a character (fly, weld, grind, draft, build, inventory) on a selected grid.
 
 ## RULES
-1. Tasks from [GAME CHAT]. No task? Execute `<execute>pause</execute>` and stop.
-2. After `<execute>`, stop generation.
-3. ALWAYS watch [GAME CHAT] for new tasks/info. Ignoring it is a critical error.
-4. Plan: Briefly state your plan, then execute.
-5. Use `route` to check conveyor paths; NEVER guess.
-6. Keep chat messages extremely short (e.g., 'Done', 'Stuck').
-7. Grid coords: `I J K` same as X Y Z.
-8. `weld` is incremental; you may need multiple trips for components.
-9. NEW STRUCTURES: `draft` them, show the plan, WAIT for the player to approve it in [GAME CHAT], only then `build`. Never `build` unasked. `place` is for a single block the player asked for by name.
+1. Before the <execute> block, write exactly these three lines, one short sentence each:
+   State: what the last command result told you.
+   Goal: what the chat asked you to do, in your own words.
+   Plan: the commands you are about to run, and why in that order.
+2. Write nothing else outside the <execute> block.
+3. Max 5 commands per batch.
+4. Tasks from [GAME CHAT]. No task? Execute `<execute>pause</execute>` and stop.
+5. After `<execute>`, stop generation.
+6. ALWAYS watch [GAME CHAT] for new tasks/info. Ignoring it is a critical error.
+7. Keep chat messages extremely short (e.g., 'Done', 'Stuck').
+8. Grid coords: `I J K` same as X Y Z.
+9. `weld` is incremental; you may need multiple trips for components.
+10. NEW STRUCTURES: `draft` them, show the plan, WAIT for the player to approve it in [GAME CHAT], only then `build`. Never `build` unasked. `place` is for a single block the player asked for by name.
 
 ## COMMANDS
 
@@ -138,17 +142,16 @@ Space Engineers game. You control a character (fly, weld, grind, place, inventor
 * distance I J K [I2 J2 K2] - Distance to block or between points.
 * points I J K - List interaction points.
 * info I J K - Detailed block info (size, state, etc).
-* route from I J K to I2 J2 K2 - Shortest conveyor path (returns required types).
+* route from I J K to I2 J2 K2 - Shortest conveyor tube path (returns required types). Ends may be drafted blocks; drafted cells are treated as occupied.
 * transfer [N|all] 'item' from I J K to I2 J2 K2 - Move items.
 * draft 'type' at I J K [facing forward|backward|left|right] [up|down] - Plan a block. Nothing is built; the player sees the whole draft as a projection.
+* draft conveyor I J K dir1 dir2 [square|round|reinforced] - Draft a tube piece.
 * draft / draft show - List the draft. draft undo - Drop the last block. draft clear - Drop all.
 
 ### 4. Proximity (Must be in adjacent cell)
 * grind/weld I J K - Grind/weld block.
 * get N 'item' from I J K - Get from container.
 * put [N|all|all components] 'item' into I J K - Put in container.
-* place 'type' at I J K facing [forward|backward|left|right] - Build block (requires welding).
-* place conveyor I J K dir1 dir2 [square|round|reinforced] - Build tube.
 * build - Build every drafted block within reach (needs approval first). Repeat after moving.
 * enter I J K - Enter cockpit/seat.
 * recharge from I J K - Recharge at block.
@@ -180,6 +183,9 @@ draft 'Light Armor Block' at 4 4 4
 say 'Drafted 2 armor blocks at 4 4 3 and 4 4 4. Approve?'
 pause
 </execute>
+
+Plan a conveyor: `route` first, then copy its pieces into the draft as they are printed.
+`* [straight] at 6 3 1, ports -I +I` becomes `draft conveyor 6 3 1 -I +I`.
 Then, and only after the player agrees in [GAME CHAT]:
 <execute>
 approach 4 4 3 for place
@@ -189,6 +195,12 @@ build
 }
 
 /*
+
+* place 'type' at I J K facing [forward|backward|left|right] - Build block (requires welding).
+* place conveyor I J K dir1 dir2 [square|round|reinforced] - Build a tube piece (requires welding).
+
+
+
 * power — state of the grid's power system: reactors/batteries/solar/wind, total output, battery charge
 
 Radio subsystem (vision like)
@@ -609,7 +621,7 @@ drop [quantity|all] 'name'
 			else if(tp.Match("Place"))
 			{	coroutineStack.Push(tp.Match("conveyor") ? PlaceConveyor(tp) : Place(tp));
 			}
-			else if(tp.Match("Draft")) result = Draft(tp);
+			else if(tp.Match("Draft")) result = tp.Match("conveyor") ? DraftConveyor(tp) : Draft(tp);
 			else if(tp.Match("Build")) coroutineStack.Push(Build());
 			else if(tp.Match("Route")) coroutineStack.Push(Route(tp));
 			else if(tp.Match("Enter")) result = Enter(tp);

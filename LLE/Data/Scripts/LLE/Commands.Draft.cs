@@ -151,6 +151,50 @@ namespace LLE
 			return false;
 		}
 
+		// The draft's I J K only mean anything on the grid they were written for.
+		private string DraftGridMismatch()
+		{
+			if(draft.Count == 0 || draftBase == selectedGrid) return null;
+
+			return $"Error: the draft belongs to {Quote(Name(draftBase))}, but {Quote(Name(selectedGrid))}"
+				+ " is selected. Select that grid again, or drop the draft with `draft clear`.";
+		}
+
+		private void AddToDraft(MyCubeBlockDefinition definition, Vector3I ijk,
+			Base6Directions.Direction forward, Base6Directions.Direction up)
+		{
+			draftBase = selectedGrid;
+			draft.Add(new DraftBlock
+			{	Definition = definition,
+				Cell = ijk,
+				Forward = forward,
+				Up = up,
+			});
+			TouchDraft();
+		}
+
+		private bool TryGetDraftBlock(Vector3I ijk, out DraftBlock block)
+		{
+			int index;
+			if(draftBase == selectedGrid && FindInDraft(ijk, out index))
+			{	block = draft[index];
+				return true;
+			}
+
+			block = default(DraftBlock);
+			return false;
+		}
+
+		// Cells the draft will take on the selected grid. A conveyor route may not run through
+		// them: it has to still be valid once `build` fills them in.
+		private void DraftCells(List<Vector3I> result)
+		{
+			result.Clear();
+			if(draftBase != selectedGrid) return;
+
+			foreach(var d in draft) result.Add(d.Cell);
+		}
+
 		// A drafted cell has to be empty and touch something by a face — a built block or
 		// another drafted one. Reach is deliberately not checked: drafting is planning at a
 		// distance, and `build` is what has to be within arm's length.
@@ -202,9 +246,8 @@ namespace LLE
 			if(!GridIsSet(out message)) return message;
 			if(CurrentGridIsProjection(out message)) return message;
 
-			if(draft.Count != 0 && draftBase != selectedGrid)
-				return $"Error: the draft belongs to {Quote(Name(draftBase))}, but {Quote(Name(selectedGrid))}"
-					+ " is selected. Select that grid again, or drop the draft with `draft clear`.";
+			var mismatch = DraftGridMismatch();
+			if(mismatch != null) return mismatch;
 
 			var query = tp.NextString();
 			if(string.IsNullOrEmpty(query))
@@ -228,14 +271,7 @@ namespace LLE
 			var definition = ResolvePlaceable(query, out error);
 			if(definition == null) return error;
 
-			draftBase = selectedGrid;
-			draft.Add(new DraftBlock
-			{	Definition = definition,
-				Cell = ijk,
-				Forward = forward,
-				Up = up,
-			});
-			TouchDraft();
+			AddToDraft(definition, ijk, forward, up);
 
 			return Success($"Drafted {Quote(definition.DisplayNameText)} at {IJK(ijk)}."
 				+ $" {draft.Count} block(s) in the draft.");

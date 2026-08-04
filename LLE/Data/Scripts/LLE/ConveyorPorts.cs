@@ -115,16 +115,24 @@ namespace LLE
 			var def = block.BlockDefinition as MyCubeBlockDefinition;
 			if (def == null) return;
 
+			At(def, block.Orientation, block.Position, result);
+		}
+
+		/// <summary>The same for a block that is only planned — a draft entry has no IMySlimBlock.</summary>
+		public static void At(MyCubeBlockDefinition def, MyBlockOrientation orientation, Vector3I position,
+			List<ConveyorPort> result)
+		{
+			result.Clear();
+
 			var local = Local(def);
 
-			var orientation = block.Orientation;
 			Matrix rotation;
 			orientation.GetMatrix(out rotation);
 
 			for (int i = 0; i < local.Length; ++i)
 			{
 				result.Add(new ConveyorPort
-				{	Cell = Vector3I.Round(Vector3.Transform(new Vector3(local[i].Cell), rotation)) + block.Position,
+				{	Cell = Vector3I.Round(Vector3.Transform(new Vector3(local[i].Cell), rotation)) + position,
 					Direction = orientation.TransformDirection(local[i].Direction)
 				});
 			}

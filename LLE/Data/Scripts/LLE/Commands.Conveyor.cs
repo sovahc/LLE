@@ -32,7 +32,10 @@ namespace LLE
 		}
 
 		private const string ConveyorUsage =
-			"Usage: place conveyor I J K D D₂ [square|round|reinforced], each D one of +X -X +Y -Y +Z -Z";
+			"Usage: place conveyor I J K D D₂ [square|round|reinforced], each D one of +I -I +J -J +K -K";
+
+		private const string DraftConveyorUsage =
+			"Usage: draft conveyor I J K D D₂ [square|round|reinforced], each D one of +I -I +J -J +K -K";
 
 		private static readonly TubeVariant[] TubeVariants =
 		{	new TubeVariant("square",     MyCubeSize.Large, false, "ConveyorTube",                   Direction.Up,       Direction.Down),
@@ -71,28 +74,32 @@ namespace LLE
 			return false;
 		}
 
-		internal IEnumerator PlaceConveyor(TokenParser tp)
+		// Everything `place conveyor` and `draft conveyor` share: the cell, the two openings and
+		// the tube kind, resolved into the block to use and the orientation that puts its
+		// openings where they were asked for. Returns the refusal, or null.
+		private string ResolveTube(TokenParser tp, string usage, out Vector3I ijk,
+			out MyCubeBlockDefinition definition, out MyBlockOrientation orientation,
+			out Direction port1, out Direction port2)
 		{
-			string message;
-			if (!GridIsSet(out message)) yield return message;
-			if (CurrentGridIsProjection(out message)) yield return message;
+			ijk = Vector3I.Zero;
+			definition = null;
+			orientation = new MyBlockOrientation();
+			port1 = Direction.Forward;
+			port2 = Direction.Backward;
 
-			Vector3I ijk;
 			if (!tp.NextVector3I(out ijk))
-				yield return "Error: expected I J K after `conveyor`. " + ConveyorUsage;
-
-			Direction port1, port2;
+				return "Error: expected I J K after `conveyor`. " + usage;
 
 			var s1 = tp.NextString();
 			if (!ParseDirection(s1, out port1))
-				yield return $"Error: {Quote(s1)} is not a direction. " + ConveyorUsage;
+				return $"Error: {Quote(s1)} is not a direction. " + usage;
 
 			var s2 = tp.NextString();
 			if (!ParseDirection(s2, out port2))
-				yield return $"Error: {Quote(s2)} is not a direction. " + ConveyorUsage;
+				return $"Error: {Quote(s2)} is not a direction. " + usage;
 
 			if (port1 == port2)
-				yield return "Error: the two openings must look in different directions."
+				return "Error: the two openings must look in different directions."
 					+ " A tube has one opening on each end.";
 
 			var family = "square";
@@ -100,12 +107,12 @@ namespace LLE
 			{
 				var word = tp.NextString().ToLowerInvariant();
 				if (word != "square" && word != "round" && word != "reinforced")
-					yield return $"Error: {Quote(word)} is not a tube kind. Expected square, round or reinforced."
-						+ " " + ConveyorUsage;
+					return $"Error: {Quote(word)} is not a tube kind. Expected square, round or reinforced."
+						+ " " + usage;
 				family = word;
 			}
 
-			if (!tp.End) yield return "Error: too many arguments. " + ConveyorUsage;
+			if (!tp.End) return "Error: too many arguments. " + usage;
 
 			// Opposite openings make a straight tube, perpendicular ones a curved tube. There is
 			// nothing else to choose from: junctions and T-pieces are not handled yet.
@@ -126,25 +133,69 @@ namespace LLE
 			}
 
 			if (!known)
-				yield return $"Error: there is no {family} {(curved ? "curved" : "straight")} conveyor tube"
+				return $"Error: there is no {family} {(curved ? "curved" : "straight")} conveyor tube"
 					+ $" for a {size.ToString().ToLowerInvariant()} grid. Round pipes are large-grid only;"
 					+ " square and reinforced tubes exist for both.";
 
-			MyCubeBlockDefinition definition;
 			var definitionId = new MyDefinitionId(typeof(MyObjectBuilder_ConveyorConnector), tube.Subtype);
 			if (!MyDefinitionManager.Static.TryGetCubeBlockDefinition(definitionId, out definition))
-				yield return $"Error: this world has no block {Quote(tube.Subtype)}."
+				return $"Error: this world has no block {Quote(tube.Subtype)}."
 					+ (family == "round" ? " Round pipes come with the Heavy Industry pack." : "");
+
+			if (!FindTubeOrientation(tube, port1, port2, out orientation))
+				return $"Internal error: no orientation of {Quote(definition.DisplayNameText)}"
+					+ $" puts its openings on {Dir(port1)} and {Dir(port2)}.";
+
+			return null;
+		}
+
+		internal CommandResult DraftConveyor(TokenParser tp)
+		{
+			string message;
+			if (!GridIsSet(out message)) return message;
+			if (CurrentGridIsProjection(out message)) return message;
+
+			var mismatch = DraftGridMismatch();
+			if (mismatch != null) return mismatch;
+
+			Vector3I ijk;
+			MyCubeBlockDefinition definition;
+			MyBlockOrientation orientation;
+			Direction port1, port2;
+
+			var refusal = ResolveTube(tp, DraftConveyorUsage, out ijk,
+				out definition, out orientation, out port1, out port2);
+			if (refusal != null) return refusal;
+
+			refusal = CheckDraftSite(ijk);
+			if (refusal != null) return refusal;
+
+			AddToDraft(definition, ijk, orientation.Forward, orientation.Up);
+
+			return Success($"Drafted {Quote(definition.DisplayNameText)} at {IJK(ijk)},"
+				+ $" openings on {Dir(port1)} and {Dir(port2)}."
+				+ $" {draft.Count} block(s) in the draft.");
+		}
+
+		internal IEnumerator PlaceConveyor(TokenParser tp)
+		{
+			string message;
+			if (!GridIsSet(out message)) yield return message;
+			if (CurrentGridIsProjection(out message)) yield return message;
+
+			Vector3I ijk;
+			MyCubeBlockDefinition definition;
+			MyBlockOrientation orientation;
+			Direction port1, port2;
+
+			var refusal = ResolveTube(tp, ConveyorUsage, out ijk,
+				out definition, out orientation, out port1, out port2);
+			if (refusal != null) yield return refusal;
 
 			IMySlimBlock neighbour;
 			Vector3I neighbourCell;
-			var refusal = CheckBuildSite(ijk, out neighbour, out neighbourCell);
+			refusal = CheckBuildSite(ijk, out neighbour, out neighbourCell);
 			if (refusal != null) yield return refusal;
-
-			MyBlockOrientation orientation;
-			if (!FindTubeOrientation(tube, port1, port2, out orientation))
-				yield return $"Internal error: no orientation of {Quote(definition.DisplayNameText)}"
-					+ $" puts its openings on {Dir(port1)} and {Dir(port2)}.";
 
 			yield return HoldCubePlacer(true);
 			yield return PlaceCube(definition, ijk, orientation.Forward, orientation.Up);

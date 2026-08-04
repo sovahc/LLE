@@ -43,7 +43,7 @@ namespace LLE
 		};
 
 		public ConveyorAStar(IMyCubeGrid grid_,
-			List<ConveyorPort> startPorts_, List<ConveyorPort> goalPorts_)
+			List<ConveyorPort> startPorts_, List<ConveyorPort> goalPorts_, List<Vector3I> blocked_)
 		{
 			grid = grid_;
 
@@ -69,6 +69,16 @@ namespace LLE
 			nodes = new MyNode[c]; // filled lazily: a full ship's box is millions of cells
 
 			for (int i = 0; i < c; ++i) parent[i] = -1;
+
+			// Cells that hold nothing yet but will: seeding occupancy is enough, since Free() only
+			// ever asks about a cell it has not seen. The two ends are safe — a start cell is
+			// seeded straight into the open set and a goal cell is matched before Free() is called.
+			if (blocked_ != null)
+			{	foreach (var cell in blocked_)
+				{	Vector3I local = cell - origin;
+					if (indexer.In(local)) occupancy.Set(indexer.Index(local), 2);
+				}
+			}
 
 			startCells = BuildPortMap(startPorts_);
 			goalCells = BuildPortMap(goalPorts_);
