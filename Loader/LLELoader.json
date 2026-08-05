@@ -7,5 +7,6 @@
   "ContextWindow": 100000,
   "MaxTokens": 20000,
   "EnableProxy": false,
-  "ProxyUrl": "http://127.0.0.1:8118"
+  "ProxyUrl": "http://127.0.0.1:8118",
+  "ScreenshotScale": 0.5
 }

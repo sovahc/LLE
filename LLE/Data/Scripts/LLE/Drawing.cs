@@ -351,15 +351,29 @@ namespace LLE
 			Common.Billboard(quad, _markerMat, new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f));
 		}
 
+		// False when the point is behind the camera. IMyCamera.WorldToScreen is not an
+		// alternative: it transforms as a Vector3D, without the perspective divide.
+		public static bool WorldToScreen(Vector3D worldPoint, out Vector2D screenPoint)
+		{
+			screenPoint = Vector2D.Zero;
+			if (!Common.Enabled) return false;
+
+			Vector4D clip = Vector4D.Transform(worldPoint, Common._viewProj);
+			if (clip.W <= 0.001) return false;
+
+			screenPoint = new Vector2D(clip.X / clip.W, clip.Y / clip.W);
+			return true;
+		}
+
 		public static List<Vector2D> WorldToScreen(List<Vector3D> worldPoints)
 		{
 			if (!Common.Enabled || worldPoints == null) return new List<Vector2D>();
 			var result = new List<Vector2D>();
 			for (int i = 0; i < worldPoints.Count; i++)
 			{
-				Vector4D clip = Vector4D.Transform(worldPoints[i], Common._viewProj);
-				if (clip.W > 0.001)
-					result.Add(new Vector2D(clip.X / clip.W, clip.Y / clip.W));
+				Vector2D screen;
+				if (WorldToScreen(worldPoints[i], out screen))
+					result.Add(screen);
 			}
 			return result;
 		}

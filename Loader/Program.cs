@@ -47,6 +47,9 @@ namespace LLELoader
     	public int MaxTokens { get; set; } = 20000;
     	public bool EnableProxy { get; set; } = false;
     	public string ProxyUrl { get; set; } = "";
+    	// Fraction of the game window the screenshot is rendered at. The vision model rescales
+    	// anyway; this only decides how much detail survives to be rescaled.
+    	public float ScreenshotScale { get; set; } = 0.5f;
 	}
 
 	static class MessageBroker
@@ -101,8 +104,85 @@ namespace LLELoader
 			_chatContext.Enqueue(text);
 
 			var context = "\n" + string.Join("\n", _chatContext);
-			var _ = AskLlmStreaming(context);
+
+			// The image rides with this one message only. The history keeps the text, so an old
+			// frame can never be mistaken for what the bot is looking at now.
+			var image = _pendingScreenshot;
+			_pendingScreenshot = null;
+
+			var _ = AskLlmStreaming(context, image);
 		}
+
+		#region Screenshot
+
+		private static string _screenshotPath;
+		private static bool _screenshotHooked;
+		private static bool _screenshotFinished = true;
+		private static bool _screenshotSuccess;
+		private static string _pendingScreenshot; // base64 PNG
+
+		public static void RequestScreenshot()
+		{
+			_screenshotFinished = false;
+			_screenshotSuccess = false;
+			_pendingScreenshot = null;
+
+			try
+			{
+				var directory = Path.Combine(MyFileSystem.UserDataPath, "Screenshots");
+				Directory.CreateDirectory(directory);
+				_screenshotPath = Path.Combine(directory, "LLE.png");
+
+				// OnScreenshotTaken carries neither a path nor a result, so a leftover file from
+				// the previous shot would read as this one's success.
+				File.Delete(_screenshotPath);
+
+				if (!_screenshotHooked)
+				{
+					Sandbox.MySandboxGame.Static.OnScreenshotTaken += OnScreenshotTaken;
+					_screenshotHooked = true;
+				}
+
+				// ignoreSprites: the frame is copied right after the game scene and before the
+				// GUI, which keeps the HUD out and the mod's billboards in.
+				VRageRender.MyRenderProxy.TakeScreenshot(
+					new VRageMath.Vector2(_config.ScreenshotScale), _screenshotPath, false, true, false);
+			}
+			catch (Exception ex)
+			{
+				Logger.Write("[Screenshot] request failed: " + ex);
+				_screenshotFinished = true;
+			}
+		}
+
+		private static void OnScreenshotTaken(object sender, EventArgs e)
+		{
+			if (_screenshotFinished) return; // somebody else's screenshot, F2 for instance
+
+			try
+			{
+				if (!File.Exists(_screenshotPath)) return;
+
+				var bytes = File.ReadAllBytes(_screenshotPath);
+				_pendingScreenshot = Convert.ToBase64String(bytes);
+				_screenshotSuccess = true;
+				Logger.Write($"[Screenshot] {_screenshotPath}, {bytes.Length} bytes");
+			}
+			catch (Exception ex)
+			{
+				Logger.Write("[Screenshot] read failed: " + ex);
+			}
+
+			_screenshotFinished = true;
+		}
+
+		public static bool ScreenshotDone(out bool success)
+		{
+			success = _screenshotSuccess;
+			return _screenshotFinished;
+		}
+
+		#endregion
 
 		public static void SetSystemPrompt(string text, string stop)
 		{
@@ -112,20 +192,30 @@ namespace LLELoader
 			_stopString = stop;
 		}
 
-		private static async Task AskLlmStreaming(string chatContext)
+		private static async Task AskLlmStreaming(string chatContext, string screenshotBase64)
 		{
 			try
 			{
+				object userContent = chatContext;
+				if (screenshotBase64 != null)
+				{
+					userContent = new object[]
+					{
+						new { type = "text", text = chatContext },
+						new { type = "image_url", image_url = new { url = "data:image/png;base64," + screenshotBase64 } },
+					};
+				}
+
 				// Thinking: without the channel Gemma matches patterns, with it she checks her own
 				// trace — 70% against 98% on placement. Measured in the GemmaBuilder project.
 				// The budget covers the reasoning too, which runs to ~10k tokens on a multi-block job.
 				var payload = new Dictionary<string, object>
 				{
 					["model"] = _config.Model,
-					["messages"] = new[]
+					["messages"] = new object[]
 					{
-						new { role = "system", content = _systemPrompt },
-						new { role = "user",   content = chatContext }
+						new { role = "system", content = (object)_systemPrompt },
+						new { role = "user",   content = userContent }
 					},
 					["max_tokens"] = _config.MaxTokens,
 					["stream"] = true,
@@ -294,7 +384,8 @@ namespace LLELoader
 		static class Patch_ScriptManagerLoadData
 		{
 			private static readonly string[] BridgeMethods =
-				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetSystemPrompt", "GetContextStatus", "RestartContext" ];
+				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetSystemPrompt", "GetContextStatus", "RestartContext",
+				  "RequestScreenshot", "ScreenshotDone" ];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -348,6 +439,8 @@ namespace LLELoader
 						case "SetSystemPrompt": prefix = new HarmonyMethod(smld, nameof(Prefix_SetSystemPrompt)); break;
 						case "GetContextStatus": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextStatus)); break;
 						case "RestartContext": prefix = new HarmonyMethod(smld, nameof(Prefix_RestartContext)); break;
+						case "RequestScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_RequestScreenshot)); break;
+						case "ScreenshotDone": prefix = new HarmonyMethod(smld, nameof(Prefix_ScreenshotDone)); break;
 						default: continue;
 					}
 
@@ -397,6 +490,18 @@ namespace LLELoader
 			static bool Prefix_RestartContext()
 			{
 				_chatContext.Clear();
+				return false;
+			}
+
+			static bool Prefix_RequestScreenshot()
+			{
+				RequestScreenshot();
+				return false;
+			}
+
+			static bool Prefix_ScreenshotDone(out bool success, ref bool __result)
+			{
+				__result = ScreenshotDone(out success);
 				return false;
 			}
 

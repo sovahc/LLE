@@ -224,6 +224,8 @@ namespace LLE
 				{	var hm = ch.GetHeadMatrix(false, false);
 					Debug.Pathfinding(hm);
 				}
+
+				ScreenshotOverlay.Render(font);
 			}
 
 			MyConsole.Render(font);
@@ -318,5 +320,7 @@ namespace LLE
 		public static void SetSystemPrompt(string text, string stop) { }
 		public static void GetContextStatus(out int usedChars, out int totalChars) { usedChars = 0; totalChars = -1; }
 		public static void RestartContext() { }
+		public static void RequestScreenshot() { }
+		public static bool ScreenshotDone(out bool success) { success = false; return true; }
 	}
 }

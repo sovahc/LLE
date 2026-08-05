@@ -38,6 +38,10 @@
       <HintPath>/home/cat/Projects/SpaceEngineers/Bin64/VRage.Math.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="VRage.Render">
+      <HintPath>/home/cat/Projects/SpaceEngineers/Bin64/VRage.Render.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="System.Net.Http">
       <Private>false</Private>
     </Reference>

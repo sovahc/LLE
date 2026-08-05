@@ -640,6 +640,7 @@ drop [quantity|all] 'name'
 			else if(tp.Match("Get")) coroutineStack.Push(Get(tp));
 			else if(tp.Match("Put")) coroutineStack.Push(Put(tp));
 			else if(tp.Match("Status")) result = Success(status.ReportAll());
+			else if(tp.Match("Screenshot")) coroutineStack.Push(Screenshot());
 			else if(tp.Match("Say")) result = Say(tp);
 			else if(tp.Match("Memory")) result = Memory(tp);
 			else if(tp.Match("Transfer")) coroutineStack.Push(Transfer(tp));
