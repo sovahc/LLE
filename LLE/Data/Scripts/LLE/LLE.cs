@@ -312,14 +312,16 @@ namespace LLE
 		}
 	}
 
+	// Bridge to the loader. Every call names the channel it belongs to; the loader keeps no
+	// conversation of its own, so the whole user message travels on each send.
+	// Channel 0 is the one that executes commands.
 	public static class LLE_Loader
 	{
 		public static bool IsPresent() => false;
-		public static bool GetChunkFromLLM(out FromLLM m) { m = null; return false; }
-		public static void SendMessageToLLM(string text) { }
-		public static void SetSystemPrompt(string text, string stop) { }
-		public static void GetContextStatus(out int usedChars, out int totalChars) { usedChars = 0; totalChars = -1; }
-		public static void RestartContext() { }
+		public static bool GetChunkFromLLM(int channel, out FromLLM m) { m = null; return false; }
+		public static void SendMessageToLLM(int channel, string text) { }
+		public static void SetSystemPrompt(int channel, string text, string stop) { }
+		public static int GetContextWindow(int channel) { return 0; } // 0 = no such channel configured
 		public static void RequestScreenshot() { }
 		public static bool ScreenshotDone(out bool success) { success = false; return true; }
 	}

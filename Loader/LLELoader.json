@@ -1,11 +1,24 @@
 {
-  "LlmUrl": "http://localhost:8080/v1/chat/completions",
-  "Model": "google/gemma-4-31b-it",
-  "ApiKey": "",
-  "Provider": "local",
-  "EnableThinking": false,
-  "ContextWindow": 100000,
-  "MaxTokens": 20000,
+  "Channels": [
+    {
+      "LlmUrl": "http://localhost:8080/v1/chat/completions",
+      "Model": "google/gemma-4-31b-it",
+      "ApiKey": "",
+      "Provider": "local",
+      "EnableThinking": false,
+      "ContextWindow": 100000,
+      "MaxTokens": 20000
+    },
+    {
+      "LlmUrl": "https://api.z.ai/api/paas/v4/chat/completions",
+      "Model": "glm-5.2",
+      "ApiKey": "",
+      "Provider": "zai",
+      "EnableThinking": true,
+      "ContextWindow": 200000,
+      "MaxTokens": 8000
+    }
+  ],
   "EnableProxy": false,
   "ProxyUrl": "http://127.0.0.1:8118",
   "ScreenshotScale": 0.5

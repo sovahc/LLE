@@ -65,9 +65,17 @@ namespace LLE
 
 		private void Log(string s) => LLE.Log(s);
 
-		private readonly StringBuilder Reasoning = new StringBuilder(); // input
-		private readonly StringBuilder Content = new StringBuilder(); // input
-		private readonly StringBuilder contentToProcess = new StringBuilder();
+		// The conversation lives here, not in the loader: the loader is transport and must not
+		// hold state that belongs to a turn.
+		private readonly List<string> transcript = new List<string>();
+		private int transcriptChars;
+		private int turn;
+
+		private readonly LlmChannel channel = new LlmChannel(LlmChannel.Executor) { EchoToConsole = true };
+		private readonly Verifier verifier = new Verifier();
+
+		private string pendingResponse; // a finished answer waiting for a free moment to be run
+
 		[Flags]
 		public enum Destination : byte
 		{	None    = 0,
@@ -80,8 +88,6 @@ namespace LLE
 		private readonly StringBuilder output = new StringBuilder();
 		private readonly StringBuilder logBuf  = new StringBuilder();
 
-		private MessageType lastType = MessageType.Stop;
-		private bool waitingForResponse;
 		public static bool pause;
 		public static int contextWarnStage;
 
@@ -158,8 +164,10 @@ namespace LLE
 
 		public void Tick()
 		{
-			PollNewChunksFromLLM();
-				// stores data to contentToProcess
+			PollExecutorChannel();
+				// stores data to pendingResponse
+
+			verifier.Tick(turn);
 
 			var ec = commands.GetEngineerCenter();
 
@@ -208,27 +216,35 @@ namespace LLE
 				return;
 			}
 
-			if(waitingForResponse) return;
+			if(channel.Busy) return;
 			if(pause) return;
 
 			// Process a finished response BEFORE any send. Otherwise an async sensor
 			// report (VISION/STATUS) can fire the send below and orphan it; the next
 			// response then appends onto it ("Found 2 <execute> blocks").
-			if(contentToProcess.Length != 0)
-			{	ProcessLlmContent(contentToProcess.ToString());
-				contentToProcess.Clear();
+			if(pendingResponse != null)
+			{	var response = pendingResponse;
+				pendingResponse = null;
+				ProcessLlmContent(response);
 				if(batch.Count != 0) return;   // commands enqueued — execute before talking to LLM
 				if(pause) return;              // response was pause/restart — do not send this turn
 			}
 
 			if (output.Length != 0) // We have data for LLM
 			{
-				int used, total;
-				LLE_Loader.GetContextStatus(out used, out total);
+				int used = ContextUsed;
+				int total = channel.ContextWindow;
+
+				if (total <= 0)
+				{	// No such channel in the loader config — there is nobody to talk to.
+					output.Clear();
+					logBuf.Clear();
+					return;
+				}
 
 				if (used + 2500 > total)
 				{
-					LLE_Loader.RestartContext();
+					ClearTranscript();
 					commands.SetSystemPromptAndMemory();
 					Append("[CONTEXT AUTO-RESET — context was full]\n", Color.Red);
 					contextWarnStage = 0;
@@ -259,78 +275,56 @@ namespace LLE
 
 				// Send accumulated results to LLM
 				Log($"toLLM: {logBuf}");
-				LLE_Loader.SendMessageToLLM(output.ToString());
+
+				var message = output.ToString();
+				transcript.Add(message);
+				transcriptChars += message.Length;
 				output.Clear();
 				logBuf.Clear();
-				waitingForResponse = true;
+
+				var conversation = "\n" + string.Join("\n", transcript);
+				channel.Send(conversation);
+				turn++;
+
+				// The verifier reads the same text the bot is answering right now. It is one call
+				// per turn and it blocks nothing: if it is still busy, this turn goes unchecked.
+				verifier.Kick(conversation, turn);
 				return;
 			}
 
 		}
 
-		private void ContextStatistic()
-		{
-			int used, total;
-			LLE_Loader.GetContextStatus(out used, out total);
-			int percent = used * 100 / total;
-			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({percent}%)", Color.LightPink);
+		private int ContextUsed
+		{	get { return commands.SystemPromptChars + transcriptChars; }
 		}
 
-		private void PollNewChunksFromLLM()
+		private void ClearTranscript()
+		{	transcript.Clear();
+			transcriptChars = 0;
+		}
+
+		private void ContextStatistic()
 		{
-			for (int i = 0; i < 10; ++i)
+			int total = channel.ContextWindow;
+			if (total <= 0) return;
+			int used = ContextUsed;
+			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({used * 100 / total}%)", Color.LightPink);
+		}
+
+		private void PollExecutorChannel()
+		{
+			string payload;
+			switch (channel.Poll(out payload))
 			{
-				FromLLM m;
-				if (!LLE_Loader.GetChunkFromLLM(out m)) return;
+				case ChannelEvent.Response:
+					pendingResponse = payload;
+					ContextStatistic();
+					break;
 
-				// Type changed — log and clear the old buffer
-				if (m.Type != lastType)
-				{
-					switch (lastType)
-					{
-						case MessageType.Reasoning:
-							Log($"llmReasoning:\n{Reasoning}");
-							Reasoning.Clear();
-							break;
-						case MessageType.Content:
-							contentToProcess.Append(Content);
-							contentToProcess.Append("\n");
-
-							Log($"llmContent:\n{Content}");
-							Content.Clear();
-							break;
-					}
-
-				}
-				lastType = m.Type;
-
-				switch(m.Type)
-				{	case MessageType.Reasoning:
-						MyConsole.AddMultiline(m.Payload, Color.LightGray);
-						Reasoning.Append(m.Payload);
-						break;
-					case MessageType.Content:
-						MyConsole.AddMultiline(m.Payload, Color.Cyan);
-						Content.Append(m.Payload);
-						break;
-					case MessageType.Stop:
-						MyConsole.AddMultiline("\n", Color.White);
-						
-						waitingForResponse = false;
-						ContextStatistic();
-
-						if(contentToProcess.Length == 0)
-							contentToProcess.Append("[EMPTY RESPONSE]");
-						return;
-				
-					case MessageType.Error:
-						MyConsole.AddMultiline("\n[LLM ERROR] " + m.Payload + "\n", Color.Red);
-						
-						waitingForResponse = false;
-						pause = true;
-
-						return;
-				}
+				case ChannelEvent.Error:
+					MyConsole.AddMultiline("\n[LLM ERROR] " + payload + "\n", Color.Red);
+					pause = true;
+					break;
 			}
 		}
 
@@ -401,7 +395,7 @@ namespace LLE
 			}
 
 			if (cc[0].Equals("restart", StringComparison.OrdinalIgnoreCase))
-			{	LLE_Loader.RestartContext();
+			{	ClearTranscript();
 				commands.SetSystemPromptAndMemory();
 				Append("[CONTEXT RESET]\n", Color.LightGreen);
 				loopDetector.Reset();

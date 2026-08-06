@@ -18,48 +18,231 @@ namespace LLELoader
 		public const string LogPath = "LLELoader.log";
 		private static StreamWriter _writer;
 
-		private static void Init()
-		{
-			if (_writer == null)
-				_writer = new StreamWriter(LogPath, false);
-		}
+		// One writer, and as many callers as there are channels streaming at once, plus the game
+		// thread. StreamWriter is not thread-safe, so the lock is what keeps the log a log.
+		private static readonly object _lock = new object();
 
 		public static void Write(string msg)
 		{
-			Init();
 			try
 			{
-				_writer.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff ") + msg);
-				_writer.Flush();
+				lock (_lock)
+				{
+					if (_writer == null)
+						_writer = new StreamWriter(LogPath, false);
+
+					_writer.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff ") + msg);
+					_writer.Flush();
+				}
 			}
 			catch { }
 		}
 	}
 
-	class LlmConfig
+	class ChannelConfig
 	{
 		public string LlmUrl { get; set; } = "http://localhost:8080/v1/chat/completions";
 		public string Model { get; set; } = "qwen";
 		public string ApiKey { get; set; } = "";
 		public string Provider { get; set; } = "local";
 		public bool EnableThinking { get; set; } = false;
-    	public int ContextWindow { get; set; } = 100000;
-    	public int MaxTokens { get; set; } = 20000;
-    	public bool EnableProxy { get; set; } = false;
-    	public string ProxyUrl { get; set; } = "";
-    	// Fraction of the game window the screenshot is rendered at. The vision model rescales
-    	// anyway; this only decides how much detail survives to be rescaled.
-    	public float ScreenshotScale { get; set; } = 0.5f;
+		public int ContextWindow { get; set; } = 100000;
+		public int MaxTokens { get; set; } = 20000;
+	}
+
+	class LoaderConfig
+	{
+		// Index is the channel id the mod addresses. 0 is the one that executes commands.
+		public ChannelConfig[] Channels { get; set; }
+		public bool EnableProxy { get; set; } = false;
+		public string ProxyUrl { get; set; } = "";
+		// Fraction of the game window the screenshot is rendered at. The vision model rescales
+		// anyway; this only decides how much detail survives to be rescaled.
+		public float ScreenshotScale { get; set; } = 0.5f;
+	}
+
+	// One model behind one endpoint. The channel holds no conversation: the mod passes the whole
+	// user message every time and decides what a turn is. Everything here is transport.
+	class Channel
+	{
+		public readonly int Id;
+		public readonly ChannelConfig Config;
+
+		private string _systemPrompt = "";
+		private string _stopString;
+
+		private readonly ConcurrentQueue<LLE.FromLLM> _queue = new ConcurrentQueue<LLE.FromLLM>();
+
+		public Channel(int id, ChannelConfig config)
+		{
+			Id = id;
+			Config = config;
+		}
+
+		public void SetSystemPrompt(string text, string stop)
+		{
+			Logger.Write($"[SetSystemPrompt:{Id}] length={text.Length} stop={stop}");
+			_systemPrompt = text;
+			_stopString = stop;
+		}
+
+		public bool GetChunk(out LLE.FromLLM m)
+		{
+			return _queue.TryDequeue(out m);
+		}
+
+		// Fire and forget. Everything the request needs arrives as a string or is read before the
+		// first await, i.e. still on the game thread — no collection owned by the game is ever
+		// touched from the streaming task.
+		public void Send(string userText, string imageBase64)
+		{
+			var _ = AskLlmStreaming(userText, imageBase64);
+		}
+
+		private async Task AskLlmStreaming(string chatContext, string screenshotBase64)
+		{
+			try
+			{
+				object userContent = chatContext;
+				if (screenshotBase64 != null)
+				{
+					userContent = new object[]
+					{
+						new { type = "text", text = chatContext },
+						new { type = "image_url", image_url = new { url = "data:image/png;base64," + screenshotBase64 } },
+					};
+				}
+
+				// Thinking: without the channel Gemma matches patterns, with it she checks her own
+				// trace — 70% against 98% on placement. Measured in the GemmaBuilder project.
+				// The budget covers the reasoning too, which runs to ~10k tokens on a multi-block job.
+				var payload = new Dictionary<string, object>
+				{
+					["model"] = Config.Model,
+					["messages"] = new object[]
+					{
+						new { role = "system", content = (object)_systemPrompt },
+						new { role = "user",   content = userContent }
+					},
+					["max_tokens"] = Config.MaxTokens,
+					["stream"] = true,
+				};
+				if (Config.Provider == "local")
+					payload["chat_template_kwargs"] = new { enable_thinking = Config.EnableThinking };
+				else if (Config.Provider == "zai")
+					payload["thinking"] = new { type = Config.EnableThinking ? "enabled" : "disabled" };
+				else //if (Config.Provider == "openrouter")
+					payload["reasoning"] = new { enabled = Config.EnableThinking };
+
+				if (!string.IsNullOrEmpty(_stopString))
+					payload["stop"] = _stopString;
+
+				var body = System.Text.Json.JsonSerializer.Serialize(payload);
+
+				var request = new HttpRequestMessage(HttpMethod.Post, Config.LlmUrl)
+				{	Content = new StringContent(body, Encoding.UTF8, "application/json")
+				};
+				if (!string.IsNullOrEmpty(Config.ApiKey))
+					request.Headers.Add("Authorization", "Bearer " + Config.ApiKey);
+				var response = await MessageBroker.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+
+				if (!response.IsSuccessStatusCode)
+				{
+					string errBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+					Logger.Write($"[LLM:{Id}] HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}");
+					_queue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = $"HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}" });
+					return;
+				}
+
+				var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+
+				string line;
+
+				// finish_reason distinguishes a clean stop from a max_tokens cut (length) from a
+				// stream that broke before the terminating chunk. The loop below ends the same way
+				// for all three, so without finish_reason an empty response is ambiguous.
+				string finishReason = null;
+				bool sawFinishReason = false;
+				int contentChunks = 0, reasoningChunks = 0;
+
+				using var reader = new StreamReader(stream);
+				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
+				{
+					if (!line.StartsWith("data:")) continue;
+					var data = line.Substring(5).Trim();
+					if (data == "[DONE]") break;
+
+					using var doc = System.Text.Json.JsonDocument.Parse(data);
+					var root = doc.RootElement;
+					// finish_reason is a sibling of delta under choices[0]; read it independently so it is
+					// captured even on the terminating chunk where delta is absent or empty.
+					if (root.TryGetProperty("choices", out var frChoices) && frChoices.GetArrayLength() > 0
+						&& frChoices[0].TryGetProperty("finish_reason", out var fr)
+						&& fr.ValueKind == System.Text.Json.JsonValueKind.String)
+					{
+						finishReason = fr.GetString();
+						sawFinishReason = true;
+					}
+
+					if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
+						&& choices[0].TryGetProperty("delta", out var delta))
+					{
+						// Reasoning — field name differs by provider:
+						//   local (llama.cpp): "reasoning_content"
+						//   openrouter:        "reasoning"
+						string reasoning = null;
+						if (delta.TryGetProperty("reasoning_content", out var reasoningProp))
+							reasoning = reasoningProp.ValueKind == System.Text.Json.JsonValueKind.String ? reasoningProp.GetString() : null;
+						else if (delta.TryGetProperty("reasoning", out var reasoningProp2))
+							reasoning = reasoningProp2.ValueKind == System.Text.Json.JsonValueKind.String ? reasoningProp2.GetString() : null;
+
+						if (!string.IsNullOrEmpty(reasoning))
+						{
+							reasoningChunks++;
+							_queue.Enqueue(new LLE.FromLLM
+							{
+								Type = LLE.MessageType.Reasoning,
+								Payload = reasoning
+							});
+						}
+						if (delta.TryGetProperty("content", out var contentProp))
+						{
+							var content = contentProp.GetString();
+							if (!string.IsNullOrEmpty(content))
+							{
+								contentChunks++;
+								_queue.Enqueue(new LLE.FromLLM
+								{
+									Type = LLE.MessageType.Content,
+									Payload = content
+								});
+							}
+						}
+					}
+				}
+
+				// finish_reason tells us why the response ended; a missing finish_reason means the
+				// stream closed before the terminating chunk (proxy/network drop).
+				Logger.Write($"[LLM:{Id}] stream done: "
+					+ (sawFinishReason ? "finish_reason=" + (finishReason ?? "null") : "STREAM-ENDED-WITHOUT-FINISH-REASON")
+					+ " contentChunks=" + contentChunks
+					+ " reasoningChunks=" + reasoningChunks);
+
+				_queue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Stop, Payload = null });
+			}
+			catch (Exception ex)
+			{
+				Logger.Write($"[LLM:{Id}] streaming error: " + ex.Message);
+				_queue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = ex.Message });
+			}
+		}
 	}
 
 	static class MessageBroker
 	{
-		private static string _systemPrompt = "";
-		private static string _stopString;
+		private static readonly LoaderConfig _config = LoadConfig();
 
-		private static readonly LlmConfig _config = LoadConfig();
-
-		private static LlmConfig LoadConfig()
+		private static LoaderConfig LoadConfig()
 		{
 			try
 			{
@@ -68,49 +251,98 @@ namespace LLELoader
 				if (File.Exists(configPath))
 				{
 					var text = File.ReadAllText(configPath);
-					var c = System.Text.Json.JsonSerializer.Deserialize<LlmConfig>(text);
+					var c = System.Text.Json.JsonSerializer.Deserialize<LoaderConfig>(text);
 					if (c != null)
 					{
-						Logger.Write($"[Config] Loaded {configPath}: url={c.LlmUrl} model={c.Model} provider={c.Provider} thinking={c.EnableThinking} contextWindow={c.ContextWindow} maxTokens={c.MaxTokens} proxy={c.EnableProxy}/{c.ProxyUrl}");
+						Logger.Write($"[Config] Loaded {configPath}: proxy={c.EnableProxy}/{c.ProxyUrl} screenshotScale={c.ScreenshotScale}");
 						return c;
 					}
 				}
-				Logger.Write("[Config] lle_loader.json not found, using defaults (local)");
+				Logger.Write("[Config] LLELoader.json not found, using defaults (local)");
 			}
 			catch (Exception ex)
 			{
 				Logger.Write("[Config] Failed to load config: " + ex.Message);
 			}
-			return new LlmConfig();
+			return new LoaderConfig();
 		}
 
-		private static readonly Queue<string> _chatContext = new Queue<string>();
+		private static readonly Channel[] _channels = BuildChannels();
 
-		private static readonly HttpClient _http = new HttpClient(new HttpClientHandler
+		private static Channel[] BuildChannels()
+		{
+			var configs = _config.Channels;
+			if (configs == null || configs.Length == 0)
+			{
+				Logger.Write("[Config] ERROR: no Channels in config, falling back to one default channel");
+				configs = new[] { new ChannelConfig() };
+			}
+
+			var channels = new Channel[configs.Length];
+			for (int i = 0; i < configs.Length; i++)
+			{
+				channels[i] = new Channel(i, configs[i]);
+				var c = configs[i];
+				Logger.Write($"[Config] channel {i}: url={c.LlmUrl} model={c.Model} provider={c.Provider}"
+					+ $" thinking={c.EnableThinking} contextWindow={c.ContextWindow} maxTokens={c.MaxTokens}");
+			}
+			return channels;
+		}
+
+		// The mod asks for channels by index; an index it invented is not a crash, it is silence.
+		private static Channel Get(int channel)
+		{
+			if (channel < 0 || channel >= _channels.Length) return null;
+			return _channels[channel];
+		}
+
+		public static readonly HttpClient Http = new HttpClient(new HttpClientHandler
 		{
 			Proxy = (_config.EnableProxy && !string.IsNullOrEmpty(_config.ProxyUrl))
 				? new WebProxy(_config.ProxyUrl) : null
 		}) { Timeout = TimeSpan.FromSeconds(300) };
-		
-		private static readonly ConcurrentQueue<LLE.FromLLM> _commandQueue = new ConcurrentQueue<LLE.FromLLM>();
 
-		public static bool GetChunkFromLLM(out LLE.FromLLM cmd)
+		public static bool GetChunkFromLLM(int channel, out LLE.FromLLM cmd)
 		{
-			return _commandQueue.TryDequeue(out cmd);
+			var c = Get(channel);
+			if (c == null) { cmd = null; return false; }
+			return c.GetChunk(out cmd);
 		}
 
-		public static void SendMessageToLLM(string text)
+		public static void SendMessageToLLM(int channel, string text)
 		{
-			_chatContext.Enqueue(text);
+			var c = Get(channel);
+			if (c == null)
+			{	Logger.Write($"[LLM] send to unknown channel {channel}, dropped");
+				return;
+			}
 
-			var context = "\n" + string.Join("\n", _chatContext);
+			// The image rides with this one message only, and only on the channel that asked for
+			// it. The mod's history keeps the text, so an old frame can never be mistaken for what
+			// the bot is looking at now.
+			string image = null;
+			if (channel == 0)
+			{	image = _pendingScreenshot;
+				_pendingScreenshot = null;
+			}
 
-			// The image rides with this one message only. The history keeps the text, so an old
-			// frame can never be mistaken for what the bot is looking at now.
-			var image = _pendingScreenshot;
-			_pendingScreenshot = null;
+			c.Send(text, image);
+		}
 
-			var _ = AskLlmStreaming(context, image);
+		public static int GetContextWindow(int channel)
+		{
+			var c = Get(channel);
+			return c == null ? 0 : c.Config.ContextWindow;
+		}
+
+		public static void SetSystemPrompt(int channel, string text, string stop)
+		{
+			var c = Get(channel);
+			if (c == null)
+			{	Logger.Write($"[SetSystemPrompt] unknown channel {channel}, ignored");
+				return;
+			}
+			c.SetSystemPrompt(text, stop);
 		}
 
 		#region Screenshot
@@ -184,151 +416,6 @@ namespace LLELoader
 
 		#endregion
 
-		public static void SetSystemPrompt(string text, string stop)
-		{
-			Logger.Write("[SetSystemPrompt] length=" + text.Length + " stop=" + stop);
-
-			_systemPrompt = text;
-			_stopString = stop;
-		}
-
-		private static async Task AskLlmStreaming(string chatContext, string screenshotBase64)
-		{
-			try
-			{
-				object userContent = chatContext;
-				if (screenshotBase64 != null)
-				{
-					userContent = new object[]
-					{
-						new { type = "text", text = chatContext },
-						new { type = "image_url", image_url = new { url = "data:image/png;base64," + screenshotBase64 } },
-					};
-				}
-
-				// Thinking: without the channel Gemma matches patterns, with it she checks her own
-				// trace — 70% against 98% on placement. Measured in the GemmaBuilder project.
-				// The budget covers the reasoning too, which runs to ~10k tokens on a multi-block job.
-				var payload = new Dictionary<string, object>
-				{
-					["model"] = _config.Model,
-					["messages"] = new object[]
-					{
-						new { role = "system", content = (object)_systemPrompt },
-						new { role = "user",   content = userContent }
-					},
-					["max_tokens"] = _config.MaxTokens,
-					["stream"] = true,
-				};
-				if (_config.Provider == "local")
-					payload["chat_template_kwargs"] = new { enable_thinking = _config.EnableThinking };
-				else if (_config.Provider == "zai")
-					payload["thinking"] = new { type = _config.EnableThinking ? "enabled" : "disabled" };
-				else //if (_config.Provider == "openrouter")
-					payload["reasoning"] = new { enabled = _config.EnableThinking };
-
-				if (!string.IsNullOrEmpty(_stopString))
-					payload["stop"] = _stopString;
-
-				var body = System.Text.Json.JsonSerializer.Serialize(payload);
-
-				var request = new HttpRequestMessage(HttpMethod.Post, _config.LlmUrl)
-				{	Content = new StringContent(body, Encoding.UTF8, "application/json")
-				};
-				if (!string.IsNullOrEmpty(_config.ApiKey))
-					request.Headers.Add("Authorization", "Bearer " + _config.ApiKey);
-				var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
-
-				if (!response.IsSuccessStatusCode)
-				{
-					string errBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-					Logger.Write($"[LLM] HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}");
-					_commandQueue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = $"HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}" });
-					return;
-				}
-
-				var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-
-				string line;
-
-				// finish_reason distinguishes a clean stop from a max_tokens cut (length) from a
-				// stream that broke before the terminating chunk. The loop below ends the same way
-				// for all three, so without finish_reason an empty response is ambiguous.
-				string finishReason = null;
-				bool sawFinishReason = false;
-				int contentChunks = 0, reasoningChunks = 0;
-
-				using var reader = new StreamReader(stream);
-				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
-				{
-					if (!line.StartsWith("data:")) continue;
-					var data = line.Substring(5).Trim();
-					if (data == "[DONE]") break;
-
-					using var doc = System.Text.Json.JsonDocument.Parse(data);
-					var root = doc.RootElement;
-					// finish_reason is a sibling of delta under choices[0]; read it independently so it is
-					// captured even on the terminating chunk where delta is absent or empty.
-					if (root.TryGetProperty("choices", out var frChoices) && frChoices.GetArrayLength() > 0
-						&& frChoices[0].TryGetProperty("finish_reason", out var fr)
-						&& fr.ValueKind == System.Text.Json.JsonValueKind.String)
-					{
-						finishReason = fr.GetString();
-						sawFinishReason = true;
-					}
-
-					if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
-						&& choices[0].TryGetProperty("delta", out var delta))
-					{
-						// Reasoning — field name differs by provider:
-						//   local (llama.cpp): "reasoning_content"
-						//   openrouter:        "reasoning"
-						string reasoning = null;
-						if (delta.TryGetProperty("reasoning_content", out var reasoningProp))
-							reasoning = reasoningProp.ValueKind == System.Text.Json.JsonValueKind.String ? reasoningProp.GetString() : null;
-						else if (delta.TryGetProperty("reasoning", out var reasoningProp2))
-							reasoning = reasoningProp2.ValueKind == System.Text.Json.JsonValueKind.String ? reasoningProp2.GetString() : null;
-
-						if (!string.IsNullOrEmpty(reasoning))
-						{
-							reasoningChunks++;
-							_commandQueue.Enqueue(new LLE.FromLLM
-							{
-								Type = LLE.MessageType.Reasoning,
-								Payload = reasoning
-							});
-						}
-						if (delta.TryGetProperty("content", out var contentProp))
-						{
-							var content = contentProp.GetString();
-							if (!string.IsNullOrEmpty(content))
-							{
-								contentChunks++;
-								_commandQueue.Enqueue(new LLE.FromLLM
-								{
-									Type = LLE.MessageType.Content,
-									Payload = content
-								});
-							}
-						}
-					}
-				}
-
-				// finish_reason tells us why the response ended; a missing finish_reason means the
-				// stream closed before the terminating chunk (proxy/network drop).
-				Logger.Write("[LLM] stream done: "
-					+ (sawFinishReason ? "finish_reason=" + (finishReason ?? "null") : "STREAM-ENDED-WITHOUT-FINISH-REASON")
-					+ " contentChunks=" + contentChunks
-					+ " reasoningChunks=" + reasoningChunks);
-
-				_commandQueue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Stop, Payload = null });
-			}
-			catch (Exception ex)
-			{
-				Logger.Write("[LLM] streaming error: " + ex.Message);
-				_commandQueue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = ex.Message });
-			}
-		}
 
 		[HarmonyPatchCategory("Early")]
 		static class Patch_SetupPaths
@@ -384,7 +471,7 @@ namespace LLELoader
 		static class Patch_ScriptManagerLoadData
 		{
 			private static readonly string[] BridgeMethods =
-				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetSystemPrompt", "GetContextStatus", "RestartContext",
+				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetSystemPrompt", "GetContextWindow",
 				  "RequestScreenshot", "ScreenshotDone" ];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
@@ -437,8 +524,7 @@ namespace LLELoader
 						case "GetChunkFromLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_GetChunkFromLLM)); break;
 						case "SendMessageToLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_SendMessageToLLM)); break;
 						case "SetSystemPrompt": prefix = new HarmonyMethod(smld, nameof(Prefix_SetSystemPrompt)); break;
-						case "GetContextStatus": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextStatus)); break;
-						case "RestartContext": prefix = new HarmonyMethod(smld, nameof(Prefix_RestartContext)); break;
+						case "GetContextWindow": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextWindow)); break;
 						case "RequestScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_RequestScreenshot)); break;
 						case "ScreenshotDone": prefix = new HarmonyMethod(smld, nameof(Prefix_ScreenshotDone)); break;
 						default: continue;
@@ -460,36 +546,27 @@ namespace LLELoader
 				return false;
 			}
 
-			static bool Prefix_GetChunkFromLLM(out LLE.FromLLM m, ref bool __result)
+			static bool Prefix_GetChunkFromLLM(int channel, out LLE.FromLLM m, ref bool __result)
 			{
-				__result = GetChunkFromLLM(out m);
+				__result = GetChunkFromLLM(channel, out m);
 				return false;
 			}
 
-			static bool Prefix_SendMessageToLLM(string text)
+			static bool Prefix_SendMessageToLLM(int channel, string text)
 			{
-				SendMessageToLLM(text);
+				SendMessageToLLM(channel, text);
 				return false;
 			}
 
-			static bool Prefix_SetSystemPrompt(string text, string stop)
+			static bool Prefix_SetSystemPrompt(int channel, string text, string stop)
 			{
-				SetSystemPrompt(text, stop);
+				SetSystemPrompt(channel, text, stop);
 				return false;
 			}
 
-			static bool Prefix_GetContextStatus(out int usedChars, out int totalChars)
+			static bool Prefix_GetContextWindow(int channel, ref int __result)
 			{
-				int chars = _systemPrompt.Length;
-				foreach (var s in _chatContext) chars += s.Length;
-				usedChars = chars;
-				totalChars = _config.ContextWindow;
-				return false;
-			}
-
-			static bool Prefix_RestartContext()
-			{
-				_chatContext.Clear();
+				__result = GetContextWindow(channel);
 				return false;
 			}
 
