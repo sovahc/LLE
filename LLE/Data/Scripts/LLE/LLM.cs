@@ -74,18 +74,12 @@ namespace LLE
 		private readonly Ensemble ensemble = new Ensemble();
 
 		private string[] pendingAnswers;  // finished answers waiting for a free moment to be run
-		private string lastConversation;  // this turn's message, kept for the rethink
-		private bool rethinkSent;         // one rethink per turn, then the bot acts anyway
+		private string lastConversation;  // this turn's message, kept for the tie-break
+		private bool choiceSent;          // one tie-break per turn, then the bot acts anyway
 
 		// The tail of the batch the streams did not agree on. Reported after the executed commands
 		// so the transcript keeps the real order of events.
 		private readonly List<string> notExecuted = new List<string>();
-
-		// Sent on top of the same conversation, identical for both streams, and never stored in the
-		// transcript: if the second pass agrees, the turn must read as if it answered once.
-		private const string Rethink =
-			"\n[SYSTEM] Think again before acting. Re-read the results above and look for a mistake in your own"
-			+ " reasoning. If you find one, answer with the corrected commands; if not, repeat the same commands.\n";
 
 		[Flags]
 		public enum Destination : byte
@@ -246,7 +240,7 @@ namespace LLE
 			{	var answers = pendingAnswers;
 				pendingAnswers = null;
 				ProcessAnswers(answers);
-				if(ensemble.Busy) return;      // a rethink went out — this turn is not over
+				if(ensemble.Busy) return;      // a tie-break went out — this turn is not over
 				if(batch.Count != 0) return;   // commands enqueued — execute before talking to LLM
 				if(pause) return;              // response was pause/restart — do not send this turn
 			}
@@ -304,7 +298,7 @@ namespace LLE
 				logBuf.Clear();
 
 				lastConversation = "\n" + string.Join("\n", transcript);
-				rethinkSent = false;
+				choiceSent = false;
 				ensemble.Send(lastConversation);
 				turn++;
 				return;
@@ -413,8 +407,30 @@ namespace LLE
 			return n;
 		}
 
+		// The tie-break round. Both streams get the same text and neither is told which plan was its
+		// own: a stream asked to defend its answer defends it, and what is wanted here is a choice.
+		//
+		// It asks for a choice, not for more thought. Measured head to head on the hard turn of a
+		// logged session (6 samples each): this wording reasons 1601 chars in 8.5s and all six
+		// samples pick the same plan — and it is the right one. The wording it replaced ("think
+		// again, look for a mistake in your own reasoning") reasoned 4705 chars in 16.7s and five
+		// of six answered with something that was neither plan.
+		//
+		// "without its label" is not decoration: without it a third of the answers came back as the
+		// literal text "PLAN A:" and its lines, with no <execute> block at all.
+		private static string Choice(List<string> a, List<string> b)
+		{
+			return "\n[SYSTEM] Two plans were proposed for this turn and they start differently."
+				+ " Pick the one that is right here."
+				+ " Answer with a single <execute> block holding that plan's commands, unchanged, without its label,"
+				+ " and nothing else. Do not think it over and do not write a third plan: this is a choice between two."
+				+ " If both are wrong, answer with the one command that fixes that.\n"
+				+ "PLAN A:\n" + string.Join("\n", a) + "\n"
+				+ "PLAN B:\n" + string.Join("\n", b) + "\n";
+		}
+
 		// Both streams answered the same question. What they both said is what the bot does; where
-		// their first commands differ, nothing runs and the bot is asked to think again — once.
+		// their first commands differ, each is shown both plans and asked to pick one — once.
 		private void ProcessAnswers(string[] answers)
 		{
 			var batches = new List<string>[Ensemble.Streams];
@@ -449,25 +465,26 @@ namespace LLE
 			{
 				run = CommonPrefix(batches[first], batches[second]);
 
-				if (run == 0 && !rethinkSent)
-				{	rethinkSent = true;
-					Log($"consensus: turn {turn}, disagreed on '{batches[first][0]}' vs '{batches[second][0]}' — asking again");
+				if (run == 0 && !choiceSent)
+				{	choiceSent = true;
+					Log($"consensus: turn {turn}, disagreed on '{batches[first][0]}' vs '{batches[second][0]}' — choosing");
 					MyConsole.AddNewLine();
-					MyConsole.Add("[RETHINK] streams disagreed on the first command", Color.Yellow);
+					MyConsole.Add("[CHOICE] streams disagreed on the first command", Color.Yellow);
 
-					// Both answers are dropped, transcript and all: if the second pass agrees, this
-					// turn must read as if the bot answered once.
-					ensemble.Send(lastConversation + Rethink);
+					// Both answers are dropped, transcript and all: if the choice agrees, this turn
+					// must read as if the bot answered once.
+					ensemble.Send(lastConversation + Choice(batches[first], batches[second]));
 					return;
 				}
 
-				// Still disagreeing after the rethink. One command, not a plan: the streams part
-				// where the model is unsure, and a five-step plan built on an unsure first step is
-				// exactly what this scheme exists to stop. One command brings back a fact from the
-				// game, and the next turn decides again with it in hand.
+				// Still disagreeing after the choice, and there is no third round — that is what the
+				// second one was for. One command, not a plan: the streams part where the model is
+				// unsure, and a five-step plan built on an unsure first step is exactly what this
+				// scheme exists to stop. One command brings back a fact from the game, and the next
+				// turn decides again with it in hand.
 				if (run == 0)
 				{	run = 1;
-					Log($"consensus: turn {turn}, still disagreed after the rethink, running one command");
+					Log($"consensus: turn {turn}, still disagreed after the choice, running one command");
 				}
 			}
 
