@@ -84,7 +84,7 @@ namespace LLE
 			if (_lines.Count == 0) return;
 
 			float border = 0.01f;
-			float scale = 0.0002f;
+			float scale = 0.0005f;
 			float lineStep = font.GetHeight(scale) * 1.1f;
 			float y0 = 0.5f;
 			float x0 = -0.99f;

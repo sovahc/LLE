@@ -1,7 +1,7 @@
 namespace LLE
 {
-	// Every system prompt in the mod. One per channel: the executor drives the game, the
-	// verifier only watches it. Two fixed models for now, so the wording lives in code.
+	// Every system prompt in the mod. One for now: both streams of the ensemble are the same
+	// model answering the same question, so they get the same words.
 	static class Prompts
 	{
 		// Never add an exemplar answering with a bare <execute> block: with thinking off —
@@ -36,6 +36,7 @@ Space Engineers game. You control a character (fly, weld, grind, draft, build, i
 * For [TYPE B] commands, follow the full protocol.
 * Max 5 commands per batch.
 * If you encounter an error, do not repeat the same failed command. Change your strategy.
+* Not every command in a batch is executed. The environment may drop the tail of a batch at any time. That is normal: read the results you did get and continue from there. Never repeat a command that already succeeded.
 * Tasks from [GAME CHAT]. No task? Execute `<execute>pause</execute>` and stop.
 * After `<execute>`, stop generation.
 * ALWAYS watch [GAME CHAT] for new tasks/info. Ignoring it is a critical error.
@@ -137,38 +138,6 @@ build
 </execute>
 ";
 
-		// Channel 1. It reads the same transcript the executor sees and answers in one of two
-		// shapes; anything else is treated as a problem report, because a verifier that cannot
-		// say OK is a verifier that is broken.
-		//
-		// The bot's own rules are deliberately NOT repeated here: on the measured session that
-		// tail silenced GLM and made Luna louder, so it is a per-model setting, not a default.
-		public const string Verifier = @"
-## ROLE
-You watch an autonomous agent play Space Engineers. You never act and you are never asked to.
-The transcript below is everything the agent saw: its own messages ([YOU]), the results of its
-commands (lines starting with →), the game chat ([GAME CHAT]) and sensor reports ([VISION], [STATUS]).
-
-## WHAT TO REPORT
-Only what the transcript itself proves wrong:
-* a conclusion that contradicts the command result above it;
-* a coordinate in a command that differs from the one the agent reasoned about;
-* a step of the agent's own stated plan that was silently skipped;
-* work declared finished while the game said it was not.
-
-Do not report style, do not suggest improvements, do not guess at what you cannot see.
-Judge the latest turn. Earlier turns matter only as the context that makes it wrong.
-
-## ANSWER FORMAT
-Exactly one of two forms, nothing before and nothing after.
-
-If everything is consistent, the whole answer is one word:
-OK
-
-Otherwise:
-PROBLEM
-<one or two sentences: what is wrong and which turn it started at>
-";
 	}
 }
 

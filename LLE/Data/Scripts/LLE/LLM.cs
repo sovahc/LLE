@@ -71,10 +71,21 @@ namespace LLE
 		private int transcriptChars;
 		private int turn;
 
-		private readonly LlmChannel channel = new LlmChannel(LlmChannel.Executor) { EchoToConsole = true };
-		private readonly Verifier verifier = new Verifier();
+		private readonly Ensemble ensemble = new Ensemble();
 
-		private string pendingResponse; // a finished answer waiting for a free moment to be run
+		private string[] pendingAnswers;  // finished answers waiting for a free moment to be run
+		private string lastConversation;  // this turn's message, kept for the rethink
+		private bool rethinkSent;         // one rethink per turn, then the bot acts anyway
+
+		// The tail of the batch the streams did not agree on. Reported after the executed commands
+		// so the transcript keeps the real order of events.
+		private readonly List<string> notExecuted = new List<string>();
+
+		// Sent on top of the same conversation, identical for both streams, and never stored in the
+		// transcript: if the second pass agrees, the turn must read as if it answered once.
+		private const string Rethink =
+			"\n[SYSTEM] Think again before acting. Re-read the results above and look for a mistake in your own"
+			+ " reasoning. If you find one, answer with the corrected commands; if not, repeat the same commands.\n";
 
 		[Flags]
 		public enum Destination : byte
@@ -130,10 +141,21 @@ namespace LLE
 			if(result.Status != CommandStatus.Success && batch.Count > 0)
 			{	Append($"Remaining {batch.Count} command(s) ignored: {string.Join("; ", batch)}\n", Color.Cornsilk);
 				batch.Clear();
+				FlushNotExecuted();
 				return;
 			}
 
+			if(batch.Count == 0) FlushNotExecuted();
+
 			// Next command (if any) is driven by Tick() — one per tick.
+		}
+
+		private void FlushNotExecuted()
+		{
+			if (notExecuted.Count == 0) return;
+
+			Append($"Not executed: {string.Join("; ", notExecuted)}\n", Color.Cornsilk);
+			notExecuted.Clear();
 		}
 
 		private void RunNextPending()
@@ -164,10 +186,8 @@ namespace LLE
 
 		public void Tick()
 		{
-			PollExecutorChannel();
-				// stores data to pendingResponse
-
-			verifier.Tick(turn);
+			PollStreams();
+				// stores data to pendingAnswers
 
 			var ec = commands.GetEngineerCenter();
 
@@ -216,16 +236,17 @@ namespace LLE
 				return;
 			}
 
-			if(channel.Busy) return;
+			if(ensemble.Busy) return;
 			if(pause) return;
 
 			// Process a finished response BEFORE any send. Otherwise an async sensor
 			// report (VISION/STATUS) can fire the send below and orphan it; the next
 			// response then appends onto it ("Found 2 <execute> blocks").
-			if(pendingResponse != null)
-			{	var response = pendingResponse;
-				pendingResponse = null;
-				ProcessLlmContent(response);
+			if(pendingAnswers != null)
+			{	var answers = pendingAnswers;
+				pendingAnswers = null;
+				ProcessAnswers(answers);
+				if(ensemble.Busy) return;      // a rethink went out — this turn is not over
 				if(batch.Count != 0) return;   // commands enqueued — execute before talking to LLM
 				if(pause) return;              // response was pause/restart — do not send this turn
 			}
@@ -233,7 +254,7 @@ namespace LLE
 			if (output.Length != 0) // We have data for LLM
 			{
 				int used = ContextUsed;
-				int total = channel.ContextWindow;
+				int total = ensemble.ContextWindow;
 
 				if (total <= 0)
 				{	// No such channel in the loader config — there is nobody to talk to.
@@ -282,13 +303,10 @@ namespace LLE
 				output.Clear();
 				logBuf.Clear();
 
-				var conversation = "\n" + string.Join("\n", transcript);
-				channel.Send(conversation);
+				lastConversation = "\n" + string.Join("\n", transcript);
+				rethinkSent = false;
+				ensemble.Send(lastConversation);
 				turn++;
-
-				// The verifier reads the same text the bot is answering right now. It is one call
-				// per turn and it blocks nothing: if it is still busy, this turn goes unchecked.
-				verifier.Kick(conversation, turn);
 				return;
 			}
 
@@ -305,46 +323,34 @@ namespace LLE
 
 		private void ContextStatistic()
 		{
-			int total = channel.ContextWindow;
+			int total = ensemble.ContextWindow;
 			if (total <= 0) return;
 			int used = ContextUsed;
 			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({used * 100 / total}%)", Color.LightPink);
 		}
 
-		private void PollExecutorChannel()
+		private void PollStreams()
 		{
-			string payload;
-			switch (channel.Poll(out payload))
-			{
-				case ChannelEvent.Response:
-					pendingResponse = payload;
-					ContextStatistic();
-					break;
+			string[] answers;
+			if (!ensemble.Poll(out answers)) return;
 
-				case ChannelEvent.Error:
-					MyConsole.AddMultiline("\n[LLM ERROR] " + payload + "\n", Color.Red);
-					pause = true;
-					break;
-			}
+			pendingAnswers = answers;
+			ContextStatistic();
 		}
 
-		private string MyTrim(string s)
+		private static string MyTrim(string s)
 		{	if(s.Length < 2) return s;
 			char fc = s[0];
 			if ((fc == '`' || fc == '\'' || fc == '\"') && s[s.Length - 1] == fc) return s.Substring(1, s.Length - 2);
 			return s;
 		}
 
-		private void ProcessLlmContent(string content)
+		// The <execute> block as the mod reads it. Returns null and fills 'error' with the text the
+		// model will read next turn — nothing here touches the game or the transcript.
+		private static List<string> ParseBatch(string content, out string error)
 		{
+			error = null;
 			content = content.Trim();
-
-			// The bot's own words go back into the transcript. Without them it reads a list of
-			// results with no record of what it said or meant. Reasoning stays out: the chat
-			// template drops thought from previous turns anyway.
-			// Console already printed it while streaming; llmContent already logged it.
-			Append($"[YOU]:\n{content}\n", Color.Cyan, Destination.LLM);
-			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
 
 			// Exactly one <execute> block is allowed; multiple blocks are rejected (not "keep the last").
 			int count = 0, scan = 0;
@@ -355,12 +361,12 @@ namespace LLE
 				scan = at + ExecuteOpenTag.Length;
 			}
 			if (count == 0)
-			{	Append("[ERROR] No <execute> block found. Wrap your commands in <execute>...</execute>.\n", Color.Red);
-				return;
+			{	error = "[ERROR] No <execute> block found. Wrap your commands in <execute>...</execute>.\n";
+				return null;
 			}
 			if (count > 1)
-			{	Append("[ERROR] Found " + count + " <execute> blocks; exactly one is allowed. No commands were executed. Put all commands into a single <execute> block.\n", Color.Red);
-				return;
+			{	error = "[ERROR] Found " + count + " <execute> blocks; exactly one is allowed. No commands were executed. Put all commands into a single <execute> block.\n";
+				return null;
 			}
 
 			int start = content.IndexOf(ExecuteOpenTag, StringComparison.OrdinalIgnoreCase);
@@ -381,7 +387,104 @@ namespace LLE
 			}
 
 			if (cc.Count == 0)
-			{	Append("[ERROR] No commands found inside <execute> block.\n", Color.Red);
+			{	error = "[ERROR] No commands found inside <execute> block.\n";
+				return null;
+			}
+
+			return cc;
+		}
+
+		// Two commands are the same command when they are literally the same. `say` is the one
+		// exception: what the bot tells the player is free text, and two streams never phrase it
+		// alike — on the measured session that alone accounted for a sixth of the disagreements.
+		private static bool SameCommand(string x, string y)
+		{
+			if (x.Equals(y, StringComparison.OrdinalIgnoreCase)) return true;
+
+			return x.StartsWith("say ", StringComparison.OrdinalIgnoreCase)
+			    && y.StartsWith("say ", StringComparison.OrdinalIgnoreCase);
+		}
+
+		// Commands are order-dependent (fly, then get), so agreement is a prefix, not a set.
+		private static int CommonPrefix(List<string> x, List<string> y)
+		{
+			int n = 0;
+			while (n < x.Count && n < y.Count && SameCommand(x[n], y[n])) n++;
+			return n;
+		}
+
+		// Both streams answered the same question. What they both said is what the bot does; where
+		// their first commands differ, nothing runs and the bot is asked to think again — once.
+		private void ProcessAnswers(string[] answers)
+		{
+			var batches = new List<string>[Ensemble.Streams];
+			var errors  = new string[Ensemble.Streams];
+
+			int spoke = -1;              // first stream that answered at all
+			int first = -1, second = -1; // the streams whose answer parsed
+
+			for (int i = 0; i < Ensemble.Streams; ++i)
+			{
+				if (answers[i] == null) continue;
+				if (spoke < 0) spoke = i;
+
+				batches[i] = ParseBatch(answers[i], out errors[i]);
+				if (batches[i] == null) continue;
+
+				if (first < 0) first = i; else if (second < 0) second = i;
+			}
+
+			if (spoke < 0)
+			{	// Every stream died on the way. Nothing to read and nothing to run.
+				MyConsole.AddMultiline("\n[LLM ERROR] " + ensemble.Error + "\n", Color.Red);
+				pause = true;
+				return;
+			}
+
+			int leader = first >= 0 ? first : spoke; // whose text goes into the transcript
+			var cc = batches[leader];
+			int run = cc == null ? 0 : cc.Count;     // how many of its commands to execute
+
+			if (second >= 0)
+			{
+				run = CommonPrefix(batches[first], batches[second]);
+
+				if (run == 0 && !rethinkSent)
+				{	rethinkSent = true;
+					Log($"consensus: turn {turn}, disagreed on '{batches[first][0]}' vs '{batches[second][0]}' — asking again");
+					MyConsole.AddNewLine();
+					MyConsole.Add("[RETHINK] streams disagreed on the first command", Color.Yellow);
+
+					// Both answers are dropped, transcript and all: if the second pass agrees, this
+					// turn must read as if the bot answered once.
+					ensemble.Send(lastConversation + Rethink);
+					return;
+				}
+
+				// Still disagreeing after the rethink. One command, not a plan: the streams part
+				// where the model is unsure, and a five-step plan built on an unsure first step is
+				// exactly what this scheme exists to stop. One command brings back a fact from the
+				// game, and the next turn decides again with it in hand.
+				if (run == 0)
+				{	run = 1;
+					Log($"consensus: turn {turn}, still disagreed after the rethink, running one command");
+				}
+			}
+
+			// Every turn leaves its numbers in the log: how much of the batch survived the vote is
+			// the whole point of running two streams, and it is only measurable in play.
+			Log($"consensus: turn {turn}, ran {run} of {(cc == null ? 0 : cc.Count)}"
+				+ (second >= 0 ? $", {batches[second].Count} proposed by the other stream" : ", single stream"));
+
+			// The bot's own words go back into the transcript. Without them it reads a list of
+			// results with no record of what it said or meant. Reasoning stays out: the chat
+			// template drops thought from previous turns anyway.
+			// Console already printed it while streaming; llmContent already logged it.
+			Append($"[YOU]:\n{answers[leader].Trim()}\n", Color.Cyan, Destination.LLM);
+			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
+
+			if (cc == null)
+			{	Append(errors[leader], Color.Red);
 				return;
 			}
 
@@ -410,13 +513,16 @@ namespace LLE
 				if (loopMsg != null)
 					Append(loopMsg, blocked ? Color.Red : Color.Yellow);
 				if (blocked)
-				{	Append($"Your last message was:\n---\n{content}\n---\n", Color.Red);
+				{	Append($"Your last message was:\n---\n{answers[leader].Trim()}\n---\n", Color.Red);
 					return;
 				}
 			}
 
-			// Queue commands and start execution
-			foreach (var c in cc) batch.Enqueue(c);
+			// Queue the agreed prefix; the tail is reported as dropped once the prefix has run.
+			for (int i = 0; i < cc.Count; ++i)
+			{	if (i < run) batch.Enqueue(cc[i]);
+				else notExecuted.Add(cc[i]);
+			}
 
 			RunNextPending();
 		}

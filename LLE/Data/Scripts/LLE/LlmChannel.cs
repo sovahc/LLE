@@ -15,12 +15,9 @@ namespace LLE
 	// channels merges two streams into one answer and releases the wrong sender.
 	class LlmChannel
 	{
-		public const int Executor = 0; // the only channel allowed to run commands
-		public const int Verifier = 1;
-
 		public readonly int Id;
 
-		// Channel 0 streams into the console as it generates. There is one console, so the
+		// One channel streams into the console as it generates. There is one console, so the
 		// others stay in the log until they have a console of their own.
 		public bool EchoToConsole;
 

@@ -317,13 +317,14 @@ namespace LLELoader
 				return;
 			}
 
-			// The image rides with this one message only, and only on the channel that asked for
-			// it. The mod's history keeps the text, so an old frame can never be mistaken for what
-			// the bot is looking at now.
+			// The frame goes to every channel that sends after it, and to each of them exactly once:
+			// parallel streams must see identical input, and a frame must never ride along twice.
+			// The mod's history keeps the text, so an old frame can never be mistaken for what the
+			// bot is looking at now.
 			string image = null;
-			if (channel == 0)
+			if (_pendingScreenshot != null && (_screenshotSentTo & (1 << channel)) == 0)
 			{	image = _pendingScreenshot;
-				_pendingScreenshot = null;
+				_screenshotSentTo |= 1 << channel;
 			}
 
 			c.Send(text, image);
@@ -352,12 +353,14 @@ namespace LLELoader
 		private static bool _screenshotFinished = true;
 		private static bool _screenshotSuccess;
 		private static string _pendingScreenshot; // base64 PNG
+		private static int _screenshotSentTo; // one bit per channel that already carried this frame
 
 		public static void RequestScreenshot()
 		{
 			_screenshotFinished = false;
 			_screenshotSuccess = false;
 			_pendingScreenshot = null;
+			_screenshotSentTo = 0;
 
 			try
 			{
@@ -396,6 +399,7 @@ namespace LLELoader
 				if (!File.Exists(_screenshotPath)) return;
 
 				var bytes = File.ReadAllBytes(_screenshotPath);
+				_screenshotSentTo = 0;
 				_pendingScreenshot = Convert.ToBase64String(bytes);
 				_screenshotSuccess = true;
 				Logger.Write($"[Screenshot] {_screenshotPath}, {bytes.Length} bytes");

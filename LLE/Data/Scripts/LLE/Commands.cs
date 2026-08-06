@@ -170,7 +170,7 @@ namespace LLE
 
 			var prompt = sb.ToString();
 			SystemPromptChars = prompt.Length;
-			LLE_Loader.SetSystemPrompt(LlmChannel.Executor, prompt, LLM.StopWorld);
+			Ensemble.SetSystemPromptAll(prompt, LLM.StopWorld);
 		}
 
 		internal CommandResult Select(TokenParser tp)

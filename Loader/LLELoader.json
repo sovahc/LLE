@@ -5,18 +5,18 @@
       "Model": "google/gemma-4-31b-it",
       "ApiKey": "",
       "Provider": "local",
-      "EnableThinking": false,
+      "EnableThinking": true,
       "ContextWindow": 100000,
-      "MaxTokens": 20000
+      "MaxTokens": 5000
     },
     {
-      "LlmUrl": "https://api.z.ai/api/paas/v4/chat/completions",
-      "Model": "glm-5.2",
+      "LlmUrl": "http://localhost:8080/v1/chat/completions",
+      "Model": "google/gemma-4-31b-it",
       "ApiKey": "",
-      "Provider": "zai",
+      "Provider": "local",
       "EnableThinking": true,
-      "ContextWindow": 200000,
-      "MaxTokens": 8000
+      "ContextWindow": 100000,
+      "MaxTokens": 5000
     }
   ],
   "EnableProxy": false,
