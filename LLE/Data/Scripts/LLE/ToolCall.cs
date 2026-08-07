@@ -65,7 +65,7 @@ namespace LLE
 
 		private static bool HasParam(Tools.Tool tool, string name)
 		{	foreach (var p in tool.Params)
-				if (p.Name == name) return true;
+				if (string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) return true;
 			return false;
 		}
 
@@ -146,7 +146,7 @@ namespace LLE
 				return null;
 			}
 
-			var parsed = new Dictionary<string, string>();
+			var parsed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
 			foreach (var field in root.Object)
 			{
@@ -157,9 +157,15 @@ namespace LLE
 					return null;
 				}
 
-				// A string reads as its text, everything else as it was written: the model wrote 5
-				// and the console should not show 5.0 back at it.
-				parsed[field.Key] = value.Is(JsonKind.String) ? value.String : value.Raw;
+				// An argument written as null is one the model did not fill in, so it reads as absent.
+				if (value.Is(JsonKind.Null)) continue;
+
+				// A string reads as its text, a boolean as the spelling Bool() expects — the parser
+				// also accepts True. Everything else as it was written: the model wrote 5 and the
+				// console should not show 5.0 back at it.
+				parsed[field.Key] = value.Is(JsonKind.String) ? value.String
+					: value.Is(JsonKind.Bool) ? (value.Bool ? "true" : "false")
+					: value.Raw;
 			}
 
 			return new ToolCall(name, parsed);

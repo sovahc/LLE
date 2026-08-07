@@ -189,7 +189,7 @@ namespace LLE
 			json.Append('}');
 
 			transcript.Add(json.ToString());
-			transcriptChars += text.Length;
+			transcriptChars += json.Length;
 			callCursor++;
 			hasNews = true;
 		}
@@ -306,14 +306,14 @@ namespace LLE
 
 						if(stage == 1)
 							Append($"!Warning: Context is {pct}% full."
-								+ " Save anything you must not forget: memory 'key' 'value'\n", Color.Yellow);
+								+ " Save anything you must not forget with the memory tool.\n", Color.Yellow);
 						else if(stage == 2)
 							Append($"!WARNING: Context is {pct}% full."
-								+ " Save your state now: memory 'key' 'value'"
-								+ ", then reset it yourself: restart\n", Color.Yellow);
+								+ " Save your state now with the memory tool"
+								+ ", then reset it yourself with restart.\n", Color.Yellow);
 						else
 							Append($"!ERROR: Context is {pct}% full and will be wiped automatically very soon."
-								+ " You must save your state with memory 'key' 'value' and then issue restart."
+								+ " You must save your state with the memory tool and then call restart."
 								+ " Everything not in memory will be lost.\n", Color.Red);
 					}
 				}
@@ -355,7 +355,7 @@ namespace LLE
 				sb.Append("}}]}");
 			}
 
-			sb.Append("],\"tools\":").Append(Tools.Json());
+			sb.Append("],\"tools\":").Append(Tools.Schema());
 			return sb.ToString();
 		}
 
@@ -366,7 +366,7 @@ namespace LLE
 		}
 
 		private int ContextUsed
-		{	get { return commands.SystemPromptChars + transcriptChars; }
+		{	get { return commands.SystemPromptChars + transcriptChars + Tools.Schema().Length; }
 		}
 
 		private void ClearTranscript()

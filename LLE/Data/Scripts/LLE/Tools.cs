@@ -181,21 +181,14 @@ namespace LLE
 			return null;
 		}
 
-		private static void Quoted(StringBuilder sb, string s)
-		{
-			sb.Append('"');
-			foreach (var c in s)
-			{	if (c == '"' || c == '\\') sb.Append('\\').Append(c);
-				else if (c == '\n') sb.Append("\\n");
-				else sb.Append(c);
-			}
-			sb.Append('"');
-		}
+		private static string schema;
 
 		// The `tools` array of the request, verbatim. The loader drops it into the payload without
 		// looking inside — what a tool is stays here, next to the code that runs it.
-		public static string Json()
+		public static string Schema()
 		{
+			if (schema != null) return schema;
+
 			var sb = new StringBuilder("[");
 
 			for (int t = 0; t < All.Length; ++t)
@@ -204,9 +197,9 @@ namespace LLE
 				if (t != 0) sb.Append(',');
 
 				sb.Append("{\"type\":\"function\",\"function\":{\"name\":");
-				Quoted(sb, tool.Name);
+				Json.Quoted(sb, tool.Name);
 				sb.Append(",\"description\":");
-				Quoted(sb, tool.Description);
+				Json.Quoted(sb, tool.Description);
 
 				sb.Append(",\"parameters\":{\"type\":\"object\",\"properties\":{");
 
@@ -215,17 +208,17 @@ namespace LLE
 					var param = tool.Params[p];
 					if (p != 0) sb.Append(',');
 
-					Quoted(sb, param.Name);
+					Json.Quoted(sb, param.Name);
 					sb.Append(":{\"type\":");
-					Quoted(sb, param.Type);
+					Json.Quoted(sb, param.Type);
 					sb.Append(",\"description\":");
-					Quoted(sb, param.Description);
+					Json.Quoted(sb, param.Description);
 
 					if (param.Values != null)
 					{	sb.Append(",\"enum\":[");
 						for (int v = 0; v < param.Values.Length; ++v)
 						{	if (v != 0) sb.Append(',');
-							Quoted(sb, param.Values[v]);
+							Json.Quoted(sb, param.Values[v]);
 						}
 						sb.Append(']');
 					}
@@ -239,14 +232,14 @@ namespace LLE
 				{	if (!param.Required) continue;
 					if (!first) sb.Append(',');
 					first = false;
-					Quoted(sb, param.Name);
+					Json.Quoted(sb, param.Name);
 				}
 
 				sb.Append("]}}}");
 			}
 
 			sb.Append(']');
-			return sb.ToString();
+			return schema = sb.ToString();
 		}
 	}
 }

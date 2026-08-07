@@ -134,6 +134,8 @@ namespace LLE
 				var index = call.Field("index");
 				int at = index != null && index.Is(JsonKind.Number) ? (int)index.Number : 0;
 
+				if (at < 0 || at >= 64) continue; // the loop below grows the lists up to this number
+
 				while (callNames.Count <= at)
 				{	callNames.Add(new StringBuilder());
 					callArguments.Add(new StringBuilder());
@@ -185,12 +187,16 @@ namespace LLE
 					continue;
 				}
 
-				LLE.Log($"llmToolCall[{Id}]: {call.Text}");
-				MyConsole.AddMultiline(call.Text + "\n", Color.Cyan);
-
 				calls.Add(call);
 				escaped.Add(arguments);
 			}
+
+			// After the loop, not inside it: one unreadable call drops the whole turn.
+			if (firstError == null)
+				foreach (var call in calls)
+				{	LLE.Log($"llmToolCall[{Id}]: {call.Text}");
+					MyConsole.AddMultiline(call.Text + "\n", Color.Cyan);
+				}
 
 			var json = new StringBuilder("{\"role\":\"assistant\",\"content\":");
 			Json.Quoted(json, content.ToString().Trim());

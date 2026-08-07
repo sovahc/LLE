@@ -63,10 +63,15 @@ namespace LLELoader
 		public readonly int Id;
 		public readonly ChannelConfig Config;
 
-		private readonly ConcurrentQueue<LLE.FromLLM> _queue = new ConcurrentQueue<LLE.FromLLM>();
+		// A queue per request, not one per channel: an abandoned stream keeps writing into its own,
+		// so there is nothing to drain and no window where its chunks land in the next request's.
+		private class Request
+		{
+			public readonly ConcurrentQueue<LLE.FromLLM> Chunks = new ConcurrentQueue<LLE.FromLLM>();
+			public readonly CancellationTokenSource Cancel = new CancellationTokenSource();
+		}
 
-		private volatile int _generation;
-		private CancellationTokenSource _cancel;
+		private volatile Request _current;
 
 		public Channel(int id, ChannelConfig config)
 		{
@@ -76,25 +81,34 @@ namespace LLELoader
 
 		public bool GetChunk(out LLE.FromLLM m)
 		{
-			return _queue.TryDequeue(out m);
+			var request = _current;
+			if (request == null) { m = null; return false; }
+			return request.Chunks.TryDequeue(out m);
 		}
 
 		public void Send(string requestJson)
 		{
-			_generation++;
-			Drain();
+			Abandon();
 
-			_cancel = new CancellationTokenSource();
-			var _ = AskLlmStreaming(requestJson, _cancel, _generation);
+			var request = new Request();
+			_current = request;
+			var _ = AskLlmStreaming(requestJson, request);
 		}
 
 		public void Cancel()
 		{
-			_generation++;
-			Drain();
-
-			if (_cancel != null) _cancel.Cancel();
+			Abandon();
 			Logger.Write($"[LLM:{Id}] cancelled");
+		}
+
+		private void Abandon()
+		{
+			var request = _current;
+			if (request == null) return;
+
+			_current = null;
+			request.Cancel.Cancel();
+			request.Cancel.Dispose();
 		}
 
 		private static void Quoted(StringBuilder sb, string s)
@@ -107,19 +121,14 @@ namespace LLELoader
 			sb.Append('"');
 		}
 
-		private void Drain()
+		private async Task AskLlmStreaming(string requestJson, Request request)
 		{
-			LLE.FromLLM m;
-			while (_queue.TryDequeue(out m)) { }
-		}
+			// Must stay before the first await: Abandon disposes the source, and only the token
+			// survives that.
+			var token = request.Cancel.Token;
 
-		private async Task AskLlmStreaming(string requestJson,
-			CancellationTokenSource cancel, int generation)
-		{
 			Action<LLE.MessageType, string> emit = (type, payload) =>
-			{	if (generation == _generation)
-					_queue.Enqueue(new LLE.FromLLM { Type = type, Payload = payload });
-			};
+				request.Chunks.Enqueue(new LLE.FromLLM { Type = type, Payload = payload });
 
 			try
 			{
@@ -142,12 +151,12 @@ namespace LLELoader
 
 				var body = head.ToString();
 
-				var request = new HttpRequestMessage(HttpMethod.Post, Config.LlmUrl)
+				var httpRequest = new HttpRequestMessage(HttpMethod.Post, Config.LlmUrl)
 				{	Content = new StringContent(body, Encoding.UTF8, "application/json")
 				};
 				if (!string.IsNullOrEmpty(Config.ApiKey))
-					request.Headers.Add("Authorization", "Bearer " + Config.ApiKey);
-				var response = await MessageBroker.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancel.Token).ConfigureAwait(false);
+					httpRequest.Headers.Add("Authorization", "Bearer " + Config.ApiKey);
+				var response = await MessageBroker.Http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
 
 				if (!response.IsSuccessStatusCode)
 				{
@@ -165,7 +174,7 @@ namespace LLELoader
 				using var reader = new StreamReader(stream);
 				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
 				{
-					if (cancel.IsCancellationRequested) break;
+					if (token.IsCancellationRequested) break;
 
 					if (!line.StartsWith("data:")) continue;
 					var data = line.Substring(5).Trim();
@@ -181,7 +190,7 @@ namespace LLELoader
 			}
 			catch (Exception ex)
 			{
-				if (cancel.IsCancellationRequested) return;
+				if (token.IsCancellationRequested) return;
 
 				Logger.Write($"[LLM:{Id}] streaming error: " + ex.Message);
 				emit(LLE.MessageType.Error, ex.Message);
@@ -329,7 +338,7 @@ namespace LLELoader
 				if (!File.Exists(_screenshotPath)) return;
 
 				var bytes = File.ReadAllBytes(_screenshotPath);
-					_pendingScreenshot = Convert.ToBase64String(bytes);
+				_pendingScreenshot = Convert.ToBase64String(bytes);
 				_screenshotSuccess = true;
 				Logger.Write($"[Screenshot] {_screenshotPath}, {bytes.Length} bytes");
 			}
@@ -337,8 +346,9 @@ namespace LLELoader
 			{
 				Logger.Write("[Screenshot] read failed: " + ex);
 			}
-
-			_screenshotFinished = true;
+			finally
+			{	_screenshotFinished = true;
+			}
 		}
 
 		public static string TakeScreenshot()
