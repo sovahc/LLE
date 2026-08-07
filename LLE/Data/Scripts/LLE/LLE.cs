@@ -272,19 +272,7 @@ namespace LLE
 			if (player == null) return;
 			if (commands == null) return;
 
-			if(message == ">sp")
-			{	var result = commands.Execute("select Platform");
-				MyConsole.AddMultiline(result?.Message, Color.SeaGreen);
-			}
-			else if(message == ">sm")
-			{	var result = commands.Execute("select Miner");
-				MyConsole.AddMultiline(result?.Message, Color.SeaGreen);
-			}
-			else if(message == ">sh")
-			{	var result = commands.Execute("select Huyator");
-				MyConsole.AddMultiline(result?.Message, Color.SeaGreen);
-			}
-			else if(message == ">spawn")
+			if(message == ">spawn")
 			{	var bot = Bot.Spawn(player);
 				MyConsole.Add($"bot={bot}");
 				if(bot == null) return;
@@ -293,15 +281,9 @@ namespace LLE
 				llm = new LLM(commands);
 			}
 			else if(message.StartsWith(">"))
-			{	var command = message.Substring(1).Trim();
-
-				MyConsole.AddMultiline(">", Color.Red);
-				MyConsole.AddMultiline(command, Color.Magenta);
-				MyConsole.AddMultiline("\n", Color.Magenta);
-				
-				var result = commands.Execute(command);
-				MyConsole.AddMultiline(result?.Message, Color.SeaGreen);
-				Log(">" + command + ": " + result?.Message);
+			{	// Commands are tool calls now, and a tool call is not something you type. The
+				// prefix is kept so the old habit does not reach the bot as a task.
+				MyConsole.Add("Commands from chat are gone — the model calls tools directly.", Color.Red);
 			}
 			else
 			{	llm.Append("[GAME CHAT]", Color.Red);
@@ -319,9 +301,11 @@ namespace LLE
 	{
 		public static bool IsPresent() => false;
 		public static bool GetChunkFromLLM(int channel, out FromLLM m) { m = null; return false; }
-		public static void SendMessageToLLM(int channel, string text) { }
+		// requestJson is the `messages` and `tools` of the request, written by the mod. The loader
+		// adds the fields that belong to the endpoint and posts it.
+		public static void SendMessageToLLM(int channel, string requestJson) { }
 		public static void CancelLLM(int channel) { } // abandon the answer being generated
-		public static void SetSystemPrompt(int channel, string text, string stop) { }
+		public static string TakeScreenshot() { return null; } // base64 PNG, once per frame taken
 		public static int GetContextWindow(int channel) { return 0; } // 0 = no such channel configured
 		public static void RequestScreenshot() { }
 		public static bool ScreenshotDone(out bool success) { success = false; return true; }

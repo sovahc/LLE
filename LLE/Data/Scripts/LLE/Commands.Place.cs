@@ -185,32 +185,29 @@ namespace LLE
 				yield return $"Error: the game refused to place {Quote(definition.DisplayNameText)} at {IJK(ijk)}.";
 		}
 
-		// `facing forward|backward|left|right [up|down]` — the optional tail `place` and `draft`
-		// share. Returns the refusal, or null.
-		private static string ParseFacing(TokenParser tp, string usage,
+		// The optional `facing` / `up` pair that `place` and `draft` share. Returns the refusal,
+		// or null. An `up` without a `facing` is refused rather than applied to the default: it
+		// means the model had an orientation in mind that this is not.
+		private static string ParseFacing(ToolCall call,
 			out Base6Directions.Direction forward, out Base6Directions.Direction up)
 		{
 			forward = Base6Directions.Direction.Forward;
 			up = Base6Directions.Direction.Up;
 
-			if (tp.End) return null;
+			var fs = call.Str("facing");
+			var us = call.Str("up");
 
-			if (!tp.Match("facing"))
-				return "Error: expected `facing` before the side direction. " + usage;
-
-			var fs = tp.NextString();
-			if (!ParseHorizDir(fs, out forward))
-				return $"Error: {Quote(fs)} is not a facing direction. Expected one of forward backward left right. " + usage;
-
-			if (!tp.End)
-			{
-				var us = tp.NextString();
-				if (!ParseVertDir(us, out up))
-					return $"Error: {Quote(us)} is not an up direction. Expected up or down. " + usage;
+			if (fs.Length == 0)
+			{	if (us.Length != 0)
+					return "Error: `up` only makes sense together with `facing`.";
+				return null;
 			}
 
-			if (!tp.End)
-				return "Error: too many arguments. " + usage;
+			if (!ParseHorizDir(fs, out forward))
+				return $"Error: {Quote(fs)} is not a facing direction. Expected one of forward backward left right.";
+
+			if (us.Length != 0 && !ParseVertDir(us, out up))
+				return $"Error: {Quote(us)} is not an up direction. Expected up or down.";
 
 			return null;
 		}
@@ -230,24 +227,19 @@ namespace LLE
 			return definition;
 		}
 
-		internal IEnumerator Place(TokenParser tp)
+		internal IEnumerator Place(ToolCall call)
 		{
-			const string usage = "Usage: place 'Block Name' at I J K [facing forward|backward|left|right] [up|down]";
-
 			string message;
 			if (!GridIsSet(out message)) yield return message;
 			if (CurrentGridIsProjection(out message)) yield return message;
 
-			var query = tp.NextString();
+			var query = call.Str("type");
 			if (string.IsNullOrEmpty(query))
-				yield return "Error: expected a block type. " + usage;
-
-			if (!tp.Match("at"))
-				yield return "Error: expected `at` before the coordinates. " + usage;
+				yield return call.Need("type");
 
 			Vector3I ijk;
-			if (!tp.NextVector3I(out ijk))
-				yield return "Error: expected I J K after `at`. " + usage;
+			if (!call.Ijk(out ijk))
+				yield return call.NeedIjk;
 
 			IMySlimBlock neighbour;
 			Vector3I neighbourCell;
@@ -255,7 +247,7 @@ namespace LLE
 			if (refusal != null) yield return refusal;
 
 			Base6Directions.Direction forward, up;
-			refusal = ParseFacing(tp, usage, out forward, out up);
+			refusal = ParseFacing(call, out forward, out up);
 			if (refusal != null) yield return refusal;
 
 			string error;

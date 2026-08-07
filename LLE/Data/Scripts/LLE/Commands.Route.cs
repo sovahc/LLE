@@ -54,20 +54,15 @@ namespace LLE
 			return null;
 		}
 
-		internal IEnumerator Route(TokenParser tp)
+		internal IEnumerator Route(ToolCall call)
 		{
 			string message;
 			if (!GridIsSet(out message)) yield return message;
 			if (CurrentGridIsProjection(out message)) yield return message;
 
-			const string usage = "Usage: route from I J K to I₂ J₂ K₂";
-
 			Vector3I a, b;
-			if (!tp.Match("from")) yield return "Error: expected 'from' " + usage;
-			if (!tp.NextVector3I(out a)) yield return "Error: expected two positions. " + usage;
-			if (!tp.Match("to")) yield return "Error: expected 'to' " + usage;
-			if (!tp.NextVector3I(out b)) yield return "Error: expected a second position. " + usage;
-			if (!tp.End) yield return "Error: too many arguments. " + usage;
+			if (!call.Ijk(out a)) yield return call.NeedIjk;
+			if (!call.Ijk2(out b)) yield return call.NeedIjk2;
 
 			var portsA = new List<ConveyorPort>();
 			var portsB = new List<ConveyorPort>();

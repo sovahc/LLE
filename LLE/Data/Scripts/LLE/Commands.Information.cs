@@ -410,13 +410,13 @@ namespace LLE
 			return Success(md.Result());
 		}
 
-		internal CommandResult Points(TokenParser tp)
+		internal CommandResult Points(ToolCall call)
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
 
 			Vector3I ijk;
-			if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";
+			if(!call.Ijk(out ijk)) return call.NeedIjk;
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) return $"Error: no block at {IJK(ijk)}";
@@ -428,13 +428,13 @@ namespace LLE
 			return Success(sb.ToString());
 		}
 
-		internal CommandResult Info(TokenParser tp)
+		internal CommandResult Info(ToolCall call)
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
 
 			Vector3I ijk;
-			if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";
+			if(!call.Ijk(out ijk)) return call.NeedIjk;
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) return $"Error: no block at {IJK(ijk)}";
@@ -491,8 +491,8 @@ namespace LLE
 			return Success(md.Result());
 		}
 
-		internal CommandResult Near(TokenParser tp, bool freeSpace = false)
-		{	
+		internal CommandResult Near(ToolCall call, bool freeSpace = false)
+		{
 			string message;
 			if(!GridIsSet(out message)) return message;
 
@@ -501,12 +501,12 @@ namespace LLE
 			Vector3I ijk;
 			string hint;
 
-			if(tp.End)
+			if(!call.HasIjk)
 			{	ijk = selectedGrid.WorldToGridInteger(GetEngineerCenter());
 				hint = "Your block";
 			}
 			else
-			{	if(!tp.NextVector3I(out ijk)) return "Error: Expected: I J K";
+			{	if(!call.Ijk(out ijk)) return call.NeedIjk;
 				hint = "Central block";
 			}
 
@@ -631,19 +631,22 @@ namespace LLE
 			return false;
 		}
 
-		internal CommandResult Search(TokenParser tp)
+		internal CommandResult Search(ToolCall call)
 		{
-			bool searchItems = false;
-			bool searchBlocks = false;
+			var kind = call.Str("kind");
 
-			if (tp.Match("item")) searchItems = true;
-			else if (tp.Match("block")) searchBlocks = true;
-			else return "Error: expected 'item' or 'block'. e.g. `search item 'substring' [N]`";
+			bool searchItems = kind == "item";
+			bool searchBlocks = kind == "block";
 
-			string query = tp.NextString();
+			if (!searchItems && !searchBlocks)
+				return $"Error: kind must be 'item' or 'block', not {Quote(kind)}.";
+
+			string query = call.Str("query");
+			if (string.IsNullOrEmpty(query)) return call.Need("query");
+
 			var queryWords = SearchWords(query);
 			int limit;
-			if (!tp.NextInt(out limit)) limit = 5;
+			if (!call.Int("limit", out limit)) limit = 5;
 
 			var engineer = GetEngineerCenter();
 			var S = new BoundingSphereD(engineer, Constants.NearInformationRadius);
@@ -799,7 +802,7 @@ namespace LLE
 			return false;
 		}
 
-		internal CommandResult Distance(TokenParser tp)
+		internal CommandResult Distance(ToolCall call, bool between)
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
@@ -807,11 +810,13 @@ namespace LLE
 			var grid = selectedGrid;
 
 			Vector3I a;
-			if(!tp.NextVector3I(out a)) return "Error: expected I J K";
+			if(!call.Ijk(out a)) return call.NeedIjk;
 
 			Vector3I b;
-			if(tp.NextVector3I(out b))
+			if(between)
 			{
+				if(!call.Ijk2(out b)) return call.NeedIjk2;
+
 				var wa = grid.GridIntegerToWorld(a);
 				var wb = grid.GridIntegerToWorld(b);
 				

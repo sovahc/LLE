@@ -45,14 +45,14 @@ namespace LLE
 			return true;
 		}
 
-		internal IEnumerator Grind(TokenParser tp)
+		internal IEnumerator Grind(ToolCall call)
 		{
 			string message;
 
 			if(!GridIsSet(out message)) yield return message;
 
 			Vector3I ijk;
-			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
+			if(!call.Ijk(out ijk)) yield return call.NeedIjk;
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
@@ -226,13 +226,13 @@ namespace LLE
 			result.Append("\n");
 		}
 
-		internal IEnumerator Weld(TokenParser tp)
+		internal IEnumerator Weld(ToolCall call)
 		{
 			string message;
 			if (!GridIsSet(out message)) yield return message;
 
 			Vector3I ijk;
-			if (!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
+			if (!call.Ijk(out ijk)) yield return call.NeedIjk;
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if (block == null) yield return $"Error: no block at {IJK(ijk)}";

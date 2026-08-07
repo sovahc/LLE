@@ -39,14 +39,14 @@ namespace LLE
 			}
 		}
 
-		internal CommandResult Enter(TokenParser tp)
+		internal CommandResult Enter(ToolCall call)
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
 			if(CurrentGridIsProjection(out message)) return message;
 
 			Vector3I ijk;
-			if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";
+			if(!call.Ijk(out ijk)) return call.NeedIjk;
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) return $"Error: no block at {IJK(ijk)}";
@@ -63,7 +63,7 @@ namespace LLE
 			return Success(message);
 		}
 
-		internal CommandResult Exit(TokenParser tp)
+		internal CommandResult Exit()
 		{
 			var seat = character.Parent as IMyCockpit;
 			if(seat == null) return "You are not seated.";

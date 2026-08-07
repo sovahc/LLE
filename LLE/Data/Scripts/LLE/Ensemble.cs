@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace LLE
 {
 	// Three identical local streams answering the same conversation at once. Where two of them
@@ -13,7 +15,9 @@ namespace LLE
 	// are there and nothing else changes.
 	class Ensemble
 	{
-		public const int Streams = 3;
+		// Temporarily 1: a single stream runs its own batch as it wrote it, with nothing to compare
+		// against. Back to 3 restores the vote and the choice round — nothing else changes.
+		public const int Streams = 1;
 
 		private readonly LlmChannel[] channels = new LlmChannel[Streams];
 		private readonly bool[] waiting = new bool[Streams];
@@ -38,27 +42,21 @@ namespace LLE
 			}
 		}
 
-		// The streams are identical or they are not an ensemble, so the prompt goes to all of them.
-		public static void SetSystemPromptAll(string text, string stop)
-		{	for (int i = 0; i < Streams; ++i)
-				if (LLE_Loader.GetContextWindow(i) > 0)
-					LLE_Loader.SetSystemPrompt(i, text, stop);
-		}
-
-		public void Send(string userText)
+		// The whole request travels on every send — the loader holds none of it.
+		public void Send(string requestJson)
 		{
 			error = null;
 
 			for (int i = 0; i < Streams; ++i)
 			{
 				waiting[i] = channels[i].Present;
-				if (waiting[i]) channels[i].Send(userText);
+				if (waiting[i]) channels[i].Send(requestJson);
 			}
 		}
 
 		// One finished stream per call, in whatever order they come back; -1 when there is nothing
 		// new. 'answer' is null for a stream that died on the way — Error carries what it said.
-		public int Poll(out string answer)
+		public int Poll(out Answer answer)
 		{
 			answer = null;
 
@@ -66,8 +64,10 @@ namespace LLE
 			{
 				if (!waiting[i]) continue;
 
-				string payload;
-				switch (channels[i].Poll(out payload))
+				Answer payload;
+				string errorText;
+
+				switch (channels[i].Poll(out payload, out errorText))
 				{
 					case ChannelEvent.Response:
 						waiting[i] = false;
@@ -76,7 +76,7 @@ namespace LLE
 
 					case ChannelEvent.Error:
 						waiting[i] = false;
-						error = payload;
+						error = errorText;
 						return i;
 				}
 			}

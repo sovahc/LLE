@@ -20,50 +20,49 @@ namespace LLE
 {
 	public partial class Commands
 	{
-		internal CommandResult Inventory(TokenParser tp)
+		internal CommandResult Inventory()
 		{
-			if(tp.End)
-			{
-				var inv = character.GetInventory() as IMyInventory;
-				if (inv == null) return IE_NO_INVENTORY;
+			var inv = character.GetInventory() as IMyInventory;
+			if (inv == null) return IE_NO_INVENTORY;
 
-				StringBuilder sb = new StringBuilder();
-				sb.Append($"Your inventory:\n");
+			StringBuilder sb = new StringBuilder();
+			sb.Append($"Your inventory:\n");
+			InventoryToText(inv, sb);
+
+			return Success(sb.ToString());
+		}
+
+		internal CommandResult InventoryBlock(ToolCall call)
+		{
+			string message;
+
+			if(!GridIsSet(out message)) return message;
+			if(CurrentGridIsProjection(out message)) return message;
+
+			Vector3I ijk;
+			if(!call.Ijk(out ijk)) return call.NeedIjk;
+
+			var block = selectedGrid.GetCubeBlock(ijk);
+			if(block == null) return $"Error: no block at {IJK(ijk)}";
+
+			var name = Name(block);
+			var fat = block.FatBlock;
+
+			if(fat == null || !fat.HasInventory)
+				return $"Block {Quote(name)} does not have an inventory.";
+
+			StringBuilder sb = new StringBuilder();
+			var es = fat.InventoryCount == 1 ? "" : "es";
+			sb.Append($"Current inventory{es} of {Quote(name)} (at {IJK(ijk)}):\n");
+
+			for(int i = 0; i < fat.InventoryCount; ++i)
+			{	var inv = fat.GetInventory(i);
 				InventoryToText(inv, sb);
-
-				return Success(sb.ToString());
 			}
-			else
-			{	string message;
 
-				if(!GridIsSet(out message)) return message;
-				if(CurrentGridIsProjection(out message)) return message;
+			AppendGasTankInfo(block, sb);
 
-				Vector3I ijk;
-				if(!tp.NextVector3I(out ijk)) return "Error: expected I J K";
-
-				var block = selectedGrid.GetCubeBlock(ijk);
-				if(block == null) return $"Error: no block at {IJK(ijk)}";
-
-				var name = Name(block);
-				var fat = block.FatBlock;
-
-				if(fat == null || !fat.HasInventory)
-					return $"Block {Quote(name)} does not have an inventory.";
-
-				StringBuilder sb = new StringBuilder();
-				var es = fat.InventoryCount == 1 ? "" : "es";
-				sb.Append($"Current inventory{es} of {Quote(name)} (at {IJK(ijk)}):\n");
-
-				for(int i = 0; i < fat.InventoryCount; ++i)
-				{	var inv = fat.GetInventory(i);
-					InventoryToText(inv, sb);
-				}
-
-				AppendGasTankInfo(block, sb);
-
-				return Success(sb.ToString());
-			}
+			return Success(sb.ToString());
 		}
 
 		internal CommandResult Inventories()
@@ -139,7 +138,7 @@ namespace LLE
 			output.Append($"  ({Percent((float)tank.FilledRatio)} {gasName}, {Volume(current)}/{Volume(max)})\n");
 		}
 
-		internal IEnumerator Get(TokenParser tp)
+		internal IEnumerator Get(ToolCall call)
 		{
 			string message;
 
@@ -148,13 +147,12 @@ namespace LLE
 
 			double count; Vector3I ijk;
 
-			if(!tp.NextDouble(out count)) yield return "Error: expected count";
+			if(!call.Number("count", out count)) yield return call.Need("count");
 
-			var item = tp.NextString();
+			var item = call.Str("item");
+			if(string.IsNullOrEmpty(item)) yield return call.Need("item");
 
-			if(!tp.Match("from")) yield return "Error: expected 'from'";
-
-			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
+			if(!call.Ijk(out ijk)) yield return call.NeedIjk;
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
@@ -200,7 +198,9 @@ namespace LLE
 			yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
 		}
 
-		internal IEnumerator Put(TokenParser tp)
+		// `put` and `put_all_components` are one body: the block, the interaction point and the
+		// transfer are the same, only what is picked out of the inventory differs.
+		internal IEnumerator Put(ToolCall call, bool allComponents)
 		{
 			string message;
 			if(!GridIsSet(out message)) yield return message;
@@ -208,27 +208,20 @@ namespace LLE
 
 			string item = null;
 			double count = 0;
-			bool allComponents = false;
 			bool allOfItem = false;
 
-			if(tp.Match("all"))
-			{	if(tp.Match("components"))
-					allComponents = true;
-				else
-				{	item = tp.NextString();
-					allOfItem = true;
-				}
-			}
-			else
-			{	if(!tp.NextDouble(out count)) yield return "Error: expected count";
-				item = tp.NextString();
-			}
+			if(!allComponents)
+			{
+				item = call.Str("item");
+				if(string.IsNullOrEmpty(item)) yield return call.Need("item");
 
-			if(!tp.Match("into")) yield return "Error: expected 'into'";
+				// No count means all of it — that is what the schema says the omission means.
+				allOfItem = !call.Number("count", out count);
+			}
 
 			Vector3I ijk;
 
-			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
+			if(!call.Ijk(out ijk)) yield return call.NeedIjk;
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
@@ -284,7 +277,7 @@ namespace LLE
 			}
 		}
 
-		internal IEnumerator Transfer(TokenParser tp)
+		internal IEnumerator Transfer(ToolCall call, bool allItems)
 		{
 			string message;
 
@@ -292,24 +285,17 @@ namespace LLE
 			if(CurrentGridIsProjection(out message)) yield return message;
 
 			double count = 0; Vector3I ijkFrom, ijkTo;
-			bool allItems = false;
 			string item = null;
 
-			if(tp.Match("all") && tp.Match("items"))
-			{	allItems = true;
-			}
-			else
-			{	if(!tp.NextDouble(out count)) yield return "Error: expected count";
-				item = tp.NextString();
+			if(!allItems)
+			{	item = call.Str("item");
+				if(string.IsNullOrEmpty(item)) yield return call.Need("item");
+				if(!call.Number("count", out count)) yield return call.Need("count");
 			}
 
-			if(!tp.Match("from")) yield return "Error: expected 'from'";
+			if(!call.Ijk(out ijkFrom)) yield return call.NeedIjk;
 
-			if(!tp.NextVector3I(out ijkFrom)) yield return "Error: expected I J K";
-
-			if(!tp.Match("to")) yield return "Error: expected 'to'";
-
-			if(!tp.NextVector3I(out ijkTo)) yield return "Error: expected I J K";
+			if(!call.Ijk2(out ijkTo)) yield return call.NeedIjk2;
 
 			var blockFrom = selectedGrid.GetCubeBlock(ijkFrom);
 			if(blockFrom == null) yield return $"Error: no block at {IJK(ijkFrom)}";

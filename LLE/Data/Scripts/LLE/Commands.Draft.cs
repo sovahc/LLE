@@ -217,31 +217,29 @@ namespace LLE
 				+ " The structure has to grow out of what is already there.";
 		}
 
-		internal CommandResult Draft(TokenParser tp)
+		internal CommandResult DraftClear()
 		{
-			const string usage = "Usage: draft 'Block Name' at I J K [facing forward|backward|left|right] [up|down]";
+			if(draft.Count == 0) return Success("The draft is already empty.");
 
-			if(tp.End || tp.Match("show")) return DraftShow();
+			int dropped = draft.Count;
+			ClearDraft();
+			return Success($"Draft cleared, {dropped} block(s) dropped.");
+		}
 
-			if(tp.Match("clear"))
-			{	if(draft.Count == 0) return Success("The draft is already empty.");
+		internal CommandResult DraftUndo()
+		{
+			if(draft.Count == 0) return "Error: the draft is empty, nothing to undo.";
 
-				int dropped = draft.Count;
-				ClearDraft();
-				return Success($"Draft cleared, {dropped} block(s) dropped.");
-			}
+			var last = draft[draft.Count - 1];
+			draft.RemoveAt(draft.Count - 1);
+			if(draft.Count == 0) ClearDraft(); else TouchDraft();
 
-			if(tp.Match("undo"))
-			{	if(draft.Count == 0) return "Error: the draft is empty, nothing to undo.";
+			return Success($"Removed {Quote(last.Definition.DisplayNameText)} at {IJK(last.Cell)}"
+				+ $" from the draft. {draft.Count} block(s) left.");
+		}
 
-				var last = draft[draft.Count - 1];
-				draft.RemoveAt(draft.Count - 1);
-				if(draft.Count == 0) ClearDraft(); else TouchDraft();
-
-				return Success($"Removed {Quote(last.Definition.DisplayNameText)} at {IJK(last.Cell)}"
-					+ $" from the draft. {draft.Count} block(s) left.");
-			}
-
+		internal CommandResult Draft(ToolCall call)
+		{
 			string message;
 			if(!GridIsSet(out message)) return message;
 			if(CurrentGridIsProjection(out message)) return message;
@@ -249,22 +247,19 @@ namespace LLE
 			var mismatch = DraftGridMismatch();
 			if(mismatch != null) return mismatch;
 
-			var query = tp.NextString();
+			var query = call.Str("type");
 			if(string.IsNullOrEmpty(query))
-				return "Error: expected a block type. " + usage;
-
-			if(!tp.Match("at"))
-				return "Error: expected `at` before the coordinates. " + usage;
+				return call.Need("type");
 
 			Vector3I ijk;
-			if(!tp.NextVector3I(out ijk))
-				return "Error: expected I J K after `at`. " + usage;
+			if(!call.Ijk(out ijk))
+				return call.NeedIjk;
 
 			var refusal = CheckDraftSite(ijk);
 			if(refusal != null) return refusal;
 
 			Base6Directions.Direction forward, up;
-			refusal = ParseFacing(tp, usage, out forward, out up);
+			refusal = ParseFacing(call, out forward, out up);
 			if(refusal != null) return refusal;
 
 			string error;

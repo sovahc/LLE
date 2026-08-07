@@ -122,19 +122,17 @@ namespace LLE
 			return null;
 		}
 
-		internal IEnumerator Approach(TokenParser tp)
+		internal IEnumerator Approach(ToolCall call)
 		{
 			string message;
 			if(!GridIsSet(out message)) yield return message;
 
 			Vector3I ijk;
-			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
+			if(!call.Ijk(out ijk)) yield return call.NeedIjk;
 
-			if(!tp.Match("For"))
-				yield return "Error: expected 'for <intention>'";
-			var intentionWord = tp.NextString();
+			var intentionWord = call.Str("action");
 			if(string.IsNullOrEmpty(intentionWord))
-				yield return "Error: expected intention after 'for'";
+				yield return call.Need("action");
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			
@@ -187,16 +185,19 @@ namespace LLE
 			yield return RealFly(destinationCell, arrivalMessage, false);
 		}
 
-		internal IEnumerator Fly(TokenParser tp)
+		internal IEnumerator Fly(ToolCall call)
 		{
 			string message;
 			if(!GridIsSet(out message)) yield return message;
 
 			Vector3I ijk;
-			if(!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
+			if(!call.Ijk(out ijk)) yield return call.NeedIjk;
 
-			var headFirst = tp.Match("headfirst");
+			yield return FlyTo(ijk, call.Bool("headfirst"));
+		}
 
+		private IEnumerator FlyTo(Vector3I ijk, bool headFirst)
+		{
 			var block = selectedGrid.GetCubeBlock(ijk);
 
 			if(!Collisions.CenterIsFree(block, ijk))
@@ -421,33 +422,26 @@ namespace LLE
 			return true;
 		}
 
-		// Matches and consumes a direction word if the next token is one; returns null otherwise.
-		private static string MatchDirection(TokenParser tp)
-		{
-			foreach(var d in new[] { "forward", "backward", "left", "right", "up", "down" })
-				if(tp.Match(d)) return d;
-			return null;
-		}
-
-		internal IEnumerator Fly_Direction_N(string dirWord, TokenParser tp)
+		internal IEnumerator Fly_Direction_N(ToolCall call)
 		{
 			string message;
 			if(!GridIsSet(out message)) yield return message;
+
+			var dirWord = call.Str("direction");
 
 			Vector3I offset;
 			if(!TryDirOffset(selectedGrid, dirWord, out offset))
 				yield return $"Error: {Quote(dirWord)} is not a direction. Expected: forward backward left right up down";
 
 			int n;
-			if(!tp.NextInt(out n))
-				yield return "Error: expected cell count N after direction";
+			if(!call.Int("n", out n))
+				yield return call.Need("n");
 			if(n <= 0)
-				yield return $"Error: N must be positive, got {n}";
+				yield return $"Error: n must be positive, got {n}";
 
 			var here = selectedGrid.WorldToGridInteger(GetEngineerCenter());
-			var target = here + offset * n;
 
-			yield return Fly(new TokenParser($"{target.X} {target.Y} {target.Z}"));
+			yield return FlyTo(here + offset * n, false);
 		}
 	}
 }

@@ -31,11 +31,8 @@ namespace LLE
 			}
 		}
 
-		private const string ConveyorUsage =
-			"Usage: place conveyor I J K D D₂ [square|round|reinforced], each D one of +I -I +J -J +K -K";
-
 		private const string DraftConveyorUsage =
-			"Usage: draft conveyor I J K D D₂ [square|round|reinforced], each D one of +I -I +J -J +K -K";
+			"Use draft_conveyor: the cell, then port1 and port2, each one of +I -I +J -J +K -K.";
 
 		private static readonly TubeVariant[] TubeVariants =
 		{	new TubeVariant("square",     MyCubeSize.Large, false, "ConveyorTube",                   Direction.Up,       Direction.Down),
@@ -77,7 +74,7 @@ namespace LLE
 		// Everything `place conveyor` and `draft conveyor` share: the cell, the two openings and
 		// the tube kind, resolved into the block to use and the orientation that puts its
 		// openings where they were asked for. Returns the refusal, or null.
-		private string ResolveTube(TokenParser tp, string usage, out Vector3I ijk,
+		private string ResolveTube(ToolCall call, out Vector3I ijk,
 			out MyCubeBlockDefinition definition, out MyBlockOrientation orientation,
 			out Direction port1, out Direction port2)
 		{
@@ -87,32 +84,29 @@ namespace LLE
 			port1 = Direction.Forward;
 			port2 = Direction.Backward;
 
-			if (!tp.NextVector3I(out ijk))
-				return "Error: expected I J K after `conveyor`. " + usage;
+			if (!call.Ijk(out ijk))
+				return call.NeedIjk;
 
-			var s1 = tp.NextString();
+			var s1 = call.Str("port1");
 			if (!ParseDirection(s1, out port1))
-				return $"Error: {Quote(s1)} is not a direction. " + usage;
+				return $"Error: {Quote(s1)} is not a direction.";
 
-			var s2 = tp.NextString();
+			var s2 = call.Str("port2");
 			if (!ParseDirection(s2, out port2))
-				return $"Error: {Quote(s2)} is not a direction. " + usage;
+				return $"Error: {Quote(s2)} is not a direction.";
 
 			if (port1 == port2)
 				return "Error: the two openings must look in different directions."
 					+ " A tube has one opening on each end.";
 
 			var family = "square";
-			if (!tp.End)
+			if (call.Has("kind"))
 			{
-				var word = tp.NextString().ToLowerInvariant();
+				var word = call.Str("kind").ToLowerInvariant();
 				if (word != "square" && word != "round" && word != "reinforced")
-					return $"Error: {Quote(word)} is not a tube kind. Expected square, round or reinforced."
-						+ " " + usage;
+					return $"Error: {Quote(word)} is not a tube kind. Expected square, round or reinforced.";
 				family = word;
 			}
-
-			if (!tp.End) return "Error: too many arguments. " + usage;
 
 			// Opposite openings make a straight tube, perpendicular ones a curved tube. There is
 			// nothing else to choose from: junctions and T-pieces are not handled yet.
@@ -161,7 +155,7 @@ namespace LLE
 				+ " " + DraftConveyorUsage;
 		}
 
-		internal CommandResult DraftConveyor(TokenParser tp)
+		internal CommandResult DraftConveyor(ToolCall call)
 		{
 			string message;
 			if (!GridIsSet(out message)) return message;
@@ -175,7 +169,7 @@ namespace LLE
 			MyBlockOrientation orientation;
 			Direction port1, port2;
 
-			var refusal = ResolveTube(tp, DraftConveyorUsage, out ijk,
+			var refusal = ResolveTube(call, out ijk,
 				out definition, out orientation, out port1, out port2);
 			if (refusal != null) return refusal;
 
@@ -189,7 +183,7 @@ namespace LLE
 				+ $" {draft.Count} block(s) in the draft.");
 		}
 
-		internal IEnumerator PlaceConveyor(TokenParser tp)
+		internal IEnumerator PlaceConveyor(ToolCall call)
 		{
 			string message;
 			if (!GridIsSet(out message)) yield return message;
@@ -200,7 +194,7 @@ namespace LLE
 			MyBlockOrientation orientation;
 			Direction port1, port2;
 
-			var refusal = ResolveTube(tp, ConveyorUsage, out ijk,
+			var refusal = ResolveTube(call, out ijk,
 				out definition, out orientation, out port1, out port2);
 			if (refusal != null) yield return refusal;
 

@@ -13,9 +13,9 @@ namespace LLE
 		private int repeats; // consecutive times lastBatch was seen
 
 		// Returns true to BLOCK execution. On a non-blocking detection, 'message' carries a warning to append.
-		public bool IsLoop(List<string> commands, out string message)
+		public bool IsLoop(List<ToolCall> calls, out string message)
 		{
-			var current = string.Join("\n", commands);
+			var current = LLM.Join("\n", calls);
 			if (current == lastBatch)
 				repeats++;
 			else
@@ -23,9 +23,8 @@ namespace LLE
 				repeats = 1;
 			}
 
-			if (commands.Count == 0)
-			{	message = "!ERROR: No commands found in your last message."
-					+ " Wrap your commands in <execute>...</execute>.\n";
+			if (calls.Count == 0)
+			{	message = "!ERROR: Your last message called no tool. Every turn is one to three tool calls.\n";
 				return repeats >= 4;
 			}
 
@@ -35,12 +34,11 @@ namespace LLE
 			}
 			if (repeats == 2)
 			{	message = "!Warning: This command batch is identical to the previous one."
-					+ " If the task is complete, use `pause`.\n";
+					+ " If the task is complete, call pause.\n";
 				return false;
 			}
 			if (repeats == 3)
-			{	message = "!WARNING: Identical batch repeated again."
-					+ " Put `pause` inside <execute> to stop.\n";
+			{	message = "!WARNING: Identical batch repeated again. Call pause to stop.\n";
 				return false;
 			}
 			// repeats >= 4
@@ -55,39 +53,43 @@ namespace LLE
 		}
 	}
 
-	// One plan on the table: a stream's own words and the commands parsed out of them. Round one
+	// One plan on the table: a stream's own words and the calls it issued alongside them. Round one
 	// puts one of these in the pool per stream, the choice round adds one more per stream, and the
 	// turn is decided over the pool as a whole.
 	class Proposal
 	{
 		public readonly string Answer;
-		public readonly List<string> Commands;
+		public readonly List<ToolCall> Calls;
 
-		public Proposal(string answer, List<string> commands)
+		public Proposal(string answer, List<ToolCall> calls)
 		{	Answer = answer;
-			Commands = commands;
+			Calls = calls;
 		}
 	}
 
 	class LLM
 	{
-		public const string ExecuteOpenTag  = "<execute>";
-		public const string ExecuteCloseTag = "</execute>";
-		public const string StopWorld = "[YOU]"; // don't hallucinate, please.
-			// The model may keep generating past </execute> (hallucinated command results,
-			// [VISION]/[YOU] lines, a second reasoning + a second <execute>)
-
 		private void Log(string s) => LLE.Log(s);
 
 		// The conversation lives here, not in the loader: the loader is transport and must not
-		// hold state that belongs to a turn.
+		// hold state that belongs to a turn. Each entry is one message, already written as the JSON
+		// the request carries — the bot's own turns are kept as they came off the wire and are never
+		// rewritten.
 		private readonly List<string> transcript = new List<string>();
 		private int transcriptChars;
 		private int turn;
 
+		// How many calls of the batch being executed have answered so far. The position is what
+		// names the call a result belongs to.
+		private int callCursor;
+
+		// Something happened that the model has not seen. Not the same as "output is not empty":
+		// a turn whose whole news is command results has nothing in output at all, and skipping
+		// the send would leave the bot waiting on a conversation that never continues.
+		private bool hasNews;
+
 		private readonly Ensemble ensemble = new Ensemble();
 
-		private string lastConversation;  // this turn's message, kept for the choice round
 		private bool choiceSent;          // one choice round per turn, then the bot acts anyway
 
 		private bool inFlight;            // a round is out with the streams
@@ -102,7 +104,17 @@ namespace LLE
 
 		// The tail of the batch the streams did not agree on. Reported after the executed commands
 		// so the transcript keeps the real order of events.
-		private readonly List<string> notExecuted = new List<string>();
+		private readonly List<ToolCall> notExecuted = new List<ToolCall>();
+
+		// Calls print as themselves everywhere they are shown or compared.
+		public static string Join(string separator, List<ToolCall> calls)
+		{	var sb = new StringBuilder();
+			for (int i = 0; i < calls.Count; ++i)
+			{	if (i != 0) sb.Append(separator);
+				sb.Append(calls[i].Text);
+			}
+			return sb.ToString();
+		}
 
 		[Flags]
 		public enum Destination : byte
@@ -121,7 +133,7 @@ namespace LLE
 
 		private Commands commands;
 
-		private Queue<string> batch = new Queue<string>();
+		private Queue<ToolCall> batch = new Queue<ToolCall>();
 
 		private double commandStartTime;
 
@@ -153,11 +165,22 @@ namespace LLE
 				took = $" (Took {elapsed:F1}s)";
 			commandStartTime = 0;
 
-			Append($"→ {currentCommand}: [{tag}] {result.Message}{took}\n", Color.Cornsilk);
+			// The result goes back as the answer to its own call, so it does not repeat which call
+			// that was. The console still shows the pair — nobody reading it has the request in front
+			// of them.
+			Append($"→ {currentCommand.Text}: [{tag}] {result.Message}{took}\n", Color.Cornsilk,
+				Destination.Console | Destination.Log);
+			AnswerCall($"[{tag}] {result.Message}{took}");
 
 			if(result.Status != CommandStatus.Success && batch.Count > 0)
-			{	Append($"Remaining {batch.Count} command(s) ignored: {string.Join("; ", batch)}\n", Color.Cornsilk);
-				batch.Clear();
+			{	Append($"Remaining {batch.Count} command(s) ignored: {Join("; ", new List<ToolCall>(batch))}\n",
+					Color.Cornsilk, Destination.Console | Destination.Log);
+
+				while(batch.Count > 0)
+				{	batch.Dequeue();
+					AnswerCall("Not executed: an earlier call in this batch failed.");
+				}
+
 				FlushNotExecuted();
 				return;
 			}
@@ -167,14 +190,52 @@ namespace LLE
 			// Next command (if any) is driven by Tick() — one per tick.
 		}
 
+		// The bot's turn, exactly as the channel wrote it down. Nothing here looks inside it: the
+		// calls it holds are the model's own bytes, and the results that follow answer them by
+		// position.
+		private void AddAssistant(string assistantJson)
+		{
+			callCursor = 0;
+			transcript.Add(assistantJson);
+			transcriptChars += assistantJson.Length;
+		}
+
+		// Whatever is left of the batch answers with the same reason. A call the bot made and the
+		// mod then dropped still has to come back answered.
+		private void AnswerRest(int total, string text)
+		{
+			while (callCursor < total) AnswerCall(text);
+		}
+
+		// Every call the bot made has to come back answered, in the order it was made: that is what
+		// ties a result to its call, and a call left unanswered breaks the turn it belongs to.
+		private void AnswerCall(string text)
+		{
+			var json = new StringBuilder("{\"role\":\"tool\",\"tool_call_id\":");
+			Json.Quoted(json, LlmChannel.CallId(callCursor));
+			json.Append(",\"content\":");
+			Json.Quoted(json, text);
+			json.Append('}');
+
+			transcript.Add(json.ToString());
+			transcriptChars += text.Length;
+			callCursor++;
+			hasNews = true;
+		}
+
 		private void FlushNotExecuted()
 		{
 			if (notExecuted.Count == 0) return;
 
+			Append($"Not executed: {Join("; ", notExecuted)}\n", Color.Cornsilk,
+				Destination.Console | Destination.Log);
+
 			// Why, not just what: with no reason given the model spends its next turn reasoning about
 			// what "not executed" could mean instead of reading the results it did get.
-			Append("Not executed (the environment dropped the tail of the batch, which is normal —"
-				+ $" continue from the results above): {string.Join("; ", notExecuted)}\n", Color.Cornsilk);
+			foreach (var call in notExecuted)
+				AnswerCall("Not executed — the environment dropped the tail of the batch, which is"
+					+ " normal. Continue from the results you did get; do not repeat what succeeded.");
+
 			notExecuted.Clear();
 		}
 
@@ -189,7 +250,7 @@ namespace LLE
 			// Execute() returns null only when it pushed a coroutine. If it didn't, the head
 			// would never be dequeued and Tick() would re-run this command every tick.
 			if (result == null && !commands.InProgress())
-				result = $"Internal error: command '{batch.Peek()}' produced no result.";
+				result = $"Internal error: command '{batch.Peek().Text}' produced no result.";
 
 			if (result != null)
 			{
@@ -201,7 +262,7 @@ namespace LLE
 		public void Append(string text, Color consoleColor, Destination d = Destination.All)
 		{	if((d & Destination.Console) != 0) MyConsole.AddMultiline(text, consoleColor);
 			if((d & Destination.Log)     != 0) logBuf.Append(text);
-			if((d & Destination.LLM)     != 0) output.Append(text);
+			if((d & Destination.LLM)     != 0) { output.Append(text); hasNews = true; }
 		}
 
 		public void Tick()
@@ -246,22 +307,12 @@ namespace LLE
 
 			// batch.Count == 0
 
-			if(commands.InProgress()) // manual command from chat
-			{	var result = commands.Update();
-				if (result != null)
-				{	MyConsole.AddMultiline("=", Color.Red);
-					MyConsole.AddMultiline(result.Message, Color.Magenta);
-					MyConsole.AddMultiline("\n", Color.Magenta);
-				}
-				return;
-			}
-
 			if(ensemble.Busy) return;
 			if(pause) return;
 
 			// Process a finished response BEFORE any send. Otherwise an async sensor
 			// report (VISION/STATUS) can fire the send below and orphan it; the next
-			// response then appends onto it ("Found 2 <execute> blocks").
+			// response then appends its own calls onto it.
 			if(decided)
 			{	decided = false;
 				ProcessAnswers();
@@ -270,7 +321,7 @@ namespace LLE
 				if(pause) return;              // response was pause/restart — do not send this turn
 			}
 
-			if (output.Length != 0) // We have data for LLM
+			if (hasNews) // We have data for LLM
 			{
 				int used = ContextUsed;
 				int total = ensemble.ContextWindow;
@@ -279,6 +330,7 @@ namespace LLE
 				{	// No such channel in the loader config — there is nobody to talk to.
 					output.Clear();
 					logBuf.Clear();
+					hasNews = false;
 					return;
 				}
 
@@ -316,13 +368,20 @@ namespace LLE
 				// Send accumulated results to LLM
 				Log($"toLLM: {logBuf}");
 
-				var message = output.ToString();
-				transcript.Add(message);
-				transcriptChars += message.Length;
+				// What the environment has to say goes in as one user message; the command results
+				// are already in, each answering its own call.
+				//
+				// It goes in even when there is nothing to say. A conversation that ends on a tool
+				// result gets no generation prompt from Gemma's chat template — it breaks off inside
+				// the model's own turn, and the model then opens the turn by hand and writes the
+				// template's own tokens out as text. Measured over 16 turns: 5 of 9 usable when the
+				// results end the conversation, 15 of 16 when a user message closes them.
+				var text = output.Length == 0 ? "[SYSTEM] No new events." : output.ToString();
+				transcript.Add(UserMessage(text));
+				transcriptChars += text.Length;
 				output.Clear();
 				logBuf.Clear();
-
-				lastConversation = "\n" + string.Join("\n", transcript);
+				hasNews = false;
 
 				choiceSent = false;
 				pool.Clear();
@@ -330,11 +389,46 @@ namespace LLE
 				anyoneSpoke = false;
 				inFlight = true;
 
-				ensemble.Send(lastConversation);
+				ensemble.Send(Request(null));
 				turn++;
 				return;
 			}
 
+		}
+
+		// The conversation as it goes out. The choice round asks its question as one more user
+		// message rather than by editing the last one: the turn it is asking about has to read the
+		// same way it did the first time.
+		private string Request(string extraUser)
+		{
+			var sb = new StringBuilder("\"messages\":[{\"role\":\"system\",\"content\":");
+			Json.Quoted(sb, commands.SystemPrompt);
+			sb.Append('}');
+
+			foreach (var message in transcript)
+				sb.Append(',').Append(message);
+
+			if (extraUser != null)
+				sb.Append(',').Append(UserMessage(extraUser));
+
+			// A frame is offered once and belongs to the turn that takes it. It rides in a message
+			// of its own, at the end, where the model is looking now.
+			var screenshot = LLE_Loader.TakeScreenshot();
+			if (screenshot != null)
+			{
+				sb.Append(",{\"role\":\"user\",\"content\":[{\"type\":\"image_url\",\"image_url\":{\"url\":");
+				Json.Quoted(sb, "data:image/png;base64," + screenshot);
+				sb.Append("}}]}");
+			}
+
+			sb.Append("],\"tools\":").Append(Tools.Json());
+			return sb.ToString();
+		}
+
+		private static string UserMessage(string text)
+		{	var sb = new StringBuilder("{\"role\":\"user\",\"content\":");
+			Json.Quoted(sb, text);
+			return sb.Append('}').ToString();
 		}
 
 		private int ContextUsed
@@ -358,7 +452,7 @@ namespace LLE
 		// once it decides, the streams still generating are told to stop.
 		private void PollStreams()
 		{
-			string answer;
+			Answer answer;
 			int stream;
 
 			while ((stream = ensemble.Poll(out answer)) >= 0)
@@ -370,22 +464,25 @@ namespace LLE
 
 				anyoneSpoke = true;
 
-				string error;
-				var parsed = ParseBatch(answer, out error);
-				if (parsed == null)
-				{	// The turn goes on without this stream. Left unsaid, an answer that never reached
-					// the pool shows up nowhere but the pool size, and every count drawn from the log
-					// is short by an unknown amount.
-					Log($"stream {stream} unparsable: {error.Trim()}");
+				// A stream that called nothing has no plan, and one whose call came back unreadable
+				// has half of one. Neither reaches the pool; the turn goes on without it. Left
+				// unsaid, an answer that never reached the pool shows up nowhere but the pool size,
+				// and every count drawn from the log is short by an unknown amount.
+				string error = answer.Error;
+				if (error == null && answer.Calls.Count == 0)
+					error = "[ERROR] You called no tool. Every turn is one to three tool calls.\n";
+
+				if (error != null)
+				{	Log($"stream {stream} unusable: {error.Trim()}");
 
 					if (unparsedAnswer == null)
-					{	unparsedAnswer = answer;
+					{	unparsedAnswer = answer.AssistantJson;
 						unparsedError = error;
 					}
 					continue;
 				}
 
-				pool.Add(new Proposal(answer, parsed));
+				pool.Add(new Proposal(answer.AssistantJson, answer.Calls));
 			}
 
 			if (!inFlight || decided) return;
@@ -407,75 +504,18 @@ namespace LLE
 			ContextStatistic();
 		}
 
-		private static string MyTrim(string s)
-		{	if(s.Length < 2) return s;
-			char fc = s[0];
-			if ((fc == '`' || fc == '\'' || fc == '\"') && s[s.Length - 1] == fc) return s.Substring(1, s.Length - 2);
-			return s;
-		}
-
-		// The <execute> block as the mod reads it. Returns null and fills 'error' with the text the
-		// model will read next turn — nothing here touches the game or the transcript.
-		private static List<string> ParseBatch(string content, out string error)
+		// Two calls are the same call when name and arguments match. `say` is the one exception:
+		// what the bot tells the player is free text, and two streams never phrase it alike — on
+		// the measured session that alone accounted for a sixth of the disagreements.
+		private static bool SameCommand(ToolCall x, ToolCall y)
 		{
-			error = null;
-			content = content.Trim();
+			if (x.Is("say") && y.Is("say")) return true;
 
-			// Exactly one <execute> block is allowed; multiple blocks are rejected (not "keep the last").
-			int count = 0, scan = 0;
-			while (true)
-			{	int at = content.IndexOf(ExecuteOpenTag, scan, StringComparison.OrdinalIgnoreCase);
-				if (at < 0) break;
-				count++;
-				scan = at + ExecuteOpenTag.Length;
-			}
-			if (count == 0)
-			{	error = "[ERROR] No <execute> block found. Wrap your commands in <execute>...</execute>.\n";
-				return null;
-			}
-			if (count > 1)
-			{	error = "[ERROR] Found " + count + " <execute> blocks; exactly one is allowed. No commands were executed. Put all commands into a single <execute> block.\n";
-				return null;
-			}
-
-			int start = content.IndexOf(ExecuteOpenTag, StringComparison.OrdinalIgnoreCase);
-			start += ExecuteOpenTag.Length;
-
-			int end = content.IndexOf(ExecuteCloseTag, start, StringComparison.OrdinalIgnoreCase);
-			if (end < 0) end = content.Length;
-
-			var lines = content.Substring(start, end - start).Split('\n');
-			List<string> cc = new List<string>();
-			foreach (var line in lines)
-			{	string l = line.Trim();
-				if (l.Length == 0) continue;
-				// Strip optional "Execute " prefix for backward compat
-				if (l.StartsWith("Execute ", StringComparison.OrdinalIgnoreCase))
-					l = l.Substring(8);
-				cc.Add(MyTrim(l));
-			}
-
-			if (cc.Count == 0)
-			{	error = "[ERROR] No commands found inside <execute> block.\n";
-				return null;
-			}
-
-			return cc;
-		}
-
-		// Two commands are the same command when they are literally the same. `say` is the one
-		// exception: what the bot tells the player is free text, and two streams never phrase it
-		// alike — on the measured session that alone accounted for a sixth of the disagreements.
-		private static bool SameCommand(string x, string y)
-		{
-			if (x.Equals(y, StringComparison.OrdinalIgnoreCase)) return true;
-
-			return x.StartsWith("say ", StringComparison.OrdinalIgnoreCase)
-			    && y.StartsWith("say ", StringComparison.OrdinalIgnoreCase);
+			return x.Text.Equals(y.Text, StringComparison.OrdinalIgnoreCase);
 		}
 
 		// Commands are order-dependent (fly, then get), so agreement is a prefix, not a set.
-		private static int CommonPrefix(List<string> x, List<string> y)
+		private static int CommonPrefix(List<ToolCall> x, List<ToolCall> y)
 		{
 			int n = 0;
 			while (n < x.Count && n < y.Count && SameCommand(x[n], y[n])) n++;
@@ -495,14 +535,14 @@ namespace LLE
 			for (int i = 0; i < plans.Count; ++i)
 			{
 				int count = 1;
-				int prefix = plans[i].Commands.Count;
+				int prefix = plans[i].Calls.Count;
 
 				for (int j = i + 1; j < plans.Count; ++j)
 				{
-					if (!SameCommand(plans[i].Commands[0], plans[j].Commands[0])) continue;
+					if (!SameCommand(plans[i].Calls[0], plans[j].Calls[0])) continue;
 
 					count++;
-					int p = CommonPrefix(plans[i].Commands, plans[j].Commands);
+					int p = CommonPrefix(plans[i].Calls, plans[j].Calls);
 					if (p < prefix) prefix = p;
 				}
 
@@ -521,7 +561,7 @@ namespace LLE
 		{
 			var best = plans[0];
 			foreach (var p in plans)
-				if (p.Commands.Count < best.Commands.Count) best = p;
+				if (p.Calls.Count < best.Calls.Count) best = p;
 			return best;
 		}
 
@@ -535,7 +575,7 @@ namespace LLE
 		// and five of six answered with something that was neither plan.
 		//
 		// "without its label" is not decoration: without it a third of the answers came back as the
-		// literal text "PLAN A:" and its lines, with no <execute> block at all.
+		// literal text "PLAN A:" and its lines, with no call at all.
 		private static string Choice(List<Proposal> plans)
 		{
 			string count = plans.Count == 3 ? "three" : "two";
@@ -545,14 +585,14 @@ namespace LLE
 			sb.Append("\n[SYSTEM] ").Append(plans.Count == 3 ? "Three" : "Two")
 				.Append(" plans were proposed for this turn and they start differently.")
 				.Append(" Pick the one that is right here.")
-				.Append(" Answer with a single <execute> block holding that plan's commands, unchanged, without its label,")
+				.Append(" Issue that plan's calls, unchanged and in order, without its label,")
 				.Append(" and nothing else. Do not think it over and do not write a plan of your own:")
 				.Append(" this is a choice between ").Append(count).Append(".")
-				.Append(" If none of them is right, answer with the one command that fixes that.\n");
+				.Append(" If none of them is right, answer with the one call that fixes that.\n");
 
 			for (int i = 0; i < plans.Count; ++i)
 				sb.Append("PLAN ").Append((char)('A' + i)).Append(":\n")
-					.Append(string.Join("\n", plans[i].Commands)).Append("\n");
+					.Append(Join("\n", plans[i].Calls)).Append("\n");
 
 			return sb.ToString();
 		}
@@ -571,10 +611,10 @@ namespace LLE
 			}
 
 			if (pool.Count == 0)
-			{	// Nobody wrote a batch the mod can read — not in this round and not in the one
-				// before it. One stream's words go back with the error they earned.
-				Append($"[YOU]:\n{unparsedAnswer.Trim()}\n", Color.Cyan, Destination.LLM);
+			{	// Nobody made a call the mod can use — not in this round and not in the one before
+				// it. The stream's words go back with the error they earned.
 				Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
+				AddAssistant(unparsedAnswer);
 				Append(unparsedError, Color.Red);
 				return;
 			}
@@ -588,14 +628,14 @@ namespace LLE
 				{	choiceSent = true;
 
 					Log($"consensus: turn {turn}, no two streams agreed: "
-						+ string.Join(" | ", pool.Select(p => p.Commands[0])) + " — choosing");
+						+ string.Join(" | ", pool.Select(p => p.Calls[0].Text)) + " — choosing");
 					MyConsole.AddNewLine();
 					MyConsole.Add("[CHOICE] streams disagreed on the first command", Color.Yellow);
 
 					// The round-one answers are dropped, transcript and all: if the streams converge
 					// here, this turn must read as if the bot answered once.
 					inFlight = true;
-					ensemble.Send(lastConversation + Choice(pool));
+					ensemble.Send(Request(Choice(pool)));
 					return;
 				}
 
@@ -603,33 +643,36 @@ namespace LLE
 				// is no third round. The shortest plan is the one that commits least before the
 				// game answers back, and the next turn decides again with its result in hand.
 				winner = Shortest(pool);
-				run = winner.Commands.Count;
-				Log($"consensus: turn {turn}, no agreement after the choice, shortest of {pool.Count} wins");
+				run = winner.Calls.Count;
+				Log(pool.Count == 1
+					? $"consensus: turn {turn}, one proposal, nothing to vote on"
+					: $"consensus: turn {turn}, no agreement after the choice, shortest of {pool.Count} wins");
 			}
 
-			var cc = winner.Commands;
+			var cc = winner.Calls;
 
 			// Every turn leaves its numbers in the log: how much of the batch survived the vote is
 			// the whole point of running three streams, and it is only measurable in play.
 			Log($"consensus: turn {turn}, ran {run} of {cc.Count}, pool of {pool.Count}");
 
-			// The bot's own words go back into the transcript. Without them it reads a list of
-			// results with no record of what it said or meant. Reasoning stays out: the chat
-			// template drops thought from previous turns anyway.
+			// The bot's turn goes into the transcript as its own message, and the calls travel as
+			// calls. Reasoning stays out — the chat template drops thought from previous turns anyway.
 			// Console already printed it while streaming; llmContent already logged it.
-			Append($"[YOU]:\n{winner.Answer.Trim()}\n", Color.Cyan, Destination.LLM);
 			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
+			AddAssistant(winner.Answer);
 
 			// Control commands (pause, restart) must be issued alone
-			bool hasControl = cc.Any(c => c.Equals("restart", StringComparison.OrdinalIgnoreCase)
-				                       || c.Equals("pause", StringComparison.OrdinalIgnoreCase));
+			bool hasControl = cc.Any(c => c.Is("restart") || c.Is("pause"));
 			if (hasControl && cc.Count > 1)
 			{
-				Append("[ERROR] 'pause' and 'restart' must be used alone, not mixed with other commands.\n", Color.Red);
+				Append("[ERROR] pause and restart must be called alone, not mixed with other calls.\n",
+					Color.Red, Destination.Console | Destination.Log);
+				AnswerRest(cc.Count, "Not executed: pause and restart must be called alone,"
+					+ " never in a batch with other calls.");
 				return;
 			}
 
-			if (cc[0].Equals("restart", StringComparison.OrdinalIgnoreCase))
+			if (cc[0].Is("restart"))
 			{	ClearTranscript();
 				commands.SetSystemPromptAndMemory();
 				Append("[CONTEXT RESET]\n", Color.LightGreen);
@@ -638,14 +681,16 @@ namespace LLE
 			}
 
 			// pause is exempt from loop detection
-			if (!cc[0].Equals("pause", StringComparison.OrdinalIgnoreCase))
+			if (!cc[0].Is("pause"))
 			{
 				string loopMsg;
 				bool blocked = loopDetector.IsLoop(cc, out loopMsg);
 				if (loopMsg != null)
 					Append(loopMsg, blocked ? Color.Red : Color.Yellow);
 				if (blocked)
-				{	Append($"Your last message was:\n---\n{winner.Answer.Trim()}\n---\n", Color.Red);
+				{	// The batch itself is right above this in the conversation — repeating it here
+					// would only be one more example of a call written out as text.
+					AnswerRest(cc.Count, "Blocked: this batch has been repeated too many times.");
 					return;
 				}
 			}

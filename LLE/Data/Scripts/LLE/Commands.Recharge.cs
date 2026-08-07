@@ -17,7 +17,7 @@ namespace LLE
 			return tb.SlimBlock.BlockDefinition is MySurvivalKitDefinition;
 		}
 
-		internal CommandResult GetRechargePoints(TokenParser tp)
+		internal CommandResult GetRechargePoints()
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
@@ -76,14 +76,14 @@ namespace LLE
 			return Success(md.Result());
 		}
 
-		internal IEnumerator Recharge(TokenParser tp)
+		internal IEnumerator Recharge(ToolCall call)
 		{
 			string message;
 			if (!GridIsSet(out message)) yield return message;
 			if (CurrentGridIsProjection(out message)) yield return message;
 
 			Vector3I ijk;
-			if (!tp.NextVector3I(out ijk)) yield return "Error: expected I J K";
+			if (!call.Ijk(out ijk)) yield return call.NeedIjk;
 
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if (block == null) yield return $"Error: no block at {IJK(ijk)}";

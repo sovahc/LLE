@@ -74,8 +74,6 @@ namespace LLELoader
 		public readonly int Id;
 		public readonly ChannelConfig Config;
 
-		private string _systemPrompt = "";
-		private string _stopString;
 
 		private readonly ConcurrentQueue<LLE.FromLLM> _queue = new ConcurrentQueue<LLE.FromLLM>();
 
@@ -92,13 +90,6 @@ namespace LLELoader
 			Config = config;
 		}
 
-		public void SetSystemPrompt(string text, string stop)
-		{
-			Logger.Write($"[SetSystemPrompt:{Id}] length={text.Length} stop={stop}");
-			_systemPrompt = text;
-			_stopString = stop;
-		}
-
 		public bool GetChunk(out LLE.FromLLM m)
 		{
 			return _queue.TryDequeue(out m);
@@ -107,13 +98,13 @@ namespace LLELoader
 		// Fire and forget. Everything the request needs arrives as a string or is read before the
 		// first await, i.e. still on the game thread — no collection owned by the game is ever
 		// touched from the streaming task.
-		public void Send(string userText, string imageBase64)
+		public void Send(string requestJson)
 		{
 			_generation++;
 			Drain();
 
 			_cancel = new CancellationTokenSource();
-			var _ = AskLlmStreaming(userText, imageBase64, _cancel, _generation);
+			var _ = AskLlmStreaming(requestJson, _cancel, _generation);
 		}
 
 		// The stream is abandoned, not stopped politely: closing the connection is what makes the
@@ -127,13 +118,24 @@ namespace LLELoader
 			Logger.Write($"[LLM:{Id}] cancelled");
 		}
 
+		// The only string this end ever writes into a request is the model name from the config.
+		private static void Quoted(StringBuilder sb, string s)
+		{
+			sb.Append('"');
+			foreach (var c in s)
+			{	if (c == '"' || c == '\\') sb.Append('\\');
+				sb.Append(c);
+			}
+			sb.Append('"');
+		}
+
 		private void Drain()
 		{
 			LLE.FromLLM m;
 			while (_queue.TryDequeue(out m)) { }
 		}
 
-		private async Task AskLlmStreaming(string chatContext, string screenshotBase64,
+		private async Task AskLlmStreaming(string requestJson,
 			CancellationTokenSource cancel, int generation)
 		{
 			// Everything this task ever sends to the mod goes through here, so one test is enough
@@ -145,41 +147,31 @@ namespace LLELoader
 
 			try
 			{
-				object userContent = chatContext;
-				if (screenshotBase64 != null)
-				{
-					userContent = new object[]
-					{
-						new { type = "text", text = chatContext },
-						new { type = "image_url", image_url = new { url = "data:image/png;base64," + screenshotBase64 } },
-					};
-				}
-
+				// The body is the mod's `messages` and `tools`, written by the side that knows what
+				// a turn is, plus the fields that belong to this endpoint. Nothing here reads what
+				// the mod wrote — it is already the JSON that has to go out.
+				//
 				// Thinking: without the channel Gemma matches patterns, with it she checks her own
 				// trace — 70% against 98% on placement. Measured in the GemmaBuilder project.
 				// The budget covers the reasoning too, which runs to ~10k tokens on a multi-block job.
-				var payload = new Dictionary<string, object>
-				{
-					["model"] = Config.Model,
-					["messages"] = new object[]
-					{
-						new { role = "system", content = (object)_systemPrompt },
-						new { role = "user",   content = userContent }
-					},
-					["max_tokens"] = Config.MaxTokens,
-					["stream"] = true,
-				};
+				var head = new StringBuilder("{\"model\":");
+				Quoted(head, Config.Model);
+				head.Append(",\"max_tokens\":").Append(Config.MaxTokens);
+				head.Append(",\"stream\":true");
+
 				if (Config.Provider == "local")
-					payload["chat_template_kwargs"] = new { enable_thinking = Config.EnableThinking };
+					head.Append(",\"chat_template_kwargs\":{\"enable_thinking\":")
+						.Append(Config.EnableThinking ? "true" : "false").Append('}');
 				else if (Config.Provider == "zai")
-					payload["thinking"] = new { type = Config.EnableThinking ? "enabled" : "disabled" };
+					head.Append(",\"thinking\":{\"type\":\"")
+						.Append(Config.EnableThinking ? "enabled" : "disabled").Append("\"}");
 				else //if (Config.Provider == "openrouter")
-					payload["reasoning"] = new { enabled = Config.EnableThinking };
+					head.Append(",\"reasoning\":{\"enabled\":")
+						.Append(Config.EnableThinking ? "true" : "false").Append('}');
 
-				if (!string.IsNullOrEmpty(_stopString))
-					payload["stop"] = _stopString;
+				head.Append(',').Append(requestJson).Append('}');
 
-				var body = System.Text.Json.JsonSerializer.Serialize(payload);
+				var body = head.ToString();
 
 				var request = new HttpRequestMessage(HttpMethod.Post, Config.LlmUrl)
 				{	Content = new StringContent(body, Encoding.UTF8, "application/json")
@@ -199,13 +191,7 @@ namespace LLELoader
 				var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
 
 				string line;
-
-				// finish_reason distinguishes a clean stop from a max_tokens cut (length) from a
-				// stream that broke before the terminating chunk. The loop below ends the same way
-				// for all three, so without finish_reason an empty response is ambiguous.
-				string finishReason = null;
-				bool sawFinishReason = false;
-				int contentChunks = 0, reasoningChunks = 0;
+				int chunks = 0;
 
 				using var reader = new StreamReader(stream);
 				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
@@ -218,53 +204,13 @@ namespace LLELoader
 					var data = line.Substring(5).Trim();
 					if (data == "[DONE]") break;
 
-					using var doc = System.Text.Json.JsonDocument.Parse(data);
-					var root = doc.RootElement;
-					// finish_reason is a sibling of delta under choices[0]; read it independently so it is
-					// captured even on the terminating chunk where delta is absent or empty.
-					if (root.TryGetProperty("choices", out var frChoices) && frChoices.GetArrayLength() > 0
-						&& frChoices[0].TryGetProperty("finish_reason", out var fr)
-						&& fr.ValueKind == System.Text.Json.JsonValueKind.String)
-					{
-						finishReason = fr.GetString();
-						sawFinishReason = true;
-					}
-
-					if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0
-						&& choices[0].TryGetProperty("delta", out var delta))
-					{
-						// Reasoning — field name differs by provider:
-						//   local (llama.cpp): "reasoning_content"
-						//   openrouter:        "reasoning"
-						string reasoning = null;
-						if (delta.TryGetProperty("reasoning_content", out var reasoningProp))
-							reasoning = reasoningProp.ValueKind == System.Text.Json.JsonValueKind.String ? reasoningProp.GetString() : null;
-						else if (delta.TryGetProperty("reasoning", out var reasoningProp2))
-							reasoning = reasoningProp2.ValueKind == System.Text.Json.JsonValueKind.String ? reasoningProp2.GetString() : null;
-
-						if (!string.IsNullOrEmpty(reasoning))
-						{
-							reasoningChunks++;
-							emit(LLE.MessageType.Reasoning, reasoning);
-						}
-						if (delta.TryGetProperty("content", out var contentProp))
-						{
-							var content = contentProp.GetString();
-							if (!string.IsNullOrEmpty(content))
-							{
-								contentChunks++;
-								emit(LLE.MessageType.Content, content);
-							}
-						}
-					}
+					// What the chunk says is the mod's business. This end only knows that one
+					// arrived and that the stream has not ended yet.
+					chunks++;
+					emit(LLE.MessageType.Chunk, data);
 				}
 
-				// finish_reason tells us why the response ended; a missing finish_reason means the
-				// stream closed before the terminating chunk (proxy/network drop).
-				Logger.Write($"[LLM:{Id}] stream done: "
-					+ (sawFinishReason ? "finish_reason=" + (finishReason ?? "null") : "STREAM-ENDED-WITHOUT-FINISH-REASON")
-					+ " contentChunks=" + contentChunks
-					+ " reasoningChunks=" + reasoningChunks);
+				Logger.Write($"[LLM:{Id}] stream done: chunks={chunks}");
 
 				emit(LLE.MessageType.Stop, null);
 			}
@@ -350,7 +296,7 @@ namespace LLELoader
 			return c.GetChunk(out cmd);
 		}
 
-		public static void SendMessageToLLM(int channel, string text)
+		public static void SendMessageToLLM(int channel, string requestJson)
 		{
 			var c = Get(channel);
 			if (c == null)
@@ -358,17 +304,7 @@ namespace LLELoader
 				return;
 			}
 
-			// The frame goes to every channel that sends after it, and to each of them exactly once:
-			// parallel streams must see identical input, and a frame must never ride along twice.
-			// The mod's history keeps the text, so an old frame can never be mistaken for what the
-			// bot is looking at now.
-			string image = null;
-			if (_pendingScreenshot != null && (_screenshotSentTo & (1 << channel)) == 0)
-			{	image = _pendingScreenshot;
-				_screenshotSentTo |= 1 << channel;
-			}
-
-			c.Send(text, image);
+			c.Send(requestJson);
 		}
 
 		public static void CancelLLM(int channel)
@@ -383,16 +319,6 @@ namespace LLELoader
 			return c == null ? 0 : c.Config.ContextWindow;
 		}
 
-		public static void SetSystemPrompt(int channel, string text, string stop)
-		{
-			var c = Get(channel);
-			if (c == null)
-			{	Logger.Write($"[SetSystemPrompt] unknown channel {channel}, ignored");
-				return;
-			}
-			c.SetSystemPrompt(text, stop);
-		}
-
 		#region Screenshot
 
 		private static string _screenshotPath;
@@ -400,14 +326,12 @@ namespace LLELoader
 		private static bool _screenshotFinished = true;
 		private static bool _screenshotSuccess;
 		private static string _pendingScreenshot; // base64 PNG
-		private static int _screenshotSentTo; // one bit per channel that already carried this frame
 
 		public static void RequestScreenshot()
 		{
 			_screenshotFinished = false;
 			_screenshotSuccess = false;
 			_pendingScreenshot = null;
-			_screenshotSentTo = 0;
 
 			try
 			{
@@ -446,8 +370,7 @@ namespace LLELoader
 				if (!File.Exists(_screenshotPath)) return;
 
 				var bytes = File.ReadAllBytes(_screenshotPath);
-				_screenshotSentTo = 0;
-				_pendingScreenshot = Convert.ToBase64String(bytes);
+					_pendingScreenshot = Convert.ToBase64String(bytes);
 				_screenshotSuccess = true;
 				Logger.Write($"[Screenshot] {_screenshotPath}, {bytes.Length} bytes");
 			}
@@ -457,6 +380,15 @@ namespace LLELoader
 			}
 
 			_screenshotFinished = true;
+		}
+
+		// The frame is handed over once and then forgotten here. The mod builds one request for
+		// all its streams, so they see identical input, and an old frame can never ride along twice.
+		public static string TakeScreenshot()
+		{
+			var frame = _pendingScreenshot;
+			_pendingScreenshot = null;
+			return frame;
 		}
 
 		public static bool ScreenshotDone(out bool success)
@@ -545,7 +477,7 @@ namespace LLELoader
 		{
 			private static readonly string[] BridgeMethods =
 				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "CancelLLM", "SetSystemPrompt",
-				  "GetContextWindow", "RequestScreenshot", "ScreenshotDone" ];
+				  "GetContextWindow", "RequestScreenshot", "ScreenshotDone", "TakeScreenshot" ];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -597,10 +529,10 @@ namespace LLELoader
 						case "GetChunkFromLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_GetChunkFromLLM)); break;
 						case "SendMessageToLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_SendMessageToLLM)); break;
 						case "CancelLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_CancelLLM)); break;
-						case "SetSystemPrompt": prefix = new HarmonyMethod(smld, nameof(Prefix_SetSystemPrompt)); break;
-						case "GetContextWindow": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextWindow)); break;
+							case "GetContextWindow": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextWindow)); break;
 						case "RequestScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_RequestScreenshot)); break;
 						case "ScreenshotDone": prefix = new HarmonyMethod(smld, nameof(Prefix_ScreenshotDone)); break;
+					case "TakeScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_TakeScreenshot)); break;
 						default: continue;
 					}
 
@@ -626,21 +558,15 @@ namespace LLELoader
 				return false;
 			}
 
-			static bool Prefix_SendMessageToLLM(int channel, string text)
+			static bool Prefix_SendMessageToLLM(int channel, string requestJson)
 			{
-				SendMessageToLLM(channel, text);
+				SendMessageToLLM(channel, requestJson);
 				return false;
 			}
 
 			static bool Prefix_CancelLLM(int channel)
 			{
 				CancelLLM(channel);
-				return false;
-			}
-
-			static bool Prefix_SetSystemPrompt(int channel, string text, string stop)
-			{
-				SetSystemPrompt(channel, text, stop);
 				return false;
 			}
 
@@ -659,6 +585,12 @@ namespace LLELoader
 			static bool Prefix_ScreenshotDone(out bool success, ref bool __result)
 			{
 				__result = ScreenshotDone(out success);
+				return false;
+			}
+
+			static bool Prefix_TakeScreenshot(ref string __result)
+			{
+				__result = TakeScreenshot();
 				return false;
 			}
 

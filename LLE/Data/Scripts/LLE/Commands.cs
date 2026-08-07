@@ -129,29 +129,30 @@ namespace LLE
 			return sb.ToString();
 		}
 
-		internal CommandResult Say(TokenParser tp)
+		internal CommandResult Say(ToolCall call)
 		{
-			var message = tp.NextString();
+			var message = call.Str("message");
 			if (string.IsNullOrEmpty(message))
-				return "Error: provide a message. Usage: say 'Hello world'";
+				return call.Need("message");
 
 			MyVisualScriptLogicProvider.SendChatMessage(
 				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
 			return Success("Done");
 		}
 
-		internal CommandResult Memory(TokenParser tp)
+		internal CommandResult Memory(ToolCall call)
 		{
-			var key = tp.NextString();
-			var value = tp.NextString();
-			if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value) || !tp.End)
-				return "Error: provide a key and value. Usage: memory 'current_task' 'weld reactor at 5 0 2'";
+			var key = call.Str("key");
+			var value = call.Str("value");
+			if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value))
+				return "Error: memory needs both a key and a value.";
 			memory[key] = value;
 			return Success("Saved.");
 		}
 
-		// The executor's own context budget is counted in the mod, and the system prompt is part
-		// of it — hence the length is kept here rather than asked back from the loader.
+		// The prompt is built here and sent as the first message of every request. The executor's
+		// own context budget is counted in the mod, and the prompt is part of it.
+		internal string SystemPrompt { get; private set; }
 		internal int SystemPromptChars { get; private set; }
 
 		internal void SetSystemPromptAndMemory()
@@ -168,14 +169,14 @@ namespace LLE
 				sb.Append("-- none --\n");
 			}
 
-			var prompt = sb.ToString();
-			SystemPromptChars = prompt.Length;
-			Ensemble.SetSystemPromptAll(prompt, LLM.StopWorld);
+			SystemPrompt = sb.ToString();
+			SystemPromptChars = SystemPrompt.Length;
 		}
 
-		internal CommandResult Select(TokenParser tp)
+		internal CommandResult Select(ToolCall call)
 		{
-			var what = tp.NextString();
+			var what = call.Str("name");
+			if (string.IsNullOrEmpty(what)) return call.Need("name");
 
 			var engineer = GetEngineerCenter();
 			
@@ -415,74 +416,72 @@ namespace LLE
 			return null;
 		}
 
-		internal CommandResult Execute(string command)
+		// One tool name, one branch. The names are the ones declared in Tools — a call the model
+		// invented lands in the default and is answered as such.
+		internal CommandResult Execute(ToolCall call)
 		{
-			CommandResult result = null;
+			switch(call.Name)
+			{
+				case "pause":
+					LLM.pause = true;
+					return Success("OK");
 
-			var tp = new TokenParser(command);
+				case "position":       return Position();
+				case "overview":       return Overview();
+				case "integrity":      return Integrity();
+				case "projection":     return Projection();
+				case "status":         return Success(status.ReportAll());
+				case "inventories":    return Inventories();
 
-			// A coroutine command is still running (LLM.Tick() only calls this when idle, so
-			// this is a manual chat command). Pushing now would stack the new coroutine on top
-			// of the running one, and the first result would dispose the whole stack — which
-			// LLM.Tick() would then charge to the LLM's own in-flight command.
-			if(coroutineStack.Count != 0)
-				return "Error: another command is still running. Wait for it to finish.";
+				case "select":         return Select(call);
+				case "say":            return Say(call);
+				case "memory":         return Memory(call);
+				case "near":           return Near(call);
+				case "free":           return Near(call, true);
+				case "inventory":      return Inventory();
+				case "inventory_block":return InventoryBlock(call);
+				case "search":         return Search(call);
+				case "distance":       return Distance(call, false);
+				case "distance_between": return Distance(call, true);
+				case "points":         return Points(call);
+				case "info":           return Info(call);
+				case "enter":          return Enter(call);
+				case "exit":           return Exit();
+				case "recharge_list":  return GetRechargePoints();
 
-			if(tp.Match("Pause"))
-			{	LLM.pause = true;
-				result = Success("OK");
-			}
-			else if(tp.Match("Position")) result = Position();
-			else if(tp.Match("Overview")) result = Overview();
-			else if(tp.Match("Integrity")) result = Integrity();
-			else if(tp.Match("Projection")) result = Projection();
-			else if(tp.Match("Select")) result = Select(tp);
-			else if(tp.Match("Fly"))
-			{	var dir = MatchDirection(tp);
-				if(dir != null) coroutineStack.Push(Fly_Direction_N(dir, tp));
-				else            coroutineStack.Push(Fly(tp));
-			}
-			else if(tp.Match("Approach")) coroutineStack.Push(Approach(tp));
-			else if(tp.Match("Grind")) coroutineStack.Push(Grind(tp));
-			else if(tp.Match("Weld")) coroutineStack.Push(Weld(tp));
-			else if(tp.Match("Near")) result = Near(tp);
-			else if(tp.Match("Free")) result = Near(tp, true);
-			else if(tp.Match("Inventory")) result = Inventory(tp);
-			else if(tp.Match("Inventories")) result = Inventories();
-			else if(tp.Match("Get")) coroutineStack.Push(Get(tp));
-			else if(tp.Match("Put")) coroutineStack.Push(Put(tp));
-			else if(tp.Match("Status")) result = Success(status.ReportAll());
-			else if(tp.Match("Screenshot")) coroutineStack.Push(Screenshot());
-			else if(tp.Match("Say")) result = Say(tp);
-			else if(tp.Match("Memory")) result = Memory(tp);
-			else if(tp.Match("Transfer")) coroutineStack.Push(Transfer(tp));
-			else if(tp.Match("Search")) result = Search(tp);
-			else if(tp.Match("Distance")) result = Distance(tp);
-			else if(tp.Match("Points")) result = Points(tp);
-			else if(tp.Match("Info")) result = Info(tp);
-			else if(tp.Match("Place"))
-			{	coroutineStack.Push(tp.Match("conveyor") ? PlaceConveyor(tp) : Place(tp));
-			}
-			else if(tp.Match("Draft")) result = tp.Match("conveyor") ? DraftConveyor(tp) : Draft(tp);
-			else if(tp.Match("Build")) coroutineStack.Push(Build());
-			else if(tp.Match("Route")) coroutineStack.Push(Route(tp));
-			else if(tp.Match("Enter")) result = Enter(tp);
-			else if(tp.Match("Exit")) result = Exit(tp);
-			else if(tp.Match("Recharge"))
-			{	
-				var action = tp.NextString();
-
-				if(action == "list")
-					result = GetRechargePoints(tp);
-				else if (action == "from")
-					coroutineStack.Push(Recharge(tp));
-				else return "Error: expected 'list' or 'from'";
-			}
-			else
-			{	result = $"Unknown command '{tp.NextString()}'.";
+				case "draft":          return Draft(call);
+				case "draft_conveyor": return DraftConveyor(call);
+				case "draft_show":     return DraftShow();
+				case "draft_undo":     return DraftUndo();
+				case "draft_clear":    return DraftClear();
 			}
 
-			return result;
+			IEnumerator coroutine;
+
+			switch(call.Name)
+			{
+				case "fly":            coroutine = Fly(call); break;
+				case "fly_direction":  coroutine = Fly_Direction_N(call); break;
+				case "approach":       coroutine = Approach(call); break;
+				case "grind":          coroutine = Grind(call); break;
+				case "weld":           coroutine = Weld(call); break;
+				case "get":            coroutine = Get(call); break;
+				case "put":            coroutine = Put(call, false); break;
+				case "put_all_components": coroutine = Put(call, true); break;
+				case "transfer":       coroutine = Transfer(call, false); break;
+				case "transfer_all":   coroutine = Transfer(call, true); break;
+				case "place":          coroutine = Place(call); break;
+				case "place_conveyor": coroutine = PlaceConveyor(call); break;
+				case "build":          coroutine = Build(); break;
+				case "route":          coroutine = Route(call); break;
+				case "recharge":       coroutine = Recharge(call); break;
+
+				default:
+					return $"Error: there is no tool called '{call.Name}'.";
+			}
+
+			coroutineStack.Push(coroutine);
+			return null;
 		}
 	}
 }
