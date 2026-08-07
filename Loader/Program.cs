@@ -169,7 +169,7 @@ namespace LLELoader
 					payload["reasoning"] = new { enabled = Config.EnableThinking };
 
 				if (!string.IsNullOrEmpty(_stopString))
-					payload["stop"] = _stopString;
+					payload["stop"] = new[] { _stopString };
 
 				var body = System.Text.Json.JsonSerializer.Serialize(payload);
 
@@ -577,7 +577,7 @@ namespace LLELoader
 						case "IsPresent": prefix = new HarmonyMethod(smld, nameof(Prefix_IsPresent)); break;
 						case "GetChunkFromLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_GetChunkFromLLM)); break;
 						case "SendMessageToLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_SendMessageToLLM)); break;
-					case "CancelLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_CancelLLM)); break;
+						case "CancelLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_CancelLLM)); break;
 						case "SetSystemPrompt": prefix = new HarmonyMethod(smld, nameof(Prefix_SetSystemPrompt)); break;
 						case "GetContextWindow": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextWindow)); break;
 						case "RequestScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_RequestScreenshot)); break;

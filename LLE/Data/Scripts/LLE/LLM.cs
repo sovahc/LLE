@@ -364,16 +364,22 @@ namespace LLE
 			return cc;
 		}
 
-		// Which turns are worth five seconds of thinking. Blueprints and only blueprints: the
-		// non-thinking stream builds fast and looks around correctly, but a drafted structure is
-		// what it gets wrong — on the measured session it put the pillar into the cell it was
-		// standing in. `route` is here because its output is copied straight into the draft.
+		// Which turns are worth five seconds of thinking: the ones that change the world, plus the
+		// two that plan the change. `route` is here because its output is copied straight into the
+		// draft.
+		//
+		// Measured over three runs of the same task. With thinking the bot welded its blocks up
+		// from the skeleton eight times and waited for the player's approval; with thinking off it
+		// never welded once and never waited — and that held whether the whole session ran fast or
+		// only these turns did.
+		private static readonly string[] Deliberate = { "draft", "route", "build", "weld", "grind" };
+
 		private static bool NeedsThought(List<string> commands)
 		{
 			foreach (var c in commands)
-			{	if (c.StartsWith("draft", StringComparison.OrdinalIgnoreCase)
-				 || c.StartsWith("route", StringComparison.OrdinalIgnoreCase)) return true;
-			}
+				foreach (var verb in Deliberate)
+					if (c.StartsWith(verb, StringComparison.OrdinalIgnoreCase)) return true;
+
 			return false;
 		}
 
