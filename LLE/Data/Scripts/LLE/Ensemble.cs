@@ -16,7 +16,6 @@ namespace LLE
 		public const int Streams = 3;
 
 		private readonly LlmChannel[] channels = new LlmChannel[Streams];
-		private readonly string[] answers = new string[Streams];
 		private readonly bool[] waiting = new bool[Streams];
 
 		private string error;
@@ -52,49 +51,50 @@ namespace LLE
 
 			for (int i = 0; i < Streams; ++i)
 			{
-				answers[i] = null;
 				waiting[i] = channels[i].Present;
 				if (waiting[i]) channels[i].Send(userText);
 			}
 		}
 
-		// True once every stream that was sent to has finished. An entry is null for a stream that
-		// is absent from the config or died on the way — the caller works with what came back.
-		public bool Poll(out string[] result)
+		// One finished stream per call, in whatever order they come back; -1 when there is nothing
+		// new. 'answer' is null for a stream that died on the way — Error carries what it said.
+		public int Poll(out string answer)
 		{
-			result = null;
-
-			bool outstanding = false;
+			answer = null;
 
 			for (int i = 0; i < Streams; ++i)
 			{
 				if (!waiting[i]) continue;
-				outstanding = true;
 
 				string payload;
 				switch (channels[i].Poll(out payload))
 				{
 					case ChannelEvent.Response:
-						answers[i] = payload;
 						waiting[i] = false;
-						break;
+						answer = payload;
+						return i;
 
 					case ChannelEvent.Error:
-						error = payload;
 						waiting[i] = false;
-						break;
+						error = payload;
+						return i;
 				}
 			}
 
-			if (!outstanding) return false;
+			return -1;
+		}
 
+		// The turn is settled and whoever is still generating is generating for nobody. A stream
+		// that hallucinates its way into a loop costs the turn nothing once this is called.
+		public void CancelOutstanding()
+		{
 			for (int i = 0; i < Streams; ++i)
-				if (waiting[i]) return false;
+			{
+				if (!waiting[i]) continue;
 
-			// A copy: the caller holds the answers across ticks, and the next Send clears these.
-			result = new string[Streams];
-			for (int i = 0; i < Streams; ++i) result[i] = answers[i];
-			return true;
+				waiting[i] = false;
+				channels[i].Cancel();
+			}
 		}
 	}
 }

@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using HarmonyLib;
 using SpaceEngineers;
@@ -78,6 +79,13 @@ namespace LLELoader
 
 		private readonly ConcurrentQueue<LLE.FromLLM> _queue = new ConcurrentQueue<LLE.FromLLM>();
 
+		// A send and a cancel both start a new generation. The streaming task carries the generation
+		// it was born with and enqueues nothing once that number is stale, so a stream nobody is
+		// waiting for can no longer land its chunks in the next turn's answer. Send and Cancel are
+		// both called from the game thread — one writer, and the task only reads.
+		private volatile int _generation;
+		private CancellationTokenSource _cancel;
+
 		public Channel(int id, ChannelConfig config)
 		{
 			Id = id;
@@ -101,11 +109,40 @@ namespace LLELoader
 		// touched from the streaming task.
 		public void Send(string userText, string imageBase64)
 		{
-			var _ = AskLlmStreaming(userText, imageBase64);
+			_generation++;
+			Drain();
+
+			_cancel = new CancellationTokenSource();
+			var _ = AskLlmStreaming(userText, imageBase64, _cancel, _generation);
 		}
 
-		private async Task AskLlmStreaming(string chatContext, string screenshotBase64)
+		// The stream is abandoned, not stopped politely: closing the connection is what makes the
+		// server free the slot, and nothing that arrives after this is read anyway.
+		public void Cancel()
 		{
+			_generation++;
+			Drain();
+
+			if (_cancel != null) _cancel.Cancel();
+			Logger.Write($"[LLM:{Id}] cancelled");
+		}
+
+		private void Drain()
+		{
+			LLE.FromLLM m;
+			while (_queue.TryDequeue(out m)) { }
+		}
+
+		private async Task AskLlmStreaming(string chatContext, string screenshotBase64,
+			CancellationTokenSource cancel, int generation)
+		{
+			// Everything this task ever sends to the mod goes through here, so one test is enough
+			// to keep an abandoned stream silent.
+			Action<LLE.MessageType, string> emit = (type, payload) =>
+			{	if (generation == _generation)
+					_queue.Enqueue(new LLE.FromLLM { Type = type, Payload = payload });
+			};
+
 			try
 			{
 				object userContent = chatContext;
@@ -149,13 +186,13 @@ namespace LLELoader
 				};
 				if (!string.IsNullOrEmpty(Config.ApiKey))
 					request.Headers.Add("Authorization", "Bearer " + Config.ApiKey);
-				var response = await MessageBroker.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+				var response = await MessageBroker.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancel.Token).ConfigureAwait(false);
 
 				if (!response.IsSuccessStatusCode)
 				{
 					string errBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 					Logger.Write($"[LLM:{Id}] HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}");
-					_queue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = $"HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}" });
+					emit(LLE.MessageType.Error, $"HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}");
 					return;
 				}
 
@@ -173,6 +210,10 @@ namespace LLELoader
 				using var reader = new StreamReader(stream);
 				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
 				{
+					// Cancelling the token aborts the request itself; this test is what stops a stream
+					// that keeps producing — the reader is never waiting on it for long.
+					if (cancel.IsCancellationRequested) break;
+
 					if (!line.StartsWith("data:")) continue;
 					var data = line.Substring(5).Trim();
 					if (data == "[DONE]") break;
@@ -204,11 +245,7 @@ namespace LLELoader
 						if (!string.IsNullOrEmpty(reasoning))
 						{
 							reasoningChunks++;
-							_queue.Enqueue(new LLE.FromLLM
-							{
-								Type = LLE.MessageType.Reasoning,
-								Payload = reasoning
-							});
+							emit(LLE.MessageType.Reasoning, reasoning);
 						}
 						if (delta.TryGetProperty("content", out var contentProp))
 						{
@@ -216,11 +253,7 @@ namespace LLELoader
 							if (!string.IsNullOrEmpty(content))
 							{
 								contentChunks++;
-								_queue.Enqueue(new LLE.FromLLM
-								{
-									Type = LLE.MessageType.Content,
-									Payload = content
-								});
+								emit(LLE.MessageType.Content, content);
 							}
 						}
 					}
@@ -233,12 +266,15 @@ namespace LLELoader
 					+ " contentChunks=" + contentChunks
 					+ " reasoningChunks=" + reasoningChunks);
 
-				_queue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Stop, Payload = null });
+				emit(LLE.MessageType.Stop, null);
 			}
 			catch (Exception ex)
 			{
+				// A cancelled stream throws on the way out — that is the abort working, not a failure.
+				if (cancel.IsCancellationRequested) return;
+
 				Logger.Write($"[LLM:{Id}] streaming error: " + ex.Message);
-				_queue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = ex.Message });
+				emit(LLE.MessageType.Error, ex.Message);
 			}
 		}
 	}
@@ -333,6 +369,12 @@ namespace LLELoader
 			}
 
 			c.Send(text, image);
+		}
+
+		public static void CancelLLM(int channel)
+		{
+			var c = Get(channel);
+			if (c != null) c.Cancel();
 		}
 
 		public static int GetContextWindow(int channel)
@@ -502,8 +544,8 @@ namespace LLELoader
 		static class Patch_ScriptManagerLoadData
 		{
 			private static readonly string[] BridgeMethods =
-				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "SetSystemPrompt", "GetContextWindow",
-				  "RequestScreenshot", "ScreenshotDone" ];
+				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "CancelLLM", "SetSystemPrompt",
+				  "GetContextWindow", "RequestScreenshot", "ScreenshotDone" ];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -554,6 +596,7 @@ namespace LLELoader
 						case "IsPresent": prefix = new HarmonyMethod(smld, nameof(Prefix_IsPresent)); break;
 						case "GetChunkFromLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_GetChunkFromLLM)); break;
 						case "SendMessageToLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_SendMessageToLLM)); break;
+						case "CancelLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_CancelLLM)); break;
 						case "SetSystemPrompt": prefix = new HarmonyMethod(smld, nameof(Prefix_SetSystemPrompt)); break;
 						case "GetContextWindow": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextWindow)); break;
 						case "RequestScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_RequestScreenshot)); break;
@@ -586,6 +629,12 @@ namespace LLELoader
 			static bool Prefix_SendMessageToLLM(int channel, string text)
 			{
 				SendMessageToLLM(channel, text);
+				return false;
+			}
+
+			static bool Prefix_CancelLLM(int channel)
+			{
+				CancelLLM(channel);
 				return false;
 			}
 

@@ -87,9 +87,14 @@ namespace LLE
 
 		private readonly Ensemble ensemble = new Ensemble();
 
-		private string[] pendingAnswers;  // finished answers waiting for a free moment to be run
 		private string lastConversation;  // this turn's message, kept for the choice round
 		private bool choiceSent;          // one choice round per turn, then the bot acts anyway
+
+		private bool inFlight;            // a round is out with the streams
+		private bool decided;             // the pool holds everything this turn will act on
+		private bool anyoneSpoke;         // at least one stream answered rather than died
+		private string unparsedAnswer;    // first answer with no readable batch, kept for the report
+		private string unparsedError;
 
 		// Every plan this turn has produced, round one first. The choice round adds to it instead
 		// of replacing it: a plan the streams converge on wins by the same rule as any other.
@@ -166,7 +171,10 @@ namespace LLE
 		{
 			if (notExecuted.Count == 0) return;
 
-			Append($"Not executed: {string.Join("; ", notExecuted)}\n", Color.Cornsilk);
+			// Why, not just what: with no reason given the model spends its next turn reasoning about
+			// what "not executed" could mean instead of reading the results it did get.
+			Append("Not executed (the environment dropped the tail of the batch, which is normal —"
+				+ $" continue from the results above): {string.Join("; ", notExecuted)}\n", Color.Cornsilk);
 			notExecuted.Clear();
 		}
 
@@ -254,10 +262,9 @@ namespace LLE
 			// Process a finished response BEFORE any send. Otherwise an async sensor
 			// report (VISION/STATUS) can fire the send below and orphan it; the next
 			// response then appends onto it ("Found 2 <execute> blocks").
-			if(pendingAnswers != null)
-			{	var answers = pendingAnswers;
-				pendingAnswers = null;
-				ProcessAnswers(answers);
+			if(decided)
+			{	decided = false;
+				ProcessAnswers();
 				if(ensemble.Busy) return;      // a tie-break went out — this turn is not over
 				if(batch.Count != 0) return;   // commands enqueued — execute before talking to LLM
 				if(pause) return;              // response was pause/restart — do not send this turn
@@ -316,7 +323,13 @@ namespace LLE
 				logBuf.Clear();
 
 				lastConversation = "\n" + string.Join("\n", transcript);
+
 				choiceSent = false;
+				pool.Clear();
+				unparsedAnswer = null;
+				anyoneSpoke = false;
+				inFlight = true;
+
 				ensemble.Send(lastConversation);
 				turn++;
 				return;
@@ -341,12 +354,56 @@ namespace LLE
 			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({used * 100 / total}%)", Color.LightPink);
 		}
 
+		// Answers are taken as they land, not as a set: the pool is what the turn is decided on, and
+		// once it decides, the streams still generating are told to stop.
 		private void PollStreams()
 		{
-			string[] answers;
-			if (!ensemble.Poll(out answers)) return;
+			string answer;
+			int stream;
 
-			pendingAnswers = answers;
+			while ((stream = ensemble.Poll(out answer)) >= 0)
+			{
+				if (answer == null)
+				{	Log($"stream {stream} died: {ensemble.Error}");
+					continue;
+				}
+
+				anyoneSpoke = true;
+
+				string error;
+				var parsed = ParseBatch(answer, out error);
+				if (parsed == null)
+				{	// The turn goes on without this stream. Left unsaid, an answer that never reached
+					// the pool shows up nowhere but the pool size, and every count drawn from the log
+					// is short by an unknown amount.
+					Log($"stream {stream} unparsable: {error.Trim()}");
+
+					if (unparsedAnswer == null)
+					{	unparsedAnswer = answer;
+						unparsedError = error;
+					}
+					continue;
+				}
+
+				pool.Add(new Proposal(answer, parsed));
+			}
+
+			if (!inFlight || decided) return;
+
+			// Two streams starting with the same command settle the turn: the third can no longer
+			// change which plan runs, only shorten it, and waiting on it costs the whole turn. In
+			// the choice round every vote still counts, so that one is waited out in full.
+			Proposal winner;
+			int run;
+
+			if (!choiceSent && Agreed(pool, out winner, out run))
+			{	if (ensemble.Busy) Log($"consensus: turn {turn}, decided on {pool.Count}, cancelling the rest");
+				ensemble.CancelOutstanding();
+			}
+			else if (ensemble.Busy) return;
+
+			inFlight = false;
+			decided = true;
 			ContextStatistic();
 		}
 
@@ -504,23 +561,9 @@ namespace LLE
 		// agreement and their shared prefix runs. All of them parting company sends every plan back
 		// to every stream — that round is the choice, and its answers go into the same pool, so the
 		// plan the streams converge on wins by the same rule as before.
-		private void ProcessAnswers(string[] answers)
+		private void ProcessAnswers()
 		{
-			if (!choiceSent) pool.Clear(); // a new turn — the choice round adds to what round one left
-
-			var errors = new string[Ensemble.Streams];
-			int spoke = -1;                // first stream that answered at all
-
-			for (int i = 0; i < Ensemble.Streams; ++i)
-			{
-				if (answers[i] == null) continue;
-				if (spoke < 0) spoke = i;
-
-				var parsed = ParseBatch(answers[i], out errors[i]);
-				if (parsed != null) pool.Add(new Proposal(answers[i], parsed));
-			}
-
-			if (spoke < 0)
+			if (!anyoneSpoke)
 			{	// Every stream died on the way. Nothing to read and nothing to run.
 				MyConsole.AddMultiline("\n[LLM ERROR] " + ensemble.Error + "\n", Color.Red);
 				pause = true;
@@ -529,10 +572,10 @@ namespace LLE
 
 			if (pool.Count == 0)
 			{	// Nobody wrote a batch the mod can read — not in this round and not in the one
-				// before it. The first stream's words go back with the error it earned.
-				Append($"[YOU]:\n{answers[spoke].Trim()}\n", Color.Cyan, Destination.LLM);
+				// before it. One stream's words go back with the error they earned.
+				Append($"[YOU]:\n{unparsedAnswer.Trim()}\n", Color.Cyan, Destination.LLM);
 				Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
-				Append(errors[spoke], Color.Red);
+				Append(unparsedError, Color.Red);
 				return;
 			}
 
@@ -551,6 +594,7 @@ namespace LLE
 
 					// The round-one answers are dropped, transcript and all: if the streams converge
 					// here, this turn must read as if the bot answered once.
+					inFlight = true;
 					ensemble.Send(lastConversation + Choice(pool));
 					return;
 				}

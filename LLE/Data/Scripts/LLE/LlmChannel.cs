@@ -47,6 +47,21 @@ namespace LLE
 			busy = true;
 		}
 
+		// Stop waiting for this answer. The loader abandons the request, and the half-finished text
+		// in these buffers belongs to nobody — the next Send must not find it here.
+		public void Cancel()
+		{
+			if (!busy) return;
+
+			LLE_Loader.CancelLLM(Id);
+
+			reasoning.Clear();
+			content.Clear();
+			response.Clear();
+			lastType = MessageType.Stop;
+			busy = false;
+		}
+
 		public ChannelEvent Poll(out string payload)
 		{
 			payload = null;
