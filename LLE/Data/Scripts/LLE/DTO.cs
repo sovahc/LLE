@@ -20,8 +20,6 @@ namespace LLE
 
 	//
 
-	// What the loader has to say about a request. Chunk carries one `data:` line of the stream,
-	// verbatim — what is inside it is the mod's business, not the loader's.
 	public enum MessageType { Chunk, Stop, Error }
 
 	public class FromLLM
