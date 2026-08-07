@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using HarmonyLib;
 using SpaceEngineers;
 using VRage.FileSystem;
+using VRage.Library.Utils;
 
 namespace LLELoader
 {
@@ -59,6 +60,10 @@ namespace LLELoader
 		// Fraction of the game window the screenshot is rendered at. The vision model rescales
 		// anyway; this only decides how much detail survives to be rescaled.
 		public float ScreenshotScale { get; set; } = 0.5f;
+		// Fraction of real time the simulation runs at. 0.5 gives 30 updates per second instead of
+		// 60, with every in-game step still 1/60 s — the world runs in slow motion, sound and
+		// effects with it, and a recording sped up 2x looks normal again.
+		public float SimulationSpeed { get; set; } = 1.0f;
 	}
 
 	// One model behind one endpoint. The channel holds no conversation: the mod passes the whole
@@ -254,7 +259,7 @@ namespace LLELoader
 					var c = System.Text.Json.JsonSerializer.Deserialize<LoaderConfig>(text);
 					if (c != null)
 					{
-						Logger.Write($"[Config] Loaded {configPath}: proxy={c.EnableProxy}/{c.ProxyUrl} screenshotScale={c.ScreenshotScale}");
+						Logger.Write($"[Config] Loaded {configPath}: proxy={c.EnableProxy}/{c.ProxyUrl} screenshotScale={c.ScreenshotScale} simulationSpeed={c.SimulationSpeed}");
 						return c;
 					}
 				}
@@ -438,6 +443,28 @@ namespace LLELoader
 
 				Logger.Write("[LLELoader] Paths set: " + bin64);
 				return true;
+			}
+		}
+
+		[HarmonyPatchCategory("Early")]
+		static class Patch_SimulationSpeed
+		{
+			// Two WaitForTargetFrameRate instances pace the game: FixedLoop owns the one for the update
+			// loop, MyRenderThread the one for drawing. Retuning only FixedLoop's leaves the render
+			// thread at its own frame rate. The ctor itself would be the obvious target, but at 24
+			// bytes of IL it is small enough for the JIT to inline into its caller and skip the patch;
+			// FixedLoop's ctor is 60 bytes and safe. Both fields are readonly, hence FieldRefAccess.
+			[HarmonyPatch(typeof(Sandbox.Engine.Platform.FixedLoop), MethodType.Constructor,
+				new[] { typeof(VRage.Stats.MyStats), typeof(string) })]
+			[HarmonyPostfix]
+			static void Postfix(Sandbox.Engine.Platform.FixedLoop __instance)
+			{
+				if (_config.SimulationSpeed == 1.0f) return;
+
+				var waiter = AccessTools.FieldRefAccess<Sandbox.Engine.Platform.FixedLoop, WaitForTargetFrameRate>("m_waiter")(__instance);
+				ref float frequency = ref AccessTools.FieldRefAccess<WaitForTargetFrameRate, float>("m_targetFrequency")(waiter);
+				frequency *= _config.SimulationSpeed;
+				Logger.Write($"[SimulationSpeed] update loop paced at {frequency} Hz");
 			}
 		}
 
