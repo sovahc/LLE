@@ -35,15 +35,9 @@ namespace LLE
 	// Deciding what a chunk means on the side that acts on it is the whole point — the answer is
 	// parsed one way only, and the pieces that go back into the next request go back untouched.
 	//
-	// Every channel has its own buffers and its own busy flag. Sharing either of them across
-	// channels merges two streams into one answer and releases the wrong sender.
 	class LlmChannel
 	{
 		public readonly int Id;
-
-		// One channel streams into the console as it generates. There is one console, so the
-		// others stay in the log until they have a console of their own.
-		public bool EchoToConsole;
 
 		private readonly StringBuilder reasoning = new StringBuilder();
 		private readonly StringBuilder content = new StringBuilder();
@@ -109,7 +103,7 @@ namespace LLE
 						break;
 
 					case MessageType.Stop:
-						if (EchoToConsole) MyConsole.AddMultiline("\n", Color.White);
+						MyConsole.AddMultiline("\n", Color.White);
 						busy = false;
 						answer = Finish();
 						Reset();
@@ -148,13 +142,13 @@ namespace LLE
 			//   openrouter:        "reasoning"
 			var think = delta.Field("reasoning_content") ?? delta.Field("reasoning");
 			if (think != null && think.Is(JsonKind.String) && think.String.Length != 0)
-			{	if (EchoToConsole) MyConsole.AddMultiline(think.String, Color.LightGray);
+			{	MyConsole.AddMultiline(think.String, Color.LightGray);
 				reasoning.Append(think.String);
 			}
 
 			var text = delta.Field("content");
 			if (text != null && text.Is(JsonKind.String) && text.String.Length != 0)
-			{	if (EchoToConsole) MyConsole.AddMultiline(text.String, Color.Cyan);
+			{	MyConsole.AddMultiline(text.String, Color.Cyan);
 				content.Append(text.String);
 			}
 
@@ -224,7 +218,7 @@ namespace LLE
 				}
 
 				LLE.Log($"llmToolCall[{Id}]: {call.Text}");
-				if (EchoToConsole) MyConsole.AddMultiline(call.Text + "\n", Color.Cyan);
+				MyConsole.AddMultiline(call.Text + "\n", Color.Cyan);
 
 				calls.Add(call);
 				escaped.Add(arguments);

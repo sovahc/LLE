@@ -53,20 +53,6 @@ namespace LLE
 		}
 	}
 
-	// One plan on the table: a stream's own words and the calls it issued alongside them. Round one
-	// puts one of these in the pool per stream, the choice round adds one more per stream, and the
-	// turn is decided over the pool as a whole.
-	class Proposal
-	{
-		public readonly string Answer;
-		public readonly List<ToolCall> Calls;
-
-		public Proposal(string answer, List<ToolCall> calls)
-		{	Answer = answer;
-			Calls = calls;
-		}
-	}
-
 	class LLM
 	{
 		private void Log(string s) => LLE.Log(s);
@@ -88,23 +74,13 @@ namespace LLE
 		// the send would leave the bot waiting on a conversation that never continues.
 		private bool hasNews;
 
-		private readonly Ensemble ensemble = new Ensemble();
+		private readonly LlmChannel channel = new LlmChannel(0);
 
-		private bool choiceSent;          // one choice round per turn, then the bot acts anyway
-
-		private bool inFlight;            // a round is out with the streams
-		private bool decided;             // the pool holds everything this turn will act on
-		private bool anyoneSpoke;         // at least one stream answered rather than died
-		private string unparsedAnswer;    // first answer with no readable batch, kept for the report
-		private string unparsedError;
-
-		// Every plan this turn has produced, round one first. The choice round adds to it instead
-		// of replacing it: a plan the streams converge on wins by the same rule as any other.
-		private readonly List<Proposal> pool = new List<Proposal>();
-
-		// The tail of the batch the streams did not agree on. Reported after the executed commands
-		// so the transcript keeps the real order of events.
-		private readonly List<ToolCall> notExecuted = new List<ToolCall>();
+		// The answer this turn will act on, once it has arrived whole. 'response' is what the model
+		// said; 'responseError' is filled instead when the channel died on the way. Either one means
+		// there is something to act on and nothing to send.
+		private Answer response;
+		private string responseError;
 
 		// Calls print as themselves everywhere they are shown or compared.
 		public static string Join(string separator, List<ToolCall> calls)
@@ -180,12 +156,7 @@ namespace LLE
 				{	batch.Dequeue();
 					AnswerCall("Not executed: an earlier call in this batch failed.");
 				}
-
-				FlushNotExecuted();
-				return;
 			}
-
-			if(batch.Count == 0) FlushNotExecuted();
 
 			// Next command (if any) is driven by Tick() — one per tick.
 		}
@@ -223,22 +194,6 @@ namespace LLE
 			hasNews = true;
 		}
 
-		private void FlushNotExecuted()
-		{
-			if (notExecuted.Count == 0) return;
-
-			Append($"Not executed: {Join("; ", notExecuted)}\n", Color.Cornsilk,
-				Destination.Console | Destination.Log);
-
-			// Why, not just what: with no reason given the model spends its next turn reasoning about
-			// what "not executed" could mean instead of reading the results it did get.
-			foreach (var call in notExecuted)
-				AnswerCall("Not executed — the environment dropped the tail of the batch, which is"
-					+ " normal. Continue from the results you did get; do not repeat what succeeded.");
-
-			notExecuted.Clear();
-		}
-
 		private void RunNextPending()
 		{
 			if (batch.Count == 0) return;
@@ -267,8 +222,8 @@ namespace LLE
 
 		public void Tick()
 		{
-			PollStreams();
-				// stores data to pendingAnswers
+			PollChannel();
+				// stores the finished response, acted on further down
 
 			var ec = commands.GetEngineerCenter();
 
@@ -307,16 +262,14 @@ namespace LLE
 
 			// batch.Count == 0
 
-			if(ensemble.Busy) return;
+			if(channel.Busy) return;
 			if(pause) return;
 
 			// Process a finished response BEFORE any send. Otherwise an async sensor
 			// report (VISION/STATUS) can fire the send below and orphan it; the next
 			// response then appends its own calls onto it.
-			if(decided)
-			{	decided = false;
-				ProcessAnswers();
-				if(ensemble.Busy) return;      // a tie-break went out — this turn is not over
+			if(response != null || responseError != null)
+			{	ProcessAnswer();
 				if(batch.Count != 0) return;   // commands enqueued — execute before talking to LLM
 				if(pause) return;              // response was pause/restart — do not send this turn
 			}
@@ -324,7 +277,7 @@ namespace LLE
 			if (hasNews) // We have data for LLM
 			{
 				int used = ContextUsed;
-				int total = ensemble.ContextWindow;
+				int total = channel.ContextWindow;
 
 				if (total <= 0)
 				{	// No such channel in the loader config — there is nobody to talk to.
@@ -368,38 +321,22 @@ namespace LLE
 				// Send accumulated results to LLM
 				Log($"toLLM: {logBuf}");
 
-				// What the environment has to say goes in as one user message; the command results
-				// are already in, each answering its own call.
-				//
-				// It goes in even when there is nothing to say. A conversation that ends on a tool
-				// result gets no generation prompt from Gemma's chat template — it breaks off inside
-				// the model's own turn, and the model then opens the turn by hand and writes the
-				// template's own tokens out as text. Measured over 16 turns: 5 of 9 usable when the
-				// results end the conversation, 15 of 16 when a user message closes them.
-				var text = output.Length == 0 ? "[SYSTEM] No new events." : output.ToString();
+				var text = output.Length == 0 ? "..." : output.ToString();
 				transcript.Add(UserMessage(text));
 				transcriptChars += text.Length;
 				output.Clear();
 				logBuf.Clear();
 				hasNews = false;
 
-				choiceSent = false;
-				pool.Clear();
-				unparsedAnswer = null;
-				anyoneSpoke = false;
-				inFlight = true;
-
-				ensemble.Send(Request(null));
+				channel.Send(Request());
 				turn++;
 				return;
 			}
 
 		}
 
-		// The conversation as it goes out. The choice round asks its question as one more user
-		// message rather than by editing the last one: the turn it is asking about has to read the
-		// same way it did the first time.
-		private string Request(string extraUser)
+		// The conversation as it goes out.
+		private string Request()
 		{
 			var sb = new StringBuilder("\"messages\":[{\"role\":\"system\",\"content\":");
 			Json.Quoted(sb, commands.SystemPrompt);
@@ -407,9 +344,6 @@ namespace LLE
 
 			foreach (var message in transcript)
 				sb.Append(',').Append(message);
-
-			if (extraUser != null)
-				sb.Append(',').Append(UserMessage(extraUser));
 
 			// A frame is offered once and belongs to the turn that takes it. It rides in a message
 			// of its own, at the end, where the model is looking now.
@@ -442,224 +376,65 @@ namespace LLE
 
 		private void ContextStatistic()
 		{
-			int total = ensemble.ContextWindow;
+			int total = channel.ContextWindow;
 			if (total <= 0) return;
 			int used = ContextUsed;
 			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({used * 100 / total}%)", Color.LightPink);
 		}
 
-		// Answers are taken as they land, not as a set: the pool is what the turn is decided on, and
-		// once it decides, the streams still generating are told to stop.
-		private void PollStreams()
+		// The answer is only stored here. What the turn does with it is decided in Tick, after the
+		// sensors have had their say — a response acted on the moment it lands would run its batch
+		// before the news of this frame reaches the transcript.
+		private void PollChannel()
 		{
-			Answer answer;
-			int stream;
+			Answer payload;
+			string errorText;
 
-			while ((stream = ensemble.Poll(out answer)) >= 0)
-			{
-				if (answer == null)
-				{	Log($"stream {stream} died: {ensemble.Error}");
-					continue;
-				}
+			var polled = channel.Poll(out payload, out errorText);
+			if (polled == ChannelEvent.None) return;
 
-				anyoneSpoke = true;
-
-				// A stream that called nothing has no plan, and one whose call came back unreadable
-				// has half of one. Neither reaches the pool; the turn goes on without it. Left
-				// unsaid, an answer that never reached the pool shows up nowhere but the pool size,
-				// and every count drawn from the log is short by an unknown amount.
-				string error = answer.Error;
-				if (error == null && answer.Calls.Count == 0)
-					error = "[ERROR] You called no tool. Every turn is one to three tool calls.\n";
-
-				if (error != null)
-				{	Log($"stream {stream} unusable: {error.Trim()}");
-
-					if (unparsedAnswer == null)
-					{	unparsedAnswer = answer.AssistantJson;
-						unparsedError = error;
-					}
-					continue;
-				}
-
-				pool.Add(new Proposal(answer.AssistantJson, answer.Calls));
+			if (polled == ChannelEvent.Error)
+			{	Log($"channel died: {errorText}");
+				responseError = errorText;
 			}
+			else response = payload;
 
-			if (!inFlight || decided) return;
-
-			// Two streams starting with the same command settle the turn: the third can no longer
-			// change which plan runs, only shorten it, and waiting on it costs the whole turn. In
-			// the choice round every vote still counts, so that one is waited out in full.
-			Proposal winner;
-			int run;
-
-			if (!choiceSent && Agreed(pool, out winner, out run))
-			{	if (ensemble.Busy) Log($"consensus: turn {turn}, decided on {pool.Count}, cancelling the rest");
-				ensemble.CancelOutstanding();
-			}
-			else if (ensemble.Busy) return;
-
-			inFlight = false;
-			decided = true;
 			ContextStatistic();
 		}
 
-		// Two calls are the same call when name and arguments match. `say` is the one exception:
-		// what the bot tells the player is free text, and two streams never phrase it alike — on
-		// the measured session that alone accounted for a sixth of the disagreements.
-		private static bool SameCommand(ToolCall x, ToolCall y)
+		// One answer, and the batch it asked for. What the model called is what runs.
+		private void ProcessAnswer()
 		{
-			if (x.Is("say") && y.Is("say")) return true;
+			var answer = response;
+			response = null;
 
-			return x.Text.Equals(y.Text, StringComparison.OrdinalIgnoreCase);
-		}
-
-		// Commands are order-dependent (fly, then get), so agreement is a prefix, not a set.
-		private static int CommonPrefix(List<ToolCall> x, List<ToolCall> y)
-		{
-			int n = 0;
-			while (n < x.Count && n < y.Count && SameCommand(x[n], y[n])) n++;
-			return n;
-		}
-
-		// The largest group of proposals starting with the same command, and the commands the whole
-		// group agrees on. A group of one is not agreement: a plan nobody else proposed wins
-		// nothing here. On a tie the earlier group keeps it — round one is older than the choice.
-		private static bool Agreed(List<Proposal> plans, out Proposal winner, out int run)
-		{
-			winner = null;
-			run = 0;
-
-			int best = 1;
-
-			for (int i = 0; i < plans.Count; ++i)
-			{
-				int count = 1;
-				int prefix = plans[i].Calls.Count;
-
-				for (int j = i + 1; j < plans.Count; ++j)
-				{
-					if (!SameCommand(plans[i].Calls[0], plans[j].Calls[0])) continue;
-
-					count++;
-					int p = CommonPrefix(plans[i].Calls, plans[j].Calls);
-					if (p < prefix) prefix = p;
-				}
-
-				if (count > best)
-				{	best = count;
-					winner = plans[i];
-					run = prefix;
-				}
-			}
-
-			return winner != null;
-		}
-
-		// Ties go to the earlier plan; there is nothing to tell two plans of the same length apart.
-		private static Proposal Shortest(List<Proposal> plans)
-		{
-			var best = plans[0];
-			foreach (var p in plans)
-				if (p.Calls.Count < best.Calls.Count) best = p;
-			return best;
-		}
-
-		// The choice round. Every stream gets the same text and none is told which plan was its
-		// own: a stream asked to defend its answer defends it, and what is wanted here is a choice.
-		//
-		// It asks for a choice, not for more thought. Measured head to head on the hard turn of a
-		// logged session (6 samples each, two plans): this wording reasons 1601 chars in 8.5s and
-		// all six samples pick the same plan — and it is the right one. The wording it replaced
-		// ("think again, look for a mistake in your own reasoning") reasoned 4705 chars in 16.7s
-		// and five of six answered with something that was neither plan.
-		//
-		// "without its label" is not decoration: without it a third of the answers came back as the
-		// literal text "PLAN A:" and its lines, with no call at all.
-		private static string Choice(List<Proposal> plans)
-		{
-			string count = plans.Count == 3 ? "three" : "two";
-
-			var sb = new StringBuilder();
-
-			sb.Append("\n[SYSTEM] ").Append(plans.Count == 3 ? "Three" : "Two")
-				.Append(" plans were proposed for this turn and they start differently.")
-				.Append(" Pick the one that is right here.")
-				.Append(" Issue that plan's calls, unchanged and in order, without its label,")
-				.Append(" and nothing else. Do not think it over and do not write a plan of your own:")
-				.Append(" this is a choice between ").Append(count).Append(".")
-				.Append(" If none of them is right, answer with the one call that fixes that.\n");
-
-			for (int i = 0; i < plans.Count; ++i)
-				sb.Append("PLAN ").Append((char)('A' + i)).Append(":\n")
-					.Append(Join("\n", plans[i].Calls)).Append("\n");
-
-			return sb.ToString();
-		}
-
-		// The streams answered the same question. Two of them starting with the same command is
-		// agreement and their shared prefix runs. All of them parting company sends every plan back
-		// to every stream — that round is the choice, and its answers go into the same pool, so the
-		// plan the streams converge on wins by the same rule as before.
-		private void ProcessAnswers()
-		{
-			if (!anyoneSpoke)
-			{	// Every stream died on the way. Nothing to read and nothing to run.
-				MyConsole.AddMultiline("\n[LLM ERROR] " + ensemble.Error + "\n", Color.Red);
+			if (answer == null)
+			{	// The channel died on the way. Nothing to read and nothing to run.
+				MyConsole.AddMultiline("\n[LLM ERROR] " + responseError + "\n", Color.Red);
+				responseError = null;
 				pause = true;
 				return;
 			}
 
-			if (pool.Count == 0)
-			{	// Nobody made a call the mod can use — not in this round and not in the one before
-				// it. The stream's words go back with the error they earned.
-				Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
-				AddAssistant(unparsedAnswer);
-				Append(unparsedError, Color.Red);
-				return;
-			}
+			var cc = answer.Calls;
 
-			Proposal winner;
-			int run;
-
-			if (!Agreed(pool, out winner, out run))
-			{
-				if (!choiceSent && pool.Count > 1)
-				{	choiceSent = true;
-
-					Log($"consensus: turn {turn}, no two streams agreed: "
-						+ string.Join(" | ", pool.Select(p => p.Calls[0].Text)) + " — choosing");
-					MyConsole.AddNewLine();
-					MyConsole.Add("[CHOICE] streams disagreed on the first command", Color.Yellow);
-
-					// The round-one answers are dropped, transcript and all: if the streams converge
-					// here, this turn must read as if the bot answered once.
-					inFlight = true;
-					ensemble.Send(Request(Choice(pool)));
-					return;
-				}
-
-				// Six plans and no two of them start alike — the streams did not converge and there
-				// is no third round. The shortest plan is the one that commits least before the
-				// game answers back, and the next turn decides again with its result in hand.
-				winner = Shortest(pool);
-				run = winner.Calls.Count;
-				Log(pool.Count == 1
-					? $"consensus: turn {turn}, one proposal, nothing to vote on"
-					: $"consensus: turn {turn}, no agreement after the choice, shortest of {pool.Count} wins");
-			}
-
-			var cc = winner.Calls;
-
-			// Every turn leaves its numbers in the log: how much of the batch survived the vote is
-			// the whole point of running three streams, and it is only measurable in play.
-			Log($"consensus: turn {turn}, ran {run} of {cc.Count}, pool of {pool.Count}");
+			// A call that came back unreadable, and a turn that called nothing at all: neither can be
+			// run. What goes on record is what the model said, with the error it earned against it.
+			string error = answer.Error;
+			if (error == null && cc.Count == 0)
+				error = "[ERROR] You called no tool.\n";
 
 			// The bot's turn goes into the transcript as its own message, and the calls travel as
 			// calls. Reasoning stays out — the chat template drops thought from previous turns anyway.
 			// Console already printed it while streaming; llmContent already logged it.
 			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
-			AddAssistant(winner.Answer);
+			AddAssistant(answer.AssistantJson);
+
+			if (error != null)
+			{	Log($"turn {turn} unusable: {error.Trim()}");
+				Append(error, Color.Red);
+				return;
+			}
 
 			// Control commands (pause, restart) must be issued alone
 			bool hasControl = cc.Any(c => c.Is("restart") || c.Is("pause"));
@@ -695,11 +470,7 @@ namespace LLE
 				}
 			}
 
-			// Queue the agreed prefix; the tail is reported as dropped once the prefix has run.
-			for (int i = 0; i < cc.Count; ++i)
-			{	if (i < run) batch.Enqueue(cc[i]);
-				else notExecuted.Add(cc[i]);
-			}
+			for (int i = 0; i < cc.Count; ++i) batch.Enqueue(cc[i]);
 
 			RunNextPending();
 		}

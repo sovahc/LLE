@@ -19,9 +19,6 @@ namespace LLELoader
 	{
 		public const string LogPath = "LLELoader.log";
 		private static StreamWriter _writer;
-
-		// One writer, and as many callers as there are channels streaming at once, plus the game
-		// thread. StreamWriter is not thread-safe, so the lock is what keeps the log a log.
 		private static readonly object _lock = new object();
 
 		public static void Write(string msg)
@@ -54,33 +51,20 @@ namespace LLELoader
 
 	class LoaderConfig
 	{
-		// Index is the channel id the mod addresses. 0 is the one that executes commands.
 		public ChannelConfig[] Channels { get; set; }
 		public bool EnableProxy { get; set; } = false;
 		public string ProxyUrl { get; set; } = "";
-		// Fraction of the game window the screenshot is rendered at. The vision model rescales
-		// anyway; this only decides how much detail survives to be rescaled.
 		public float ScreenshotScale { get; set; } = 0.5f;
-		// Fraction of real time the simulation runs at. 0.5 gives 30 updates per second instead of
-		// 60, with every in-game step still 1/60 s — the world runs in slow motion, sound and
-		// effects with it, and a recording sped up 2x looks normal again.
 		public float SimulationSpeed { get; set; } = 1.0f;
 	}
 
-	// One model behind one endpoint. The channel holds no conversation: the mod passes the whole
-	// user message every time and decides what a turn is. Everything here is transport.
 	class Channel
 	{
 		public readonly int Id;
 		public readonly ChannelConfig Config;
 
-
 		private readonly ConcurrentQueue<LLE.FromLLM> _queue = new ConcurrentQueue<LLE.FromLLM>();
 
-		// A send and a cancel both start a new generation. The streaming task carries the generation
-		// it was born with and enqueues nothing once that number is stale, so a stream nobody is
-		// waiting for can no longer land its chunks in the next turn's answer. Send and Cancel are
-		// both called from the game thread — one writer, and the task only reads.
 		private volatile int _generation;
 		private CancellationTokenSource _cancel;
 
@@ -95,9 +79,6 @@ namespace LLELoader
 			return _queue.TryDequeue(out m);
 		}
 
-		// Fire and forget. Everything the request needs arrives as a string or is read before the
-		// first await, i.e. still on the game thread — no collection owned by the game is ever
-		// touched from the streaming task.
 		public void Send(string requestJson)
 		{
 			_generation++;
@@ -107,8 +88,6 @@ namespace LLELoader
 			var _ = AskLlmStreaming(requestJson, _cancel, _generation);
 		}
 
-		// The stream is abandoned, not stopped politely: closing the connection is what makes the
-		// server free the slot, and nothing that arrives after this is read anyway.
 		public void Cancel()
 		{
 			_generation++;
@@ -118,7 +97,6 @@ namespace LLELoader
 			Logger.Write($"[LLM:{Id}] cancelled");
 		}
 
-		// The only string this end ever writes into a request is the model name from the config.
 		private static void Quoted(StringBuilder sb, string s)
 		{
 			sb.Append('"');
@@ -138,8 +116,6 @@ namespace LLELoader
 		private async Task AskLlmStreaming(string requestJson,
 			CancellationTokenSource cancel, int generation)
 		{
-			// Everything this task ever sends to the mod goes through here, so one test is enough
-			// to keep an abandoned stream silent.
 			Action<LLE.MessageType, string> emit = (type, payload) =>
 			{	if (generation == _generation)
 					_queue.Enqueue(new LLE.FromLLM { Type = type, Payload = payload });
@@ -147,13 +123,6 @@ namespace LLELoader
 
 			try
 			{
-				// The body is the mod's `messages` and `tools`, written by the side that knows what
-				// a turn is, plus the fields that belong to this endpoint. Nothing here reads what
-				// the mod wrote — it is already the JSON that has to go out.
-				//
-				// Thinking: without the channel Gemma matches patterns, with it she checks her own
-				// trace — 70% against 98% on placement. Measured in the GemmaBuilder project.
-				// The budget covers the reasoning too, which runs to ~10k tokens on a multi-block job.
 				var head = new StringBuilder("{\"model\":");
 				Quoted(head, Config.Model);
 				head.Append(",\"max_tokens\":").Append(Config.MaxTokens);
@@ -196,16 +165,12 @@ namespace LLELoader
 				using var reader = new StreamReader(stream);
 				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
 				{
-					// Cancelling the token aborts the request itself; this test is what stops a stream
-					// that keeps producing — the reader is never waiting on it for long.
 					if (cancel.IsCancellationRequested) break;
 
 					if (!line.StartsWith("data:")) continue;
 					var data = line.Substring(5).Trim();
 					if (data == "[DONE]") break;
 
-					// What the chunk says is the mod's business. This end only knows that one
-					// arrived and that the stream has not ended yet.
 					chunks++;
 					emit(LLE.MessageType.Chunk, data);
 				}
@@ -216,7 +181,6 @@ namespace LLELoader
 			}
 			catch (Exception ex)
 			{
-				// A cancelled stream throws on the way out — that is the abort working, not a failure.
 				if (cancel.IsCancellationRequested) return;
 
 				Logger.Write($"[LLM:{Id}] streaming error: " + ex.Message);
@@ -276,7 +240,6 @@ namespace LLELoader
 			return channels;
 		}
 
-		// The mod asks for channels by index; an index it invented is not a crash, it is silence.
 		private static Channel Get(int channel)
 		{
 			if (channel < 0 || channel >= _channels.Length) return null;
@@ -339,8 +302,6 @@ namespace LLELoader
 				Directory.CreateDirectory(directory);
 				_screenshotPath = Path.Combine(directory, "LLE.png");
 
-				// OnScreenshotTaken carries neither a path nor a result, so a leftover file from
-				// the previous shot would read as this one's success.
 				File.Delete(_screenshotPath);
 
 				if (!_screenshotHooked)
@@ -349,8 +310,6 @@ namespace LLELoader
 					_screenshotHooked = true;
 				}
 
-				// ignoreSprites: the frame is copied right after the game scene and before the
-				// GUI, which keeps the HUD out and the mod's billboards in.
 				VRageRender.MyRenderProxy.TakeScreenshot(
 					new VRageMath.Vector2(_config.ScreenshotScale), _screenshotPath, false, true, false);
 			}
@@ -382,8 +341,6 @@ namespace LLELoader
 			_screenshotFinished = true;
 		}
 
-		// The frame is handed over once and then forgotten here. The mod builds one request for
-		// all its streams, so they see identical input, and an old frame can never ride along twice.
 		public static string TakeScreenshot()
 		{
 			var frame = _pendingScreenshot;
@@ -398,7 +355,6 @@ namespace LLELoader
 		}
 
 		#endregion
-
 
 		[HarmonyPatchCategory("Early")]
 		static class Patch_SetupPaths
@@ -423,11 +379,6 @@ namespace LLELoader
 		[HarmonyPatchCategory("Early")]
 		static class Patch_SimulationSpeed
 		{
-			// Two WaitForTargetFrameRate instances pace the game: FixedLoop owns the one for the update
-			// loop, MyRenderThread the one for drawing. Retuning only FixedLoop's leaves the render
-			// thread at its own frame rate. The ctor itself would be the obvious target, but at 24
-			// bytes of IL it is small enough for the JIT to inline into its caller and skip the patch;
-			// FixedLoop's ctor is 60 bytes and safe. Both fields are readonly, hence FieldRefAccess.
 			[HarmonyPatch(typeof(Sandbox.Engine.Platform.FixedLoop), MethodType.Constructor,
 				new[] { typeof(VRage.Stats.MyStats), typeof(string) })]
 			[HarmonyPostfix]
@@ -445,10 +396,6 @@ namespace LLELoader
 		[HarmonyPatchCategory("Early")]
 		static class Patch_ExperimentalText
 		{
-			// The HUD plate draws MyTexts.GetString(PerformanceWarningHeading_ExperimentalMode)
-			// every frame (Sandbox.Game MyGuiScreenHudBase.DrawString), so overwriting the entry
-			// in the localization package is enough. LoadLanguage() calls MyTexts.Clear() before
-			// every LoadTexts(), hence the postfix — it re-applies on a language switch too.
 			[HarmonyPatch(typeof(VRage.MyTexts), nameof(VRage.MyTexts.LoadTexts))]
 			[HarmonyPostfix]
 			static void Postfix()
@@ -529,10 +476,10 @@ namespace LLELoader
 						case "GetChunkFromLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_GetChunkFromLLM)); break;
 						case "SendMessageToLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_SendMessageToLLM)); break;
 						case "CancelLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_CancelLLM)); break;
-							case "GetContextWindow": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextWindow)); break;
+						case "GetContextWindow": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextWindow)); break;
 						case "RequestScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_RequestScreenshot)); break;
 						case "ScreenshotDone": prefix = new HarmonyMethod(smld, nameof(Prefix_ScreenshotDone)); break;
-					case "TakeScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_TakeScreenshot)); break;
+						case "TakeScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_TakeScreenshot)); break;
 						default: continue;
 					}
 
