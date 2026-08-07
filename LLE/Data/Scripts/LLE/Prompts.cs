@@ -1,7 +1,7 @@
 namespace LLE
 {
-	// Every system prompt in the mod. One for now: both streams of the ensemble are the same
-	// model answering the same question, so they get the same words.
+	// Every system prompt in the mod. One for now: the fast stream and the deep one are the same
+	// model asked the same question, so they get the same words.
 	static class Prompts
 	{
 		// Never add an exemplar answering with a bare <execute> block: with thinking off —
@@ -36,7 +36,6 @@ Space Engineers game. You control a character (fly, weld, grind, draft, build, i
 * For [TYPE B] commands, follow the full protocol.
 * Max 5 commands per batch.
 * If you encounter an error, do not repeat the same failed command. Change your strategy.
-* Not every command in a batch is executed. The environment may drop the tail of a batch at any time. That is normal: read the results you did get and continue from there. Never repeat a command that already succeeded.
 * Tasks from [GAME CHAT]. No task? Execute `<execute>pause</execute>` and stop.
 * After `<execute>`, stop generation.
 * ALWAYS watch [GAME CHAT] for new tasks/info. Ignoring it is a critical error.

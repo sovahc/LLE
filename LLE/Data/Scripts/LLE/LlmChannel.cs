@@ -47,6 +47,22 @@ namespace LLE
 			busy = true;
 		}
 
+		// Stop generating: the answer is not needed this turn. The loader drops the connection and
+		// throws away whatever this request had already queued, so nothing of it reaches the next
+		// turn — but the server keeps the slot's cached prefix, so the next send is still cheap.
+		public void Cancel()
+		{
+			if (!busy) return;
+
+			LLE_Loader.CancelLLM(Id);
+			busy = false;
+
+			reasoning.Clear();
+			content.Clear();
+			response.Clear();
+			lastType = MessageType.Stop;
+		}
+
 		public ChannelEvent Poll(out string payload)
 		{
 			payload = null;

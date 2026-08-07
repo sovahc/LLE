@@ -320,6 +320,7 @@ namespace LLE
 		public static bool IsPresent() => false;
 		public static bool GetChunkFromLLM(int channel, out FromLLM m) { m = null; return false; }
 		public static void SendMessageToLLM(int channel, string text) { }
+		public static void CancelLLM(int channel) { }
 		public static void SetSystemPrompt(int channel, string text, string stop) { }
 		public static int GetContextWindow(int channel) { return 0; } // 0 = no such channel configured
 		public static void RequestScreenshot() { }

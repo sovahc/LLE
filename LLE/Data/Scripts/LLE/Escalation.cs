@@ -1,46 +1,48 @@
 namespace LLE
 {
-	// Two identical local streams answering the same conversation at once. What both of them say
-	// is what the bot does; where they part company, the bot is asked to think again.
+	// Two streams of the same model at two speeds. The fast one runs with thinking off and answers
+	// in about a second; the deep one thinks and takes five or six. Both are given the same
+	// question at the same time, and the fast answer decides which of them the turn belongs to:
+	// anything that puts a blueprint into the world waits for the deep stream, everything else runs
+	// on the fast one and the deep stream is cut off mid-sentence.
 	//
-	// Measured on a 30-turn session (720 samples, gemma-4-26B at the shipping sampler): the streams
-	// pick the same first command on 72% of turns, and the turns where they part are the same turns
-	// under a different system prompt (r = 0.80). Disagreement is a property of the state, not of
-	// the sampler — which is what makes it worth acting on.
+	// The two are not peers and their agreement means nothing: the deep stream is the authority
+	// where it is asked at all, and the fast one is a way not to wait for it everywhere else.
 	//
-	// A stream missing from the loader config is not an error: the turn is then a single-stream
-	// turn and nothing else changes.
-	class Ensemble
+	// Measured, same task, same stand: thinking everywhere 12.2 minutes, thinking nowhere 2.3 — and
+	// the same 1.9 commands actually executed per turn either way. The difference is latency, not
+	// work, which is why it is worth paying it only where it buys something.
+	//
+	// A stream missing from the loader config is not an error; the turn is then decided by whoever
+	// is there.
+	class Escalation
 	{
-		public const int Streams = 2;
+		public const int Fast = 0; // thinking off in the loader config
+		public const int Deep = 1; // thinking on
+		public const int Count = 2;
 
-		private readonly LlmChannel[] channels = new LlmChannel[Streams];
-		private readonly string[] answers = new string[Streams];
-		private readonly bool[] waiting = new bool[Streams];
+		private readonly LlmChannel[] channels = new LlmChannel[Count];
+		private readonly string[] answers = new string[Count];
+		private readonly bool[] finished = new bool[Count];
 
 		private string error;
 
-		public Ensemble()
-		{	for (int i = 0; i < Streams; ++i)
-				channels[i] = new LlmChannel(i) { EchoToConsole = i == 0 };
-		}
-
-		// There is one console, so only the first stream is echoed into it. The other is in the log.
-		public int ContextWindow { get { return channels[0].ContextWindow; } }
-
-		public string Error { get { return error; } }
-
-		public bool Busy
-		{	get
-			{	for (int i = 0; i < Streams; ++i)
-					if (waiting[i]) return true;
-				return false;
+		public Escalation()
+		{	for (int i = 0; i < Count; ++i)
+			{	channels[i] = new LlmChannel(i) { EchoToConsole = i == Fast };
+				finished[i] = true;
 			}
 		}
 
-		// The streams are identical or they are not an ensemble, so the prompt goes to all of them.
+		// The fast stream is the one the mod talks about: it is present in every configuration.
+		public int ContextWindow { get { return channels[Fast].ContextWindow; } }
+
+		public string Error { get { return error; } }
+
+		// Both streams are given the same words: they are the same model, and the only thing that
+		// differs between them is the thinking flag, which lives in the loader config.
 		public static void SetSystemPromptAll(string text, string stop)
-		{	for (int i = 0; i < Streams; ++i)
+		{	for (int i = 0; i < Count; ++i)
 				if (LLE_Loader.GetContextWindow(i) > 0)
 					LLE_Loader.SetSystemPrompt(i, text, stop);
 		}
@@ -49,51 +51,49 @@ namespace LLE
 		{
 			error = null;
 
-			for (int i = 0; i < Streams; ++i)
+			for (int i = 0; i < Count; ++i)
 			{
 				answers[i] = null;
-				waiting[i] = channels[i].Present;
-				if (waiting[i]) channels[i].Send(userText);
+				finished[i] = !channels[i].Present;
+				if (!finished[i]) channels[i].Send(userText);
 			}
 		}
 
-		// True once every stream that was sent to has finished. An entry is null for a stream that
-		// is absent from the config or died on the way — the caller works with what came back.
-		public bool Poll(out string[] result)
+		public void Poll()
 		{
-			result = null;
-
-			bool outstanding = false;
-
-			for (int i = 0; i < Streams; ++i)
+			for (int i = 0; i < Count; ++i)
 			{
-				if (!waiting[i]) continue;
-				outstanding = true;
+				if (finished[i]) continue;
 
 				string payload;
 				switch (channels[i].Poll(out payload))
 				{
 					case ChannelEvent.Response:
 						answers[i] = payload;
-						waiting[i] = false;
+						finished[i] = true;
 						break;
 
 					case ChannelEvent.Error:
 						error = payload;
-						waiting[i] = false;
+						finished[i] = true;
 						break;
 				}
 			}
+		}
 
-			if (!outstanding) return false;
+		public bool Finished(int stream) { return finished[stream]; }
 
-			for (int i = 0; i < Streams; ++i)
-				if (waiting[i]) return false;
+		// null means the stream is absent, died, or was cut off before it said anything.
+		public string Answer(int stream) { return answers[stream]; }
 
-			// A copy: the caller holds the answers across ticks, and the next Send clears these.
-			result = new string[Streams];
-			for (int i = 0; i < Streams; ++i) result[i] = answers[i];
-			return true;
+		// Its answer is not wanted this turn. The slot keeps its cached prefix, so the stream pays
+		// nothing for being interrupted — measured: prompt_n=1 on its next request.
+		public void Cancel(int stream)
+		{
+			if (finished[stream]) return;
+
+			channels[stream].Cancel();
+			finished[stream] = true;
 		}
 	}
 }

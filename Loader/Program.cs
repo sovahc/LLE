@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using HarmonyLib;
 using SpaceEngineers;
@@ -73,6 +74,12 @@ namespace LLELoader
 
 		private readonly ConcurrentQueue<LLE.FromLLM> _queue = new ConcurrentQueue<LLE.FromLLM>();
 
+		// Every request carries the generation it started in. Cancel() bumps the generation and
+		// drains what is already queued, so a task still unwinding cannot post into the next turn:
+		// it posts under the old number and Post drops it.
+		private volatile int _generation;
+		private CancellationTokenSource _cancel;
+
 		public Channel(int id, ChannelConfig config)
 		{
 			Id = id;
@@ -96,10 +103,37 @@ namespace LLELoader
 		// touched from the streaming task.
 		public void Send(string userText, string imageBase64)
 		{
-			var _ = AskLlmStreaming(userText, imageBase64);
+			_generation++;
+			_cancel = new CancellationTokenSource();
+			var _ = AskLlmStreaming(userText, imageBase64, _generation, _cancel.Token);
 		}
 
-		private async Task AskLlmStreaming(string chatContext, string screenshotBase64)
+		// The answer is not needed any more. Dropping the connection is what stops llama.cpp: the
+		// slot goes idle within a quarter second and keeps its cached prefix, so the next request on
+		// this channel still re-uses it (measured: prompt_n=1 after an abort).
+		public void Cancel()
+		{
+			_generation++;
+
+			var cancel = _cancel;
+			_cancel = null;
+			if (cancel != null)
+			{	try { cancel.Cancel(); } catch { }
+			}
+
+			LLE.FromLLM stale;
+			while (_queue.TryDequeue(out stale)) { }
+
+			Logger.Write($"[LLM:{Id}] cancelled");
+		}
+
+		private void Post(int generation, LLE.FromLLM m)
+		{
+			if (generation != _generation) return; // this request was cancelled while it was talking
+			_queue.Enqueue(m);
+		}
+
+		private async Task AskLlmStreaming(string chatContext, string screenshotBase64, int generation, CancellationToken cancel)
 		{
 			try
 			{
@@ -144,13 +178,13 @@ namespace LLELoader
 				};
 				if (!string.IsNullOrEmpty(Config.ApiKey))
 					request.Headers.Add("Authorization", "Bearer " + Config.ApiKey);
-				var response = await MessageBroker.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+				var response = await MessageBroker.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancel).ConfigureAwait(false);
 
 				if (!response.IsSuccessStatusCode)
 				{
 					string errBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 					Logger.Write($"[LLM:{Id}] HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}");
-					_queue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = $"HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}" });
+					Post(generation, new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = $"HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}" });
 					return;
 				}
 
@@ -168,6 +202,12 @@ namespace LLELoader
 				using var reader = new StreamReader(stream);
 				while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
 				{
+					// Disposing the reader closes the socket, and that is what stops llama.cpp.
+					// Checked here rather than left to the token alone: chunks arrive every few
+					// milliseconds while the model generates, so this reacts just as fast and does
+					// not depend on how the handler implements abort.
+					if (cancel.IsCancellationRequested) return;
+
 					if (!line.StartsWith("data:")) continue;
 					var data = line.Substring(5).Trim();
 					if (data == "[DONE]") break;
@@ -199,7 +239,7 @@ namespace LLELoader
 						if (!string.IsNullOrEmpty(reasoning))
 						{
 							reasoningChunks++;
-							_queue.Enqueue(new LLE.FromLLM
+							Post(generation, new LLE.FromLLM
 							{
 								Type = LLE.MessageType.Reasoning,
 								Payload = reasoning
@@ -211,7 +251,7 @@ namespace LLELoader
 							if (!string.IsNullOrEmpty(content))
 							{
 								contentChunks++;
-								_queue.Enqueue(new LLE.FromLLM
+								Post(generation, new LLE.FromLLM
 								{
 									Type = LLE.MessageType.Content,
 									Payload = content
@@ -228,12 +268,16 @@ namespace LLELoader
 					+ " contentChunks=" + contentChunks
 					+ " reasoningChunks=" + reasoningChunks);
 
-				_queue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Stop, Payload = null });
+				Post(generation, new LLE.FromLLM { Type = LLE.MessageType.Stop, Payload = null });
+			}
+			catch (OperationCanceledException)
+			{
+				// Cancel() already logged it, and the mod is no longer listening to this request.
 			}
 			catch (Exception ex)
 			{
 				Logger.Write($"[LLM:{Id}] streaming error: " + ex.Message);
-				_queue.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = ex.Message });
+				Post(generation, new LLE.FromLLM { Type = LLE.MessageType.Error, Payload = ex.Message });
 			}
 		}
 	}
@@ -334,6 +378,12 @@ namespace LLELoader
 		{
 			var c = Get(channel);
 			return c == null ? 0 : c.Config.ContextWindow;
+		}
+
+		public static void CancelLLM(int channel)
+		{
+			var c = Get(channel);
+			if (c != null) c.Cancel();
 		}
 
 		public static void SetSystemPrompt(int channel, string text, string stop)
@@ -527,6 +577,7 @@ namespace LLELoader
 						case "IsPresent": prefix = new HarmonyMethod(smld, nameof(Prefix_IsPresent)); break;
 						case "GetChunkFromLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_GetChunkFromLLM)); break;
 						case "SendMessageToLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_SendMessageToLLM)); break;
+					case "CancelLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_CancelLLM)); break;
 						case "SetSystemPrompt": prefix = new HarmonyMethod(smld, nameof(Prefix_SetSystemPrompt)); break;
 						case "GetContextWindow": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextWindow)); break;
 						case "RequestScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_RequestScreenshot)); break;
@@ -553,6 +604,12 @@ namespace LLELoader
 			static bool Prefix_GetChunkFromLLM(int channel, out LLE.FromLLM m, ref bool __result)
 			{
 				__result = GetChunkFromLLM(channel, out m);
+				return false;
+			}
+
+			static bool Prefix_CancelLLM(int channel)
+			{
+				CancelLLM(channel);
 				return false;
 			}
 

@@ -71,15 +71,11 @@ namespace LLE
 		private int transcriptChars;
 		private int turn;
 
-		private readonly Ensemble ensemble = new Ensemble();
+		private readonly Escalation escalation = new Escalation();
 
-		private string[] pendingAnswers;  // finished answers waiting for a free moment to be run
-		private string lastConversation;  // this turn's message, kept for the tie-break
-		private bool choiceSent;          // one tie-break per turn, then the bot acts anyway
-
-		// The tail of the batch the streams did not agree on. Reported after the executed commands
-		// so the transcript keeps the real order of events.
-		private readonly List<string> notExecuted = new List<string>();
+		private bool turnOpen;      // a question is out and no answer has been acted on yet
+		private bool waitingDeep;   // the fast answer asked for a blueprint; the deep stream decides
+		private double escalatedAt; // when the wait started, for the log
 
 		[Flags]
 		public enum Destination : byte
@@ -135,21 +131,10 @@ namespace LLE
 			if(result.Status != CommandStatus.Success && batch.Count > 0)
 			{	Append($"Remaining {batch.Count} command(s) ignored: {string.Join("; ", batch)}\n", Color.Cornsilk);
 				batch.Clear();
-				FlushNotExecuted();
 				return;
 			}
 
-			if(batch.Count == 0) FlushNotExecuted();
-
 			// Next command (if any) is driven by Tick() — one per tick.
-		}
-
-		private void FlushNotExecuted()
-		{
-			if (notExecuted.Count == 0) return;
-
-			Append($"Not executed: {string.Join("; ", notExecuted)}\n", Color.Cornsilk);
-			notExecuted.Clear();
 		}
 
 		private void RunNextPending()
@@ -180,8 +165,7 @@ namespace LLE
 
 		public void Tick()
 		{
-			PollStreams();
-				// stores data to pendingAnswers
+			escalation.Poll();
 
 			var ec = commands.GetEngineerCenter();
 
@@ -230,17 +214,18 @@ namespace LLE
 				return;
 			}
 
-			if(ensemble.Busy) return;
 			if(pause) return;
 
-			// Process a finished response BEFORE any send. Otherwise an async sensor
-			// report (VISION/STATUS) can fire the send below and orphan it; the next
-			// response then appends onto it ("Found 2 <execute> blocks").
-			if(pendingAnswers != null)
-			{	var answers = pendingAnswers;
-				pendingAnswers = null;
-				ProcessAnswers(answers);
-				if(ensemble.Busy) return;      // a tie-break went out — this turn is not over
+			// Finish the open turn BEFORE any send. Otherwise an async sensor report
+			// (VISION/STATUS) can fire the send below and orphan it; the next response
+			// then appends onto it ("Found 2 <execute> blocks").
+			if(turnOpen)
+			{	bool fromDeep;
+				string answer;
+				if(!Decide(out answer, out fromDeep)) return; // still waiting on a stream
+
+				turnOpen = false;
+				ProcessTurn(answer, fromDeep);
 				if(batch.Count != 0) return;   // commands enqueued — execute before talking to LLM
 				if(pause) return;              // response was pause/restart — do not send this turn
 			}
@@ -248,7 +233,7 @@ namespace LLE
 			if (output.Length != 0) // We have data for LLM
 			{
 				int used = ContextUsed;
-				int total = ensemble.ContextWindow;
+				int total = escalation.ContextWindow;
 
 				if (total <= 0)
 				{	// No such channel in the loader config — there is nobody to talk to.
@@ -297,9 +282,9 @@ namespace LLE
 				output.Clear();
 				logBuf.Clear();
 
-				lastConversation = "\n" + string.Join("\n", transcript);
-				choiceSent = false;
-				ensemble.Send(lastConversation);
+				escalation.Send("\n" + string.Join("\n", transcript));
+				turnOpen = true;
+				waitingDeep = false;
 				turn++;
 				return;
 			}
@@ -317,19 +302,10 @@ namespace LLE
 
 		private void ContextStatistic()
 		{
-			int total = ensemble.ContextWindow;
+			int total = escalation.ContextWindow;
 			if (total <= 0) return;
 			int used = ContextUsed;
 			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({used * 100 / total}%)", Color.LightPink);
-		}
-
-		private void PollStreams()
-		{
-			string[] answers;
-			if (!ensemble.Poll(out answers)) return;
-
-			pendingAnswers = answers;
-			ContextStatistic();
 		}
 
 		private static string MyTrim(string s)
@@ -388,120 +364,87 @@ namespace LLE
 			return cc;
 		}
 
-		// Two commands are the same command when they are literally the same. `say` is the one
-		// exception: what the bot tells the player is free text, and two streams never phrase it
-		// alike — on the measured session that alone accounted for a sixth of the disagreements.
-		private static bool SameCommand(string x, string y)
+		// Which turns are worth five seconds of thinking. Blueprints and only blueprints: the
+		// non-thinking stream builds fast and looks around correctly, but a drafted structure is
+		// what it gets wrong — on the measured session it put the pillar into the cell it was
+		// standing in. `route` is here because its output is copied straight into the draft.
+		private static bool NeedsThought(List<string> commands)
 		{
-			if (x.Equals(y, StringComparison.OrdinalIgnoreCase)) return true;
-
-			return x.StartsWith("say ", StringComparison.OrdinalIgnoreCase)
-			    && y.StartsWith("say ", StringComparison.OrdinalIgnoreCase);
+			foreach (var c in commands)
+			{	if (c.StartsWith("draft", StringComparison.OrdinalIgnoreCase)
+				 || c.StartsWith("route", StringComparison.OrdinalIgnoreCase)) return true;
+			}
+			return false;
 		}
 
-		// Commands are order-dependent (fly, then get), so agreement is a prefix, not a set.
-		private static int CommonPrefix(List<string> x, List<string> y)
+		// Whose answer this turn belongs to. False means neither stream has said enough yet.
+		private bool Decide(out string answer, out bool fromDeep)
 		{
-			int n = 0;
-			while (n < x.Count && n < y.Count && SameCommand(x[n], y[n])) n++;
-			return n;
-		}
+			answer = null;
+			fromDeep = false;
 
-		// The tie-break round. Both streams get the same text and neither is told which plan was its
-		// own: a stream asked to defend its answer defends it, and what is wanted here is a choice.
-		//
-		// It asks for a choice, not for more thought. Measured head to head on the hard turn of a
-		// logged session (6 samples each): this wording reasons 1601 chars in 8.5s and all six
-		// samples pick the same plan — and it is the right one. The wording it replaced ("think
-		// again, look for a mistake in your own reasoning") reasoned 4705 chars in 16.7s and five
-		// of six answered with something that was neither plan.
-		//
-		// "without its label" is not decoration: without it a third of the answers came back as the
-		// literal text "PLAN A:" and its lines, with no <execute> block at all.
-		private static string Choice(List<string> a, List<string> b)
-		{
-			return "\n[SYSTEM] Two plans were proposed for this turn and they start differently."
-				+ " Pick the one that is right here."
-				+ " Answer with a single <execute> block holding that plan's commands, unchanged, without its label,"
-				+ " and nothing else. Do not think it over and do not write a third plan: this is a choice between two."
-				+ " If both are wrong, answer with the one command that fixes that.\n"
-				+ "PLAN A:\n" + string.Join("\n", a) + "\n"
-				+ "PLAN B:\n" + string.Join("\n", b) + "\n";
-		}
-
-		// Both streams answered the same question. What they both said is what the bot does; where
-		// their first commands differ, each is shown both plans and asked to pick one — once.
-		private void ProcessAnswers(string[] answers)
-		{
-			var batches = new List<string>[Ensemble.Streams];
-			var errors  = new string[Ensemble.Streams];
-
-			int spoke = -1;              // first stream that answered at all
-			int first = -1, second = -1; // the streams whose answer parsed
-
-			for (int i = 0; i < Ensemble.Streams; ++i)
+			if (!waitingDeep)
 			{
-				if (answers[i] == null) continue;
-				if (spoke < 0) spoke = i;
+				if (!escalation.Finished(Escalation.Fast)) return false;
 
-				batches[i] = ParseBatch(answers[i], out errors[i]);
-				if (batches[i] == null) continue;
+				string fast = escalation.Answer(Escalation.Fast);
+				string parseError;
+				var commands = fast == null ? null : ParseBatch(fast, out parseError);
 
-				if (first < 0) first = i; else if (second < 0) second = i;
+				if (commands != null && !NeedsThought(commands))
+				{	// Nothing here needs thinking about. The deep stream is answering a question
+					// that has already been answered; cutting it frees the card for the next turn.
+					escalation.Cancel(Escalation.Deep);
+					Log($"turn {turn}: fast, {commands.Count} command(s)");
+					answer = fast;
+					return true;
+				}
+
+				// A blueprint, or an answer the mod cannot read. Either way the fast stream has
+				// nothing to offer and its words are dropped, transcript and all.
+				waitingDeep = true;
+				escalatedAt = Time.Now;
+
+				MyConsole.AddNewLine();
+				MyConsole.Add(commands == null ? "[THINKING] unreadable answer" : "[THINKING] blueprint", Color.Yellow);
 			}
 
-			if (spoke < 0)
-			{	// Every stream died on the way. Nothing to read and nothing to run.
-				MyConsole.AddMultiline("\n[LLM ERROR] " + ensemble.Error + "\n", Color.Red);
+			if (!escalation.Finished(Escalation.Deep)) return false;
+
+			fromDeep = escalation.Answer(Escalation.Deep) != null;
+			// The deep stream may be absent from the config or may have died; then the fast answer,
+			// whatever it is, is the only thing there is. The bot always has a next action.
+			answer = fromDeep ? escalation.Answer(Escalation.Deep) : escalation.Answer(Escalation.Fast);
+			Log($"turn {turn}: {(fromDeep ? "deep" : "deep unavailable, fast")}, waited {Time.Now - escalatedAt:F1}s");
+			return true;
+		}
+
+		private void ProcessTurn(string content, bool fromDeep)
+		{
+			if (content == null)
+			{	// Both streams died on the way. Nothing to read and nothing to run.
+				MyConsole.AddMultiline("\n[LLM ERROR] " + escalation.Error + "\n", Color.Red);
 				pause = true;
 				return;
 			}
 
-			int leader = first >= 0 ? first : spoke; // whose text goes into the transcript
-			var cc = batches[leader];
-			int run = cc == null ? 0 : cc.Count;     // how many of its commands to execute
+			content = content.Trim();
+			ContextStatistic();
 
-			if (second >= 0)
-			{
-				run = CommonPrefix(batches[first], batches[second]);
-
-				if (run == 0 && !choiceSent)
-				{	choiceSent = true;
-					Log($"consensus: turn {turn}, disagreed on '{batches[first][0]}' vs '{batches[second][0]}' — choosing");
-					MyConsole.AddNewLine();
-					MyConsole.Add("[CHOICE] streams disagreed on the first command", Color.Yellow);
-
-					// Both answers are dropped, transcript and all: if the choice agrees, this turn
-					// must read as if the bot answered once.
-					ensemble.Send(lastConversation + Choice(batches[first], batches[second]));
-					return;
-				}
-
-				// Still disagreeing after the choice, and there is no third round — that is what the
-				// second one was for. One command, not a plan: the streams part where the model is
-				// unsure, and a five-step plan built on an unsure first step is exactly what this
-				// scheme exists to stop. One command brings back a fact from the game, and the next
-				// turn decides again with it in hand.
-				if (run == 0)
-				{	run = 1;
-					Log($"consensus: turn {turn}, still disagreed after the choice, running one command");
-				}
-			}
-
-			// Every turn leaves its numbers in the log: how much of the batch survived the vote is
-			// the whole point of running two streams, and it is only measurable in play.
-			Log($"consensus: turn {turn}, ran {run} of {(cc == null ? 0 : cc.Count)}"
-				+ (second >= 0 ? $", {batches[second].Count} proposed by the other stream" : ", single stream"));
+			// Only the fast stream is echoed while it generates, so a deep answer has never been
+			// seen; print it now, or the console shows a plan the bot did not follow.
+			if (fromDeep) MyConsole.AddMultiline(content + "\n", Color.Cyan);
 
 			// The bot's own words go back into the transcript. Without them it reads a list of
 			// results with no record of what it said or meant. Reasoning stays out: the chat
 			// template drops thought from previous turns anyway.
-			// Console already printed it while streaming; llmContent already logged it.
-			Append($"[YOU]:\n{answers[leader].Trim()}\n", Color.Cyan, Destination.LLM);
+			Append($"[YOU]:\n{content}\n", Color.Cyan, Destination.LLM);
 			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
 
+			string parseError;
+			var cc = ParseBatch(content, out parseError);
 			if (cc == null)
-			{	Append(errors[leader], Color.Red);
+			{	Append(parseError, Color.Red);
 				return;
 			}
 
@@ -530,16 +473,13 @@ namespace LLE
 				if (loopMsg != null)
 					Append(loopMsg, blocked ? Color.Red : Color.Yellow);
 				if (blocked)
-				{	Append($"Your last message was:\n---\n{answers[leader].Trim()}\n---\n", Color.Red);
+				{	Append($"Your last message was:\n---\n{content}\n---\n", Color.Red);
 					return;
 				}
 			}
 
-			// Queue the agreed prefix; the tail is reported as dropped once the prefix has run.
-			for (int i = 0; i < cc.Count; ++i)
-			{	if (i < run) batch.Enqueue(cc[i]);
-				else notExecuted.Add(cc[i]);
-			}
+			// Queue commands and start execution
+			foreach (var c in cc) batch.Enqueue(c);
 
 			RunNextPending();
 		}
