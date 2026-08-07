@@ -1,6 +1,6 @@
 namespace LLE
 {
-	// Every system prompt in the mod. One for now: both streams of the ensemble are the same
+	// Every system prompt in the mod. One for now: all streams of the ensemble are the same
 	// model answering the same question, so they get the same words.
 	static class Prompts
 	{

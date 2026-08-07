@@ -55,6 +55,20 @@ namespace LLE
 		}
 	}
 
+	// One plan on the table: a stream's own words and the commands parsed out of them. Round one
+	// puts one of these in the pool per stream, the choice round adds one more per stream, and the
+	// turn is decided over the pool as a whole.
+	class Proposal
+	{
+		public readonly string Answer;
+		public readonly List<string> Commands;
+
+		public Proposal(string answer, List<string> commands)
+		{	Answer = answer;
+			Commands = commands;
+		}
+	}
+
 	class LLM
 	{
 		public const string ExecuteOpenTag  = "<execute>";
@@ -74,8 +88,12 @@ namespace LLE
 		private readonly Ensemble ensemble = new Ensemble();
 
 		private string[] pendingAnswers;  // finished answers waiting for a free moment to be run
-		private string lastConversation;  // this turn's message, kept for the tie-break
-		private bool choiceSent;          // one tie-break per turn, then the bot acts anyway
+		private string lastConversation;  // this turn's message, kept for the choice round
+		private bool choiceSent;          // one choice round per turn, then the bot acts anyway
+
+		// Every plan this turn has produced, round one first. The choice round adds to it instead
+		// of replacing it: a plan the streams converge on wins by the same rule as any other.
+		private readonly List<Proposal> pool = new List<Proposal>();
 
 		// The tail of the batch the streams did not agree on. Reported after the executed commands
 		// so the transcript keeps the real order of events.
@@ -407,47 +425,99 @@ namespace LLE
 			return n;
 		}
 
-		// The tie-break round. Both streams get the same text and neither is told which plan was its
+		// The largest group of proposals starting with the same command, and the commands the whole
+		// group agrees on. A group of one is not agreement: a plan nobody else proposed wins
+		// nothing here. On a tie the earlier group keeps it — round one is older than the choice.
+		private static bool Agreed(List<Proposal> plans, out Proposal winner, out int run)
+		{
+			winner = null;
+			run = 0;
+
+			int best = 1;
+
+			for (int i = 0; i < plans.Count; ++i)
+			{
+				int count = 1;
+				int prefix = plans[i].Commands.Count;
+
+				for (int j = i + 1; j < plans.Count; ++j)
+				{
+					if (!SameCommand(plans[i].Commands[0], plans[j].Commands[0])) continue;
+
+					count++;
+					int p = CommonPrefix(plans[i].Commands, plans[j].Commands);
+					if (p < prefix) prefix = p;
+				}
+
+				if (count > best)
+				{	best = count;
+					winner = plans[i];
+					run = prefix;
+				}
+			}
+
+			return winner != null;
+		}
+
+		// Ties go to the earlier plan; there is nothing to tell two plans of the same length apart.
+		private static Proposal Shortest(List<Proposal> plans)
+		{
+			var best = plans[0];
+			foreach (var p in plans)
+				if (p.Commands.Count < best.Commands.Count) best = p;
+			return best;
+		}
+
+		// The choice round. Every stream gets the same text and none is told which plan was its
 		// own: a stream asked to defend its answer defends it, and what is wanted here is a choice.
 		//
 		// It asks for a choice, not for more thought. Measured head to head on the hard turn of a
-		// logged session (6 samples each): this wording reasons 1601 chars in 8.5s and all six
-		// samples pick the same plan — and it is the right one. The wording it replaced ("think
-		// again, look for a mistake in your own reasoning") reasoned 4705 chars in 16.7s and five
-		// of six answered with something that was neither plan.
+		// logged session (6 samples each, two plans): this wording reasons 1601 chars in 8.5s and
+		// all six samples pick the same plan — and it is the right one. The wording it replaced
+		// ("think again, look for a mistake in your own reasoning") reasoned 4705 chars in 16.7s
+		// and five of six answered with something that was neither plan.
 		//
 		// "without its label" is not decoration: without it a third of the answers came back as the
 		// literal text "PLAN A:" and its lines, with no <execute> block at all.
-		private static string Choice(List<string> a, List<string> b)
+		private static string Choice(List<Proposal> plans)
 		{
-			return "\n[SYSTEM] Two plans were proposed for this turn and they start differently."
-				+ " Pick the one that is right here."
-				+ " Answer with a single <execute> block holding that plan's commands, unchanged, without its label,"
-				+ " and nothing else. Do not think it over and do not write a third plan: this is a choice between two."
-				+ " If both are wrong, answer with the one command that fixes that.\n"
-				+ "PLAN A:\n" + string.Join("\n", a) + "\n"
-				+ "PLAN B:\n" + string.Join("\n", b) + "\n";
+			string count = plans.Count == 3 ? "three" : "two";
+
+			var sb = new StringBuilder();
+
+			sb.Append("\n[SYSTEM] ").Append(plans.Count == 3 ? "Three" : "Two")
+				.Append(" plans were proposed for this turn and they start differently.")
+				.Append(" Pick the one that is right here.")
+				.Append(" Answer with a single <execute> block holding that plan's commands, unchanged, without its label,")
+				.Append(" and nothing else. Do not think it over and do not write a plan of your own:")
+				.Append(" this is a choice between ").Append(count).Append(".")
+				.Append(" If none of them is right, answer with the one command that fixes that.\n");
+
+			for (int i = 0; i < plans.Count; ++i)
+				sb.Append("PLAN ").Append((char)('A' + i)).Append(":\n")
+					.Append(string.Join("\n", plans[i].Commands)).Append("\n");
+
+			return sb.ToString();
 		}
 
-		// Both streams answered the same question. What they both said is what the bot does; where
-		// their first commands differ, each is shown both plans and asked to pick one — once.
+		// The streams answered the same question. Two of them starting with the same command is
+		// agreement and their shared prefix runs. All of them parting company sends every plan back
+		// to every stream — that round is the choice, and its answers go into the same pool, so the
+		// plan the streams converge on wins by the same rule as before.
 		private void ProcessAnswers(string[] answers)
 		{
-			var batches = new List<string>[Ensemble.Streams];
-			var errors  = new string[Ensemble.Streams];
+			if (!choiceSent) pool.Clear(); // a new turn — the choice round adds to what round one left
 
-			int spoke = -1;              // first stream that answered at all
-			int first = -1, second = -1; // the streams whose answer parsed
+			var errors = new string[Ensemble.Streams];
+			int spoke = -1;                // first stream that answered at all
 
 			for (int i = 0; i < Ensemble.Streams; ++i)
 			{
 				if (answers[i] == null) continue;
 				if (spoke < 0) spoke = i;
 
-				batches[i] = ParseBatch(answers[i], out errors[i]);
-				if (batches[i] == null) continue;
-
-				if (first < 0) first = i; else if (second < 0) second = i;
+				var parsed = ParseBatch(answers[i], out errors[i]);
+				if (parsed != null) pool.Add(new Proposal(answers[i], parsed));
 			}
 
 			if (spoke < 0)
@@ -457,53 +527,54 @@ namespace LLE
 				return;
 			}
 
-			int leader = first >= 0 ? first : spoke; // whose text goes into the transcript
-			var cc = batches[leader];
-			int run = cc == null ? 0 : cc.Count;     // how many of its commands to execute
+			if (pool.Count == 0)
+			{	// Nobody wrote a batch the mod can read — not in this round and not in the one
+				// before it. The first stream's words go back with the error it earned.
+				Append($"[YOU]:\n{answers[spoke].Trim()}\n", Color.Cyan, Destination.LLM);
+				Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
+				Append(errors[spoke], Color.Red);
+				return;
+			}
 
-			if (second >= 0)
+			Proposal winner;
+			int run;
+
+			if (!Agreed(pool, out winner, out run))
 			{
-				run = CommonPrefix(batches[first], batches[second]);
-
-				if (run == 0 && !choiceSent)
+				if (!choiceSent && pool.Count > 1)
 				{	choiceSent = true;
-					Log($"consensus: turn {turn}, disagreed on '{batches[first][0]}' vs '{batches[second][0]}' — choosing");
+
+					Log($"consensus: turn {turn}, no two streams agreed: "
+						+ string.Join(" | ", pool.Select(p => p.Commands[0])) + " — choosing");
 					MyConsole.AddNewLine();
 					MyConsole.Add("[CHOICE] streams disagreed on the first command", Color.Yellow);
 
-					// Both answers are dropped, transcript and all: if the choice agrees, this turn
-					// must read as if the bot answered once.
-					ensemble.Send(lastConversation + Choice(batches[first], batches[second]));
+					// The round-one answers are dropped, transcript and all: if the streams converge
+					// here, this turn must read as if the bot answered once.
+					ensemble.Send(lastConversation + Choice(pool));
 					return;
 				}
 
-				// Still disagreeing after the choice, and there is no third round — that is what the
-				// second one was for. One command, not a plan: the streams part where the model is
-				// unsure, and a five-step plan built on an unsure first step is exactly what this
-				// scheme exists to stop. One command brings back a fact from the game, and the next
-				// turn decides again with it in hand.
-				if (run == 0)
-				{	run = 1;
-					Log($"consensus: turn {turn}, still disagreed after the choice, running one command");
-				}
+				// Six plans and no two of them start alike — the streams did not converge and there
+				// is no third round. The shortest plan is the one that commits least before the
+				// game answers back, and the next turn decides again with its result in hand.
+				winner = Shortest(pool);
+				run = winner.Commands.Count;
+				Log($"consensus: turn {turn}, no agreement after the choice, shortest of {pool.Count} wins");
 			}
 
+			var cc = winner.Commands;
+
 			// Every turn leaves its numbers in the log: how much of the batch survived the vote is
-			// the whole point of running two streams, and it is only measurable in play.
-			Log($"consensus: turn {turn}, ran {run} of {(cc == null ? 0 : cc.Count)}"
-				+ (second >= 0 ? $", {batches[second].Count} proposed by the other stream" : ", single stream"));
+			// the whole point of running three streams, and it is only measurable in play.
+			Log($"consensus: turn {turn}, ran {run} of {cc.Count}, pool of {pool.Count}");
 
 			// The bot's own words go back into the transcript. Without them it reads a list of
 			// results with no record of what it said or meant. Reasoning stays out: the chat
 			// template drops thought from previous turns anyway.
 			// Console already printed it while streaming; llmContent already logged it.
-			Append($"[YOU]:\n{answers[leader].Trim()}\n", Color.Cyan, Destination.LLM);
+			Append($"[YOU]:\n{winner.Answer.Trim()}\n", Color.Cyan, Destination.LLM);
 			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
-
-			if (cc == null)
-			{	Append(errors[leader], Color.Red);
-				return;
-			}
 
 			// Control commands (pause, restart) must be issued alone
 			bool hasControl = cc.Any(c => c.Equals("restart", StringComparison.OrdinalIgnoreCase)
@@ -530,7 +601,7 @@ namespace LLE
 				if (loopMsg != null)
 					Append(loopMsg, blocked ? Color.Red : Color.Yellow);
 				if (blocked)
-				{	Append($"Your last message was:\n---\n{answers[leader].Trim()}\n---\n", Color.Red);
+				{	Append($"Your last message was:\n---\n{winner.Answer.Trim()}\n---\n", Color.Red);
 					return;
 				}
 			}
