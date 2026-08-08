@@ -10,9 +10,8 @@ namespace LLE
 	class LoopDetector
 	{
 		private string lastBatch;
-		private int repeats; // consecutive times lastBatch was seen
+		private int repeats;
 
-		// Returns true to BLOCK execution. On a non-blocking detection, 'message' carries a warning to append.
 		public bool IsLoop(List<ToolCall> calls, out string message)
 		{
 			var current = LLM.Join("\n", calls);
@@ -41,7 +40,6 @@ namespace LLE
 			{	message = "!WARNING: Identical batch repeated again. Call pause to stop.\n";
 				return false;
 			}
-			// repeats >= 4
 			{	message = "!ERROR: LOOP DETECTED. This command batch has been repeated too many times and is blocked.\n";
 				return true;
 			}
@@ -57,33 +55,20 @@ namespace LLE
 	{
 		private void Log(string s) => LLE.Log(s);
 
-		// The conversation lives here, not in the loader: the loader is transport and must not
-		// hold state that belongs to a turn. Each entry is one message, already written as the JSON
-		// the request carries — the bot's own turns are kept as they came off the wire and are never
-		// rewritten.
 		private readonly List<string> transcript = new List<string>();
 		private int transcriptChars;
 		private int turn;
 
-		// How many calls of the batch being executed have answered so far, and the id the first of
-		// them was given. Together they name the call a result belongs to.
 		private int callCursor;
 		private int callIdBase;
 
-		// Something happened that the model has not seen. Not the same as "output is not empty":
-		// a turn whose whole news is command results has nothing in output at all, and skipping
-		// the send would leave the bot waiting on a conversation that never continues.
 		private bool hasNews;
 
 		private readonly LlmChannel channel = new LlmChannel(0);
 
-		// The answer this turn will act on, once it has arrived whole. 'response' is what the model
-		// said; 'responseError' is filled instead when the channel died on the way. Either one means
-		// there is something to act on and nothing to send.
 		private Answer response;
 		private string responseError;
 
-		// Calls print as themselves everywhere they are shown or compared.
 		public static string Join(string separator, List<ToolCall> calls)
 		{	var sb = new StringBuilder();
 			for (int i = 0; i < calls.Count; ++i)
@@ -142,9 +127,6 @@ namespace LLE
 				took = $" (Took {elapsed:F1}s)";
 			commandStartTime = 0;
 
-			// The result goes back as the answer to its own call, so it does not repeat which call
-			// that was. The console still shows the pair — nobody reading it has the request in front
-			// of them.
 			Append($"→ {currentCommand.Text}: [{tag}] {result.Message}{took}\n", Color.Cornsilk,
 				Destination.Console | Destination.Log);
 			AnswerCall($"[{tag}] {result.Message}{took}");
@@ -158,13 +140,8 @@ namespace LLE
 					AnswerCall("Not executed: an earlier call in this batch failed.");
 				}
 			}
-
-			// Next command (if any) is driven by Tick() — one per tick.
 		}
 
-		// The bot's turn, exactly as the channel wrote it down. Nothing here looks inside it: the
-		// calls it holds are the model's own bytes, and the results that follow answer them by
-		// position.
 		private void AddAssistant(Answer answer)
 		{
 			callCursor = 0;
@@ -173,15 +150,11 @@ namespace LLE
 			transcriptChars += answer.AssistantJson.Length;
 		}
 
-		// Whatever is left of the batch answers with the same reason. A call the bot made and the
-		// mod then dropped still has to come back answered.
 		private void AnswerRest(int total, string text)
 		{
 			while (callCursor < total) AnswerCall(text);
 		}
 
-		// Every call the bot made has to come back answered, in the order it was made: that is what
-		// ties a result to its call, and a call left unanswered breaks the turn it belongs to.
 		private void AnswerCall(string text)
 		{
 			var json = new StringBuilder("{\"role\":\"tool\",\"tool_call_id\":");
@@ -204,16 +177,11 @@ namespace LLE
 
 			var result = commands.Execute(batch.Peek());
 
-			// Execute() returns null only when it pushed a coroutine. If it didn't, the head
-			// would never be dequeued and Tick() would re-run this command every tick.
 			if (result == null && !commands.InProgress())
 				result = $"Internal error: command '{batch.Peek().Text}' produced no result.";
 
 			if (result != null)
-			{
-				// Synchronous command — continue immediately
 				OnCommandFinished(result);
-			}
 		}
 
 		public void Append(string text, Color consoleColor, Destination d = Destination.All)
@@ -225,7 +193,6 @@ namespace LLE
 		public void Tick()
 		{
 			PollChannel();
-				// stores the finished response, acted on further down
 
 			var ec = commands.GetEngineerCenter();
 
@@ -239,7 +206,6 @@ namespace LLE
 
 			commands.Draft_Tick();
 
-			// Status subsystem reports
 			commands.Status_Tick();
 			string sr = commands.Status_ReportChanged();
 			if(sr != null)
@@ -251,47 +217,40 @@ namespace LLE
 			
 			if (batch.Count != 0)
 			{
-				if(commands.InProgress())   // coroutine command — step it
+				if(commands.InProgress())
 				{	var result = commands.Update();
 					if (result != null)
 						OnCommandFinished(result);
 				}
-				else                        // instant command — one per tick
+				else
 					RunNextPending();
 
 				return;
 			}
 
-			// batch.Count == 0
-
 			if(channel.Busy) return;
 			if(pause) return;
 
-			// Process a finished response BEFORE any send. Otherwise an async sensor
-			// report (VISION/STATUS) can fire the send below and orphan it; the next
-			// response then appends its own calls onto it.
+			// Must stay ahead of the send below: an async VISION/STATUS report would otherwise
+			// fire that send and orphan it, and the next response appends its calls onto it.
 			if(response != null || responseError != null)
 			{	ProcessAnswer();
-				if(batch.Count != 0) return;   // commands enqueued — execute before talking to LLM
-				if(pause) return;              // response was pause/restart — do not send this turn
+				if(batch.Count != 0) return;
+				if(pause) return;
 			}
 
-			if (hasNews) // We have data for LLM
+			if (hasNews)
 			{
 				int used = ContextUsed;
 				int total = channel.ContextChars;
 
 				if (total <= 0)
-				{	// No such channel in the loader config — there is nobody to talk to.
-					output.Clear();
+				{	output.Clear();
 					logBuf.Clear();
 					hasNews = false;
 					return;
 				}
 
-				// A fifth of the budget stays free. The answer about to come back is only bounded by
-				// the loader's MaxTokens, and the results of its calls land after it — both are added
-				// once the request is already gone, so the room for them has to exist beforehand.
 				int reserve = total / 5;
 
 				if (used + reserve > total)
@@ -304,8 +263,6 @@ namespace LLE
 				else
 				{	int pct = used * 100 / total;
 
-					// Escalating warnings: a weak model ignores a single polite notice,
-					// so each stage gets louder and the last one is an order.
 					int stage = pct >= 90 ? 3 : pct >= 80 ? 2 : pct >= 70 ? 1 : 0;
 
 					if(stage > contextWarnStage)
@@ -325,7 +282,6 @@ namespace LLE
 					}
 				}
 
-				// Send accumulated results to LLM
 				Log($"toLLM: {logBuf}");
 
 				var message = UserMessage(output.Length == 0 ? "..." : output.ToString());
@@ -342,7 +298,6 @@ namespace LLE
 
 		}
 
-		// The conversation as it goes out.
 		private string Request()
 		{
 			var sb = new StringBuilder("\"messages\":[{\"role\":\"system\",\"content\":");
@@ -352,8 +307,6 @@ namespace LLE
 			foreach (var message in transcript)
 				sb.Append(',').Append(message);
 
-			// A frame is offered once and belongs to the turn that takes it. It rides in a message
-			// of its own, at the end, where the model is looking now.
 			var screenshot = LLE_Loader.TakeScreenshot();
 			if (screenshot != null)
 			{
@@ -389,9 +342,6 @@ namespace LLE
 			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({used * 100 / total}%)", Color.LightPink);
 		}
 
-		// The answer is only stored here. What the turn does with it is decided in Tick, after the
-		// sensors have had their say — a response acted on the moment it lands would run its batch
-		// before the news of this frame reaches the transcript.
 		private void PollChannel()
 		{
 			Answer payload;
@@ -409,15 +359,13 @@ namespace LLE
 			ContextStatistic();
 		}
 
-		// One answer, and the batch it asked for. What the model called is what runs.
 		private void ProcessAnswer()
 		{
 			var answer = response;
 			response = null;
 
 			if (answer == null)
-			{	// The channel died on the way. Nothing to read and nothing to run.
-				MyConsole.AddMultiline("\n[LLM ERROR] " + responseError + "\n", Color.Red);
+			{	MyConsole.AddMultiline("\n[LLM ERROR] " + responseError + "\n", Color.Red);
 				responseError = null;
 				pause = true;
 				return;
@@ -425,15 +373,10 @@ namespace LLE
 
 			var cc = answer.Calls;
 
-			// A call that came back unreadable, and a turn that called nothing at all: neither can be
-			// run. What goes on record is what the model said, with the error it earned against it.
 			string error = answer.Error;
 			if (error == null && cc.Count == 0)
 				error = "[ERROR] You called no tool.\n";
 
-			// The bot's turn goes into the transcript as its own message, and the calls travel as
-			// calls. Reasoning stays out — the chat template drops thought from previous turns anyway.
-			// Console already printed it while streaming; llmContent already logged it.
 			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
 			AddAssistant(answer);
 
@@ -443,7 +386,6 @@ namespace LLE
 				return;
 			}
 
-			// Control commands (pause, restart) must be issued alone
 			bool hasControl = cc.Any(c => c.Is("restart") || c.Is("pause"));
 			if (hasControl && cc.Count > 1)
 			{
@@ -463,7 +405,6 @@ namespace LLE
 				return;
 			}
 
-			// pause is exempt from loop detection
 			if (!cc[0].Is("pause"))
 			{
 				string loopMsg;
@@ -471,9 +412,7 @@ namespace LLE
 				if (loopMsg != null)
 					Append(loopMsg, blocked ? Color.Red : Color.Yellow);
 				if (blocked)
-				{	// The batch itself is right above this in the conversation — repeating it here
-					// would only be one more example of a call written out as text.
-					AnswerRest(cc.Count, "Blocked: this batch has been repeated too many times.");
+				{	AnswerRest(cc.Count, "Blocked: this batch has been repeated too many times.");
 					return;
 				}
 			}

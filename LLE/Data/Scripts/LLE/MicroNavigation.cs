@@ -169,7 +169,7 @@ namespace LLE
 				relativeRoll = Math.Atan2(sinRoll, cosRoll);
 			}
 
-			// 4. SPRING UPDATE
+			// SPRING UPDATE
 			// We "anchor" the spring target to its current position + error.
 			// This creates a stable absolute target that tracks the error perfectly without drift.
 
@@ -182,7 +182,7 @@ namespace LLE
 			double oldRollPos = rollPos;
 			UpdateSpring(ref rollPos, ref rollVel, rollPos + relativeRoll, deltaTime, true);
 
-			// 5. DELTA FORMATION (Controller / mouse input)
+			// DELTA FORMATION (Controller / mouse input)
 			// The game needs delta (how many degrees to turn this frame), not velocity.
 			float deltaPitch = (float)MathHelper.ToDegrees(pitchPos - oldPitchPos);
 			float deltaYaw = (float)MathHelper.ToDegrees(yawPos - oldYawPos);

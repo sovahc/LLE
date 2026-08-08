@@ -201,7 +201,6 @@ namespace LLE
 							tentativeG += Constants.AStarTurnPenalty;
 					}
 
-					// Obstacle proximity: penalize cells next to blocked neighbors
 					int blockedNeighbors = 0;
 					for (int n = 0; n < Constants.SixDirections.Length; n++)
 					{

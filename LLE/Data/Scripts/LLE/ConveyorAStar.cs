@@ -33,8 +33,7 @@ namespace LLE
 
 		public readonly List<Vector3I> Result = new List<Vector3I>();
 
-		// Same order as Constants.SixDirections, so the two are indexed together. Spelled out
-		// rather than derived, because Base6Directions.Forward is -Z and a naive conversion
+		// Spelled out, not derived: Base6Directions.Forward is -Z and a naive conversion
 		// silently flips the Z sign of every direction it touches.
 		private static readonly Base6Directions.Direction[] SixAsDirections =
 		{	Base6Directions.Direction.Left,    Base6Directions.Direction.Right,
@@ -47,7 +46,6 @@ namespace LLE
 		{
 			grid = grid_;
 
-			// Bounding box: all port cells + a fixed border, clamped to the grid.
 			Vector3I lo = new Vector3I(int.MaxValue), hi = new Vector3I(int.MinValue);
 			foreach (var p in startPorts_) { lo = Vector3I.Min(lo, p.Cell); hi = Vector3I.Max(hi, p.Cell); }
 			foreach (var p in goalPorts_)  { lo = Vector3I.Min(lo, p.Cell); hi = Vector3I.Max(hi, p.Cell); }
@@ -66,13 +64,10 @@ namespace LLE
 
 			gScore = new float[c];
 			parent = new int[c];
-			nodes = new MyNode[c]; // filled lazily: a full ship's box is millions of cells
+			nodes = new MyNode[c];
 
 			for (int i = 0; i < c; ++i) parent[i] = -1;
 
-			// Cells that hold nothing yet but will: seeding occupancy is enough, since Free() only
-			// ever asks about a cell it has not seen. The two ends are safe — a start cell is
-			// seeded straight into the open set and a goal cell is matched before Free() is called.
 			if (blocked_ != null)
 			{	foreach (var cell in blocked_)
 				{	Vector3I local = cell - origin;
@@ -142,7 +137,6 @@ namespace LLE
 
 		private IEnumerator FindPath()
 		{
-			// Seed every start cell with g = 0.
 			foreach (var entry in startCells)
 			{
 				int idx = entry.Key;
@@ -199,13 +193,11 @@ namespace LLE
 					Vector3I nextCell = nextLocal + origin;
 					var direction = SixAsDirections[d];
 
-					// Leaving a start cell: only through one of its ports.
 					List<Base6Directions.Direction> exitDirs;
 					if (startCells.TryGetValue(currentI, out exitDirs) &&
 						!ConveyorPorts.Contains(exitDirs, direction))
 						continue;
 
-					// Entering a goal cell: it must have a port looking back at us.
 					List<Base6Directions.Direction> entryDirs;
 					if (goalCells.TryGetValue(nextI, out entryDirs))
 					{	if (!ConveyorPorts.Contains(entryDirs, Base6Directions.GetFlippedDirection(direction)))

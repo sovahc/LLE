@@ -7,10 +7,6 @@ namespace LLE
 {
 	enum JsonKind { Null, Bool, Number, String, Array, Object }
 
-	// Just enough JSON to read a batch of calls out of a model's answer. The mod has no serializer
-	// and the game's whitelist offers none, so this is hand-written — and deliberately narrow: it
-	// reads what a model writes, not the whole standard. Trailing commas are accepted because
-	// models produce them; nothing else is stretched.
 	class Json
 	{
 		public JsonKind Kind;
@@ -20,14 +16,10 @@ namespace LLE
 		public List<Json> Array;
 		public Dictionary<string, Json> Object;
 
-		// The value exactly as it was written, escapes and all. A string that has to go back into a
-		// request goes back as this: decoding it and encoding it again is a round trip that has no
-		// business existing, and the two ends of it are not guaranteed to meet.
 		public string Raw;
 
 		public bool Is(JsonKind k) { return Kind == k; }
 
-		// Keys are matched without case: a model that writes "Name" or "CELL" means the same field.
 		public Json Field(string key)
 		{
 			Json v;
@@ -35,8 +27,6 @@ namespace LLE
 			return v;
 		}
 
-		// Writing side. There is exactly one of these in the mod: everything that goes into a
-		// request and is not already JSON passes through here.
 		public static void Quoted(StringBuilder sb, string s)
 		{
 			sb.Append('"');
@@ -52,8 +42,6 @@ namespace LLE
 			sb.Append('"');
 		}
 
-		// The text of a JSON string literal, escapes resolved. The literal arrives without its
-		// quotes, which is how it travels in a tool call's arguments.
 		public static string Unescape(string inner, out string error)
 		{
 			var v = Parse("\"" + inner + "\"", out error);
@@ -137,7 +125,7 @@ namespace LLE
 			private Json ParseObject(out string error)
 			{
 				error = null;
-				++i; // '{'
+				++i;
 
 				var map = new Dictionary<string, Json>(StringComparer.OrdinalIgnoreCase);
 
@@ -178,7 +166,7 @@ namespace LLE
 			private Json ParseArray(out string error)
 			{
 				error = null;
-				++i; // '['
+				++i;
 
 				var list = new List<Json>();
 
@@ -245,7 +233,7 @@ namespace LLE
 							sb.Append((char)code);
 							i += 4;
 							break;
-						default: sb.Append(e); break; // covers \" \\ \/ and anything else
+						default: sb.Append(e); break;
 					}
 				}
 
@@ -253,7 +241,7 @@ namespace LLE
 				{	error = "the string is never closed";
 					return null;
 				}
-				++i; // closing quote
+				++i;
 
 				return sb.ToString();
 			}

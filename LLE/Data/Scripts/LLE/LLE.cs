@@ -9,8 +9,6 @@ using VRage.ModAPI;
 using VRage.Utils;
 using Sandbox.ModAPI;
 
-// SE mod rule: prefer IMy* interfaces where possible, use concrete types only when ModAPI is insufficient.
-
 namespace LLE
 {
 	public static class Time { public static double Now => MyAPIGateway.Session.ElapsedPlayTime.TotalSeconds; }
@@ -161,8 +159,6 @@ namespace LLE
 
 			HandleConsoleToggle();
 
-			// Lazy initialization
-
 			if (!initialized)
 			{
 				initialized = true;
@@ -229,7 +225,7 @@ namespace LLE
 			}
 
 			MyConsole.Render(font);
-			Common.Call_Add_Billboards(); // just to be sure
+			Common.Call_Add_Billboards();
 		}
 
 		void OnEntityAdd(IMyEntity entity)
@@ -237,7 +233,6 @@ namespace LLE
 			var grid = entity as IMyCubeGrid;
 			if (grid != null)
 			{
-				// The draft ghost is a plan, not an object in the world — it must not reach Vision.
 				if (grid.DisplayName == Commands.DraftGridName) return;
 
 				grid.OnClose += OnClose;
@@ -281,9 +276,7 @@ namespace LLE
 				llm = new LLM(commands);
 			}
 			else if(message.StartsWith(">"))
-			{	// Commands are tool calls now, and a tool call is not something you type. The
-				// prefix is kept so the old habit does not reach the bot as a task.
-				MyConsole.Add("Commands from chat are gone — the model calls tools directly.", Color.Red);
+			{	MyConsole.Add("Commands from chat are gone — the model calls tools directly.", Color.Red);
 			}
 			else
 			{	llm.Append("[GAME CHAT]", Color.Red);
@@ -294,19 +287,15 @@ namespace LLE
 		}
 	}
 
-	// Bridge to the loader. Every call names the channel it belongs to; the loader keeps no
-	// conversation of its own, so the whole user message travels on each send.
-	// Channel 0 is the one that executes commands.
+	// Every body here is replaced by a Harmony prefix in LLELoader; none of them ever runs.
 	public static class LLE_Loader
 	{
 		public static bool IsPresent() => false;
 		public static bool GetChunkFromLLM(int channel, out FromLLM m) { m = null; return false; }
-		// requestJson is the `messages` and `tools` of the request, written by the mod. The loader
-		// adds the fields that belong to the endpoint and posts it.
 		public static void SendMessageToLLM(int channel, string requestJson) { }
-		public static void CancelLLM(int channel) { } // abandon the answer being generated
-		public static string TakeScreenshot() { return null; } // base64 PNG, once per frame taken
-		public static int GetContextChars(int channel) { return 0; } // 0 = no such channel configured
+		public static void CancelLLM(int channel) { }
+		public static string TakeScreenshot() { return null; }
+		public static int GetContextChars(int channel) { return 0; }
 		public static void RequestScreenshot() { }
 		public static bool ScreenshotDone(out bool success) { success = false; return true; }
 	}

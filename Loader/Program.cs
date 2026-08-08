@@ -45,8 +45,6 @@ namespace LLELoader
 		public string ApiKey { get; set; } = "";
 		public string Provider { get; set; } = "local";
 		public bool EnableThinking { get; set; } = false;
-		// Characters, not tokens: the mod counts its conversation in characters and this is the
-		// budget it counts against.
 		public int ContextChars { get; set; } = 100000;
 		public int MaxTokens { get; set; } = 20000;
 	}
@@ -65,8 +63,6 @@ namespace LLELoader
 		public readonly int Id;
 		public readonly ChannelConfig Config;
 
-		// A queue per request, not one per channel: an abandoned stream keeps writing into its own,
-		// so there is nothing to drain and no window where its chunks land in the next request's.
 		private class Request
 		{
 			public readonly ConcurrentQueue<LLE.FromLLM> Chunks = new ConcurrentQueue<LLE.FromLLM>();
@@ -110,8 +106,7 @@ namespace LLELoader
 
 			_current = null;
 			request.Cancel.Cancel();
-			// Not disposed: the abandoned SendAsync still holds a registration on this token, and
-			// disposing under it is the one thing the source must not do. The task ends on its own.
+			// Not disposed: the abandoned SendAsync still holds a registration on this token.
 		}
 
 		private static void Quoted(StringBuilder sb, string s)
@@ -126,8 +121,6 @@ namespace LLELoader
 
 		private async Task AskLlmStreaming(string requestJson, Request request)
 		{
-			// Must stay before the first await: Abandon disposes the source, and only the token
-			// survives that.
 			var token = request.Cancel.Token;
 
 			Action<LLE.MessageType, string> emit = (type, payload) =>
@@ -300,7 +293,7 @@ namespace LLELoader
 		private static bool _screenshotHooked;
 		private static bool _screenshotFinished = true;
 		private static bool _screenshotSuccess;
-		private static string _pendingScreenshot; // base64 PNG
+		private static string _pendingScreenshot;
 
 		public static void RequestScreenshot()
 		{
@@ -554,7 +547,7 @@ namespace LLELoader
 				return false;
 			}
 
-		}  // Patch_ScriptManagerLoadData class ends here
+		}
 
 		static class Program
 		{

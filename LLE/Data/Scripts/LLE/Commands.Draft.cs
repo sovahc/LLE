@@ -16,10 +16,6 @@ namespace LLE
 {
 	public partial class Commands
 	{
-		// A draft is a plan, not a structure: the blocks the bot intends to build, shown to the
-		// player as a ghost grid so he can approve them in chat before anything is touched.
-		// `build` then places them at minimum integrity — a wrong frame is cut away with a
-		// grinder in seconds, which is what makes placing the whole draft at once affordable.
 
 		internal const string DraftGridName = "LLE_Draft";
 
@@ -33,12 +29,11 @@ namespace LLE
 
 		private readonly List<DraftBlock> draft = new List<DraftBlock>();
 
-		private IMyCubeGrid draftBase;      // grid the draft's I J K belong to
-		private IMyCubeGrid draftPreview;   // the ghost, rebuilt whenever the draft settles
-		private double draftSettleAt;       // 0 = the ghost matches the draft
+		private IMyCubeGrid draftBase;
+		private IMyCubeGrid draftPreview;
+		private double draftSettleAt;
 
-		// A batch drops one `draft` command per tick, and rebuilding the ghost on each of them
-		// would spawn and close an entity thirty times in half a second. Wait for the quiet.
+		// One `draft` per tick would spawn and close the ghost entity thirty times in half a second.
 		private void TouchDraft()
 		{	draftSettleAt = Time.Now + 0.3;
 		}
@@ -50,7 +45,6 @@ namespace LLE
 				RebuildDraftPreview();
 			}
 
-			// The ghost is an entity of its own — it does not follow the grid it was aligned to.
 			if(draftPreview == null || draftPreview.Closed) return;
 			if(draftBase == null || draftBase.Closed) return;
 
@@ -89,8 +83,6 @@ namespace LLE
 			gridOB.IsRespawnGrid = false;
 			gridOB.PersistentFlags = MyPersistentEntityFlags2.InScene;
 
-			// Cell 0 0 0 of a grid sits at its origin, so giving the ghost the same origin and
-			// orientation makes its I J K identical to the real grid's — nothing to translate.
 			var m = draftBase.WorldMatrix;
 			gridOB.PositionAndOrientation = new MyPositionAndOrientation(
 				m.Translation, (Vector3)m.Forward, (Vector3)m.Up);
@@ -116,20 +108,17 @@ namespace LLE
 			draftPreview = grid;
 		}
 
-		// TempBlockSpawn.cs: touching a spawned grid before it finishes initializing crashes on
-		// some block types, so the ghosting waits for the spawn callback.
+		// Touching a spawned grid before it finishes initializing crashes on some block types.
 		private void OnDraftPreviewReady(IMyEntity entity)
 		{
 			var grid = entity as MyCubeGrid;
 			if(grid == null || grid.Closed) return;
 
-			// Keep the ghost out of every sphere query — `select`, Vision and `search` all go
-			// through the pruning structure, and a phantom grid there would reach the model.
+			// Out of the pruning structure, or the ghost reaches `select`, Vision and `search`.
 			if(grid.TopMostPruningProxyId != -1) MyGamePruningStructure.Remove(grid);
 
-			// MyProjectorBase.SetTransparency: the value is NEGATED on purpose. A negative
-			// dithering is what switches the shader to the projection look; a positive one
-			// only fades the block out.
+			// Negated on purpose: negative dithering is what switches the shader to the projection
+			// look, a positive one only fades the block out. See MyProjectorBase.SetTransparency.
 			float transparency = -MyGridConstants.PROJECTOR_TRANSPARENCY;
 			grid.Render.Transparency = transparency;
 
@@ -151,7 +140,6 @@ namespace LLE
 			return false;
 		}
 
-		// The draft's I J K only mean anything on the grid they were written for.
 		private string DraftGridMismatch()
 		{
 			if(draft.Count == 0 || draftBase == selectedGrid) return null;
@@ -185,8 +173,6 @@ namespace LLE
 			return false;
 		}
 
-		// Cells the draft will take on the selected grid. A conveyor route may not run through
-		// them: it has to still be valid once `build` fills them in.
 		private void DraftCells(List<Vector3I> result)
 		{
 			result.Clear();
@@ -195,9 +181,6 @@ namespace LLE
 			foreach(var d in draft) result.Add(d.Cell);
 		}
 
-		// A drafted cell has to be empty and touch something by a face — a built block or
-		// another drafted one. Reach is deliberately not checked: drafting is planning at a
-		// distance, and `build` is what has to be within arm's length.
 		private string CheckDraftSite(Vector3I ijk)
 		{
 			var occupant = selectedGrid.GetCubeBlock(ijk);
@@ -283,7 +266,6 @@ namespace LLE
 			var md = new MyMarkdown();
 			md.Append($"# Draft on {Quote(Name(draftBase))} — {draft.Count} block(s), none built yet");
 
-			// Identical blocks collapse into one line: a wall of armour is a line, not forty.
 			var order = new List<string>();
 			var cells = new Dictionary<string, StringBuilder>();
 
@@ -327,10 +309,6 @@ namespace LLE
 
 			var built = new List<Vector3I>();
 
-			// Repeated passes: a drafted block may lean on another drafted one, so the order the
-			// model wrote them in is not necessarily a valid build order. Each pass places
-			// whatever has support by now; when a pass places nothing, the rest is out of reach
-			// or blocked and there is no point looping again.
 			for(;;)
 			{
 				int placedThisPass = 0;

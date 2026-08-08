@@ -59,7 +59,6 @@ namespace LLE
 			return !SweptVolume.ConvexVsGridAlongLine(grid, sweptCapsule, from, to);
 		}
 
-		// Remove collinear points: keep only where direction changes.
 		internal List<Vector3I> RemoveCollinear(List<Vector3I> path)
 		{
 			if (path.Count <= 2) return path;

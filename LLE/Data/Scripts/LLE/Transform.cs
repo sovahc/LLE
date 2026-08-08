@@ -5,7 +5,6 @@ namespace LLE
 {
 	public static class Transform
 	{
-		// Returns a matrix that transforms from model space to world space.
 		internal static MatrixD GetModelToWorldMatrix(IMySlimBlock block)
 		{
 			Matrix orientMatrix;
@@ -27,13 +26,11 @@ namespace LLE
 			return invModelToWorld;
 		}
 
-		// Transform a point from world space to model space.
 		internal static Vector3D WorldToModel(IMySlimBlock block, Vector3D worldPoint)
 		{
 			return Vector3D.Transform(worldPoint, GetWorldToModelMatrix(block));
 		}
 
-		// Transform a point from model space to world space.
 		internal static Vector3D ModelToWorld(IMySlimBlock block, Vector3D modelPoint)
 		{
 			return Vector3D.Transform(modelPoint, GetModelToWorldMatrix(block));

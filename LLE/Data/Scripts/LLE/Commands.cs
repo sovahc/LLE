@@ -150,8 +150,6 @@ namespace LLE
 			return Success("Saved.");
 		}
 
-		// The prompt is built here and sent as the first message of every request. The executor's
-		// own context budget is counted in the mod, and the prompt is part of it.
 		internal string SystemPrompt { get; private set; }
 		internal int SystemPromptChars { get; private set; }
 
@@ -365,7 +363,6 @@ namespace LLE
 		{	return coroutineStack.Count > 0;
 		}
 
-		// Dispose the whole coroutine stack. The command is over — nothing will resume.
 		internal void AbortCommand()
 		{	foreach(var c in coroutineStack) (c as IDisposable)?.Dispose();
 			coroutineStack.Clear();
@@ -381,11 +378,10 @@ namespace LLE
 			{
 				var current = top.Current;
 
-				// Final response to LLM: explicit CommandResult, or plain string (= error).
 				var result = current as CommandResult;
 				if(result == null)
 				{	var s = current as string;
-					if(s != null) result = s; // implicit: string → error
+					if(s != null) result = s;
 				}
 
 				if(result != null)
@@ -394,7 +390,6 @@ namespace LLE
 					return result;
 				}
 
-				// Nested coroutine — push onto stack, run next tick.
 				var nested = current as IEnumerator;
 				if(nested != null)
 					coroutineStack.Push(nested);
@@ -403,11 +398,9 @@ namespace LLE
 			{
 				(top as IDisposable)?.Dispose();
 
-				coroutineStack.Pop(); // parent resumes next tick, or command ends
+				coroutineStack.Pop();
 
-				// Top-level coroutine ended without yielding a result. Every command must answer
-				// the LLM: LLM.Tick() dequeues the batch head only in OnCommandFinished, so a
-				// silent end would re-run this command every tick, forever.
+				// Without an answer here the batch head is never dequeued and the command re-runs forever.
 				if(coroutineStack.Count == 0)
 				{	MyConsole.Add("!yield break!", Color.DarkRed);
 					return Incomplete("Command stopped early.");
@@ -416,8 +409,6 @@ namespace LLE
 			return null;
 		}
 
-		// One tool name, one branch. The names are the ones declared in Tools — a call the model
-		// invented lands in the default and is answered as such.
 		internal CommandResult Execute(ToolCall call)
 		{
 			switch(call.Name)

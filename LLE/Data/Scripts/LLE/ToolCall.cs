@@ -7,13 +7,6 @@ using VRageMath;
 
 namespace LLE
 {
-	// One call the model issued: a tool name and its arguments. llama.cpp has already turned
-	// Gemma's own call syntax into a name and a flat JSON object, so all that is left here is
-	// reading that object — values are kept as text and converted where they are used.
-	//
-	// The arguments are always flat: a string, a number or a boolean per key. Nothing in Tools
-	// declares an object or an array, so a nested value means the model invented one, and that is
-	// reported rather than guessed at.
 	class ToolCall
 	{
 		public readonly string Name;
@@ -26,10 +19,6 @@ namespace LLE
 			args = parsed;
 		}
 
-		// Canonical form: the console, the transcript, the loop detector and the vote all compare
-		// and print calls through this. Argument order comes from the schema, never from the model
-		// — two streams that issued the same call with the keys in a different order are the same
-		// plan and must read as one.
 		public string Text
 		{
 			get
@@ -49,8 +38,6 @@ namespace LLE
 						sb.Append(p.Name).Append('=').Append(v);
 					}
 
-				// Arguments the schema never declared still belong in the text: a call that carries
-				// one is not the same call as one that does not, and the vote must see the difference.
 				foreach (var kv in args)
 				{	if (tool != null && HasParam(tool, kv.Key)) continue;
 					if (!first) sb.Append(", ");
@@ -75,7 +62,6 @@ namespace LLE
 
 		public bool Has(string key) => args.ContainsKey(key);
 
-		// Absent reads as empty: every command checks what it needs and answers with its own words.
 		public string Str(string key)
 		{	string v;
 			return args.TryGetValue(key, out v) ? v : "";
@@ -135,7 +121,6 @@ namespace LLE
 		{
 			error = null;
 
-			// A call with no arguments sends nothing at all; the request still needs a value there.
 			if (string.IsNullOrEmpty(argumentsJson)) argumentsJson = "{}";
 
 			var root = Json.Parse(argumentsJson, out error);
@@ -157,12 +142,8 @@ namespace LLE
 					return null;
 				}
 
-				// An argument written as null is one the model did not fill in, so it reads as absent.
 				if (value.Is(JsonKind.Null)) continue;
 
-				// A string reads as its text, a boolean as the spelling Bool() expects — the parser
-				// also accepts True. Everything else as it was written: the model wrote 5 and the
-				// console should not show 5.0 back at it.
 				parsed[field.Key] = value.Is(JsonKind.String) ? value.String
 					: value.Is(JsonKind.Bool) ? (value.Bool ? "true" : "false")
 					: value.Raw;

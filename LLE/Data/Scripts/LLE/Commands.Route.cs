@@ -32,9 +32,6 @@ namespace LLE
 			return sb.ToString();
 		}
 
-		// An end of a route may be a block that is only planned: the model drafts the container
-		// and the pipe running to it in one batch, and would have nothing to route to otherwise.
-		// Returns the name to word the answer with, or null when the cell holds neither.
 		private string RouteEnd(Vector3I ijk, List<ConveyorPort> ports)
 		{
 			var block = selectedGrid.GetCubeBlock(ijk);

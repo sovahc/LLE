@@ -10,12 +10,10 @@ namespace LLE
 			var block = cockpit.SlimBlock;
 			var ijk = cockpit.Position;
 			
-			// Already seated somewhere — get out first.
 			var currentSeat = character.Parent as IMyCockpit;
 			if(currentSeat != null && currentSeat.EntityId != cockpit.EntityId)
 				currentSeat.RemovePilot();
 
-			// Already in this seat — nothing to do.
 			if(cockpit.Pilot != null && cockpit.Pilot.EntityId == character.EntityId)
 			{	message = $"Already in {Name(block)} at {IJK(ijk)}.";
 				return true;

@@ -12,8 +12,6 @@ namespace LLE
 		public readonly List<ToolCall> Calls;
 		public readonly string AssistantJson;
 
-		// The id of Calls[0]; the rest follow it. The results that answer this turn are named from
-		// here, so the transcript never carries the same id twice.
 		public readonly int FirstCallId;
 
 		public readonly string Error;
@@ -51,8 +49,6 @@ namespace LLE
 			busy = true;
 		}
 
-		// Stop waiting for this answer. The loader abandons the request, and the half-finished text
-		// in these buffers belongs to nobody — the next Send must not find it here.
 		public void Cancel()
 		{
 			if (!busy) return;
@@ -139,7 +135,7 @@ namespace LLE
 				var index = call.Field("index");
 				int at = index != null && index.Is(JsonKind.Number) ? (int)index.Number : 0;
 
-				if (at < 0 || at >= 64) continue; // the loop below grows the lists up to this number
+				if (at < 0 || at >= 64) continue;
 
 				while (callNames.Count <= at)
 				{	callNames.Add(new StringBuilder());
@@ -170,7 +166,7 @@ namespace LLE
 			if (content.Length != 0)   LLE.Log($"llmContent[{Id}]:\n{content}");
 
 			var calls = new List<ToolCall>();
-			var escaped = new List<string>();   // the arguments of the calls above, as they arrived
+			var escaped = new List<string>();
 			string firstError = null;
 
 			for (int i = 0; i < callNames.Count; ++i)
@@ -196,7 +192,6 @@ namespace LLE
 				escaped.Add(arguments);
 			}
 
-			// After the loop, not inside it: one unreadable call drops the whole turn.
 			if (firstError == null)
 				foreach (var call in calls)
 				{	LLE.Log($"llmToolCall[{Id}]: {call.Text}");
@@ -208,8 +203,6 @@ namespace LLE
 
 			if (firstError != null) return new Answer(calls, json.Append('}').ToString(), 0, firstError);
 
-			// Ids are handed out once and never reused: a transcript holds many turns, and a name
-			// that repeats no longer says which call a result belongs to.
 			int firstId = nextCallId;
 			nextCallId += calls.Count;
 
@@ -229,8 +222,6 @@ namespace LLE
 			return new Answer(calls, json.ToString(), firstId, firstError);
 		}
 
-		// Shared by every channel: the ids of two conversations never have to meet, but nothing is
-		// gained by letting them collide either.
 		private static int nextCallId;
 
 		public static string CallId(int index)

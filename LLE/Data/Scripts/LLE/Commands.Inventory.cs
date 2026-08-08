@@ -176,7 +176,6 @@ namespace LLE
 				yield return null;
 			}
 
-			// recheck
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
@@ -198,8 +197,6 @@ namespace LLE
 			yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
 		}
 
-		// `put` and `put_all_components` are one body: the block, the interaction point and the
-		// transfer are the same, only what is picked out of the inventory differs.
 		internal IEnumerator Put(ToolCall call, bool allComponents)
 		{
 			string message;
@@ -215,7 +212,6 @@ namespace LLE
 				item = call.Str("item");
 				if(string.IsNullOrEmpty(item)) yield return call.Need("item");
 
-				// No count means all of it — that is what the schema says the omission means.
 				allOfItem = !call.Number("count", out count);
 			}
 
@@ -248,7 +244,6 @@ namespace LLE
 				yield return null;
 			}
 
-			// recheck
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
@@ -340,8 +335,8 @@ namespace LLE
 
 		private static bool Include(MyPhysicalItemDefinition def, List<string> itemNames)
 		{
-			if(def == null) return false; // shouldn't happen
-			if(itemNames.Count == 0) return true; // empty filter = match every item
+			if(def == null) return false;
+			if(itemNames.Count == 0) return true;
 
 			foreach(var name in itemNames)
 			{	if(def.DisplayNameText == name) return true;
@@ -437,8 +432,7 @@ namespace LLE
 
 				MyFixedPoint toTransfer = MyFixedPoint.Min(amount - transferred, fits);
 
-				// checkConnection makes the game require a conveyor path between the two
-				// inventories; a character has no conveyor endpoint, so it must stay off there.
+				// checkConnection demands a conveyor path, and a character has no endpoint.
 				if(!((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, toTransfer, checkConnection))
 					continue;
 

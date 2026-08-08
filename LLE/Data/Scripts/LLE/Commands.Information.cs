@@ -34,23 +34,15 @@ namespace LLE
 		{
 			var def = block.SlimBlock.BlockDefinition;
 
-			// IMyShipController (cockpit/remote control/cryopod)
-
-			// IMyBasicMissionBlock IMyStoreBlock IMyVendingMachine
-			// IMyMechanicalConnectionBlock
-			// IMySmallGatlingGun IMySmallMissileLauncher IMySmallMissileLauncherReload
-			// IMySolarFoodGenerator
-			// IMyTargetDummyBlock
-
 			if (IsSurvivalKit(block))
 				return "Life Support & Production";
-			if (block is IMyProductionBlock || // IMyAssembler IMyRefinery
+			if (block is IMyProductionBlock ||
 				block is IMyUpgradeModule)
 				return "Production";
-			if (block is IMyMedicalRoom) // IMyGasBlock
+			if (block is IMyMedicalRoom)
 				return "Life Support";
 
-			if (block is IMyCryoChamber) // IMyCryoChamber is IMyCockpit
+			if (block is IMyCryoChamber)
 				return "Rest & Sleep";
 
 			var cockpit = block as IMyCockpit;
@@ -63,7 +55,7 @@ namespace LLE
 
 			if (block is IMyRemoteControl)
 				return "Remote Control";
-			if (block is IMyPowerProducer || block is IMySolarPanel) // IMyBatteryBlock, IMyReactor, IMyWindTurbine
+			if (block is IMyPowerProducer || block is IMySolarPanel)
 				return "Energy";
 			if (block is IMyLargeTurretBase || block is IMyDecoy)
 				return "Defense";
@@ -101,7 +93,7 @@ namespace LLE
 				return "Doors";
 			if (block is IMyGravityGeneratorBase || block is IMyVirtualMass || block is IMySpaceBall)
 				return "Gravity";
-			if (block is IMyMotorStator || block is IMyMotorRotor) // IMyMotorBase?
+			if (block is IMyMotorStator || block is IMyMotorRotor)
 				return "Rotors";
 			if (block is IMyPistonBase || block is IMyPistonTop)
 				return "Pistons";
@@ -111,7 +103,7 @@ namespace LLE
 				return "Movement";
 			if (block is IMyCargoContainer)
 				return "Storage";
-			if (block is IMyConveyorSorter) // (IMyConveyor, IMyConveyorTube) -> IMyCubeBlock
+			if (block is IMyConveyorSorter)
 				return "Conveyor";
 			if (block is IMyCameraBlock)
 				return "Cameras";
@@ -170,7 +162,6 @@ namespace LLE
 					sb.Append(IJK(p));
 					semi = true;
 				}
-				// count last: nothing between the name and the positions
 				var n = kv.Value.Count;
 				string unit;
 				if(kv.Key == FreeSpace)
@@ -268,9 +259,6 @@ namespace LLE
 			return Success(md.Result());
 		}
 
-		// Compact, bot-facing build status for a projection preview: counts plus the actual
-		// list of what's buildable right now. Deliberately does not dump the "blocked" list —
-		// it's not actionable and would be pure context noise for a bot polling this repeatedly.
 		internal CommandResult Projection()
 		{
 			string message;
@@ -300,12 +288,11 @@ namespace LLE
 				var buildable = new List<Vector3I>();
 				foreach(var ghost in allBlocks)
 				{
-					// CanBuild's AlreadyBuilt result isn't reliable for hidden (already-built) ghosts —
-					// rule those out by direct position + definition match first, per ProjectorInterface.md.
+					// CanBuild's AlreadyBuilt is unreliable for hidden ghosts; match position first.
 					var worldPos = selectedGrid.GridIntegerToWorld(ghost.Position);
 					var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
 					if(realBlock != null && realBlock.BlockDefinition.Id == ghost.BlockDefinition.Id)
-						continue; // already built
+						continue;
 
 					if(projector.CanBuild(ghost, false) == BuildCheckResult.OK)
 						buildable.Add(ghost.Position);
@@ -346,12 +333,11 @@ namespace LLE
 				damaged = new List<IMySlimBlock>();
 				foreach(var ghost in ghosts)
 				{
-					// CanBuild's AlreadyBuilt result isn't reliable for this (hidden ghosts don't report it) —
-					// match position + definition against the real grid directly, per ProjectorInterface.md.
+					// CanBuild's AlreadyBuilt is unreliable for hidden ghosts; match position first.
 					var worldPos = selectedGrid.GridIntegerToWorld(ghost.Position);
 					var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
 					if(realBlock == null || realBlock.BlockDefinition.Id != ghost.BlockDefinition.Id)
-						continue; // not built yet, that's `projection`'s job
+						continue;
 
 					if(realBlock.Integrity < realBlock.MaxIntegrity)
 						damaged.Add(realBlock);
@@ -467,8 +453,6 @@ namespace LLE
 			if(tb != null && !string.IsNullOrEmpty(tb.CustomName))
 				md.Append($"Custom name: {Quote(tb.CustomName)}");
 
-			// Surrounding cells: one-cell ring around the block's bounding box, free and occupied.
-			// ListDescription groups them by name with counts (same format as overview).
 			md.Append($"## Surrounding cells");
 			var ring = new List<Vector3I>();
 			var ringMin = block.Min - Vector3I.One;
@@ -513,7 +497,6 @@ namespace LLE
 			var centerBlock = selectedGrid.GetCubeBlock(ijk);
 			var name = Name(centerBlock);
 			
-			// Build controller-relative axis mapping for direction labels
 			var m = CalculateOrientation(selectedGrid);
 			var toLocal = selectedGrid.PositionComp.WorldMatrixNormalizedInv;
 			labelToAxis.Clear();
@@ -575,9 +558,6 @@ namespace LLE
 			public bool Exact;
 		}
 
-		// How many query words may go unmatched and a name still counts as "partial".
-		// 0 = only all-words-present names qualify (see LLE-search-fix.md). Raise to admit
-		// looser matches like "3 of 4 words".
 		private const int SearchMinWordsSlack = 0;
 
 		private static string[] SearchWords(string s)
@@ -601,9 +581,6 @@ namespace LLE
 			return count;
 		}
 
-		// Classifies `text` against `query`: exact (contiguous substring, case-insensitive),
-		// partial (all-but-slack query words present as whole words), or excluded (returns false).
-		// On a match, `tag` is set to what to show: "[exact]", "[N/N]", or "[*]" for wildcard.
 		private static bool ClassifyMatch(string query, string[] queryWords, string text, out bool exact, out string tag)
 		{
 			exact = false;

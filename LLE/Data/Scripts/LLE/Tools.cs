@@ -2,20 +2,12 @@ using System.Text;
 
 namespace LLE
 {
-	// The command list, in the only form the model ever sees it. What used to be the `## COMMANDS`
-	// block of the system prompt lives here: llama.cpp turns this array into Gemma's own tool
-	// declarations, so the glue words the old syntax needed (`for`, `at`, `into`, `facing`) are
-	// gone — every argument has a name and a type.
-	//
-	// One tool per meaning. Where the old syntax packed several meanings into one verb by keyword
-	// (`put all components`, `distance` with one point or two), each meaning gets a tool of its
-	// own: an optional argument that changes what the command does is a puzzle, and a name is not.
 	static class Tools
 	{
 		public class Param
 		{
 			public readonly string Name, Type, Description;
-			public readonly string[] Values; // enum, or null
+			public readonly string[] Values;
 			public readonly bool Required;
 
 			public Param(string name, string type, string description, bool required, string[] values)
@@ -51,7 +43,6 @@ namespace LLE
 
 		private static Param[] None = new Param[0];
 
-		// The target cell, as three integers. Every command that names a block takes it this way.
 		private static Param[] Ijk()
 		{	return new[] { Int("i", "Grid coordinate I."), Int("j", "Grid coordinate J."), Int("k", "Grid coordinate K.") };
 		}
@@ -82,11 +73,9 @@ namespace LLE
 
 		public static readonly Tool[] All =
 		{
-			// System
 			new Tool("pause", "Pause the bot until something happens. Must be the only call of the batch.", None),
 			new Tool("restart", "Reset the context, keeping memory. Must be the only call of the batch.", None),
 
-			// Movement
 			new Tool("fly", "Land at a specific grid cell.",
 				Join(Ijk(), Bool("headfirst", "Arrive head first rather than feet first."))),
 			new Tool("fly_direction", "Fly a number of cells along one of the grid axes.", new[]
@@ -98,7 +87,6 @@ namespace LLE
 				Join(Ijk(), Enum("action", "What you intend to do at that block once you arrive.", true,
 					"grind", "weld", "get", "put", "recharge", "enter", "place"))),
 
-			// Remote — no proximity required
 			new Tool("memory", "Store a persistent key-value pair; it survives a context reset.", new[]
 			{	Str("key", "Short name of what is being remembered."),
 				Str("value", "What to remember."),
@@ -138,7 +126,6 @@ namespace LLE
 			new Tool("transfer_all", "Move everything from one block's inventory to another's.",
 				Join(Ijk(), IjkTo)),
 
-			// Draft — planning, nothing is built
 			new Tool("draft", "Plan one block. Nothing is built; the player sees the whole draft as a projection.",
 				Join(Ijk(), Str("type", "Block type name, e.g. 'Light Armor Block'."),
 					Enum("facing", "Which way the block looks.", false, Facings),
@@ -151,7 +138,6 @@ namespace LLE
 			new Tool("draft_undo", "Drop the last block from the draft.", None),
 			new Tool("draft_clear", "Drop the whole draft.", None),
 
-			// Proximity — you must stand in an adjacent cell
 			new Tool("grind", "Grind the block at a cell.", Ijk()),
 			new Tool("weld", "Weld the block at a cell. Incremental: several trips may be needed.", Ijk()),
 			new Tool("get", "Take items out of a block's inventory into your own.",
@@ -183,8 +169,6 @@ namespace LLE
 
 		private static string schema;
 
-		// The `tools` array of the request, verbatim. The loader drops it into the payload without
-		// looking inside — what a tool is stays here, next to the code that runs it.
 		public static string Schema()
 		{
 			if (schema != null) return schema;

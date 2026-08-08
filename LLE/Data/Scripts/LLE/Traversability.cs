@@ -11,10 +11,7 @@ using Sandbox.ModAPI;
 
 namespace LLE
 {
-	/// <summary>
-	/// Stores block traversability data as a 3x3x3 bit cube.
-	/// Indexed from -1 to 1 along each axis.
-	/// </summary>
+	// Indexed from -1 to 1 along each axis.
 	public struct Traversability
 	{
 		private static readonly uint All_1 = (1u << 27) - 1;
@@ -65,9 +62,7 @@ namespace LLE
 			}
 		}
 
-		/// <summary>
-		/// Whether the engineer can turn around in the center of the block.
-		/// </summary>
+		// Whether the engineer can turn around in the center of the block.
 		public bool Center => this[new Vector3I(0,0,0)];
 
 		public void Clear() => _mask = 0;

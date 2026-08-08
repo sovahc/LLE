@@ -111,7 +111,6 @@ namespace LLE
 			Glyph glyph;
 			if (_characters.TryGetValue('H', out glyph))
 				return glyph.sy * scale;
-			// fallback
 			if (_characters.TryGetValue('\u25A1', out glyph))
 				return glyph.sy * scale;
 			return 0.02f;
@@ -351,8 +350,7 @@ namespace LLE
 			Common.Billboard(quad, _markerMat, new Vector4(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f));
 		}
 
-		// False when the point is behind the camera. IMyCamera.WorldToScreen is not an
-		// alternative: it transforms as a Vector3D, without the perspective divide.
+		// IMyCamera.WorldToScreen is not an alternative: no perspective divide.
 		public static bool WorldToScreen(Vector3D worldPoint, out Vector2D screenPoint)
 		{
 			screenPoint = Vector2D.Zero;
@@ -388,11 +386,10 @@ namespace LLE
 			Vector3D viewDir = Vector3D.Normalize(worldCenter - camera.Position);
 			double distance = (worldCenter - camera.Position).Length();
 
-			if (distance <= radius) return; // camera inside sphere
+			if (distance <= radius) return;
 
-			Vector3D point = camera.Position + viewDir; // billboard 1m from camera
+			Vector3D point = camera.Position + viewDir;
 
-			// Scale so the ring subtends the same angular size as the sphere
 			float size = (float)(radius / distance);
 
 			Vector3 left = (Vector3)camera.WorldMatrix.Left;

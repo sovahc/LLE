@@ -12,12 +12,10 @@ namespace LLE
 {
 	struct LabelledBlock
 	{
-		public Vector3D Center; // world position the label points at
-		public string Text;     // "I J K"
+		public Vector3D Center;
+		public string Text;
 	}
 
-	// The scan runs in UpdateBeforeSimulation and the labels are drawn in Draw(), so the list
-	// lives here, between the two. The coroutine only fills it and flips Visible.
 	static class ScreenshotOverlay
 	{
 		public static bool Visible;
@@ -43,8 +41,6 @@ namespace LLE
 
 				var text = anchor + LabelOffset;
 
-				// Marker, leader and text together: the marker states which point the digits
-				// belong to, which is what the model gets wrong when the label just floats.
 				Drawing.RoundMarker(b.Center, LabelColor);
 
 				leader[0] = anchor;
@@ -61,8 +57,7 @@ namespace LLE
 		private const double ScreenshotBlockDistance = 25;
 		private const double ScreenshotTimeout = 10;
 
-		// The visibility ray is aimed past the face so that a hit on the face itself is found
-		// rather than missed; one large cell is plenty.
+		// Aimed past the face, so a hit on the face itself is found rather than missed.
 		private const double RayOvershoot = 2.5;
 
 		internal IEnumerator Screenshot()
@@ -81,8 +76,7 @@ namespace LLE
 				MyConsole.Visible = false;
 				ScreenshotOverlay.Visible = true;
 
-				// Draw() runs after this Update(), so the overlay needs a frame of its own
-				// before the renderer is asked for a copy of the backbuffer.
+				// Draw() runs after this Update(), so the overlay needs a frame of its own first.
 				yield return null;
 				yield return null;
 
@@ -103,16 +97,12 @@ namespace LLE
 			}
 			finally
 			{
-				// Also runs when the stack is disposed by AbortCommand — the overlay must never
-				// be left on.
+				// Also runs when AbortCommand disposes the stack; the overlay must never stay on.
 				ScreenshotOverlay.Visible = false;
 				MyConsole.Visible = consoleWasVisible;
 			}
 		}
 
-		// One frame, no yields. The command is issued from a standstill and a hitch just before
-		// the shutter costs nothing; spreading the scan over frames would instead let the camera
-		// move away from the labels computed on the first one.
 		private void CollectLabelledBlocks(IMyCamera camera, List<LabelledBlock> result)
 		{
 			var eye = camera.Position;
@@ -134,8 +124,6 @@ namespace LLE
 				var box = grid.PositionComp.WorldAABB;
 				if (!camera.IsInFrustum(ref box)) continue;
 
-				// One cell step along each grid axis, in world space. Constant per grid, and it
-				// spares the code any assumption about where I, J and K point in the world.
 				var origin = grid.GridIntegerToWorld(Vector3I.Zero);
 				axes[0] = grid.GridIntegerToWorld(new Vector3I(1, 0, 0)) - origin;
 				axes[1] = grid.GridIntegerToWorld(new Vector3I(0, 1, 0)) - origin;
@@ -163,14 +151,9 @@ namespace LLE
 			}
 		}
 
-		// A block counts as visible when nothing stands between the camera and one of its open
-		// faces. Two things matter here and both were learned the hard way.
-		// The aim point is the face, not the centre: the centre of a floor tile twenty metres
-		// away lies below the tiles in front of it and no ray ever gets there, so a floor
-		// filling the screen came back invisible.
-		// And the question is distance, not identity: a slope's face centre is empty space and
-		// the ray flies straight through it, a grazing ray clips the neighbour a few
-		// centimetres early — both are blocks in plain sight that an identity test discards.
+		// Aim at the face, not the centre: a floor tile's centre lies below the tiles in front
+		// of it and no ray reaches it. And test distance, not identity: a slope's face centre is
+		// empty space, and a grazing ray clips the neighbour a few centimetres early.
 		private bool TryFindVisibleFace(IMyCubeGrid grid, IMySlimBlock block, Vector3D[] axes, Vector3D eye, out Vector3D face)
 		{
 			face = Vector3D.Zero;
@@ -179,25 +162,23 @@ namespace LLE
 			var max = block.Max;
 			var mid = new Vector3I((min.X + max.X) / 2, (min.Y + max.Y) / 2, (min.Z + max.Z) / 2);
 
-			// How much closer than the face a hit has to be to count as standing in the way.
-			// A ray grazing along a wall clips the neighbour a few centimetres early.
+			// How much closer than the face a hit must be to count as standing in the way.
 			double slack = grid.GridSize * 0.1;
 
 			foreach (var d in Constants.SixDirections)
 			{
-				// Middle cell of this face of the block, and the cell right outside it.
 				var faceCell =
 					d.X != 0 ? new Vector3I(d.X > 0 ? max.X : min.X, mid.Y, mid.Z) :
 					d.Y != 0 ? new Vector3I(mid.X, d.Y > 0 ? max.Y : min.Y, mid.Z) :
 					           new Vector3I(mid.X, mid.Y, d.Z > 0 ? max.Z : min.Z);
 
-				if (grid.GetCubeBlock(faceCell + d) != null) continue; // covered by a neighbour
+				if (grid.GetCubeBlock(faceCell + d) != null) continue;
 
 				var outward = axes[0] * d.X + axes[1] * d.Y + axes[2] * d.Z;
 				var point = grid.GridIntegerToWorld(faceCell) + outward * 0.5;
 
 				var ray = point - eye;
-				if (Vector3D.Dot(outward, ray) >= 0) continue; // face turned away from the camera
+				if (Vector3D.Dot(outward, ray) >= 0) continue;
 
 				double length = ray.Length();
 				if (length < 0.01) continue;
@@ -206,8 +187,6 @@ namespace LLE
 				IHitInfo hit;
 				MyAPIGateway.Physics.CastRay(eye, point + ray * RayOvershoot, out hit, CollisionLayers.CollisionLayerWithoutCharacter);
 
-				// Nothing at all, the block itself, or something behind it — in every one of
-				// those the way to the face is clear. Only a hit in front of the face hides it.
 				if (hit != null && Vector3D.Distance(eye, hit.Position) < length - slack) continue;
 
 				face = point;

@@ -36,10 +36,7 @@ namespace LLE
 		public OctreeNode Node;
 	}
 
-	/// <summary>
-	/// Cell source for OctreeAStar: voxel map or cube grid.
-	/// Cell coordinates are lod-0, starting at (0,0,0).
-	/// </summary>
+	// Cell coordinates are lod-0, starting at (0,0,0).
 	public interface ICells
 	{
 		Vector3I Size { get; }        // in cells (lod 0)

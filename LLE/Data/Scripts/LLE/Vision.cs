@@ -206,7 +206,7 @@ namespace LLE
 		internal static void OnGridSplit(IMyCubeGrid original, IMyCubeGrid created)
 		{
 			var state = SetLKS(created, false);
-			state.Report = false; // overwrite
+			state.Report = false;
 
 			visionReport.Clear(); // hack: stop BLOCK REMOVED spam
 			visionReport.Append($"* GRID SPLIT '{original.DisplayName}' / '{created.DisplayName}'\n");
