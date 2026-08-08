@@ -45,7 +45,9 @@ namespace LLELoader
 		public string ApiKey { get; set; } = "";
 		public string Provider { get; set; } = "local";
 		public bool EnableThinking { get; set; } = false;
-		public int ContextWindow { get; set; } = 100000;
+		// Characters, not tokens: the mod counts its conversation in characters and this is the
+		// budget it counts against.
+		public int ContextChars { get; set; } = 100000;
 		public int MaxTokens { get; set; } = 20000;
 	}
 
@@ -108,7 +110,8 @@ namespace LLELoader
 
 			_current = null;
 			request.Cancel.Cancel();
-			request.Cancel.Dispose();
+			// Not disposed: the abandoned SendAsync still holds a registration on this token, and
+			// disposing under it is the one thing the source must not do. The task ends on its own.
 		}
 
 		private static void Quoted(StringBuilder sb, string s)
@@ -244,7 +247,7 @@ namespace LLELoader
 				channels[i] = new Channel(i, configs[i]);
 				var c = configs[i];
 				Logger.Write($"[Config] channel {i}: url={c.LlmUrl} model={c.Model} provider={c.Provider}"
-					+ $" thinking={c.EnableThinking} contextWindow={c.ContextWindow} maxTokens={c.MaxTokens}");
+					+ $" thinking={c.EnableThinking} contextChars={c.ContextChars} maxTokens={c.MaxTokens}");
 			}
 			return channels;
 		}
@@ -285,10 +288,10 @@ namespace LLELoader
 			if (c != null) c.Cancel();
 		}
 
-		public static int GetContextWindow(int channel)
+		public static int GetContextChars(int channel)
 		{
 			var c = Get(channel);
-			return c == null ? 0 : c.Config.ContextWindow;
+			return c == null ? 0 : c.Config.ContextChars;
 		}
 
 		#region Screenshot
@@ -434,7 +437,7 @@ namespace LLELoader
 		{
 			private static readonly string[] BridgeMethods =
 				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "CancelLLM", "SetSystemPrompt",
-				  "GetContextWindow", "RequestScreenshot", "ScreenshotDone", "TakeScreenshot" ];
+				  "GetContextChars", "RequestScreenshot", "ScreenshotDone", "TakeScreenshot" ];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -486,7 +489,7 @@ namespace LLELoader
 						case "GetChunkFromLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_GetChunkFromLLM)); break;
 						case "SendMessageToLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_SendMessageToLLM)); break;
 						case "CancelLLM": prefix = new HarmonyMethod(smld, nameof(Prefix_CancelLLM)); break;
-						case "GetContextWindow": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextWindow)); break;
+						case "GetContextChars": prefix = new HarmonyMethod(smld, nameof(Prefix_GetContextChars)); break;
 						case "RequestScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_RequestScreenshot)); break;
 						case "ScreenshotDone": prefix = new HarmonyMethod(smld, nameof(Prefix_ScreenshotDone)); break;
 						case "TakeScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_TakeScreenshot)); break;
@@ -527,9 +530,9 @@ namespace LLELoader
 				return false;
 			}
 
-			static bool Prefix_GetContextWindow(int channel, ref int __result)
+			static bool Prefix_GetContextChars(int channel, ref int __result)
 			{
-				__result = GetContextWindow(channel);
+				__result = GetContextChars(channel);
 				return false;
 			}
 

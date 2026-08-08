@@ -306,7 +306,7 @@ namespace LLE
 		public static void SendMessageToLLM(int channel, string requestJson) { }
 		public static void CancelLLM(int channel) { } // abandon the answer being generated
 		public static string TakeScreenshot() { return null; } // base64 PNG, once per frame taken
-		public static int GetContextWindow(int channel) { return 0; } // 0 = no such channel configured
+		public static int GetContextChars(int channel) { return 0; } // 0 = no such channel configured
 		public static void RequestScreenshot() { }
 		public static bool ScreenshotDone(out bool success) { success = false; return true; }
 	}

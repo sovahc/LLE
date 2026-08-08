@@ -6,7 +6,7 @@
       "ApiKey": "",
       "Provider": "local",
       "EnableThinking": true,
-      "ContextWindow": 100000,
+      "ContextChars": 100000,
       "MaxTokens": 5000
     },
     {
@@ -15,7 +15,7 @@
       "ApiKey": "",
       "Provider": "local",
       "EnableThinking": true,
-      "ContextWindow": 100000,
+      "ContextChars": 100000,
       "MaxTokens": 5000
     },
     {
@@ -24,7 +24,7 @@
       "ApiKey": "",
       "Provider": "local",
       "EnableThinking": true,
-      "ContextWindow": 100000,
+      "ContextChars": 100000,
       "MaxTokens": 5000
     }
   ],

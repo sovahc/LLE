@@ -65,9 +65,10 @@ namespace LLE
 		private int transcriptChars;
 		private int turn;
 
-		// How many calls of the batch being executed have answered so far. The position is what
-		// names the call a result belongs to.
+		// How many calls of the batch being executed have answered so far, and the id the first of
+		// them was given. Together they name the call a result belongs to.
 		private int callCursor;
+		private int callIdBase;
 
 		// Something happened that the model has not seen. Not the same as "output is not empty":
 		// a turn whose whole news is command results has nothing in output at all, and skipping
@@ -164,11 +165,12 @@ namespace LLE
 		// The bot's turn, exactly as the channel wrote it down. Nothing here looks inside it: the
 		// calls it holds are the model's own bytes, and the results that follow answer them by
 		// position.
-		private void AddAssistant(string assistantJson)
+		private void AddAssistant(Answer answer)
 		{
 			callCursor = 0;
-			transcript.Add(assistantJson);
-			transcriptChars += assistantJson.Length;
+			callIdBase = answer.FirstCallId;
+			transcript.Add(answer.AssistantJson);
+			transcriptChars += answer.AssistantJson.Length;
 		}
 
 		// Whatever is left of the batch answers with the same reason. A call the bot made and the
@@ -183,7 +185,7 @@ namespace LLE
 		private void AnswerCall(string text)
 		{
 			var json = new StringBuilder("{\"role\":\"tool\",\"tool_call_id\":");
-			Json.Quoted(json, LlmChannel.CallId(callCursor));
+			Json.Quoted(json, LlmChannel.CallId(callIdBase + callCursor));
 			json.Append(",\"content\":");
 			Json.Quoted(json, text);
 			json.Append('}');
@@ -277,7 +279,7 @@ namespace LLE
 			if (hasNews) // We have data for LLM
 			{
 				int used = ContextUsed;
-				int total = channel.ContextWindow;
+				int total = channel.ContextChars;
 
 				if (total <= 0)
 				{	// No such channel in the loader config — there is nobody to talk to.
@@ -287,7 +289,12 @@ namespace LLE
 					return;
 				}
 
-				if (used + 2500 > total)
+				// A fifth of the budget stays free. The answer about to come back is only bounded by
+				// the loader's MaxTokens, and the results of its calls land after it — both are added
+				// once the request is already gone, so the room for them has to exist beforehand.
+				int reserve = total / 5;
+
+				if (used + reserve > total)
 				{
 					ClearTranscript();
 					commands.SetSystemPromptAndMemory();
@@ -321,9 +328,9 @@ namespace LLE
 				// Send accumulated results to LLM
 				Log($"toLLM: {logBuf}");
 
-				var text = output.Length == 0 ? "..." : output.ToString();
-				transcript.Add(UserMessage(text));
-				transcriptChars += text.Length;
+				var message = UserMessage(output.Length == 0 ? "..." : output.ToString());
+				transcript.Add(message);
+				transcriptChars += message.Length;
 				output.Clear();
 				logBuf.Clear();
 				hasNews = false;
@@ -376,7 +383,7 @@ namespace LLE
 
 		private void ContextStatistic()
 		{
-			int total = channel.ContextWindow;
+			int total = channel.ContextChars;
 			if (total <= 0) return;
 			int used = ContextUsed;
 			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({used * 100 / total}%)", Color.LightPink);
@@ -428,7 +435,7 @@ namespace LLE
 			// calls. Reasoning stays out — the chat template drops thought from previous turns anyway.
 			// Console already printed it while streaming; llmContent already logged it.
 			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
-			AddAssistant(answer.AssistantJson);
+			AddAssistant(answer);
 
 			if (error != null)
 			{	Log($"turn {turn} unusable: {error.Trim()}");
@@ -452,6 +459,7 @@ namespace LLE
 				commands.SetSystemPromptAndMemory();
 				Append("[CONTEXT RESET]\n", Color.LightGreen);
 				loopDetector.Reset();
+				contextWarnStage = 0;
 				return;
 			}
 

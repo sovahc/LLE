@@ -12,11 +12,16 @@ namespace LLE
 		public readonly List<ToolCall> Calls;
 		public readonly string AssistantJson;
 
+		// The id of Calls[0]; the rest follow it. The results that answer this turn are named from
+		// here, so the transcript never carries the same id twice.
+		public readonly int FirstCallId;
+
 		public readonly string Error;
 
-		public Answer(List<ToolCall> calls, string assistantJson, string error)
+		public Answer(List<ToolCall> calls, string assistantJson, int firstCallId, string error)
 		{	Calls = calls;
 			AssistantJson = assistantJson;
+			FirstCallId = firstCallId;
 			Error = error;
 		}
 	}
@@ -37,8 +42,8 @@ namespace LLE
 		{	Id = id;
 		}
 
-		public int ContextWindow { get { return LLE_Loader.GetContextWindow(Id); } }
-		public bool Present { get { return ContextWindow > 0; } }
+		public int ContextChars { get { return LLE_Loader.GetContextChars(Id); } }
+		public bool Present { get { return ContextChars > 0; } }
 		public bool Busy { get { return busy; } }
 
 		public void Send(string requestJson)
@@ -201,13 +206,18 @@ namespace LLE
 			var json = new StringBuilder("{\"role\":\"assistant\",\"content\":");
 			Json.Quoted(json, content.ToString().Trim());
 
-			if (firstError != null) return new Answer(calls, json.Append('}').ToString(), firstError);
+			if (firstError != null) return new Answer(calls, json.Append('}').ToString(), 0, firstError);
+
+			// Ids are handed out once and never reused: a transcript holds many turns, and a name
+			// that repeats no longer says which call a result belongs to.
+			int firstId = nextCallId;
+			nextCallId += calls.Count;
 
 			for (int i = 0; i < calls.Count; ++i)
 			{
 				json.Append(i == 0 ? ",\"tool_calls\":[" : ",");
 				json.Append("{\"id\":");
-				Json.Quoted(json, CallId(i));
+				Json.Quoted(json, CallId(firstId + i));
 				json.Append(",\"type\":\"function\",\"function\":{\"name\":");
 				Json.Quoted(json, calls[i].Name);
 				json.Append(",\"arguments\":\"").Append(escaped[i]).Append("\"}}");
@@ -216,8 +226,12 @@ namespace LLE
 			if (calls.Count > 0) json.Append(']');
 			json.Append('}');
 
-			return new Answer(calls, json.ToString(), firstError);
+			return new Answer(calls, json.ToString(), firstId, firstError);
 		}
+
+		// Shared by every channel: the ids of two conversations never have to meet, but nothing is
+		// gained by letting them collide either.
+		private static int nextCallId;
 
 		public static string CallId(int index)
 		{	return "c" + index;
