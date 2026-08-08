@@ -77,7 +77,7 @@ namespace LLE
 			new Tool("restart", "Reset the context, keeping memory. Must be the only call of the batch.", None),
 
 			new Tool("fly", "Land at a specific grid cell.",
-				Join(Ijk(), Bool("headfirst", "Arrive head first rather than feet first."))),
+				Join(Ijk(), Bool("headfirst", "Fly head first (use for tight spaces or unstuck)."))),
 			new Tool("fly_direction", "Fly a number of cells along one of the grid axes.", new[]
 			{	Enum("direction", "Which way to fly, relative to the grid.", true,
 					"forward", "backward", "left", "right", "up", "down"),
