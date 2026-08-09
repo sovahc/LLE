@@ -368,6 +368,10 @@ namespace LLE
 			coroutineStack.Clear();
 		}
 
+		internal void Cancel()
+		{	AbortCommand();
+		}
+
 		internal CommandResult Update()
 		{
 			if (coroutineStack.Count == 0) return null;
@@ -416,6 +420,10 @@ namespace LLE
 				case "pause":
 					LLM.pause = true;
 					return Success("OK");
+
+				case "continue":
+				case "cancel":
+					return $"Error: nothing is running, so there is nothing to {call.Name}.";
 
 				case "position":       return Position();
 				case "overview":       return Overview();

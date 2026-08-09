@@ -99,6 +99,14 @@ namespace LLE
 
 		private double commandStartTime;
 
+		private bool batchAcked;
+
+		private const int NewsQuietTicks = 2;
+		private const int NewsMaxTicks = 10;
+
+		private int quietTicks;
+		private int newsTicks;
+
 		private readonly LoopDetector loopDetector = new LoopDetector();
 
 		public void ResetLoopDetector()
@@ -127,19 +135,40 @@ namespace LLE
 				took = $" (Took {elapsed:F1}s)";
 			commandStartTime = 0;
 
-			Append($"→ {currentCommand.Text}: [{tag}] {result.Message}{took}\n", Color.Cornsilk,
-				Destination.Console | Destination.Log);
-			AnswerCall($"[{tag}] {result.Message}{took}");
+			// Once the batch is acked its slots are closed; the outcome can only come as an event.
+			var destination = batchAcked ? Destination.All : Destination.Console | Destination.Log;
+
+			Append($"→ {currentCommand.Text}: [{tag}] {result.Message}{took}\n", Color.Cornsilk, destination);
+			if(!batchAcked) AnswerCall($"[{tag}] {result.Message}{took}");
 
 			if(result.Status != CommandStatus.Success && batch.Count > 0)
 			{	Append($"Remaining {batch.Count} command(s) ignored: {Join("; ", new List<ToolCall>(batch))}\n",
-					Color.Cornsilk, Destination.Console | Destination.Log);
+					Color.Cornsilk, destination);
 
 				while(batch.Count > 0)
 				{	batch.Dequeue();
-					AnswerCall("Not executed: an earlier call in this batch failed.");
+					if(!batchAcked) AnswerCall("Not executed: an earlier call in this batch failed.");
 				}
 			}
+		}
+
+		private void CancelBatch()
+		{
+			commands.Cancel();
+
+			string took = commandStartTime == 0 ? "" : $" after {Time.Now - commandStartTime:F1}s";
+			commandStartTime = 0;
+
+			var stopped = batch.Dequeue();
+			Append($"→ {stopped.Text}: [CANCELLED] Stopped{took}.\n", Color.Cornsilk);
+
+			if(batch.Count > 0)
+			{	Append($"Cancelled {batch.Count} queued command(s): {Join("; ", new List<ToolCall>(batch))}\n",
+					Color.Cornsilk);
+				batch.Clear();
+			}
+
+			AnswerCall("[OK] Stopped.");
 		}
 
 		private void AddAssistant(Answer answer)
@@ -150,12 +179,12 @@ namespace LLE
 			transcriptChars += answer.AssistantJson.Length;
 		}
 
-		private void AnswerRest(int total, string text)
+		private void AnswerRest(int total, string text, bool news = true)
 		{
-			while (callCursor < total) AnswerCall(text);
+			while (callCursor < total) AnswerCall(text, news);
 		}
 
-		private void AnswerCall(string text)
+		private void AnswerCall(string text, bool news = true)
 		{
 			var json = new StringBuilder("{\"role\":\"tool\",\"tool_call_id\":");
 			Json.Quoted(json, LlmChannel.CallId(callIdBase + callCursor));
@@ -166,7 +195,13 @@ namespace LLE
 			transcript.Add(json.ToString());
 			transcriptChars += json.Length;
 			callCursor++;
+			if (news) News();
+		}
+
+		private void News()
+		{	if (!hasNews) newsTicks = 0;
 			hasNews = true;
+			quietTicks = 0;
 		}
 
 		private void RunNextPending()
@@ -181,17 +216,29 @@ namespace LLE
 				result = $"Internal error: command '{batch.Peek().Text}' produced no result.";
 
 			if (result != null)
-				OnCommandFinished(result);
+			{	OnCommandFinished(result);
+				return;
+			}
+
+			if (batchAcked) return;
+
+			batchAcked = true;
+			AnswerCall("[RUNNING] Started, still going. Answer continue or cancel.");
+			for (int i = 1; i < batch.Count; ++i)
+				AnswerCall("[PENDING] Queued behind the running command.");
 		}
 
 		public void Append(string text, Color consoleColor, Destination d = Destination.All)
 		{	if((d & Destination.Console) != 0) MyConsole.AddMultiline(text, consoleColor);
 			if((d & Destination.Log)     != 0) logBuf.Append(text);
-			if((d & Destination.LLM)     != 0) { output.Append(text); hasNews = true; }
+			if((d & Destination.LLM)     != 0) { output.Append(text); News(); }
 		}
 
 		public void Tick()
 		{
+			++quietTicks;
+			++newsTicks;
+
 			PollChannel();
 
 			var ec = commands.GetEngineerCenter();
@@ -224,22 +271,18 @@ namespace LLE
 				}
 				else
 					RunNextPending();
-
-				return;
 			}
 
 			if(channel.Busy) return;
-			if(pause) return;
 
 			// Must stay ahead of the send below: an async VISION/STATUS report would otherwise
 			// fire that send and orphan it, and the next response appends its calls onto it.
 			if(response != null || responseError != null)
-			{	ProcessAnswer();
-				if(batch.Count != 0) return;
-				if(pause) return;
-			}
+				ProcessAnswer();
 
-			if (hasNews)
+			if(pause) return;
+
+			if (hasNews && (quietTicks >= NewsQuietTicks || newsTicks >= NewsMaxTicks))
 			{
 				int used = ContextUsed;
 				int total = channel.ContextChars;
@@ -386,6 +429,13 @@ namespace LLE
 				return;
 			}
 
+			// Not InProgress(): the head may have ended this very tick with its batch still unfinished,
+			// and mixing a new answer's calls into that batch would put its slots out of step.
+			if (batch.Count != 0)
+			{	RunningAnswer(cc);
+				return;
+			}
+
 			bool hasControl = cc.Any(c => c.Is("restart") || c.Is("pause"));
 			if (hasControl && cc.Count > 1)
 			{
@@ -417,9 +467,34 @@ namespace LLE
 				}
 			}
 
+			batchAcked = false;
 			for (int i = 0; i < cc.Count; ++i) batch.Enqueue(cc[i]);
 
 			RunNextPending();
+		}
+
+		// A running command answers [RUNNING] at once, so its slots are already closed and the
+		// model is free to think. The only thing it may decide is whether that command survives.
+		private void RunningAnswer(List<ToolCall> cc)
+		{
+			if (cc.Count == 1 && cc[0].Is("continue"))
+			{	Append("→ continue\n", Color.Cornsilk, Destination.Console | Destination.Log);
+				AnswerCall("[OK] Still running.", false);
+				return;
+			}
+
+			if (cc.Count == 1 && cc[0].Is("cancel"))
+			{	CancelBatch();
+				return;
+			}
+
+			Append("[ERROR] A command is running: continue or cancel, nothing else.\n", Color.Red,
+				Destination.Console | Destination.Log);
+
+			// Silent on purpose: answering with news here would ask again at once, and a model
+			// that keeps calling the wrong tool would spin at full inference until the command ends.
+			AnswerRest(cc.Count, "Not executed: a command is running. While it runs the only calls"
+				+ " you may make are continue and cancel.", false);
 		}
 	}
 }
