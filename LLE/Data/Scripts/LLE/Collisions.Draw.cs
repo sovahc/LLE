@@ -4,6 +4,7 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Definitions;
+using Sandbox.Game.Entities;
 
 namespace LLE
 {
@@ -68,7 +69,10 @@ namespace LLE
 		public static void DrawTraversability(IMyCubeGrid grid, Vector3I position)
 		{
 			var calc = new TraversabilityCalculator(grid, 0);
-			Traversability t = calc.GetTraversability(position);
+			var voxels = new List<MyVoxelBase>();
+			var grids = new List<IMyCubeGrid>();
+			calc.QueryObstacles(calc.CellRangeToWorld(position, position), voxels, grids);
+			Traversability t = calc.GetTraversability(position, voxels, grids);
 			var zero = grid.GridIntegerToWorld(position);
 
 			// Draw probe spheres at the same positions used for traversability calculation

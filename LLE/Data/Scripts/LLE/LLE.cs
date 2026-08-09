@@ -275,6 +275,18 @@ namespace LLE
 				commands = new Commands(bot);
 				llm = new LLM(commands);
 			}
+			else if(message == ">sp")
+			{	string error;
+				var call = ToolCall.Parse("select", "{\"name\":\"Red Platform\"}", out error);
+				if(call == null)
+				{	MyConsole.Add($"ToolCall.Parse: {error}", Color.Red);
+					return;
+				}
+
+				MyConsole.Add(call.Text, Color.Yellow);
+				var result = commands.Execute(call);
+				MyConsole.Add(result == null ? "(running)" : result.Message, Color.Yellow);
+			}
 			else if(message.StartsWith(">"))
 			{	MyConsole.Add("Commands from chat are gone — the model calls tools directly.", Color.Red);
 			}

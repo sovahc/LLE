@@ -8,6 +8,11 @@ using Priority_Queue;
 
 namespace LLE
 {
+	public class MyNode : FastPriorityQueueNode
+	{
+		public int Index;
+	}
+
 	class ConveyorAStar
 	{
 		private const float BendPenalty = 0.4f;

@@ -109,41 +109,55 @@ namespace LLE
 	class TraversabilityCalculator
 	{
 		private readonly IMyCubeGrid grid;
-		private readonly int border;
-		private readonly int resolution;
-		private readonly List<MyVoxelBase> intersectingVoxels = new List<MyVoxelBase>();
-		private readonly List<IMyCubeGrid> intersectingGrids = new List<IMyCubeGrid>();
+		private readonly int resolutionBits;
 
-		public TraversabilityCalculator(IMyCubeGrid grid_, int border_, int resolution_ = 1)
+		public TraversabilityCalculator(IMyCubeGrid grid_, int resolutionBits_)
 		{
 			grid = grid_;
-			border = border_;
-			resolution = resolution_;
+			resolutionBits = resolutionBits_;
+		}
 
-			var worldAabb = grid.PositionComp.WorldAABB;
-			worldAabb.Inflate(border * grid.GridSize);
-			MyGamePruningStructure.GetAllVoxelMapsInBox(ref worldAabb, intersectingVoxels);
+		public BoundingBoxD CellRangeToWorld(Vector3I cellMin, Vector3I cellMax)
+		{
+			var min = cellMin >> resolutionBits;
+			var max = cellMax >> resolutionBits;
 
-			foreach (var entity in MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref worldAabb))
+			var box = BoundingBoxD.CreateInvalid();
+
+			for (int i = 0; i < 8; ++i)
+			{
+				Vector3I corner;
+				corner.X = (i & 1) == 0 ? min.X : max.X;
+				corner.Y = (i & 2) == 0 ? min.Y : max.Y;
+				corner.Z = (i & 4) == 0 ? min.Z : max.Z;
+				box.Include(grid.GridIntegerToWorld(corner));
+			}
+
+			// Probes reach one block past the range (face sub-cell, neighbour scan) plus the 1.25 m voxel sphere.
+			box.Inflate(grid.GridSize + 2.0);
+			return box;
+		}
+
+		public void QueryObstacles(BoundingBoxD worldBox, List<MyVoxelBase> voxels, List<IMyCubeGrid> grids)
+		{
+			MyGamePruningStructure.GetAllVoxelMapsInBox(ref worldBox, voxels);
+
+			foreach (var entity in MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref worldBox))
 			{
 				var g = entity as IMyCubeGrid;
 				if (g != null && g != grid)
-					intersectingGrids.Add(g);
+					grids.Add(g);
 			}
-			//MyConsole.Add($"intersectingVoxels.Count {intersectingVoxels.Count}");
-			//MyConsole.Add($"intersectingGrids.Count {intersectingGrids.Count}");
 		}
 
-		public Traversability GetForAstar(Vector3I astarPosition)
+		public Traversability GetForAstar(Vector3I cell, List<MyVoxelBase> voxels, List<IMyCubeGrid> grids)
 		{
-			if(resolution == 1)
-			{
-				var position = astarPosition + grid.Min - border;
-				return GetTraversability(position);
-			}
+			var blockIJK = cell >> resolutionBits;
 
-			var blockIJK = astarPosition / resolution + grid.Min - border;
-			var sub = new Vector3I(astarPosition.X % resolution, astarPosition.Y % resolution, astarPosition.Z % resolution);
+			if (resolutionBits == 0)
+				return GetTraversability(blockIJK, voxels, grids);
+
+			var sub = cell & ((1 << resolutionBits) - 1);
 
 			// Edges and corners: always blocked
 			if (sub.X + sub.Y + sub.Z > 1)
@@ -151,11 +165,11 @@ namespace LLE
 
 			// Center sub-cell: use existing traversability
 			if (sub.X + sub.Y + sub.Z == 0)
-				return GetTraversability(blockIJK);
+				return GetTraversability(blockIJK, voxels, grids);
 
 			// Face sub-cell: passable if both adjacent blocks' face probes are clear
-			var travA = GetTraversability(blockIJK);
-			var travB = GetTraversability(blockIJK + sub);
+			var travA = GetTraversability(blockIJK, voxels, grids);
+			var travB = GetTraversability(blockIJK + sub, voxels, grids);
 
 			if (travA[sub] || travB[-sub])
 				return Traversability.Blocked;
@@ -163,7 +177,7 @@ namespace LLE
 			return Traversability.Free;
 		}
 
-		public Traversability GetTraversability(Vector3I position)
+		public Traversability GetTraversability(Vector3I position, List<MyVoxelBase> voxels, List<IMyCubeGrid> grids)
 		{
 			// Small grid blocks are always treated as fully blocked.
 			if (grid.GridSizeEnum == MyCubeSize.Small)
@@ -179,11 +193,11 @@ namespace LLE
 				return Traversability.Free;
 			}
 
-			foreach(var voxel in intersectingVoxels)
+			foreach(var voxel in voxels)
 				if(!IsVoxelTraversable(voxel, position)) return Traversability.Blocked;
 
 			var center = grid.GridIntegerToWorld(position);
-			foreach (var g in intersectingGrids)
+			foreach (var g in grids)
 				if (Collisions.CheckSphereVsGrid(g, center, Constants.CollisionProbeRadius))
 					return Traversability.Blocked;
 

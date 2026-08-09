@@ -11,7 +11,7 @@ namespace LLE
 		private readonly IMyCubeGrid grid;
 		private readonly AStar astar;
 		private readonly int AStarBorder;
-		private readonly int Resolution;
+		private readonly int ResolutionBits;
 		private readonly List<Vector3D> sweptCapsule = new List<Vector3D>();
 
 		internal List<Vector3I> SmoothPath(List<Vector3I> path)
@@ -63,7 +63,7 @@ namespace LLE
 		{
 			if (path.Count <= 2) return path;
 
-			int maxStep = 1000 * Resolution;
+			int maxStep = 1000 << ResolutionBits;
 			var result = new List<Vector3I>(path.Count) { path[0] };
 			int step = 0;
 
@@ -95,17 +95,16 @@ namespace LLE
 			return result;
 		}
 
-		internal Vector3D CellToWorld(Vector3I coord)
+		internal Vector3D CellToWorld(Vector3I cell)
 		{
-			var blockPos = coord / Resolution + grid.Min - AStarBorder;
-			var sub = new Vector3I(coord.X % Resolution, coord.Y % Resolution, coord.Z % Resolution);
-			var localOffset = new Vector3D(sub) * (grid.GridSize / (double)Resolution);
-			return grid.GridIntegerToWorld(blockPos) + Vector3D.TransformNormal(localOffset, grid.WorldMatrix);
+			var sub = cell & ((1 << ResolutionBits) - 1);
+			var localOffset = new Vector3D(sub) * (grid.GridSize / (double)(1 << ResolutionBits));
+			return grid.GridIntegerToWorld(CellToBlock(cell)) + Vector3D.TransformNormal(localOffset, grid.WorldMatrix);
 		}
 
-		internal Vector3I CellToBlock(Vector3I coord)
+		internal Vector3I CellToBlock(Vector3I cell)
 		{
-			return coord / Resolution + grid.Min - AStarBorder;
+			return cell >> ResolutionBits;
 		}
 
 		internal AStarHelper(IMyCubeGrid grid_, Vector3I point_A, Vector3I point_B)
@@ -114,23 +113,18 @@ namespace LLE
 			if(grid.GridSizeEnum == MyCubeSize.Large) AStarBorder = 2;
 			if(grid.GridSizeEnum == MyCubeSize.Small) AStarBorder = 7;
 
-			Vector3I gridSize = grid.Max - grid.Min + 1;
+			MyConsole.Add($"RunAstar '{grid.DisplayName}' {grid.Min} {grid.Max} {point_A} -> {point_B}");
 
-			MyConsole.Add($"RunAstar '{grid.DisplayName}' {grid.Min} {grid.Max} ({gridSize}) {point_A} -> {point_B}");
+			ResolutionBits = grid.GridSizeEnum == MyCubeSize.Large ? 1 : 0;
 
-			Resolution = grid.GridSizeEnum == MyCubeSize.Large ? 2 : 1;
+			var boxMin = (grid.Min - AStarBorder) << ResolutionBits;
+			var boxMax = ((grid.Max + AStarBorder) << ResolutionBits) + ((1 << ResolutionBits) - 1);
 
-			var astarSize = (gridSize + AStarBorder + AStarBorder) * Resolution;
+			var source = new TraversabilityCalculator(grid, ResolutionBits);
 
-			var source = new TraversabilityCalculator(grid, AStarBorder, Resolution);
+			astar = new AStar(boxMin, boxMax, source);
 
-			astar = new AStar(astarSize, source);
-
-			astar.Reset();
-
-			var a = (point_A - grid.Min + AStarBorder) * Resolution;
-			var b = (point_B - grid.Min + AStarBorder) * Resolution;
-			astar.RunCalculation(a, b);
+			astar.RunCalculation(point_A << ResolutionBits, point_B << ResolutionBits);
 		}
 
 		internal bool Tick()

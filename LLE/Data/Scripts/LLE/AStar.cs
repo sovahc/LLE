@@ -3,82 +3,130 @@ using System.Collections;
 using System.Collections.Generic;
 
 using VRageMath;
-using Priority_Queue;
+using VRage.Game.ModAPI;
+using Sandbox.Game.Entities;
 
 namespace LLE
 {
-	public class MyNode : FastPriorityQueueNode
+	class AStarChunk
 	{
-		public int Index;
+		public const int Bits = 4;
+		public const int Side = 1 << Bits;
+		public const int Mask = Side - 1;
+		public const int Cells = Side * Side * Side;
+		public const int IndexBits = Bits * 3;
+		public const int IndexMask = Cells - 1;
+
+		public const byte Known = 1;
+		public const byte Closed = 2;
+
+		public Vector3I Coord;
+		public int Slot;
+
+		public readonly Traversability[] traversability = new Traversability[Cells];
+		public readonly float[] gScore = new float[Cells];
+		public readonly int[] parent = new int[Cells];
+		public readonly byte[] flags = new byte[Cells];
+
+		public readonly List<MyVoxelBase> voxels = new List<MyVoxelBase>();
+		public readonly List<IMyCubeGrid> grids = new List<IMyCubeGrid>();
+
+		public static int Local(Vector3I cell)
+		{	return (cell.X & Mask) | ((cell.Y & Mask) << Bits) | ((cell.Z & Mask) << (Bits * 2));
+		}
+
+		public void LocalToCell(int local, out Vector3I cell)
+		{	cell.X = (Coord.X << Bits) | (local & Mask);
+			cell.Y = (Coord.Y << Bits) | ((local >> Bits) & Mask);
+			cell.Z = (Coord.Z << Bits) | (local >> (Bits * 2));
+		}
+	}
+
+	class AStarHeap
+	{
+		private readonly float[] _priority;
+		private readonly int[] _cell;
+		private int _count;
+
+		public AStarHeap(int capacity)
+		{	_priority = new float[capacity];
+			_cell = new int[capacity];
+		}
+
+		public int Count => _count;
+
+		public bool Push(int cell, float priority)
+		{
+			if (_count == _cell.Length) return false;
+
+			int i = _count++;
+			while (i > 0)
+			{
+				int up = (i - 1) >> 1;
+				if (_priority[up] <= priority) break;
+				_priority[i] = _priority[up];
+				_cell[i] = _cell[up];
+				i = up;
+			}
+
+			_priority[i] = priority;
+			_cell[i] = cell;
+			return true;
+		}
+
+		public int Pop()
+		{
+			int top = _cell[0];
+
+			--_count;
+			if (_count > 0)
+			{
+				float priority = _priority[_count];
+				int cell = _cell[_count];
+
+				int i = 0;
+				while (true)
+				{
+					int down = i * 2 + 1;
+					if (down >= _count) break;
+					if (down + 1 < _count && _priority[down + 1] < _priority[down]) ++down;
+					if (_priority[down] >= priority) break;
+
+					_priority[i] = _priority[down];
+					_cell[i] = _cell[down];
+					i = down;
+				}
+
+				_priority[i] = priority;
+				_cell[i] = cell;
+			}
+
+			return top;
+		}
 	}
 
 	class AStar
 	{
-		private readonly Indexer _indexer;
 		private readonly TraversabilityCalculator _source;
+		private readonly Vector3I _boxMin, _boxMax;
 
-		private readonly BitField _closed;
-		private readonly BitField _inOpen;
-		private readonly BitField _known;
-		private readonly FastPriorityQueue<MyNode> _open;
-		
-		private readonly Traversability[] _traversability;
-		private readonly float[] _gScore;
-		private readonly int[] _parent;
-		private readonly MyNode[] _nodes;
+		private readonly List<AStarChunk> _chunks = new List<AStarChunk>();
+		private readonly Dictionary<Vector3I, AStarChunk> _byCoord =
+			new Dictionary<Vector3I, AStarChunk>(Vector3I.Comparer);
+
+		private readonly AStarHeap _open = new AStarHeap(Constants.AStarQueueCapacity);
+
+		private AStarChunk _lastChunk;
+		private Vector3I _lastCoord;
 
 		private IEnumerator iterator;
 
 		public readonly List<Vector3I> result = new List<Vector3I>();
 
-		public Vector3I Size => _indexer.Size;
-		public void IndexToPosition(int index, out Vector3I pos) => _indexer.IndexToPosition(index, out pos);
-
-		public AStar(Vector3I size, TraversabilityCalculator source)
-		{
-			_indexer = new Indexer(size);
+		public AStar(Vector3I boxMin, Vector3I boxMax, TraversabilityCalculator source)
+		{	_boxMin = boxMin;
+			_boxMax = boxMax;
 			_source = source;
-			int c = _indexer.Count;
-
-			_closed = new BitField(c, 1);
-			_inOpen = new BitField(c, 1);
-			_known = new BitField(c, 1);
-			_open = new FastPriorityQueue<MyNode>(c);
-
-			_traversability = new Traversability[c];
-			_gScore = new float[c];
-			_parent = new int[c];
-			_nodes = new MyNode[c];
-
-			for (int i = 0; i < c; i++) _nodes[i] = new MyNode { Index = i };
-
-			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
-		}
-
-		public void Reset()
-		{
-			_closed.SetAll_0();
-			_inOpen.SetAll_0();
-			_known.SetAll_0();
-			_open.Clear();
-
-			Array.Clear(_gScore, 0, _gScore.Length);
-
-			for (int i = 0; i < _parent.Length; i++) _parent[i] = -1;
-		}
-
-		private Traversability GetTraversability(int index)
-		{
-			if (_known.Get(index) != 0)
-				return _traversability[index];
-
-			Vector3I v;
-			_indexer.IndexToPosition(index, out v);
-
-			var t = _source.GetForAstar(v);
-			_traversability[index] = t;
-			_known.Set(index, 1);
-			return t;
 		}
 
 		public void RunCalculation(Vector3I start, Vector3I goal)
@@ -92,76 +140,146 @@ namespace LLE
 
 		public void Iteration() => Utilities.Tick(ref iterator, "AStar");
 
+		private AStarChunk Chunk(Vector3I cell)
+		{
+			Vector3I coord = cell >> AStarChunk.Bits;
+			if (_lastChunk != null && coord == _lastCoord) return _lastChunk;
+
+			AStarChunk chunk;
+			if (!_byCoord.TryGetValue(coord, out chunk))
+			{
+				chunk = new AStarChunk { Coord = coord, Slot = _chunks.Count };
+				_chunks.Add(chunk);
+				_byCoord.Add(coord, chunk);
+
+				var cellMin = coord << AStarChunk.Bits;
+				_source.QueryObstacles(
+					_source.CellRangeToWorld(cellMin, cellMin + AStarChunk.Mask),
+					chunk.voxels, chunk.grids);
+			}
+
+			_lastCoord = coord;
+			_lastChunk = chunk;
+			return chunk;
+		}
+
+		private Traversability GetTraversability(AStarChunk chunk, int local, Vector3I cell)
+		{
+			if ((chunk.flags[local] & AStarChunk.Known) != 0) return chunk.traversability[local];
+
+			var t = _source.GetForAstar(cell, chunk.voxels, chunk.grids);
+			chunk.traversability[local] = t;
+			chunk.flags[local] |= AStarChunk.Known;
+			return t;
+		}
+
+		private Traversability GetTraversability(Vector3I cell)
+		{
+			var chunk = Chunk(cell);
+			return GetTraversability(chunk, AStarChunk.Local(cell), cell);
+		}
+
+		private static int Index(AStarChunk chunk, int local)
+		{	return (chunk.Slot << AStarChunk.IndexBits) | local;
+		}
+
+		private void IndexToCell(int index, out Vector3I cell)
+		{	_chunks[index >> AStarChunk.IndexBits].LocalToCell(index & AStarChunk.IndexMask, out cell);
+		}
+
+		private bool InBox(Vector3I v)
+		{	return v.X >= _boxMin.X && v.X <= _boxMax.X &&
+				   v.Y >= _boxMin.Y && v.Y <= _boxMax.Y &&
+				   v.Z >= _boxMin.Z && v.Z <= _boxMax.Z;
+		}
+
+		private bool OnBorder(Vector3I v)
+		{	return v.X == _boxMin.X || v.Y == _boxMin.Y || v.Z == _boxMin.Z ||
+				   v.X == _boxMax.X || v.Y == _boxMax.Y || v.Z == _boxMax.Z;
+		}
+
 		public IEnumerator FindPath(Vector3I start, Vector3I goal)
 		{
-			if(!_indexer.In(start))
-			{	MyConsole.Add($"FindPath Error - start index out of range (start {start} size {_indexer.Size})", Color.Red);
+			if (!InBox(start))
+			{	MyConsole.Add($"FindPath Error - start out of range (start {start} box {_boxMin} {_boxMax})", Color.Red);
 				yield break;
 			}
 
-			bool goalOutside = !_indexer.In(goal);
+			bool goalOutside = !InBox(goal);
 
-			int startIndex = _indexer.Index(start.X, start.Y, start.Z);
-			int goalIndex = _indexer.Index(goal.X, goal.Y, goal.Z);
+			var startChunk = Chunk(start);
+			int startLocal = AStarChunk.Local(start);
 
-			if(GetTraversability(startIndex).Center)
+			if (GetTraversability(startChunk, startLocal, start).Center)
 			{   MyConsole.Add($"FindPath Error - start is obstructed", Color.Red);
 				yield break;
 			}
-			
-			if(!goalOutside && GetTraversability(goalIndex).Center)
+
+			if (!goalOutside && GetTraversability(goal).Center)
 			{   MyConsole.Add($"FindPath Error - goal is obstructed", Color.Red);
 				yield break;
 			}
 
-			if (startIndex == goalIndex)
+			if (start == goal)
 			{
 				result.Add(start);
 				yield break;
 			}
 
-			_gScore[startIndex] = 0f;
-			_parent[startIndex] = -1;
+			startChunk.gScore[startLocal] = 0f;
 			// Heuristic x2: intentional overestimation for speed (sacrifices optimality)
-			float startF = Manhattan(start, goal) * 2;
-			_open.Enqueue(_nodes[startIndex], startF);
-			_inOpen.Set(startIndex, 1);
+			_open.Push(Index(startChunk, startLocal), Manhattan(start, goal) * 2);
 
 			int cellsAnalyzed = 0;
 
 			while (_open.Count > 0)
 			{
 				++cellsAnalyzed;
-				if(cellsAnalyzed % 200 == 0) yield return null;
+				if (cellsAnalyzed >= Constants.AStarMaxCells)
+				{	MyConsole.Add($"FindPath Error - cell limit reached ({cellsAnalyzed})", Color.Red);
+					yield break;
+				}
+				if (cellsAnalyzed % 200 == 0) yield return null;
 
-				var current = _open.Dequeue();
-				int currentI = current.Index;
+				int currentI = _open.Pop();
 
-				if (_closed.Get(currentI) != 0) continue;
+				var currentChunk = _chunks[currentI >> AStarChunk.IndexBits];
+				int currentLocal = currentI & AStarChunk.IndexMask;
 
-				_closed.Set(currentI, 1);
+				if ((currentChunk.flags[currentLocal] & AStarChunk.Closed) != 0) continue;
+
+				currentChunk.flags[currentLocal] |= AStarChunk.Closed;
 
 				Vector3I cv;
-				_indexer.IndexToPosition(currentI, out cv);
+				currentChunk.LocalToCell(currentLocal, out cv);
 
-				if(goalOutside)
-				{	
-					if(OnBorder(cv))
+				if (goalOutside)
+				{
+					if (OnBorder(cv))
 					{	MyConsole.Add($"(Exit) cellsAnalyzed {cellsAnalyzed}", Color.Red);
-						result.AddList(ReconstructPath(currentI, cv));
+						ReconstructPath(currentI);
 						yield break;
 					}
 				}
 				else
-				{	if (currentI == goalIndex)
+				{	if (cv == goal)
 					{	MyConsole.Add($"(Goal) cellsAnalyzed {cellsAnalyzed}", Color.Red);
-						result.AddList(ReconstructPath(goalIndex, goal));
+						ReconstructPath(currentI);
 						yield break;
 					}
 				}
 
-				float curG = _gScore[currentI];
-				var currentT = GetTraversability(currentI);
+				float curG = currentChunk.gScore[currentLocal];
+				var currentT = GetTraversability(currentChunk, currentLocal, cv);
+
+				int currentParent = currentChunk.parent[currentLocal];
+				Vector3I incoming = Vector3I.Zero;
+				if (currentParent != 0)
+				{
+					Vector3I parentPos;
+					IndexToCell(currentParent - 1, out parentPos);
+					incoming = cv - parentPos;
+				}
 
 				int totalDirs = Constants.SixDirections.Length + Constants.TwelveEdgeDirections.Length;
 				for (int d = 0; d < totalDirs; ++d)
@@ -181,51 +299,42 @@ namespace LLE
 
 					Vector3I next = cv + direction;
 
-					if (!_indexer.In(next)) continue;
+					if (!InBox(next)) continue;
 
-					int nextI = _indexer.Index(next);
+					var nextChunk = Chunk(next);
+					int nextLocal = AStarChunk.Local(next);
 
-					if (_closed.Get(nextI) != 0) continue;
+					if ((nextChunk.flags[nextLocal] & AStarChunk.Closed) != 0) continue;
 
-					var nextT = GetTraversability(nextI);
+					var nextT = GetTraversability(nextChunk, nextLocal, next);
 					if (nextT.Center) continue;
 					if (currentT[direction] || nextT[-direction]) continue;
 
 					float tentativeG = curG + stepCost;
 
-					if (_parent[currentI] != -1)
-					{
-						Vector3I parentPos;
-						_indexer.IndexToPosition(_parent[currentI], out parentPos);
-						if ((cv - parentPos) != direction)
-							tentativeG += Constants.AStarTurnPenalty;
-					}
+					if (currentParent != 0 && incoming != direction)
+						tentativeG += Constants.AStarTurnPenalty;
 
 					int blockedNeighbors = 0;
 					for (int n = 0; n < Constants.SixDirections.Length; n++)
 					{
 						var neighbor = next + Constants.SixDirections[n];
-						if (!_indexer.In(neighbor)) { blockedNeighbors++; continue; }
-						if (GetTraversability(_indexer.Index(neighbor)).Center)
+						if (!InBox(neighbor)) { blockedNeighbors++; continue; }
+						if (GetTraversability(neighbor).Center)
 							blockedNeighbors++;
 					}
 					tentativeG += blockedNeighbors * Constants.AStarProximityPenalty;
 
-					bool isBetter = _parent[nextI] == -1 || tentativeG < _gScore[nextI];
+					if (nextChunk.parent[nextLocal] != 0 && tentativeG >= nextChunk.gScore[nextLocal]) continue;
 
-					if (!isBetter) continue;
-
-					_gScore[nextI] = tentativeG;
-					_parent[nextI] = currentI;
+					nextChunk.gScore[nextLocal] = tentativeG;
+					nextChunk.parent[nextLocal] = currentI + 1;
 
 					// Heuristic x2: intentional overestimation for speed (sacrifices optimality)
 					float h = Manhattan(next, goal) * 2;
-					if (_inOpen.Get(nextI) != 0)
-						_open.UpdatePriority(_nodes[nextI], tentativeG + h);
-					else
-					{
-						_open.Enqueue(_nodes[nextI], tentativeG + h);
-						_inOpen.Set(nextI, 1);
+					if (!_open.Push(Index(nextChunk, nextLocal), tentativeG + h))
+					{	MyConsole.Add($"FindPath Error - queue overflow ({Constants.AStarQueueCapacity})", Color.Red);
+						yield break;
 					}
 				}
 			}
@@ -233,29 +342,19 @@ namespace LLE
 			yield break;
 		}
 
-		private bool OnBorder(Vector3I v)
+		private void ReconstructPath(int goalIndex)
 		{
-			if(v.X == 0 || v.Y == 0 || v.Z == 0) return true;
-			if(v.X == Size.X-1 || v.Y == Size.Y-1 || v.Z == Size.Z-1) return true;
-			return false;
-		}
-
-		private List<Vector3I> ReconstructPath(int goalIndex, Vector3I goal)
-		{
-			var path = new List<Vector3I>();
-
-			int i = goalIndex;
-			while (i != -1)
+			int i = goalIndex + 1;
+			while (i != 0)
 			{
-				var v = new Vector3I();
-				_indexer.IndexToPosition(i, out v);
+				Vector3I v;
+				IndexToCell(i - 1, out v);
+				result.Add(v);
 
-				path.Add(v);
-				i = _parent[i];
+				i = _chunks[(i - 1) >> AStarChunk.IndexBits].parent[(i - 1) & AStarChunk.IndexMask];
 			}
 
-			path.Reverse();
-			return path;
+			result.Reverse();
 		}
 
 		private static float Manhattan(Vector3I a, Vector3I b)
