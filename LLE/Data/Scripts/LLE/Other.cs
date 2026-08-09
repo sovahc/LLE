@@ -54,6 +54,9 @@ namespace LLE
 
 	static class Utilities
 	{
+		// Stopwatch counts in its own ticks, and TimeSpan.TicksPerMillisecond is not one of them.
+		public static readonly double TicksPerMillisecond = Stopwatch.Frequency / 1000.0;
+
 		public static void HighlightCell(IMyCubeGrid grid, Vector3I position, Color color)
 		{
 			float blockSize = grid.GridSize;
@@ -76,7 +79,7 @@ namespace LLE
 		{
 			if (iter == null) return;
 			var start = Stopwatch.GetTimestamp();
-			var limit = start + TimeSpan.TicksPerMillisecond * 1.0;
+			var limit = start + TicksPerMillisecond;
 			long now = start;
 			for (int i = 0; i < 100; ++i)
 			{
@@ -89,7 +92,7 @@ namespace LLE
 				now = Stopwatch.GetTimestamp();
 				if (now >= limit) break;
 			}
-			var ms = (now - start) / (double)TimeSpan.TicksPerMillisecond;
+			var ms = (now - start) / TicksPerMillisecond;
 			MyConsole.Add($"{name}: {ms:0.##}", Color.IndianRed);
 		}
 	}
@@ -108,8 +111,7 @@ namespace LLE
 		public override string ToString()
 		{
 			long end = Stopwatch.GetTimestamp();
-			TimeSpan timespan = new TimeSpan(end - _start);
-			return $"{_name} {timespan.TotalMilliseconds:0.###}ms";
+			return $"{_name} {(end - _start) / Utilities.TicksPerMillisecond:0.###}ms";
 		}
 
 		public void Dispose()

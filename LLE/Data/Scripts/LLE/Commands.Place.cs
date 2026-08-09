@@ -126,7 +126,7 @@ namespace LLE
 				+ " to hold on to. Place it against the existing structure.";
 		}
 
-		private IEnumerator HoldCubePlacer(bool hold)
+		private void SwitchCubePlacer(bool hold)
 		{
 			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
 
@@ -134,6 +134,11 @@ namespace LLE
 			// cannot express "nothing".
 			if (hold) controller.SwitchToWeapon(new MyDefinitionId(typeof(MyObjectBuilder_CubePlacer)));
 			else      controller.SwitchToWeapon(null);
+		}
+
+		private IEnumerator HoldCubePlacer(bool hold)
+		{
+			SwitchCubePlacer(hold);
 
 			SetPause(1);
 			while(IsPaused()) yield return null;
@@ -238,8 +243,14 @@ namespace LLE
 			if (definition == null) yield return error;
 
 			yield return HoldCubePlacer(true);
-			yield return PlaceCube(definition, ijk, forward, up);
-			yield return HoldCubePlacer(false);
+			try
+			{	yield return PlaceCube(definition, ijk, forward, up);
+				yield return HoldCubePlacer(false);
+			}
+			finally
+			{	// An error above disposes the whole coroutine stack; the placer must not stay in hand.
+				SwitchCubePlacer(false);
+			}
 
 			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}");
 		}

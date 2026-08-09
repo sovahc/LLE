@@ -72,8 +72,7 @@ namespace LLE
 		public Charge Current()
 		{
 			var sc = character.Components?.Get<MyCharacterStatComponent>();
-			var healthMax = sc.Health.MaxValue;
-			float health = sc.Health.Value / healthMax;
+			float health = sc == null ? 1f : sc.Health.Value / sc.Health.MaxValue;
 
 			return new Charge()
 			{
@@ -86,7 +85,7 @@ namespace LLE
 		public Charge Maximal()
 		{
 			var sc = character.Components?.Get<MyCharacterStatComponent>();
-			var healthMax = sc.Health.MaxValue;
+			var healthMax = sc == null ? 0f : sc.Health.MaxValue;
 			var hydrogenMax = (character.Definition as MyCharacterDefinition)?.SuitResourceStorage?
 				.FirstOrDefault(g => g.Id.SubtypeName == hydrogenId.SubtypeName)?
 				.MaxCapacity ?? 0f;

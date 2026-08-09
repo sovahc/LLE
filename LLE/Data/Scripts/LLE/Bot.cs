@@ -20,7 +20,7 @@ namespace LLE
 			for (int i = 0; i < players.Count; ++i)
 			{
 				var p = players[i];
-				if (p.Character.EntityId == EntityId) return p;
+				if (p.Character?.EntityId == EntityId) return p;
 			}
 			return null;
 		}

@@ -343,7 +343,7 @@ namespace LLE
 							if(v == Vector3I.Zero) continue;
 
 							var offset = blockCenter + new Vector3D(v) * 5.1; // 5 small cells = 1 large cell
-							var ijk = new Vector3I(offset);
+							var ijk = Vector3I.Round(offset);
 
 							candidates.Add(ijk);
 						}

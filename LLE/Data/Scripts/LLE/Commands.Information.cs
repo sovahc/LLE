@@ -213,7 +213,7 @@ namespace LLE
 			md.Append($"Powered: {GridHasPower(selectedGrid)}");
 			var cg = selectedGrid as MyCubeGrid;
 
-			Vector3D size = cg.Max - cg.Min;
+			Vector3D size = cg.Max - cg.Min + Vector3I.One;
 			size *= cg.GridSize;
 			md.Append($"Linear size: {size}");
 			md.Append($"Coordinate range: Min {IJK(cg.Min)} Max {IJK(cg.Max)}");
@@ -624,6 +624,7 @@ namespace LLE
 			var queryWords = SearchWords(query);
 			int limit;
 			if (!call.Int("limit", out limit)) limit = 5;
+			if (limit < 1) limit = 1;
 
 			var engineer = GetEngineerCenter();
 			var S = new BoundingSphereD(engineer, Constants.NearInformationRadius);
@@ -709,10 +710,10 @@ namespace LLE
 			var exactMatches = matches.FindAll(m => m.Exact);
 			var partialMatches = matches.FindAll(m => !m.Exact);
 
-			int partialShown = System.Math.Min(limit, partialMatches.Count);
-			int partialDropped = partialMatches.Count - partialShown;
+			int exactShown = System.Math.Min(limit, exactMatches.Count);
+			int partialShown = System.Math.Min(limit - exactShown, partialMatches.Count);
 
-			var shown = new List<SearchMatch>(exactMatches);
+			var shown = new List<SearchMatch>(exactMatches.GetRange(0, exactShown));
 			shown.AddRange(partialMatches.GetRange(0, partialShown));
 			shown.Sort((a, b) => a.Distance.CompareTo(b.Distance));
 
@@ -723,7 +724,7 @@ namespace LLE
 			else if(searchItems) what = matches.Count == 1 ? "item" : "items";
 			else what = matches.Count == 1 ? "block" : "blocks";
 
-			string qualifier = partialDropped > 0 ? $" (showing {partialShown} closest partial)" : "";
+			string qualifier = shown.Count < matches.Count ? $" (showing the {shown.Count} closest)" : "";
 			sb.Append($"Found {matches.Count} {what} matching {Quote(query)}" +
 				$" ({exactMatches.Count} exact, {partialMatches.Count} partial){qualifier}:\n");
 			foreach (var m in shown) sb.Append(m.Text);

@@ -309,30 +309,37 @@ namespace LLE
 
 			var built = new List<Vector3I>();
 
-			for(;;)
+			try
 			{
-				int placedThisPass = 0;
-
-				for(int i = 0; i < draft.Count; ++i)
+				for(;;)
 				{
-					var d = draft[i];
+					int placedThisPass = 0;
 
-					IMySlimBlock neighbour;
-					Vector3I neighbourCell;
-					if(CheckBuildSite(d.Cell, out neighbour, out neighbourCell) != null) continue;
+					for(int i = 0; i < draft.Count; ++i)
+					{
+						var d = draft[i];
 
-					yield return PlaceCube(d.Definition, d.Cell, d.Forward, d.Up);
+						IMySlimBlock neighbour;
+						Vector3I neighbourCell;
+						if(CheckBuildSite(d.Cell, out neighbour, out neighbourCell) != null) continue;
 
-					built.Add(d.Cell);
-					draft.RemoveAt(i);
-					--i;
-					++placedThisPass;
+						yield return PlaceCube(d.Definition, d.Cell, d.Forward, d.Up);
+
+						built.Add(d.Cell);
+						draft.RemoveAt(i);
+						--i;
+						++placedThisPass;
+					}
+
+					if(placedThisPass == 0) break;
 				}
 
-				if(placedThisPass == 0) break;
+				yield return HoldCubePlacer(false);
 			}
-
-			yield return HoldCubePlacer(false);
+			finally
+			{	// An error above disposes the whole coroutine stack; the placer must not stay in hand.
+				SwitchCubePlacer(false);
+			}
 
 			if(draft.Count == 0) ClearDraft(); else TouchDraft();
 

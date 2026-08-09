@@ -204,8 +204,14 @@ namespace LLE
 			if (refusal != null) yield return refusal;
 
 			yield return HoldCubePlacer(true);
-			yield return PlaceCube(definition, ijk, orientation.Forward, orientation.Up);
-			yield return HoldCubePlacer(false);
+			try
+			{	yield return PlaceCube(definition, ijk, orientation.Forward, orientation.Up);
+				yield return HoldCubePlacer(false);
+			}
+			finally
+			{	// An error above disposes the whole coroutine stack; the placer must not stay in hand.
+				SwitchCubePlacer(false);
+			}
 
 			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)},"
 				+ $" openings on {Dir(port1)} and {Dir(port2)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}."

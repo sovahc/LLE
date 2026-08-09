@@ -104,6 +104,7 @@ namespace LLE
 			{
 				var contentId = item.Content.GetId();
 				var itemDef = MyDefinitionManager.Static.GetPhysicalItemDefinition(contentId);
+				if (itemDef == null) continue;
 
 				var volume = (double)item.Amount * itemDef.Volume;
 
@@ -179,6 +180,12 @@ namespace LLE
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
+			fat = block.FatBlock;
+			fromName = Name(block);
+
+			if(fat == null || !fat.HasInventory)
+				yield return $"Block {Quote(fromName)} does not have an inventory.";
+
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
 
@@ -246,6 +253,12 @@ namespace LLE
 
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
+
+			fat = block.FatBlock;
+			toName = Name(block);
+
+			if(fat == null || !fat.HasInventory)
+				yield return $"Block {Quote(toName)} does not have an inventory.";
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();
@@ -432,11 +445,14 @@ namespace LLE
 
 				MyFixedPoint toTransfer = MyFixedPoint.Min(amount - transferred, fits);
 
+				// TransferItemTo answers whether it moved anything, not how much.
+				MyFixedPoint before = from.GetItemAmount(item.Type);
+
 				// checkConnection demands a conveyor path, and a character has no endpoint.
 				if(!((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, toTransfer, checkConnection))
 					continue;
 
-				transferred += toTransfer;
+				transferred += before - from.GetItemAmount(item.Type);
 			}
 
 			return transferred;
