@@ -216,12 +216,12 @@ namespace LLE
 				result = $"Internal error: command '{batch.Peek().Text}' produced no result.";
 
 			if (result != null)
-			{	OnCommandFinished(result);
-				return;
-			}
+				OnCommandFinished(result);
+		}
 
-			if (batchAcked) return;
-
+		// Closing the slots is what frees the channel; until then the model waits, as it always did.
+		private void AckBatch()
+		{
 			batchAcked = true;
 			AnswerCall("[RUNNING] Started, still going. Answer continue or cancel.");
 			for (int i = 1; i < batch.Count; ++i)
@@ -268,6 +268,8 @@ namespace LLE
 				{	var result = commands.Update();
 					if (result != null)
 						OnCommandFinished(result);
+					else if (!batchAcked && commands.LongRunning)
+						AckBatch();
 				}
 				else
 					RunNextPending();
@@ -281,6 +283,9 @@ namespace LLE
 				ProcessAnswer();
 
 			if(pause) return;
+
+			// Slots still open: sending now would leave the model's own tool calls unanswered.
+			if (batch.Count != 0 && !batchAcked) return;
 
 			if (hasNews && (quietTicks >= NewsQuietTicks || newsTicks >= NewsMaxTicks))
 			{
@@ -433,6 +438,12 @@ namespace LLE
 			// and mixing a new answer's calls into that batch would put its slots out of step.
 			if (batch.Count != 0)
 			{	RunningAnswer(cc);
+				return;
+			}
+
+			// The command outran the turn it asked about; its result is already on the way.
+			if (cc.Count == 1 && (cc[0].Is("continue") || cc[0].Is("cancel")))
+			{	AnswerCall("[OK] It already finished.", false);
 				return;
 			}
 

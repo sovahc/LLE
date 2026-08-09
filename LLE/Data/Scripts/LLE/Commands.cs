@@ -363,6 +363,10 @@ namespace LLE
 		{	return coroutineStack.Count > 0;
 		}
 
+		// Long enough that a whole LLM turn fits inside it; below that, asking the model costs more
+		// than the command itself takes.
+		internal bool LongRunning { get; private set; }
+
 		internal void AbortCommand()
 		{	foreach(var c in coroutineStack) (c as IDisposable)?.Dispose();
 			coroutineStack.Clear();
@@ -415,15 +419,13 @@ namespace LLE
 
 		internal CommandResult Execute(ToolCall call)
 		{
+			LongRunning = false;
+
 			switch(call.Name)
 			{
 				case "pause":
 					LLM.pause = true;
 					return Success("OK");
-
-				case "continue":
-				case "cancel":
-					return $"Error: nothing is running, so there is nothing to {call.Name}.";
 
 				case "position":       return Position();
 				case "overview":       return Overview();
