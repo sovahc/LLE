@@ -194,3 +194,51 @@ block state off the handle still bypass it — that is stage 3b.
 * The iteration cap fires often — that means an uncovered exit condition, not a bad command.
 * Unknown is too eager — prefixes are short and the selector picks almost at random.
 * T and R diverge silently in a rare case that never surfaced at stage 6.
+
+---
+
+# Why this is being removed
+
+2026-08-10. The whole thing is dropped and the repository goes back to the commit before it
+started. What follows is the measurement it died on, so that nobody rebuilds it from the same
+reasoning.
+
+The validator exists to score a **batch**. The target is a local model — gemma 4, 26-31b — and
+that model does not produce batches.
+
+One 69-turn session, three streams of it, 207 answers:
+
+| | |
+|---|---|
+| batches longer than one command | 1 |
+| answers that called no tool at all | 31 |
+| turns saved by the selector | 5 |
+| of those, saved by the shadow rather than by "this stream said nothing" | 0 |
+| times the shadow rejected a genuinely wrong command | 2 |
+| of those, times it changed the outcome | 0 |
+
+The single two-call batch — `approach` then `grind` — won its vote and both calls succeeded.
+Because the winner's answer goes into the shared transcript, every stream then had a worked
+example of batching, written in its own voice, sitting in its own context. On the very next turn
+all three went back to one call. One stream said "I need to `approach` and `grind` the next one"
+and called only `approach`. The prompt was tried, the example was tried, and the model's own
+success was tried; none of it took. This looks trained in, not promptable.
+
+Both correct rejections landed on a stream that was losing anyway — the shadow was right and
+redundant. And once it chose worse: `put_all_components` went Unknown on the inventory slot model
+and scored 0, losing to a plain `put` that scored 1.
+
+That last one is the structural fault, and it is not about gemma. The hard rule says Unknown never
+rejects. In a **comparison** Unknown always loses to anything that validated, so the shadow
+silently demotes exactly the commands it cannot model. Removing that bias means finishing the
+shadow — inventory slots, grid topology, everything deferred — which is a large amount of code
+aimed at a capability the target model does not have.
+
+Not measured: block placement. The cell-occupancy check the shadow was designed around barely ran
+in that session, which was almost all grinding. The verdict is "not worth it for this target", not
+"it does not work".
+
+What replaces it: each tool call splits in two — one half checks that the call will run in the
+current world, the other half runs it. On top of that, one rule for the shape the model does
+produce: in `approach` + `get get get` or `approach` + `put put put`, every following `get`/`put`
+is checked, not just the first.
