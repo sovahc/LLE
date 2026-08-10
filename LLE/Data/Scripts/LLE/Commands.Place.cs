@@ -140,8 +140,8 @@ namespace LLE
 		{
 			SwitchCubePlacer(hold);
 
-			SetPause(1);
-			while(IsPaused()) yield return null;
+			world.SetPause(1);
+			while(world.IsPaused()) yield return null;
 		}
 
 		private IEnumerator PlaceCube(MyCubeBlockDefinition definition, Vector3I ijk,
@@ -153,10 +153,10 @@ namespace LLE
 
 			var target = selectedGrid.GridIntegerToWorld(ijk);
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
+			world.SetPause(Constants.MicronavigationDelay);
+			while(world.IsPaused())
 			{
-				CharacterRotateTo(target);
+				world.RotateTo(target);
 				yield return null;
 			}
 

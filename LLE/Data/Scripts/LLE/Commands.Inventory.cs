@@ -79,7 +79,7 @@ namespace LLE
 
 			foreach (MyCubeBlock block in inventories)
 			{
-				if (block.CubeGrid != selectedGrid) continue;
+				if (block.CubeGrid != selectedGrid.Grid) continue;
 
 				sb.Append($"## {Quote(Name(block.SlimBlock))} at {IJK(block.Position)}\n");
 				for (int i = 0; i < block.InventoryCount; ++i)
@@ -171,9 +171,9 @@ namespace LLE
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
-			{	CharacterRotateTo(bp);
+			world.SetPause(Constants.MicronavigationDelay);
+			while(world.IsPaused())
+			{	world.RotateTo(bp);
 				yield return null;
 			}
 
@@ -245,9 +245,9 @@ namespace LLE
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
-			{	CharacterRotateTo(bp);
+			world.SetPause(Constants.MicronavigationDelay);
+			while(world.IsPaused())
+			{	world.RotateTo(bp);
 				yield return null;
 			}
 
@@ -387,7 +387,7 @@ namespace LLE
 			foreach(IMyInventory fromInv in fromList)
 			{	
 				items.Clear();
-				fromInv.GetItems(items);
+				world.GetItems(fromInv, items);
 
 				for(int i = items.Count - 1; i >= 0; --i)
 				{	var item = items[i];
@@ -424,11 +424,11 @@ namespace LLE
 			return somethingTransferred && !noSpaceWarning;
 		}
 
-		internal static MyFixedPoint InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount,
+		internal MyFixedPoint InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount,
 			bool checkConnection = false)
 		{
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
-			from.GetItems(items);
+			world.GetItems(from, items);
 
 			var item = items[fromIndex];
 			MyFixedPoint transferred = 0;
@@ -437,31 +437,28 @@ namespace LLE
 			{
 				if (transferred >= amount) break;
 
-				var toInv = to as MyInventory;
-				if (toInv == null) continue;
-
-				MyFixedPoint fits = toInv.ComputeAmountThatFits(item.Type);
+				MyFixedPoint fits = world.AmountThatFits(to, item.Type);
 				if (fits <= 0) continue;
 
 				MyFixedPoint toTransfer = MyFixedPoint.Min(amount - transferred, fits);
 
 				// TransferItemTo answers whether it moved anything, not how much.
-				MyFixedPoint before = from.GetItemAmount(item.Type);
+				MyFixedPoint before = world.ItemAmount(from, item.Type);
 
 				// checkConnection demands a conveyor path, and a character has no endpoint.
-				if(!((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, toTransfer, checkConnection))
+				if(!world.TransferItemTo(from, fromIndex, to, toTransfer, checkConnection))
 					continue;
 
-				transferred += before - from.GetItemAmount(item.Type);
+				transferred += before - world.ItemAmount(from, item.Type);
 			}
 
 			return transferred;
 		}
 
-		internal static void InventoryDelta(IMyInventory inv, Dictionary<string, double> current, int sign)
+		internal void InventoryDelta(IMyInventory inv, Dictionary<string, double> current, int sign)
 		{
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
-			inv.GetItems(items);
+			world.GetItems(inv, items);
 			foreach (var item in items)
 			{
 				var def = (MyDefinitionId)item.Type;

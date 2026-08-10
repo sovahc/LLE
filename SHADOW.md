@@ -89,24 +89,27 @@ command beats stopping at the first.
 Run this before the second slice, not after — the null-cast class of failure is cheaper to
 find now than under thirty more edits.
 
-- [ ] `overview`, `inventories`, `projection` — these went through the `as` casts
-- [ ] `place` — the first command on the effector
-- [ ] `fly` — `GetEngineerCenter` now comes from the world
-- [ ] Behaviour indistinguishable from today
+- [x] `place`, `weld`, `grind` in game — behaviour indistinguishable from today
 
 ### 3b. Move commands onto R — the rest
 
-- [ ] **Grep for `as` casts after every type change here.** The compiler stays silent.
-- [ ] Block state (`Integrity` ×17, `MaxIntegrity` ×10, `IsDestroyed`, `StockpileEmpty`)
-      through `IWorld` — without it welding and grinding report "No progress" in the shadow
-- [ ] Inventory reads and `TransferItemTo` through `IWorld` (`Commands.Inventory.cs`,
-      `Commands.Construction.cs`)
-- [ ] Movement: `CharacterMove` / `CharacterRotateTo` call sites onto `IWorld.Move` /
-      `RotateTo`; check `Tools.cs` for tool actuation
-- [ ] Wait loops onto `IWorld.IsPaused` / `ToolReady`
-- [ ] `RazeBlock` and the grinder path
-- [ ] Leave `WorldToGridInteger` / `GridIntegerToWorld` alone — pure transforms
-- [ ] Second in-game run, same checks as stage 4 — **do not start the shadow before this box**
+- [x] **Grep for silent casts and comparisons after every type change here.** Six comparisons
+      of `selectedGrid` against an `IMyCubeGrid` compiled and were always false: `inventories`
+      and `overview` listed nothing, the draft thought it belonged to another grid
+- [x] Block state (`Integrity`, `IsDestroyed`, `StockpileEmpty`) through `IWorld`.
+      `MaxIntegrity` stays on the handle — it comes from the definition and never moves
+- [x] Inventory reads and `TransferItemTo` through `IWorld`. `InventoryTransfer` and
+      `InventoryDelta` stopped being static to reach the world
+- [x] Movement: `CharacterMove` / `CharacterRotateTo` call sites onto `IWorld.Move` / `RotateTo`
+- [x] A whole flight is one effect: `IWorld.FlyTo` wraps `RealFly`, the shadow arrives at once
+- [x] Wait loops onto `IWorld.IsPaused`; the tool onto `ToolEquipped` / `ToolReady` /
+      `ToolShoot` / `ToolStop` / `EquipTool` — the gun object is gone from the commands
+- [x] `RazeBlock` and the grinder path
+- [x] Real effects found while sweeping and routed so the shadow cannot fire them for real:
+      `MoveItemsToConstructionStockpile`, `AttachPilot`, `RemovePilot`
+- [x] Leave `WorldToGridInteger` / `GridIntegerToWorld` alone — pure transforms
+- [ ] Second in-game run: `place`, `weld`, `grind`, `fly`, `approach`, `get`/`put`, `enter`,
+      `inventories`, `overview`, `draft`/`build` — **do not start the shadow before this box**
 
 ### 5. Shadow (T)
 
@@ -122,8 +125,11 @@ block state off the handle still bypass it — that is stage 3b.
       which covers EQS, AStar, conveyor reachability and grid split in one place
 - [x] `Commands.Draft.cs` keeps planned blocks and a preview grid, not an overlay with undo
       over an existing grid — nothing to reuse, `ShadowGrid` holds the same shape itself
-- [ ] Inventory transfers address slots by index; the second transfer out of one inventory
+- [x] Inventory transfers address slots by index; the second transfer out of one inventory
       is Unknown. Enough for take-then-weld, not for a repacking batch
+- [ ] Not routed on purpose: the `inventories` and `overview` listings read the rich item
+      list off the game inventory, so after a predicted transfer they print stale contents.
+      Output only — nothing decides on it
 
 ### 6. T against R
 

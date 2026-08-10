@@ -142,7 +142,7 @@ namespace LLE
 
 		private string DraftGridMismatch()
 		{
-			if(draft.Count == 0 || draftBase == selectedGrid) return null;
+			if(draft.Count == 0 || draftBase == selectedGrid.Grid) return null;
 
 			return $"Error: the draft belongs to {Quote(Name(draftBase))}, but {Quote(Name(selectedGrid.Grid))}"
 				+ " is selected. Select that grid again, or drop the draft with `draft clear`.";
@@ -164,7 +164,7 @@ namespace LLE
 		private bool TryGetDraftBlock(Vector3I ijk, out DraftBlock block)
 		{
 			int index;
-			if(draftBase == selectedGrid && FindInDraft(ijk, out index))
+			if(draftBase == selectedGrid.Grid && FindInDraft(ijk, out index))
 			{	block = draft[index];
 				return true;
 			}
@@ -176,14 +176,14 @@ namespace LLE
 		private void DraftCells(List<Vector3I> result)
 		{
 			result.Clear();
-			if(draftBase != selectedGrid) return;
+			if(draftBase != selectedGrid.Grid) return;
 
 			foreach(var d in draft) result.Add(d.Cell);
 		}
 
 		private string CheckDraftSite(Vector3I ijk)
 		{
-			var occupant = selectedGrid.GetCubeBlock(ijk);
+			var occupant = selectedGrid.CellDefinition(ijk);
 			if(occupant != null)
 				return $"Error: {IJK(ijk)} is not empty — {Quote(Name(occupant))} stands there.";
 
@@ -192,7 +192,7 @@ namespace LLE
 				return $"Error: {IJK(ijk)} is already in the draft — {Quote(draft[index].Definition.DisplayNameText)}.";
 
 			foreach(var offset in Constants.SixDirections)
-			{	if(selectedGrid.GetCubeBlock(ijk + offset) != null) return null;
+			{	if(selectedGrid.CellDefinition(ijk + offset) != null) return null;
 				if(FindInDraft(ijk + offset, out index)) return null;
 			}
 
@@ -301,7 +301,7 @@ namespace LLE
 			if(draft.Count == 0)
 				yield return "Error: the draft is empty. Add blocks with `draft 'Block Name' at I J K` first.";
 
-			if(draftBase != selectedGrid)
+			if(draftBase != selectedGrid.Grid)
 				yield return $"Error: the draft belongs to {Quote(Name(draftBase))}."
 					+ " Select that grid before building.";
 

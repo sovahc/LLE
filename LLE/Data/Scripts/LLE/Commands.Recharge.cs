@@ -124,16 +124,16 @@ namespace LLE
 
 					if(!progress)
 					{	if(!anyProgress)
-						{	cockpit.RemovePilot();
+						{	world.RemovePilot(cockpit);
 							yield return "Block is not charging!";
 						}
 
-						cockpit.RemovePilot();
+						world.RemovePilot(cockpit);
 						yield return Success(status.ReportAll());
 					}
 				}
 
-				cockpit.RemovePilot();
+				world.RemovePilot(cockpit);
 				yield return "Timeout! Recharge may be too slow.";
 			}
 
@@ -165,9 +165,9 @@ namespace LLE
 
 				// Simulating the process since the game once again locked the necessary API
 
-				SetPause(Constants.MicronavigationDelay);
-				while(IsPaused())
-				{	CharacterRotateTo(rechargeButton);
+				world.SetPause(Constants.MicronavigationDelay);
+				while(world.IsPaused())
+				{	world.RotateTo(rechargeButton);
 					yield return null;
 				}
 

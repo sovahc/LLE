@@ -182,7 +182,7 @@ namespace LLE
 				arrivalMessage = $"Arrived at '{intentionWord}' point for {Quote(Name(block))} at {IJK(ijk)}. Your position: {IJK(destinationCell)}.";
 			}
 
-			yield return RealFly(destinationCell, arrivalMessage, false);
+			yield return world.FlyTo(selectedGrid, destinationCell, arrivalMessage, false);
 		}
 
 		internal IEnumerator Fly(ToolCall call)
@@ -206,7 +206,7 @@ namespace LLE
 					+ $"Use approach if you need interact with the block.";
 			}
 
-			yield return RealFly(ijk, "", headFirst);
+			yield return world.FlyTo(selectedGrid, ijk, "", headFirst);
 		}
 
 		internal IEnumerator RealFly(Vector3I destinationCell, string arrivalMessage, bool headFirst)
@@ -224,7 +224,7 @@ namespace LLE
 
 			var currentGrid = GetCurrentEngineerGrid(engineer);
 
-			if(currentGrid != null && currentGrid != selectedGrid)
+			if(currentGrid != null && currentGrid != selectedGrid.Grid)
 			{	MyConsole.Add("Fly out of the current grid toward the target.");
 
 				from = currentGrid.WorldToGridInteger(engineer);

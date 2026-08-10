@@ -247,7 +247,7 @@ namespace LLE
 
 			positions.Clear();
 			foreach(var block in terminalBlocks)
-			{	if(block.CubeGrid != selectedGrid) continue;
+			{	if(block.CubeGrid != selectedGrid.Grid) continue;
 				positions.Add(block.SlimBlock.Position);
 			}
 
@@ -339,7 +339,7 @@ namespace LLE
 					if(builtBlock == null || builtBlock.BlockDefinition.Id != ghost.BlockDefinition.Id)
 						continue;
 
-					if(builtBlock.Integrity < builtBlock.MaxIntegrity)
+					if(world.Integrity(builtBlock) < builtBlock.MaxIntegrity)
 						damaged.Add(builtBlock);
 				}
 
@@ -354,7 +354,7 @@ namespace LLE
 				damaged = new List<IMySlimBlock>();
 				foreach (IMySlimBlock block in (selectedGrid.Grid as MyCubeGrid).CubeBlocks)
 				{
-					if (block.Integrity < block.MaxIntegrity)
+					if (world.Integrity(block) < block.MaxIntegrity)
 						damaged.Add(block);
 				}
 
@@ -387,7 +387,7 @@ namespace LLE
 				StringBuilder sb = new StringBuilder();
 				foreach (var block in kv.Value)
 				{
-					var p = block.Integrity / block.MaxIntegrity;
+					var p = world.Integrity(block) / block.MaxIntegrity;
 					sb.Append($"* {LargeBlockPrefix(block)}{Quote(Name(block))} at ({IJK(block.Position)}) [{Percent(p)}]\n");
 				}
 				md.Add($"## {kv.Key}", sb.ToString());
@@ -444,7 +444,7 @@ namespace LLE
 
 			var maxI = block.MaxIntegrity;
 			md.Append(maxI > 0
-				? $"Integrity: {Percent(block.Integrity / maxI)} ({block.Integrity:F0}/{maxI:F0})"
+				? $"Integrity: {Percent(world.Integrity(block) / maxI)} ({world.Integrity(block):F0}/{maxI:F0})"
 				: "Integrity: --");
 			if(block.FatBlock != null)
 			{	md.Append($"Functional: {block.FatBlock.IsFunctional}");

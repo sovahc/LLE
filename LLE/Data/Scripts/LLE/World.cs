@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using VRage;
@@ -81,6 +82,11 @@ namespace LLE
 		float Integrity(IMySlimBlock block);
 		bool IsDestroyed(IMySlimBlock block);
 		bool StockpileEmpty(IMySlimBlock block);
+		bool CanContinueBuild(IMySlimBlock block, IMyInventory inventory);
+
+		// Moves components out of the engineer's inventory for real, so the shadow must not let
+		// this one through.
+		void MoveItemsToConstructionStockpile(IMySlimBlock block, IMyInventory inventory);
 
 		void GetItems(IMyInventory inventory, List<MyInventoryItem> items);
 		MyFixedPoint ItemAmount(IMyInventory inventory, MyDefinitionId item);
@@ -90,9 +96,14 @@ namespace LLE
 		// in the shadow both are over at once, or every loop burns the iteration cap.
 		void SetPause(double time);
 		bool IsPaused();
+		bool ToolEquipped { get; }
 		bool ToolReady(out MyGunStatusEnum status);
 
-		void Move(Vector3D target, double desiredSpeed);
+		// A whole flight is one effect. R runs the path search and the per-tick control loop; the
+		// shadow has neither, and arrives on the spot.
+		IEnumerator FlyTo(IGridView grid, Vector3I destinationCell, string arrivalMessage, bool headFirst);
+
+		void Move(Vector3D target, double desiredSpeed = 5.0);
 		void RotateTo(Vector3D target);
 		void SwitchCubePlacer(bool hold);
 
@@ -104,6 +115,9 @@ namespace LLE
 		// `target`; the shadow has no raycast and needs to be told what is being worked on.
 		void ToolShoot(IMySlimBlock target);
 		void ToolStop();
+
+		bool AttachPilot(IMyCockpit cockpit);
+		void RemovePilot(IMyCockpit cockpit);
 
 		bool PlaceBlock(IGridView grid, MyObjectBuilder_CubeBlock ob);
 		void RazeBlock(IMySlimBlock block);
@@ -131,6 +145,8 @@ namespace LLE
 		public float Integrity(IMySlimBlock block) => block.Integrity;
 		public bool IsDestroyed(IMySlimBlock block) => block.IsDestroyed;
 		public bool StockpileEmpty(IMySlimBlock block) => block.StockpileEmpty;
+		public bool CanContinueBuild(IMySlimBlock block, IMyInventory inventory) => block.CanContinueBuild((WTF_IMyInventory)inventory);
+		public void MoveItemsToConstructionStockpile(IMySlimBlock block, IMyInventory inventory) => block.MoveItemsToConstructionStockpile((WTF_IMyInventory)inventory);
 
 		public void GetItems(IMyInventory inventory, List<MyInventoryItem> items) => inventory.GetItems(items);
 		public MyFixedPoint ItemAmount(IMyInventory inventory, MyDefinitionId item) => ((WTF_IMyInventory)inventory).GetItemAmount(item);
@@ -143,6 +159,8 @@ namespace LLE
 		public void SetPause(double time) => commands.SetPause(time);
 		public bool IsPaused() => commands.IsPaused();
 
+		public bool ToolEquipped => character.EquippedTool is IMyGunObject<MyDeviceBase>;
+
 		public bool ToolReady(out MyGunStatusEnum status)
 		{
 			status = MyGunStatusEnum.Failed;
@@ -150,7 +168,10 @@ namespace LLE
 			return gun != null && gun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status);
 		}
 
-		public void Move(Vector3D target, double desiredSpeed) => commands.CharacterMove(target, desiredSpeed);
+		public IEnumerator FlyTo(IGridView grid, Vector3I destinationCell, string arrivalMessage, bool headFirst)
+			=> commands.RealFly(destinationCell, arrivalMessage, headFirst);
+
+		public void Move(Vector3D target, double desiredSpeed = 5.0) => commands.CharacterMove(target, desiredSpeed);
 		public void RotateTo(Vector3D target) => commands.CharacterRotateTo(target);
 		public void SwitchCubePlacer(bool hold) => commands.SwitchCubePlacer(hold);
 		public bool EquipTool(string subtype) => commands.EquipTool(subtype);
@@ -166,6 +187,15 @@ namespace LLE
 			var gun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			gun?.EndShoot(MyShootActionEnum.PrimaryAction);
 		}
+
+		// AttachPilot silently no-ops if it fails; verify by re-checking Pilot.
+		public bool AttachPilot(IMyCockpit cockpit)
+		{
+			cockpit.AttachPilot(character, 0);
+			return cockpit.Pilot != null && cockpit.Pilot.EntityId == character.EntityId;
+		}
+
+		public void RemovePilot(IMyCockpit cockpit) => cockpit.RemovePilot();
 
 		public bool PlaceBlock(IGridView grid, MyObjectBuilder_CubeBlock ob) => grid.Grid.AddBlock(ob, false) != null;
 

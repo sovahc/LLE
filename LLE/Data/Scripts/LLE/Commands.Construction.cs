@@ -69,20 +69,19 @@ namespace LLE
 
 			// TODO: warning on WillRemoveBlockSplitGrid
 
-			var grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-			if(grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
+			if(!world.ToolEquipped) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
+			world.SetPause(Constants.MicronavigationDelay);
+			while(world.IsPaused())
 			{
-				CharacterMove(position);
+				world.Move(position);
 				yield return null;
 			}
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
+			world.SetPause(Constants.MicronavigationDelay);
+			while(world.IsPaused())
 			{
-				CharacterRotateTo(target);
+				world.RotateTo(target);
 				yield return null;
 			}
 
@@ -90,7 +89,7 @@ namespace LLE
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
 
-			var integrity0 = block.Integrity;
+			var integrity0 = world.Integrity(block);
 
 			var inventory = character.GetInventory();
 			if(inventory == null) yield return IE_NO_INVENTORY;
@@ -105,23 +104,19 @@ namespace LLE
 				// CanShoot enforces ToolCooldownMs (250ms) so Grind doesn't fire every tick.
 				MyGunStatusEnum status = MyGunStatusEnum.Cooldown;
 				for(int i = 0; i < 30; ++i)
-				{	grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-					if(grinderGun == null)
+				{	if(!world.ToolEquipped)
 						yield return Incomplete("Grinder was unequipped — grinding stopped.");
-					
-					if(grinderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
+
+					if(world.ToolReady(out status))
 						break;
-					
+
 					yield return null;
 				}
 
 				if(status != MyGunStatusEnum.OK)
-				{	grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
+				{	world.ToolStop();
 					yield return $"Tool status: {status}";
 				}
-
-				var myInv = inventory as MyInventory;
-				if(myInv == null) yield return "Internal error: inventory is not MyInventory";
 
 				bool inventoryFull = false;
 
@@ -133,30 +128,30 @@ namespace LLE
 
 					if (stockpile[k] == 0) continue;
 
-					if (myInv.ComputeAmountThatFits(c.Definition.Id) > 0) continue;
+					if (world.AmountThatFits(inventory, c.Definition.Id) > 0) continue;
 
 					inventoryFull = true;
 					break;
 				}
 
-				var pbi = block.Integrity;
+				var pbi = world.Integrity(block);
 
 				// Native grinding: Shoot activates the tool (spinning disc, sound, particles)
 				// and after preheat the tool grinds the raycast-hit block itself.
 				if(!inventoryFull)
-					grinderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
+					world.ToolShoot(block);
 
-				bool stale = pbi == block.Integrity;
-				bool removed = block.IsDestroyed && block.StockpileEmpty;
+				bool stale = pbi == world.Integrity(block);
+				bool removed = world.IsDestroyed(block) && world.StockpileEmpty(block);
 
 				if (inventoryFull || stale || removed)
-				{	
-					grinderGun.EndShoot(MyShootActionEnum.PrimaryAction);
-					
+				{
+					world.ToolStop();
+
 					StringBuilder sb = new StringBuilder();
 					if(!removed)
 					{	var p0 = integrity0 / block.MaxIntegrity;
-						var p1 = block.Integrity / block.MaxIntegrity;
+						var p1 = world.Integrity(block) / block.MaxIntegrity;
 						sb.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
 					}
 					sb.Append($"Inventory change:\n");
@@ -172,10 +167,7 @@ namespace LLE
 					
 					if(removed) sb.Append($"Done! {Name(block)} has been removed.");
 
-					if(removed)
-					{	block.SpawnConstructionStockpile();
-						block.CubeGrid.RazeBlock(block.Min);
-					}
+					if(removed) world.RazeBlock(block);
 
 					yield return removed ? Success(sb.ToString())
 						: inventoryFull ? Incomplete(sb.ToString())
@@ -239,14 +231,13 @@ namespace LLE
 
 			bool projection = IsProjection(block.CubeGrid);
 
-			if (block.Integrity >= block.MaxIntegrity && !projection)
+			if (world.Integrity(block) >= block.MaxIntegrity && !projection)
 				yield return Success("The block is fully intact; no repairs needed.");
 
 			if (!world.EquipTool("Welder"))
 				yield return "Cannot equip handheld welder. Do you have a Welder in your inventory?";
 
-			var welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-			if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
+			if(!world.ToolEquipped) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
 			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
 			if(!ip.HasValue)
@@ -255,17 +246,17 @@ namespace LLE
 			var position = ip.Value.chPosition;
 			var target = ip.Value.Target;
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
+			world.SetPause(Constants.MicronavigationDelay);
+			while(world.IsPaused())
 			{
-				CharacterMove(position);
+				world.Move(position);
 				yield return null;
 			}
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
+			world.SetPause(Constants.MicronavigationDelay);
+			while(world.IsPaused())
 			{
-				CharacterRotateTo(target);
+				world.RotateTo(target);
 				yield return null;
 			}
 
@@ -290,13 +281,13 @@ namespace LLE
 				var builtBlock = builtGrid.GetCubeBlock(builtGrid.WorldToGridInteger(worldPos));
 
 				if(builtBlock == null)
-				{	welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-					if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
+				{	if(!world.ToolEquipped) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
 					// place block
-					welderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
-					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
-				
+					world.ToolShoot(block);
+					world.ToolStop();
+
+
 					builtBlock = builtGrid.GetCubeBlock(builtGrid.WorldToGridInteger(worldPos));
 					if(builtBlock == null)
 						yield return "Error: can't place block using projection.";
@@ -307,7 +298,7 @@ namespace LLE
 				}
 			}
 
-			if (!block.CanContinueBuild(inventory))
+			if (!world.CanContinueBuild(block, inventory))
 			{	
 				result.Append("You don't have the required components in your inventory\n");
 				AddMissingComponentsString(block, result);
@@ -318,48 +309,47 @@ namespace LLE
 			var current = new Dictionary<string, double>();
 			InventoryDelta(inventory, current, +1);
 
-			var integrity0 = block.Integrity;
+			var integrity0 = world.Integrity(block);
 
 			for (;;)
 			{
 				MyGunStatusEnum status = MyGunStatusEnum.Cooldown;
 				for(int i = 0; i < 30; ++i)
-				{	welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-					if(welderGun == null)
+				{	if(!world.ToolEquipped)
 						yield return Incomplete("Welder was unequipped — welding stopped.");
-					
-					if(welderGun.CanShoot(MyShootActionEnum.PrimaryAction, character.EntityId, out status))
+
+					if(world.ToolReady(out status))
 						break;
-					
+
 					yield return null;
 				}
 
 				if(status != MyGunStatusEnum.OK)
-				{	welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
+				{	world.ToolStop();
 					yield return $"Tool status: {status}";
 				}
 
-				block.MoveItemsToConstructionStockpile(inventory);
+				world.MoveItemsToConstructionStockpile(block, inventory);
 
-				var pbi = block.Integrity;
+				var pbi = world.Integrity(block);
 
-				welderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
+				world.ToolShoot(block);
 
-				bool stale = pbi == block.Integrity;
-				bool full = block.Integrity >= block.MaxIntegrity;
+				bool stale = pbi == world.Integrity(block);
+				bool full = world.Integrity(block) >= block.MaxIntegrity;
 
 				if (stale || full)
-				{	
-					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
+				{
+					world.ToolStop();
 
 					if(full) result.Append("Done! Block integrity is full.");
 					else
 					{	var p0 = integrity0 / block.MaxIntegrity;
-						var p1 = block.Integrity / block.MaxIntegrity;
+						var p1 = world.Integrity(block) / block.MaxIntegrity;
 						result.Append($"Block integrity changed from {Percent(p0)} to {Percent(p1)}\n");
 
 						if(stale) AddMissingComponentsString(block, result);
-						if(integrity0 == block.Integrity)
+						if(integrity0 == world.Integrity(block))
 							result.Append("If this repeats, try a different interaction point.\n");
 					}
 

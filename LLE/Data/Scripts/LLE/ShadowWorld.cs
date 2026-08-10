@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using VRage;
@@ -6,6 +7,7 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.Definitions;
+using Sandbox.ModAPI;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
 using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
 
@@ -97,6 +99,12 @@ namespace LLE
 			return razed.Contains(block) || real.StockpileEmpty(block);
 		}
 
+		public bool CanContinueBuild(IMySlimBlock block, IMyInventory inventory) => real.CanContinueBuild(block, inventory);
+
+		// The welding effect belongs to ToolShoot; here the components would leave the engineer's
+		// real inventory for a block that is only being predicted.
+		public void MoveItemsToConstructionStockpile(IMySlimBlock block, IMyInventory inventory) { }
+
 		public void GetItems(IMyInventory inventory, List<MyInventoryItem> items)
 		{
 			if (amounts.ContainsKey(inventory)) Unsure("the contents of an inventory the batch has already moved items through");
@@ -117,6 +125,7 @@ namespace LLE
 
 		public void SetPause(double time) { }
 		public bool IsPaused() => false;
+		public bool ToolEquipped => tool != null;
 
 		public bool ToolReady(out MyGunStatusEnum status)
 		{
@@ -124,7 +133,17 @@ namespace LLE
 			return true;
 		}
 
-		public void Move(Vector3D target, double desiredSpeed)
+		// Reachability is the path finder's answer, and the path finder reads the real grid. Letting
+		// the flight through keeps the batch alive for the commands that follow it, which is where
+		// the prediction is worth something.
+		public IEnumerator FlyTo(IGridView grid, Vector3I destinationCell, string arrivalMessage, bool headFirst)
+		{
+			engineer = grid.GridIntegerToWorld(destinationCell);
+			yield return CommandResult.Success(string.IsNullOrEmpty(arrivalMessage)
+				? $"Arrived. Position: {destinationCell}" : arrivalMessage);
+		}
+
+		public void Move(Vector3D target, double desiredSpeed = 5.0)
 		{
 			engineer = target + Constants.EngineerHeight/2 * real.EngineerMatrix.Up;
 		}
@@ -158,6 +177,17 @@ namespace LLE
 		}
 
 		public void ToolStop() { }
+
+		// Being seated moves the engineer, changes which grid he is on and hands control to the
+		// cockpit — none of which the shadow models, and all of which would be real if it let the
+		// call through.
+		public bool AttachPilot(IMyCockpit cockpit)
+		{
+			Unsure("what happens once the engineer is seated");
+			return true;
+		}
+
+		public void RemovePilot(IMyCockpit cockpit) => Unsure("where the engineer ends up after leaving a seat");
 
 		public bool PlaceBlock(IGridView grid, MyObjectBuilder_CubeBlock ob)
 		{
