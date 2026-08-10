@@ -200,61 +200,67 @@ namespace LLE
 				+ " The structure has to grow out of what is already there.";
 		}
 
-		internal CommandResult DraftClear()
+		internal IEnumerator DraftClear()
 		{
-			if(draft.Count == 0) return Success("The draft is already empty.");
+			if(draft.Count == 0) yield return Success("The draft is already empty.");
+
+			yield return Validated;
 
 			int dropped = draft.Count;
 			ClearDraft();
-			return Success($"Draft cleared, {dropped} block(s) dropped.");
+			yield return Success($"Draft cleared, {dropped} block(s) dropped.");
 		}
 
-		internal CommandResult DraftUndo()
+		internal IEnumerator DraftUndo()
 		{
-			if(draft.Count == 0) return "Error: the draft is empty, nothing to undo.";
+			if(draft.Count == 0) yield return "Error: the draft is empty, nothing to undo.";
+
+			yield return Validated;
 
 			var last = draft[draft.Count - 1];
 			draft.RemoveAt(draft.Count - 1);
 			if(draft.Count == 0) ClearDraft(); else TouchDraft();
 
-			return Success($"Removed {Quote(last.Definition.DisplayNameText)} at {IJK(last.Cell)}"
+			yield return Success($"Removed {Quote(last.Definition.DisplayNameText)} at {IJK(last.Cell)}"
 				+ $" from the draft. {draft.Count} block(s) left.");
 		}
 
-		internal CommandResult Draft(ToolCall call)
+		internal IEnumerator Draft(ToolCall call)
 		{
 			string message;
-			if(!GridIsSet(out message)) return message;
-			if(CurrentGridIsProjection(out message)) return message;
+			if(!GridIsSet(out message)) yield return message;
+			if(CurrentGridIsProjection(out message)) yield return message;
 
 			var mismatch = DraftGridMismatch();
-			if(mismatch != null) return mismatch;
+			if(mismatch != null) yield return mismatch;
 
 			var query = call.Str("type");
 			if(string.IsNullOrEmpty(query))
-				return call.Need("type");
+				yield return call.Need("type");
 
 			Vector3I ijk;
 			if(!call.Ijk(out ijk))
-				return call.NeedIjk;
+				yield return call.NeedIjk;
 
 			var refusal = CheckDraftSite(ijk);
-			if(refusal != null) return refusal;
+			if(refusal != null) yield return refusal;
 
 			Base6Directions.Direction forward, up;
 			refusal = ParseFacing(call, out forward, out up);
-			if(refusal != null) return refusal;
+			if(refusal != null) yield return refusal;
 
 			string error;
 			var definition = ResolvePlaceable(query, out error);
-			if(definition == null) return error;
+			if(definition == null) yield return error;
 
 			refusal = RefuseTubeByName(definition);
-			if(refusal != null) return refusal;
+			if(refusal != null) yield return refusal;
+
+			yield return Validated;
 
 			AddToDraft(definition, ijk, forward, up);
 
-			return Success($"Drafted {Quote(definition.DisplayNameText)} at {IJK(ijk)}."
+			yield return Success($"Drafted {Quote(definition.DisplayNameText)} at {IJK(ijk)}."
 				+ $" {draft.Count} block(s) in the draft.");
 		}
 
@@ -304,6 +310,8 @@ namespace LLE
 			if(draftBase != selectedGrid)
 				yield return $"Error: the draft belongs to {Quote(Name(draftBase))}."
 					+ " Select that grid before building.";
+
+			yield return Validated;
 
 			yield return HoldCubePlacer(true);
 

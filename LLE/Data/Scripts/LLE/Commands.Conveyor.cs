@@ -155,14 +155,14 @@ namespace LLE
 				+ " " + DraftConveyorUsage;
 		}
 
-		internal CommandResult DraftConveyor(ToolCall call)
+		internal IEnumerator DraftConveyor(ToolCall call)
 		{
 			string message;
-			if (!GridIsSet(out message)) return message;
-			if (CurrentGridIsProjection(out message)) return message;
+			if (!GridIsSet(out message)) yield return message;
+			if (CurrentGridIsProjection(out message)) yield return message;
 
 			var mismatch = DraftGridMismatch();
-			if (mismatch != null) return mismatch;
+			if (mismatch != null) yield return mismatch;
 
 			Vector3I ijk;
 			MyCubeBlockDefinition definition;
@@ -171,14 +171,16 @@ namespace LLE
 
 			var refusal = ResolveTube(call, out ijk,
 				out definition, out orientation, out port1, out port2);
-			if (refusal != null) return refusal;
+			if (refusal != null) yield return refusal;
 
 			refusal = CheckDraftSite(ijk);
-			if (refusal != null) return refusal;
+			if (refusal != null) yield return refusal;
+
+			yield return Validated;
 
 			AddToDraft(definition, ijk, orientation.Forward, orientation.Up);
 
-			return Success($"Drafted {Quote(definition.DisplayNameText)} at {IJK(ijk)},"
+			yield return Success($"Drafted {Quote(definition.DisplayNameText)} at {IJK(ijk)},"
 				+ $" openings on {Dir(port1)} and {Dir(port2)}."
 				+ $" {draft.Count} block(s) in the draft.");
 		}
@@ -202,6 +204,8 @@ namespace LLE
 			Vector3I neighbourCell;
 			refusal = CheckBuildSite(ijk, out neighbour, out neighbourCell);
 			if (refusal != null) yield return refusal;
+
+			yield return Validated;
 
 			yield return HoldCubePlacer(true);
 			try

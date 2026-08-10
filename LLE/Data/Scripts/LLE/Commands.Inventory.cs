@@ -167,6 +167,8 @@ namespace LLE
 			if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
 				yield return message;
 
+			yield return Validated;
+
 			Vector3D bp;
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
@@ -240,6 +242,8 @@ namespace LLE
 
 			if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
 				yield return message;
+
+			yield return Validated;
 
 			Vector3D bp;
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
@@ -322,6 +326,8 @@ namespace LLE
 
 			if(fatTo == null || !fatTo.HasInventory)
 				yield return $"Block {Quote(toName)} does not have an inventory.";
+
+			yield return Validated;
 
 			List<IMyInventory> fromList = new List<IMyInventory>();
 			List<WTF_IMyInventory> toList = new List<WTF_IMyInventory>();

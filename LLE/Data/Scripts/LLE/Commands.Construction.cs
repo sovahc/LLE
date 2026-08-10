@@ -17,8 +17,10 @@ namespace LLE
 {
 	public partial class Commands
 	{	
-		internal bool EquipTool(string toolSubtype)
+		internal bool FindTool(string toolSubtype, out MyDefinitionId id)
 		{
+			id = new MyDefinitionId();
+
 			var inventory = character.GetInventory();
 			if (inventory == null) return false;
 
@@ -31,7 +33,7 @@ namespace LLE
 				var handItemDef = MyDefinitionManager.Static.TryGetHandItemForPhysicalItem(item.Type);
 				if (handItemDef == null) continue;
 				if (handItemDef.Id.SubtypeName.IndexOf(toolSubtype, StringComparison.OrdinalIgnoreCase) < 0) continue;
-				
+
 				targetDefId = handItemDef.PhysicalItemId;
 				break;
 			}
@@ -40,9 +42,15 @@ namespace LLE
 
 			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
 			if (!controller.CanSwitchToWeapon(targetDefId.Value)) return false;
-			
-			controller.SwitchToWeapon(targetDefId.Value);
+
+			id = targetDefId.Value;
 			return true;
+		}
+
+		internal void EquipTool(MyDefinitionId id)
+		{
+			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
+			controller.SwitchToWeapon(id);
 		}
 
 		internal IEnumerator Grind(ToolCall call)
@@ -57,15 +65,20 @@ namespace LLE
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
-			if(!EquipTool("Grinder"))
+			MyDefinitionId grinder;
+			if(!FindTool("Grinder", out grinder))
 				yield return "Cannot equip grinder. Do you have a Grinder in your inventory?";
 
 			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
 			if(!ip.HasValue)
 				yield return E_BAD_POINT;
-			
+
 			var position = ip.Value.chPosition;
 			var target = ip.Value.Target;
+
+			yield return Validated;
+
+			EquipTool(grinder);
 
 			// TODO: warning on WillRemoveBlockSplitGrid
 
@@ -242,18 +255,23 @@ namespace LLE
 			if (block.Integrity >= block.MaxIntegrity && !projection)
 				yield return Success("The block is fully intact; no repairs needed.");
 
-			if (!EquipTool("Welder"))
+			MyDefinitionId welder;
+			if (!FindTool("Welder", out welder))
 				yield return "Cannot equip handheld welder. Do you have a Welder in your inventory?";
-
-			var welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-			if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
 			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
 			if(!ip.HasValue)
 				yield return E_BAD_POINT;
-			
+
 			var position = ip.Value.chPosition;
 			var target = ip.Value.Target;
+
+			yield return Validated;
+
+			EquipTool(welder);
+
+			var welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
+			if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
 			SetPause(Constants.MicronavigationDelay);
 			while(IsPaused())

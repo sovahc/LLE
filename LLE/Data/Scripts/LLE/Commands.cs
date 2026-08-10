@@ -21,10 +21,16 @@ using Sandbox.ModAPI;
 //   yield return Success(msg)  = final success response to LLM (terminates whole command)
 //   yield return "error msg"   = final error response to LLM (terminates whole command)
 //   yield return IEnumerator;  = run nested coroutine to completion, then resume parent
+//   yield return Validated;    = everything above is a check, everything below changes the world
 //   yield break;              = done at this level (parent resumes, or command ends)
 // ! Re-query engine objects after `yield return null;` don't cache references.
 // ! A top-level coroutine MUST end with a CommandResult (Success/Incomplete/string).
 //   Falling off the end or `yield break` at top level is reported as Incomplete by Update().
+//
+// Validate() drives a command to its first yield and stops: `Validated` means the checks passed,
+// a string means they did not. It never reaches the world-changing half, so nothing above the
+// `Validated` of a command may change anything — it is run twice, once to check and once for real.
+// A command without a `Validated` passes unchecked.
 //
 // Design note: `yield return "error msg"` without a trailing `yield break;` works because
 // Commands.Update() disposes the entire coroutine stack the moment it receives a string.
@@ -40,6 +46,8 @@ namespace LLE
 
 		internal static CommandResult Success(string message) => CommandResult.Success(message);
 		internal static CommandResult Incomplete(string message) => CommandResult.Incomplete(message);
+
+		internal static readonly Validation Validated = new Validation();
 
 		private static readonly MyDefinitionId hydrogenId =
 			new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Hydrogen");
@@ -129,26 +137,39 @@ namespace LLE
 			return sb.ToString();
 		}
 
-		internal CommandResult Say(ToolCall call)
+		internal IEnumerator Pause()
+		{
+			yield return Validated;
+
+			LLM.pause = true;
+			yield return Success("OK");
+		}
+
+		internal IEnumerator Say(ToolCall call)
 		{
 			var message = call.Str("message");
 			if (string.IsNullOrEmpty(message))
-				return call.Need("message");
+				yield return call.Need("message");
+
+			yield return Validated;
 
 			MyVisualScriptLogicProvider.SendChatMessage(
 				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
 			LLE_Loader.Speak(message);
-			return Success("Done");
+			yield return Success("Done");
 		}
 
-		internal CommandResult Memory(ToolCall call)
+		internal IEnumerator Memory(ToolCall call)
 		{
 			var key = call.Str("key");
 			var value = call.Str("value");
 			if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value))
-				return "Error: memory needs both a key and a value.";
+				yield return "Error: memory needs both a key and a value.";
+
+			yield return Validated;
+
 			memory[key] = value;
-			return Success("Saved.");
+			yield return Success("Saved.");
 		}
 
 		internal string SystemPrompt { get; private set; }
@@ -172,10 +193,10 @@ namespace LLE
 			SystemPromptChars = SystemPrompt.Length;
 		}
 
-		internal CommandResult Select(ToolCall call)
+		internal IEnumerator Select(ToolCall call)
 		{
 			var what = call.Str("name");
-			if (string.IsNullOrEmpty(what)) return call.Need("name");
+			if (string.IsNullOrEmpty(what)) yield return call.Need("name");
 
 			var engineer = GetEngineerCenter();
 			
@@ -195,7 +216,7 @@ namespace LLE
 				if(Include(what, name) || Include(what, category)) matches.Add(e);
 			}
 
-			if(matches.Count != 1) return MyError(engineer, what, matches);
+			if(matches.Count != 1) yield return MyError(engineer, what, matches);
 
 			var match = matches[0];
 
@@ -203,23 +224,25 @@ namespace LLE
 
 			var grid = match as IMyCubeGrid;
 			if(grid != null)
-			{	
+			{
+				yield return Validated;
+
 				Debug.Start(grid);
 				selectedGrid = grid;
 				selectedAsteroid = null;
-				return Success($"Selected {category} {Quote(name)}\nGrid directions: {GridDirections(grid)}");
+				yield return Success($"Selected {category} {Quote(name)}\nGrid directions: {GridDirections(grid)}");
 			}
 
 			var asteroid = match as MyVoxelBase;
 			if(asteroid != null)
-			{	return "Error: Operations on asteroids are not supported yet.";
-				
+			{	yield return "Error: Operations on asteroids are not supported yet.";
+
 				//selectedGrid = null;
 				//selectedAsteroid = asteroid;
 				//return Success($"Selected {category} {Quote(name)}");
 			}
-			
-			return $"Error: you can't select {category} '{name}'";
+
+			yield return $"Error: you can't select {category} '{name}'";
 		}
 
 		internal bool GridIsSet(out string message)
@@ -375,9 +398,10 @@ namespace LLE
 
 			var top = coroutineStack.Peek();
 
-			if (top.MoveNext())
+			while (top.MoveNext())
 			{
 				var current = top.Current;
+				if(current == Validated) continue;
 
 				var result = current as CommandResult;
 				if(result == null)
@@ -394,30 +418,40 @@ namespace LLE
 				var nested = current as IEnumerator;
 				if(nested != null)
 					coroutineStack.Push(nested);
-			}
-			else
-			{
-				(top as IDisposable)?.Dispose();
 
-				coroutineStack.Pop();
-
-				// Without an answer here the batch head is never dequeued and the command re-runs forever.
-				if(coroutineStack.Count == 0)
-				{	MyConsole.Add("!yield break!", Color.DarkRed);
-					return Incomplete("Command stopped early.");
-				}
+				return null;
 			}
+
+			(top as IDisposable)?.Dispose();
+
+			coroutineStack.Pop();
+
+			// Without an answer here the batch head is never dequeued and the command re-runs forever.
+			if(coroutineStack.Count == 0)
+			{	MyConsole.Add("!yield break!", Color.DarkRed);
+				return Incomplete("Command stopped early.");
+			}
+
 			return null;
 		}
 
 		internal CommandResult Execute(ToolCall call)
 		{
+			var instant = Instant(call);
+			if(instant != null) return instant;
+
+			var coroutine = Coroutine(call);
+			if(coroutine == null) return NoSuchTool(call);
+
+			coroutineStack.Push(coroutine);
+			return null;
+		}
+
+		// Every command answered here is a pure read: Validate() checks it by running it.
+		private CommandResult Instant(ToolCall call)
+		{
 			switch(call.Name)
 			{
-				case "pause":
-					LLM.pause = true;
-					return Success("OK");
-
 				case "position":       return Position();
 				case "overview":       return Overview();
 				case "integrity":      return Integrity();
@@ -425,9 +459,6 @@ namespace LLE
 				case "status":         return Success(status.ReportAll());
 				case "inventories":    return Inventories();
 
-				case "select":         return Select(call);
-				case "say":            return Say(call);
-				case "memory":         return Memory(call);
 				case "near":           return Near(call);
 				case "free":           return Near(call, true);
 				case "inventory":      return Inventory();
@@ -437,43 +468,97 @@ namespace LLE
 				case "distance_between": return Distance(call, true);
 				case "points":         return Points(call);
 				case "info":           return Info(call);
+				case "recharge_list":  return GetRechargePoints();
+				case "draft_show":     return DraftShow();
+			}
+
+			return null;
+		}
+
+		private IEnumerator Coroutine(ToolCall call)
+		{
+			switch(call.Name)
+			{
+				case "pause":          return Pause();
+				case "say":            return Say(call);
+				case "memory":         return Memory(call);
+				case "select":         return Select(call);
 				case "enter":          return Enter(call);
 				case "exit":           return Exit();
-				case "recharge_list":  return GetRechargePoints();
 
 				case "draft":          return Draft(call);
 				case "draft_conveyor": return DraftConveyor(call);
-				case "draft_show":     return DraftShow();
 				case "draft_undo":     return DraftUndo();
 				case "draft_clear":    return DraftClear();
+
+				case "fly":            return Fly(call);
+				case "fly_direction":  return Fly_Direction_N(call);
+				case "approach":       return Approach(call);
+				case "grind":          return Grind(call);
+				case "weld":           return Weld(call);
+				case "get":            return Get(call);
+				case "put":            return Put(call, false);
+				case "put_all_components": return Put(call, true);
+				case "transfer":       return Transfer(call, false);
+				case "transfer_all":   return Transfer(call, true);
+				case "place":          return Place(call);
+				case "place_conveyor": return PlaceConveyor(call);
+				case "build":          return Build();
+				case "route":          return Route(call);
+				case "recharge":       return Recharge(call);
 			}
 
-			IEnumerator coroutine;
-
-			switch(call.Name)
-			{
-				case "fly":            coroutine = Fly(call); break;
-				case "fly_direction":  coroutine = Fly_Direction_N(call); break;
-				case "approach":       coroutine = Approach(call); break;
-				case "grind":          coroutine = Grind(call); break;
-				case "weld":           coroutine = Weld(call); break;
-				case "get":            coroutine = Get(call); break;
-				case "put":            coroutine = Put(call, false); break;
-				case "put_all_components": coroutine = Put(call, true); break;
-				case "transfer":       coroutine = Transfer(call, false); break;
-				case "transfer_all":   coroutine = Transfer(call, true); break;
-				case "place":          coroutine = Place(call); break;
-				case "place_conveyor": coroutine = PlaceConveyor(call); break;
-				case "build":          coroutine = Build(); break;
-				case "route":          coroutine = Route(call); break;
-				case "recharge":       coroutine = Recharge(call); break;
-
-				default:
-					return $"Error: there is no tool called '{call.Name}'.";
-			}
-
-			coroutineStack.Push(coroutine);
 			return null;
+		}
+
+		private static string NoSuchTool(ToolCall call)
+		{	return $"Error: there is no tool called '{call.Name}'.";
+		}
+
+		// Null = the command would start. Anything else is the refusal it would answer with.
+		internal string Validate(ToolCall call)
+		{
+			var instant = Instant(call);
+			if(instant != null) return instant.Status == CommandStatus.Error ? instant.Message : null;
+
+			var coroutine = Coroutine(call);
+			if(coroutine == null) return NoSuchTool(call);
+
+			var stack = new Stack<IEnumerator>();
+			stack.Push(coroutine);
+
+			try
+			{
+				while(stack.Count > 0)
+				{
+					var top = stack.Peek();
+
+					if(!top.MoveNext())
+					{	(top as IDisposable)?.Dispose();
+						stack.Pop();
+						continue;
+					}
+
+					var current = top.Current;
+					if(current == Validated) return null;
+
+					var error = current as string;
+					if(error != null) return error;
+
+					var result = current as CommandResult;
+					if(result != null) return result.Status == CommandStatus.Error ? result.Message : null;
+
+					var nested = current as IEnumerator;
+					if(nested == null) return null;
+
+					stack.Push(nested);
+				}
+
+				return null;
+			}
+			finally
+			{	foreach(var c in stack) (c as IDisposable)?.Dispose();
+			}
 		}
 	}
 }

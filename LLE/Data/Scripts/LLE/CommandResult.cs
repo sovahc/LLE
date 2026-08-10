@@ -2,6 +2,10 @@ namespace LLE
 {
 	internal enum CommandStatus { Success, Incomplete, Error }
 
+	internal class Validation
+	{
+	}
+
 	// Null = command still running (coroutine in progress).
 	// Success(msg) = done; Incomplete(msg) = stopped early (e.g. inventory full, items not found) — not an error;
 	// plain string (implicit) = error.

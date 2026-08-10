@@ -242,6 +242,8 @@ namespace LLE
 			var definition = ResolvePlaceable(query, out error);
 			if (definition == null) yield return error;
 
+			yield return Validated;
+
 			yield return HoldCubePlacer(true);
 			try
 			{	yield return PlaceCube(definition, ijk, forward, up);

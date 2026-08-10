@@ -1,3 +1,5 @@
+using System.Collections;
+
 using VRageMath;
 using Sandbox.ModAPI;
 
@@ -37,43 +39,47 @@ namespace LLE
 			}
 		}
 
-		internal CommandResult Enter(ToolCall call)
+		internal IEnumerator Enter(ToolCall call)
 		{
 			string message;
-			if(!GridIsSet(out message)) return message;
-			if(CurrentGridIsProjection(out message)) return message;
+			if(!GridIsSet(out message)) yield return message;
+			if(CurrentGridIsProjection(out message)) yield return message;
 
 			Vector3I ijk;
-			if(!call.Ijk(out ijk)) return call.NeedIjk;
+			if(!call.Ijk(out ijk)) yield return call.NeedIjk;
 
 			var block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) return $"Error: no block at {IJK(ijk)}";
+			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			var cockpit = block.FatBlock as IMyCockpit;
-			if(cockpit == null) return $"Error: {Name(block)} at {IJK(ijk)} is not a cockpit or seat.";
+			if(cockpit == null) yield return $"Error: {Name(block)} at {IJK(ijk)} is not a cockpit or seat.";
 
-			if(!cockpit.IsFunctional) return $"Error: {Name(block)} at {IJK(ijk)} is not functional.";
+			if(!cockpit.IsFunctional) yield return $"Error: {Name(block)} at {IJK(ijk)} is not functional.";
 
 			if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
-				return message;
+				yield return message;
 
-			if(!EnterCockpit(cockpit, out message)) return message;
-			return Success(message);
+			yield return Validated;
+
+			if(!EnterCockpit(cockpit, out message)) yield return message;
+			yield return Success(message);
 		}
 
-		internal CommandResult Exit()
+		internal IEnumerator Exit()
 		{
 			var seat = character.Parent as IMyCockpit;
-			if(seat == null) return "You are not seated.";
+			if(seat == null) yield return "You are not seated.";
+
+			yield return Validated;
 
 			var blockName = seat.CustomName ?? "cockpit";
 			seat.RemovePilot();
 
 			// RemovePilot relocates the character to a free neighboring position.
 			if(character.Parent != null)
-				return $"Error: failed to leave {Quote(blockName)}.";
+				yield return $"Error: failed to leave {Quote(blockName)}.";
 
-			return Success($"Left {Quote(blockName)}.");
+			yield return Success($"Left {Quote(blockName)}.");
 		}
 	}
 }

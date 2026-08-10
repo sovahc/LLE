@@ -97,6 +97,8 @@ namespace LLE
 				if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
 					yield return message;
 
+				yield return Validated;
+
 				if(!EnterCockpit(cockpit, out message)) yield return message;
 
 				const double wait = 2.5;
@@ -162,6 +164,8 @@ namespace LLE
 
 				if(!hasPower && !hasHydrogen)
 					yield return "No power or hydrogen available for recharging.";
+
+				yield return Validated;
 
 				// Simulating the process since the game once again locked the necessary API
 

@@ -79,6 +79,8 @@ namespace LLE
 			if (portsB.Count == 0)
 				yield return $"Error: {nameB} at {IJK(b)} has no conveyor ports at all, so nothing can be piped to it.";
 
+			yield return Validated;
+
 			var blocked = new List<Vector3I>();
 			DraftCells(blocked);
 
