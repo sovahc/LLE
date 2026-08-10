@@ -196,12 +196,12 @@ namespace LLE
 			if(!GridIsSet(out message)) return message;
 
 			string category, name;
-			Description(selectedGrid.Grid as MyEntity, out category, out name);
+			Description(selectedGrid as MyEntity, out category, out name);
 
 			var md = new MyMarkdown();
 			md.Append($"# {category} '{name}'");
 
-			if(IsProjection(selectedGrid.Grid))
+			if(IsProjection(selectedGrid))
 			{
 				md.Append("This is a projector's projection preview, not a built object.");
 				md.Append("Use `projection` for build status.");
@@ -210,8 +210,8 @@ namespace LLE
 
 			md.Append($"## Information");
 
-			md.Append($"Powered: {GridHasPower(selectedGrid.Grid)}");
-			var cg = selectedGrid.Grid as MyCubeGrid;
+			md.Append($"Powered: {GridHasPower(selectedGrid)}");
+			var cg = selectedGrid as MyCubeGrid;
 
 			Vector3D size = cg.Max - cg.Min + Vector3I.One;
 			size *= cg.GridSize;
@@ -231,7 +231,7 @@ namespace LLE
 			}
 
 			var group = new List<IMyCubeGrid>();
-			MyAPIGateway.GridGroups.GetGroup(selectedGrid.Grid, GridLinkTypeEnum.Physical, group);
+			MyAPIGateway.GridGroups.GetGroup(selectedGrid, GridLinkTypeEnum.Physical, group);
 			if(group.Count > 1)
 			{	md.Append($"## Physically connected to:");
 				
@@ -241,13 +241,13 @@ namespace LLE
 				}
 			}
 
-			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid.Grid);
+			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 			terminalBlocks.Clear();
 			ts.GetBlocks(terminalBlocks);
 
 			positions.Clear();
 			foreach(var block in terminalBlocks)
-			{	if(block.CubeGrid != selectedGrid.Grid) continue;
+			{	if(block.CubeGrid != selectedGrid) continue;
 				positions.Add(block.SlimBlock.Position);
 			}
 
@@ -264,18 +264,18 @@ namespace LLE
 			string message;
 			if(!GridIsSet(out message)) return message;
 
-			if(!IsProjection(selectedGrid.Grid))
+			if(!IsProjection(selectedGrid))
 				return "Error: selected grid is not a projection.";
 
-			var mcg = selectedGrid.Grid as MyCubeGrid;
+			var mcg = selectedGrid as MyCubeGrid;
 			var projector = mcg.Projector as IMyProjector;
 			if(projector == null)
 				return "Error: could not find the projector owning this projection.";
 
-			var builtGrid = projector.CubeGrid;
+			var realGrid = projector.CubeGrid;
 
 			var md = new MyMarkdown();
-			md.Append($"Real grid (select this to weld already-placed blocks): {Quote(Name(builtGrid))}");
+			md.Append($"Real grid (select this to weld already-placed blocks): {Quote(Name(realGrid))}");
 			md.Append($"Total blocks: {projector.TotalBlocks}");
 			md.Append($"Not yet built: {projector.RemainingBlocks}");
 			md.Append($"Buildable now: {projector.BuildableBlocksCount}");
@@ -290,8 +290,8 @@ namespace LLE
 				{
 					// CanBuild's AlreadyBuilt is unreliable for hidden ghosts; match position first.
 					var worldPos = selectedGrid.GridIntegerToWorld(ghost.Position);
-					var builtBlock = builtGrid.GetCubeBlock(builtGrid.WorldToGridInteger(worldPos));
-					if(builtBlock != null && builtBlock.BlockDefinition.Id == ghost.BlockDefinition.Id)
+					var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
+					if(realBlock != null && realBlock.BlockDefinition.Id == ghost.BlockDefinition.Id)
 						continue;
 
 					if(projector.CanBuild(ghost, false) == BuildCheckResult.OK)
@@ -311,21 +311,21 @@ namespace LLE
 			if (!GridIsSet(out message)) return message;
 
 			string category, name;
-			Description(selectedGrid.Grid as MyEntity, out category, out name);
+			Description(selectedGrid as MyEntity, out category, out name);
 
 			var md = new MyMarkdown();
 			md.Append($"# Integrity Check {Quote(name)}");
 
 			List<IMySlimBlock> damaged;
 
-			if(IsProjection(selectedGrid.Grid))
+			if(IsProjection(selectedGrid))
 			{
-				var mcg = selectedGrid.Grid as MyCubeGrid;
+				var mcg = selectedGrid as MyCubeGrid;
 				var projector = mcg.Projector as IMyProjector;
 				if(projector == null)
 					return "Error: could not find the projector owning this projection.";
 
-				var builtGrid = projector.CubeGrid;
+				var realGrid = projector.CubeGrid;
 
 				var ghosts = new List<IMySlimBlock>();
 				selectedGrid.GetBlocks(ghosts);
@@ -335,12 +335,12 @@ namespace LLE
 				{
 					// CanBuild's AlreadyBuilt is unreliable for hidden ghosts; match position first.
 					var worldPos = selectedGrid.GridIntegerToWorld(ghost.Position);
-					var builtBlock = builtGrid.GetCubeBlock(builtGrid.WorldToGridInteger(worldPos));
-					if(builtBlock == null || builtBlock.BlockDefinition.Id != ghost.BlockDefinition.Id)
+					var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
+					if(realBlock == null || realBlock.BlockDefinition.Id != ghost.BlockDefinition.Id)
 						continue;
 
-					if(world.Integrity(builtBlock) < builtBlock.MaxIntegrity)
-						damaged.Add(builtBlock);
+					if(realBlock.Integrity < realBlock.MaxIntegrity)
+						damaged.Add(realBlock);
 				}
 
 				if(damaged.Count == 0)
@@ -352,9 +352,9 @@ namespace LLE
 			else
 			{
 				damaged = new List<IMySlimBlock>();
-				foreach (IMySlimBlock block in (selectedGrid.Grid as MyCubeGrid).CubeBlocks)
+				foreach (IMySlimBlock block in (selectedGrid as MyCubeGrid).CubeBlocks)
 				{
-					if (world.Integrity(block) < block.MaxIntegrity)
+					if (block.Integrity < block.MaxIntegrity)
 						damaged.Add(block);
 				}
 
@@ -387,7 +387,7 @@ namespace LLE
 				StringBuilder sb = new StringBuilder();
 				foreach (var block in kv.Value)
 				{
-					var p = world.Integrity(block) / block.MaxIntegrity;
+					var p = block.Integrity / block.MaxIntegrity;
 					sb.Append($"* {LargeBlockPrefix(block)}{Quote(Name(block))} at ({IJK(block.Position)}) [{Percent(p)}]\n");
 				}
 				md.Add($"## {kv.Key}", sb.ToString());
@@ -444,7 +444,7 @@ namespace LLE
 
 			var maxI = block.MaxIntegrity;
 			md.Append(maxI > 0
-				? $"Integrity: {Percent(world.Integrity(block) / maxI)} ({world.Integrity(block):F0}/{maxI:F0})"
+				? $"Integrity: {Percent(block.Integrity / maxI)} ({block.Integrity:F0}/{maxI:F0})"
 				: "Integrity: --");
 			if(block.FatBlock != null)
 			{	md.Append($"Functional: {block.FatBlock.IsFunctional}");
@@ -497,8 +497,8 @@ namespace LLE
 			var centerBlock = selectedGrid.GetCubeBlock(ijk);
 			var name = Name(centerBlock);
 			
-			var m = CalculateOrientation(selectedGrid.Grid);
-			var toLocal = selectedGrid.Grid.PositionComp.WorldMatrixNormalizedInv;
+			var m = CalculateOrientation(selectedGrid);
+			var toLocal = selectedGrid.PositionComp.WorldMatrixNormalizedInv;
 			labelToAxis.Clear();
 			labelToAxis["forward"]  = AxisVec(m.Forward, ref toLocal);
 			labelToAxis["backward"] = AxisVec(m.Backward, ref toLocal);

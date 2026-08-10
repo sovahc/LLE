@@ -98,7 +98,7 @@ namespace LLE
 			return null;
 		}
 
-		private string CheckBuildSite(Vector3I ijk, out MyCubeBlockDefinition neighbour, out Vector3I neighbourCell)
+		private string CheckBuildSite(Vector3I ijk, out IMySlimBlock neighbour, out Vector3I neighbourCell)
 		{
 			neighbour = null;
 			neighbourCell = Vector3I.Zero;
@@ -107,7 +107,7 @@ namespace LLE
 			if (reach > Constants.MaxInteractionDistance)
 				return $"Error: {IJK(ijk)} is too far from you ({Distance(reach)})";
 
-			var occupant = selectedGrid.CellDefinition(ijk);
+			var occupant = selectedGrid.GetCubeBlock(ijk);
 			if (occupant != null)
 				return $"Error: {IJK(ijk)} is not empty — {Quote(Name(occupant))} stands there.";
 
@@ -115,9 +115,9 @@ namespace LLE
 				return $"Error: {IJK(ijk)} is where you stand — you cannot place a block on yourself.";
 
 			foreach (var offset in Constants.SixDirections)
-			{	var d = selectedGrid.CellDefinition(ijk + offset);
-				if (d == null) continue;
-				neighbour = d;
+			{	var b = selectedGrid.GetCubeBlock(ijk + offset);
+				if (b == null) continue;
+				neighbour = b;
 				neighbourCell = ijk + offset;
 				return null;
 			}
@@ -126,7 +126,7 @@ namespace LLE
 				+ " to hold on to. Place it against the existing structure.";
 		}
 
-		internal void SwitchCubePlacer(bool hold)
+		private void SwitchCubePlacer(bool hold)
 		{
 			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
 
@@ -138,10 +138,10 @@ namespace LLE
 
 		private IEnumerator HoldCubePlacer(bool hold)
 		{
-			world.SwitchCubePlacer(hold);
+			SwitchCubePlacer(hold);
 
-			world.SetPause(1);
-			while(world.IsPaused()) yield return null;
+			SetPause(1);
+			while(IsPaused()) yield return null;
 		}
 
 		private IEnumerator PlaceCube(MyCubeBlockDefinition definition, Vector3I ijk,
@@ -153,10 +153,10 @@ namespace LLE
 
 			var target = selectedGrid.GridIntegerToWorld(ijk);
 
-			world.SetPause(Constants.MicronavigationDelay);
-			while(world.IsPaused())
+			SetPause(Constants.MicronavigationDelay);
+			while(IsPaused())
 			{
-				world.RotateTo(target);
+				CharacterRotateTo(target);
 				yield return null;
 			}
 
@@ -172,7 +172,8 @@ namespace LLE
 			// AddBlock refuses occupied cells but does not check mount points, so a disconnected
 			// block would hang in the air — hence the face-adjacency test in CheckBuildSite.
 
-			if (!world.PlaceBlock(selectedGrid, ob))
+			var placed = selectedGrid.AddBlock(ob, false);
+			if (placed == null)
 				yield return $"Error: the game refused to place {Quote(definition.DisplayNameText)} at {IJK(ijk)}.";
 		}
 
@@ -228,7 +229,7 @@ namespace LLE
 			if (!call.Ijk(out ijk))
 				yield return call.NeedIjk;
 
-			MyCubeBlockDefinition neighbour;
+			IMySlimBlock neighbour;
 			Vector3I neighbourCell;
 			var refusal = CheckBuildSite(ijk, out neighbour, out neighbourCell);
 			if (refusal != null) yield return refusal;
@@ -248,7 +249,7 @@ namespace LLE
 			}
 			finally
 			{	// An error above disposes the whole coroutine stack; the placer must not stay in hand.
-				world.SwitchCubePlacer(false);
+				SwitchCubePlacer(false);
 			}
 
 			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}");

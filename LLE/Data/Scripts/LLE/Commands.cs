@@ -46,12 +46,10 @@ namespace LLE
 		private static readonly MyDefinitionId electricityId =
 			new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Electricity");
 
-		private IGridView selectedGrid;
+		private IMyCubeGrid selectedGrid;
 		private MyVoxelBase selectedAsteroid;
 
 		private readonly IMyCharacter character;
-
-		internal IWorld world;
 
 		private Status status;
 
@@ -64,17 +62,16 @@ namespace LLE
 
 		private double resumeTime;
 
-		internal void SetPause(double time)
+		private void SetPause(double time)
 		{	resumeTime = Time.Now + time;
 		}
-		internal bool IsPaused()
+		private bool IsPaused()
 		{	return Time.Now < resumeTime;			
 		}
 
 		public Commands(IMyCharacter character_)
 		{
 			character = character_;
-			world = new RealWorld(this, character);
 			status = new Status(character);
 
 			ALL_COMPONENTS.Clear();
@@ -87,20 +84,26 @@ namespace LLE
 
 		public Vector3D GetEngineerCenter()
 		{
-			return world.EngineerCenter;
+			return character.GetPosition() + Constants.EngineerHeight/2 * character.WorldMatrix.Up;
 		}
 
-		internal Commands Shadow() => new Commands(character);
+		private MyEntity3DSoundEmitter soundEmitter;
 
-		// What a command reads besides the world and its own arguments. The shadow runs on its own
-		// instance and needs this handed to it before every prediction.
-		internal void CopyStateFrom(Commands source)
+		private void PlaySound(string sound)
 		{
-			selectedGrid = source.selectedGrid == null ? null : world.View(source.selectedGrid.Grid);
+			if (soundEmitter == null)
+			{
+				soundEmitter = new MyEntity3DSoundEmitter(character as MyEntity);
+			}
+			if (soundEmitter != null)
+			{
+				soundEmitter.PlaySound(new MySoundPair(sound));
+			}
+		}
 
-			draft.Clear();
-			draft.AddRange(source.draft);
-			draftBase = source.draftBase;
+		private void StopSound()
+		{	if (soundEmitter == null) return;
+			soundEmitter.StopSound(false);
 		}
 
 		private static bool Include(string searchTerm, string text)
@@ -132,7 +135,9 @@ namespace LLE
 			if (string.IsNullOrEmpty(message))
 				return call.Need("message");
 
-			world.Say(message);
+			MyVisualScriptLogicProvider.SendChatMessage(
+				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
+			LLE_Loader.Speak(message);
 			return Success("Done");
 		}
 
@@ -200,7 +205,7 @@ namespace LLE
 			if(grid != null)
 			{	
 				Debug.Start(grid);
-				selectedGrid = world.View(grid);
+				selectedGrid = grid;
 				selectedAsteroid = null;
 				return Success($"Selected {category} {Quote(name)}\nGrid directions: {GridDirections(grid)}");
 			}
@@ -233,7 +238,7 @@ namespace LLE
 		}
 
 		internal bool CurrentGridIsProjection(out string message)
-		{	if(IsProjection(selectedGrid.Grid))
+		{	if(IsProjection(selectedGrid))
 			{	message = "Error: selected grid is a projection preview, not a built object. Not supported for this command.";
 				return true;
 			}
@@ -359,9 +364,17 @@ namespace LLE
 		{	return coroutineStack.Count > 0;
 		}
 
+		// Long enough that a whole LLM turn fits inside it; below that, asking the model costs more
+		// than the command itself takes.
+		internal bool LongRunning { get; private set; }
+
 		internal void AbortCommand()
 		{	foreach(var c in coroutineStack) (c as IDisposable)?.Dispose();
 			coroutineStack.Clear();
+		}
+
+		internal void Cancel()
+		{	AbortCommand();
 		}
 
 		internal CommandResult Update()
@@ -407,10 +420,12 @@ namespace LLE
 
 		internal CommandResult Execute(ToolCall call)
 		{
+			LongRunning = false;
+
 			switch(call.Name)
 			{
 				case "pause":
-					world.PauseBot();
+					LLM.pause = true;
 					return Success("OK");
 
 				case "position":       return Position();

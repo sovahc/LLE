@@ -82,7 +82,7 @@ namespace LLE
 			var blocked = new List<Vector3I>();
 			DraftCells(blocked);
 
-			var search = new ConveyorAStar(selectedGrid.Grid, portsA, portsB, blocked);
+			var search = new ConveyorAStar(selectedGrid, portsA, portsB, blocked);
 			while (!search.Tick()) yield return null;
 
 			var path = search.Result;

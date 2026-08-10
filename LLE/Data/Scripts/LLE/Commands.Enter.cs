@@ -12,7 +12,7 @@ namespace LLE
 			
 			var currentSeat = character.Parent as IMyCockpit;
 			if(currentSeat != null && currentSeat.EntityId != cockpit.EntityId)
-				world.RemovePilot(currentSeat);
+				currentSeat.RemovePilot();
 
 			if(cockpit.Pilot != null && cockpit.Pilot.EntityId == character.EntityId)
 			{	message = $"Already in {Name(block)} at {IJK(ijk)}.";
@@ -24,13 +24,17 @@ namespace LLE
 				return false;
 			}
 
-			if(!world.AttachPilot(cockpit))
+			cockpit.AttachPilot(character, 0);
+
+			// AttachPilot silently no-ops if it fails; verify by re-checking Pilot.
+			if(cockpit.Pilot != null && cockpit.Pilot.EntityId == character.EntityId)
+			{	message = $"Entered {Name(block)} at {IJK(ijk)}.";
+				return true;
+			}
+			else
 			{	message = $"Error: failed to enter {Name(block)} at {IJK(ijk)}.";
 				return false;
 			}
-
-			message = $"Entered {Name(block)} at {IJK(ijk)}.";
-			return true;
 		}
 
 		internal CommandResult Enter(ToolCall call)
@@ -63,7 +67,7 @@ namespace LLE
 			if(seat == null) return "You are not seated.";
 
 			var blockName = seat.CustomName ?? "cockpit";
-			world.RemovePilot(seat);
+			seat.RemovePilot();
 
 			// RemovePilot relocates the character to a free neighboring position.
 			if(character.Parent != null)

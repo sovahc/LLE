@@ -144,7 +144,7 @@ namespace LLE
 				if(block != null)
 					yield return $"Error: {IJK(ijk)} is occupied by block {Quote(Name(block))}. Cannot build a block on an occupied cell.";
 
-				var producer = EQS.ProduceCells(selectedGrid.Grid, ijk, GetEngineerCenter());
+				var producer = EQS.ProduceCells(selectedGrid, ijk, GetEngineerCenter());
 				var placeCells = new List<Vector3I>();
 				
 				foreach (var c in producer)
@@ -166,7 +166,7 @@ namespace LLE
 				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 				// Only grind/weld make sense on a projection preview — it has no real inventory, power, or seats yet.
-				if(intention.Value != InteractionKind.GrindWeld && IsProjection(selectedGrid.Grid))
+				if(intention.Value != InteractionKind.GrindWeld && IsProjection(selectedGrid))
 					yield return $"Error: selected grid is a projection preview — '{intentionWord}' is not supported on it yet.";
 
 				var eqsr = new List<EQSResult>();
@@ -182,7 +182,7 @@ namespace LLE
 				arrivalMessage = $"Arrived at '{intentionWord}' point for {Quote(Name(block))} at {IJK(ijk)}. Your position: {IJK(destinationCell)}.";
 			}
 
-			yield return world.FlyTo(selectedGrid, destinationCell, arrivalMessage, false);
+			yield return RealFly(destinationCell, arrivalMessage, false);
 		}
 
 		internal IEnumerator Fly(ToolCall call)
@@ -206,7 +206,7 @@ namespace LLE
 					+ $"Use approach if you need interact with the block.";
 			}
 
-			yield return world.FlyTo(selectedGrid, ijk, "", headFirst);
+			yield return RealFly(ijk, "", headFirst);
 		}
 
 		internal IEnumerator RealFly(Vector3I destinationCell, string arrivalMessage, bool headFirst)
@@ -224,7 +224,7 @@ namespace LLE
 
 			var currentGrid = GetCurrentEngineerGrid(engineer);
 
-			if(currentGrid != null && currentGrid != selectedGrid.Grid)
+			if(currentGrid != null && currentGrid != selectedGrid)
 			{	MyConsole.Add("Fly out of the current grid toward the target.");
 
 				from = currentGrid.WorldToGridInteger(engineer);
@@ -241,6 +241,7 @@ namespace LLE
 				MyConsole.Add($"path.Count {worldPath.Count}", Color.IndianRed);
 
 				micro.Fly(worldPath);
+				MarkLongFlight(engineer, worldPath);
 
 				yield return NavigationCR(currentGrid, null, headFirst);
 
@@ -252,7 +253,7 @@ namespace LLE
 			from = selectedGrid.WorldToGridInteger(engineer);
 			to = destinationCell;
 
-			aStarHelper = new AStarHelper(selectedGrid.Grid, to, from); // Reversed: A* only knows how to find a path OUT of the grid (to border), so we search backward and reverse the result
+			aStarHelper = new AStarHelper(selectedGrid, to, from); // Reversed: A* only knows how to find a path OUT of the grid (to border), so we search backward and reverse the result
 
 			while(!aStarHelper.Tick()) yield return null;
 
@@ -265,8 +266,21 @@ namespace LLE
 			MyConsole.Add($"path.Count {worldPath.Count}", Color.IndianRed);
 
 			micro.Fly(worldPath);
+			MarkLongFlight(engineer, worldPath);
 
 			yield return NavigationCR(null, arrivalMessage, headFirst);
+		}
+
+		private const double LongFlightMeters = 25;
+
+		private void MarkLongFlight(Vector3D from, List<PathNode> path)
+		{
+			double length = 0;
+			foreach(var node in path)
+			{	length += (node.v - from).Length();
+				from = node.v;
+			}
+			LongRunning = length > LongFlightMeters;
 		}
 
 		internal string CharacterCellText()
@@ -277,7 +291,7 @@ namespace LLE
 		{
 			bool closeBehind = false;
 
-			var up = CalculateUpVector(exitGrid ?? selectedGrid.Grid);
+			var up = CalculateUpVector(exitGrid ?? selectedGrid);
 
 			for(;;)
 			{
@@ -430,7 +444,7 @@ namespace LLE
 			var dirWord = call.Str("direction");
 
 			Vector3I offset;
-			if(!TryDirOffset(selectedGrid.Grid, dirWord, out offset))
+			if(!TryDirOffset(selectedGrid, dirWord, out offset))
 				yield return $"Error: {Quote(dirWord)} is not a direction. Expected: forward backward left right up down";
 
 			int n;

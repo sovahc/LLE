@@ -198,7 +198,7 @@ namespace LLE
 				out definition, out orientation, out port1, out port2);
 			if (refusal != null) yield return refusal;
 
-			MyCubeBlockDefinition neighbour;
+			IMySlimBlock neighbour;
 			Vector3I neighbourCell;
 			refusal = CheckBuildSite(ijk, out neighbour, out neighbourCell);
 			if (refusal != null) yield return refusal;
@@ -210,7 +210,7 @@ namespace LLE
 			}
 			finally
 			{	// An error above disposes the whole coroutine stack; the placer must not stay in hand.
-				world.SwitchCubePlacer(false);
+				SwitchCubePlacer(false);
 			}
 
 			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)},"

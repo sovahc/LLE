@@ -24,65 +24,6 @@ namespace LLE
 		}
 	}
 
-	// A stream that has repeated the same block three times over is not going to stop on its own.
-	// The period is unknown, so it is scanned: a fixed window would only catch loops whose length
-	// divides it. Short periods need more repetitions — "very very very" is speech, not a loop.
-	class LoopGuard
-	{
-		private const int MaxPeriod = 40;
-		private const int Window = MaxPeriod * 3;
-		private const int MaxWord = 16;
-
-		private readonly List<string> words = new List<string>();
-		private readonly StringBuilder word = new StringBuilder();
-
-		public string Tail => string.Join(" ", words);
-
-		public void Clear()
-		{	words.Clear();
-			word.Clear();
-		}
-
-		public bool Feed(string text)
-		{
-			for (int i = 0; i < text.Length; ++i)
-			{
-				bool space = char.IsWhiteSpace(text[i]);
-				if (!space) word.Append(text[i]);
-
-				// A stream without a single space — a run of "<br>" is the one seen — would grow
-				// one endless word and never be looked at.
-				if (word.Length == 0 || !space && word.Length < MaxWord) continue;
-
-				words.Add(word.ToString());
-				word.Clear();
-				if (words.Count > Window) words.RemoveRange(0, words.Count - Window);
-			}
-
-			for (int period = 1; period <= MaxPeriod; ++period)
-			{
-				int repeats = period >= 5 ? 3 : 15 / period;
-				if (words.Count >= period * repeats && Repeated(period, repeats)) return true;
-			}
-
-			return false;
-		}
-
-		private bool Repeated(int period, int repeats)
-		{
-			int last = words.Count - 1;
-
-			for (int k = 0; k < period; ++k)
-			{
-				var w = words[last - k];
-				for (int r = 1; r < repeats; ++r)
-					if (w != words[last - k - r * period]) return false;
-			}
-
-			return true;
-		}
-	}
-
 	class LlmChannel
 	{
 		public readonly int Id;
@@ -95,16 +36,9 @@ namespace LLE
 
 		private bool busy;
 
-		private readonly LoopGuard guard = new LoopGuard();
-		private int cuts;
-
 		public LlmChannel(int id)
 		{	Id = id;
 		}
-
-		// Only the first stream reaches the console. Three streams interleaved chunk by chunk are
-		// unreadable, and every stream is written to the log in full either way.
-		private bool Verbose => Id == 0;
 
 		public int ContextChars { get { return LLE_Loader.GetContextChars(Id); } }
 		public bool Present { get { return ContextChars > 0; } }
@@ -130,7 +64,6 @@ namespace LLE
 			content.Clear();
 			callNames.Clear();
 			callArguments.Clear();
-			guard.Clear();
 		}
 
 		public ChannelEvent Poll(out Answer answer, out string errorText)
@@ -146,27 +79,12 @@ namespace LLE
 				switch (m.Type)
 				{
 					case MessageType.Chunk:
-						if (!ReadChunk(m.Payload)) break;
-
-						LLE.Log($"llmLoop[{Id}]: {guard.Tail}");
-						MyConsole.AddMultiline($"\n[LOOP {Id}] The answer repeated itself and was cut off.\n", Color.Red);
-						Cancel();
-
-						// A model that keeps falling into it will not be talked out of it, and every
-						// retry costs a whole generation.
-						if (++cuts >= 3)
-						{	cuts = 0;
-							errorText = "the answer looped three times running";
-							return ChannelEvent.Error;
-						}
-
-						answer = Looped();
-						return ChannelEvent.Response;
+						ReadChunk(m.Payload);
+						break;
 
 					case MessageType.Stop:
-						if (Verbose) MyConsole.AddMultiline("\n", Color.White);
+						MyConsole.AddMultiline("\n", Color.White);
 						busy = false;
-						cuts = 0;
 						answer = Finish();
 						Reset();
 						return ChannelEvent.Response;
@@ -182,40 +100,35 @@ namespace LLE
 			return ChannelEvent.None;
 		}
 
-		// True when the guard has seen enough to call the stream a loop.
-		private bool ReadChunk(string data)
+		private void ReadChunk(string data)
 		{
 			string error;
 			var root = Json.Parse(data, out error);
 			if (root == null)
 			{	LLE.Log($"llmChunk[{Id}] unreadable: {error}: {data}");
-				return false;
+				return;
 			}
 
 			var choices = root.Field("choices");
-			if (choices == null || !choices.Is(JsonKind.Array) || choices.Array.Count == 0) return false;
+			if (choices == null || !choices.Is(JsonKind.Array) || choices.Array.Count == 0) return;
 
 			var delta = choices.Array[0].Field("delta");
-			if (delta == null) return false;
-
-			bool looping = false;
+			if (delta == null) return;
 
 			var think = delta.Field("reasoning_content") ?? delta.Field("reasoning");
 			if (think != null && think.Is(JsonKind.String) && think.String.Length != 0)
-			{	if (Verbose) MyConsole.AddMultiline(think.String, Color.LightGray);
+			{	MyConsole.AddMultiline(think.String, Color.LightGray);
 				reasoning.Append(think.String);
-				looping |= guard.Feed(think.String);
 			}
 
 			var text = delta.Field("content");
 			if (text != null && text.Is(JsonKind.String) && text.String.Length != 0)
-			{	if (Verbose) MyConsole.AddMultiline(text.String, Color.Cyan);
+			{	MyConsole.AddMultiline(text.String, Color.Cyan);
 				content.Append(text.String);
-				looping |= guard.Feed(text.String);
 			}
 
 			var calls = delta.Field("tool_calls");
-			if (calls == null || !calls.Is(JsonKind.Array)) return looping;
+			if (calls == null || !calls.Is(JsonKind.Array)) return;
 
 			foreach (var call in calls.Array)
 			{
@@ -237,26 +150,8 @@ namespace LLE
 
 				var arguments = function.Field("arguments");
 				if (arguments != null && arguments.Is(JsonKind.String))
-				{	callArguments[at].Append(Unquote(arguments.Raw));
-					looping |= guard.Feed(arguments.String);
-				}
+					callArguments[at].Append(Unquote(arguments.Raw));
 			}
-
-			return looping;
-		}
-
-		private const string LoopError =
-			"[ERROR] Your answer repeated itself and was cut off. Answer again, shorter, and call a tool.\n";
-
-		// Variant B: the turn is spent, but the looping text stays out of the transcript — left in,
-		// it is a worked example for the next turn to imitate.
-		private Answer Looped()
-		{
-			var json = new StringBuilder("{\"role\":\"assistant\",\"content\":");
-			Json.Quoted(json, "(cut off: this answer had started repeating itself)");
-			json.Append('}');
-
-			return new Answer(new List<ToolCall>(), json.ToString(), 0, LoopError);
 		}
 
 		private static string Unquote(string literal)
@@ -300,7 +195,7 @@ namespace LLE
 			if (firstError == null)
 				foreach (var call in calls)
 				{	LLE.Log($"llmToolCall[{Id}]: {call.Text}");
-					if (Verbose) MyConsole.AddMultiline(call.Text + "\n", Color.Cyan);
+					MyConsole.AddMultiline(call.Text + "\n", Color.Cyan);
 				}
 
 			var json = new StringBuilder("{\"role\":\"assistant\",\"content\":");

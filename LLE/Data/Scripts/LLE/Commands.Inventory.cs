@@ -72,14 +72,14 @@ namespace LLE
 			if (CurrentGridIsProjection(out message)) return message;
 
 			StringBuilder sb = new StringBuilder();
-			sb.Append($"# Inventories on {Quote(Name(selectedGrid.Grid))}\n");
+			sb.Append($"# Inventories on {Quote(Name(selectedGrid))}\n");
 
-			var inventories = (selectedGrid.Grid as MyCubeGrid).Inventories;
+			var inventories = (selectedGrid as MyCubeGrid).Inventories;
 			if (inventories.Count == 0) return Success("No blocks with inventories on this grid.");
 
 			foreach (MyCubeBlock block in inventories)
 			{
-				if (block.CubeGrid != selectedGrid.Grid) continue;
+				if (block.CubeGrid != selectedGrid) continue;
 
 				sb.Append($"## {Quote(Name(block.SlimBlock))} at {IJK(block.Position)}\n");
 				for (int i = 0; i < block.InventoryCount; ++i)
@@ -171,9 +171,9 @@ namespace LLE
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
 
-			world.SetPause(Constants.MicronavigationDelay);
-			while(world.IsPaused())
-			{	world.RotateTo(bp);
+			SetPause(Constants.MicronavigationDelay);
+			while(IsPaused())
+			{	CharacterRotateTo(bp);
 				yield return null;
 			}
 
@@ -245,9 +245,9 @@ namespace LLE
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
 
-			world.SetPause(Constants.MicronavigationDelay);
-			while(world.IsPaused())
-			{	world.RotateTo(bp);
+			SetPause(Constants.MicronavigationDelay);
+			while(IsPaused())
+			{	CharacterRotateTo(bp);
 				yield return null;
 			}
 
@@ -387,7 +387,7 @@ namespace LLE
 			foreach(IMyInventory fromInv in fromList)
 			{	
 				items.Clear();
-				world.GetItems(fromInv, items);
+				fromInv.GetItems(items);
 
 				for(int i = items.Count - 1; i >= 0; --i)
 				{	var item = items[i];
@@ -415,7 +415,7 @@ namespace LLE
 
 			if(somethingTransferred)
 			{
-				world.PlaySound("PlayDropItem");
+				PlaySound("PlayDropItem");
 			}
 			else
 			{	result.Append($"No items transferred!\n");
@@ -424,11 +424,11 @@ namespace LLE
 			return somethingTransferred && !noSpaceWarning;
 		}
 
-		internal MyFixedPoint InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount,
+		internal static MyFixedPoint InventoryTransfer(IMyInventory from, int fromIndex, List<WTF_IMyInventory> toList, MyFixedPoint amount,
 			bool checkConnection = false)
 		{
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
-			world.GetItems(from, items);
+			from.GetItems(items);
 
 			var item = items[fromIndex];
 			MyFixedPoint transferred = 0;
@@ -437,28 +437,31 @@ namespace LLE
 			{
 				if (transferred >= amount) break;
 
-				MyFixedPoint fits = world.AmountThatFits(to, item.Type);
+				var toInv = to as MyInventory;
+				if (toInv == null) continue;
+
+				MyFixedPoint fits = toInv.ComputeAmountThatFits(item.Type);
 				if (fits <= 0) continue;
 
 				MyFixedPoint toTransfer = MyFixedPoint.Min(amount - transferred, fits);
 
 				// TransferItemTo answers whether it moved anything, not how much.
-				MyFixedPoint before = world.ItemAmount(from, item.Type);
+				MyFixedPoint before = from.GetItemAmount(item.Type);
 
 				// checkConnection demands a conveyor path, and a character has no endpoint.
-				if(!world.TransferItemTo(from, fromIndex, to, toTransfer, checkConnection))
+				if(!((WTF_IMyInventory)from).TransferItemTo(to, fromIndex, null, true, toTransfer, checkConnection))
 					continue;
 
-				transferred += before - world.ItemAmount(from, item.Type);
+				transferred += before - from.GetItemAmount(item.Type);
 			}
 
 			return transferred;
 		}
 
-		internal void InventoryDelta(IMyInventory inv, Dictionary<string, double> current, int sign)
+		internal static void InventoryDelta(IMyInventory inv, Dictionary<string, double> current, int sign)
 		{
 			List<MyInventoryItem> items = new List<MyInventoryItem>();
-			world.GetItems(inv, items);
+			inv.GetItems(items);
 			foreach (var item in items)
 			{
 				var def = (MyDefinitionId)item.Type;

@@ -22,7 +22,7 @@ namespace LLE
 			string message;
 			if(!GridIsSet(out message)) return message;
 
-			var grid = selectedGrid.Grid;
+			var grid = selectedGrid;
 
 			string category, name;
 			Description(grid as MyEntity, out category, out name);
@@ -124,16 +124,16 @@ namespace LLE
 
 					if(!progress)
 					{	if(!anyProgress)
-						{	world.RemovePilot(cockpit);
+						{	cockpit.RemovePilot();
 							yield return "Block is not charging!";
 						}
 
-						world.RemovePilot(cockpit);
+						cockpit.RemovePilot();
 						yield return Success(status.ReportAll());
 					}
 				}
 
-				world.RemovePilot(cockpit);
+				cockpit.RemovePilot();
 				yield return "Timeout! Recharge may be too slow.";
 			}
 
@@ -151,9 +151,9 @@ namespace LLE
 				if(!Collisions.GetNearestDetectorCenterByPrefix(block, ec, "block_", out rechargeButton))
 					yield return $"Recharge button not found on {Name(block)}";
 
-				bool hasPower = GridHasPower(selectedGrid.Grid);
+				bool hasPower = GridHasPower(selectedGrid);
 
-				var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid.Grid);
+				var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
 				terminalBlocks.Clear();
 				ts.GetBlocks(terminalBlocks);
 				
@@ -165,9 +165,9 @@ namespace LLE
 
 				// Simulating the process since the game once again locked the necessary API
 
-				world.SetPause(Constants.MicronavigationDelay);
-				while(world.IsPaused())
-				{	world.RotateTo(rechargeButton);
+				SetPause(Constants.MicronavigationDelay);
+				while(IsPaused())
+				{	CharacterRotateTo(rechargeButton);
 					yield return null;
 				}
 
@@ -181,7 +181,7 @@ namespace LLE
 				const float EnergyFillSeconds = 5.6f;
 				const float HydrogenFillSeconds = 1.7f;
 
-				world.PlaySound("BlockMedicalProgress");
+				PlaySound("BlockMedicalProgress");
 
 				for(;;)
 				{	double t0 = Time.Now;
@@ -227,7 +227,7 @@ namespace LLE
 					if(hasPower && needMoreEnergy) continue;
 					if(hasHydrogen && needMoreHydrogen) continue;
 
-					world.StopSound();
+					StopSound();
 					yield return Success(status.ReportAll());
 				}
 			}

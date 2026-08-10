@@ -23,7 +23,7 @@ namespace LLE
 			}
 
 			if (calls.Count == 0)
-			{	message = "!ERROR: Your last message called no tool. Every turn is one to four tool calls.\n";
+			{	message = "!ERROR: Your last message called no tool. Every turn is one to three tool calls.\n";
 				return repeats >= 4;
 			}
 
@@ -64,26 +64,10 @@ namespace LLE
 
 		private bool hasNews;
 
-		private readonly LlmChannel[] channels = BuildChannels();
+		private readonly LlmChannel channel = new LlmChannel(0);
 
-		private readonly Answer[] answers;
-		private readonly string[] errors;
-		private bool answered;
-
-		// One stream per configured channel. An absent channel reports no context, and channel zero
-		// always exists: without the loader every probe answers zero.
-		private static LlmChannel[] BuildChannels()
-		{
-			var list = new List<LlmChannel>();
-
-			for (int i = 0; i < 8; ++i)
-			{	var channel = new LlmChannel(i);
-				if (i != 0 && !channel.Present) break;
-				list.Add(channel);
-			}
-
-			return list.ToArray();
-		}
+		private Answer response;
+		private string responseError;
 
 		public static string Join(string separator, List<ToolCall> calls)
 		{	var sb = new StringBuilder();
@@ -115,6 +99,8 @@ namespace LLE
 
 		private double commandStartTime;
 
+		private bool batchAcked;
+
 		private const int NewsQuietTicks = 2;
 		private const int NewsMaxTicks = 10;
 
@@ -127,43 +113,13 @@ namespace LLE
 		{	loopDetector.Reset();
 		}
 
-		private readonly ShadowRunner shadowRunner;
-		private Prediction predicted;
-
 		public LLM(Commands commands_)
 		{	commands = commands_;
-			shadowRunner = new ShadowRunner(commands_);
-
-			answers = new Answer[channels.Length];
-			errors = new string[channels.Length];
-		}
-
-		// Stage 6 of the shadow world: the prediction runs against every command and only the
-		// divergences are worth reading. Nothing acts on it yet.
-		private void ReportPrediction(ToolCall call, CommandResult actual)
-		{
-			if (predicted == null) return;
-
-			var line = predicted.Unknown != null
-				? $"[SHADOW] {call.Text}: unknown — {predicted.Unknown}\n"
-				: predicted.Result.Status == actual.Status ? null
-				: $"[SHADOW] {call.Text}: predicted [{predicted.Result.Status}] {predicted.Result.Message}\n"
-					+ $"[SHADOW] actual [{actual.Status}] {actual.Message}\n";
-
-			predicted = null;
-			if (line == null) return;
-
-			// Not through Destination.Log: that buffer is dumped as "toLLM:", and the model never
-			// sees any of this.
-			Append(line, Color.MediumPurple, Destination.Console);
-			Log(line);
 		}
 
 		public void OnCommandFinished(CommandResult result)
 		{
 			var currentCommand = batch.Dequeue();
-
-			ReportPrediction(currentCommand, result);
 
 			string tag;
 			switch(result.Status)
@@ -179,10 +135,11 @@ namespace LLE
 				took = $" (Took {elapsed:F1}s)";
 			commandStartTime = 0;
 
-			var destination = Destination.Console | Destination.Log;
+			// Once the batch is acked its slots are closed; the outcome can only come as an event.
+			var destination = batchAcked ? Destination.All : Destination.Console | Destination.Log;
 
 			Append($"→ {currentCommand.Text}: [{tag}] {result.Message}{took}\n", Color.Cornsilk, destination);
-			AnswerCall($"[{tag}] {result.Message}{took}");
+			if(!batchAcked) AnswerCall($"[{tag}] {result.Message}{took}");
 
 			if(result.Status != CommandStatus.Success && batch.Count > 0)
 			{	Append($"Remaining {batch.Count} command(s) ignored: {Join("; ", new List<ToolCall>(batch))}\n",
@@ -190,9 +147,28 @@ namespace LLE
 
 				while(batch.Count > 0)
 				{	batch.Dequeue();
-					AnswerCall("Not executed: an earlier call in this batch failed.");
+					if(!batchAcked) AnswerCall("Not executed: an earlier call in this batch failed.");
 				}
 			}
+		}
+
+		private void CancelBatch()
+		{
+			commands.Cancel();
+
+			string took = commandStartTime == 0 ? "" : $" after {Time.Now - commandStartTime:F1}s";
+			commandStartTime = 0;
+
+			var stopped = batch.Dequeue();
+			Append($"→ {stopped.Text}: [CANCELLED] Stopped{took}.\n", Color.Cornsilk);
+
+			if(batch.Count > 0)
+			{	Append($"Cancelled {batch.Count} queued command(s): {Join("; ", new List<ToolCall>(batch))}\n",
+					Color.Cornsilk);
+				batch.Clear();
+			}
+
+			AnswerCall("[OK] Stopped.");
 		}
 
 		private void AddAssistant(Answer answer)
@@ -234,8 +210,6 @@ namespace LLE
 
 			commandStartTime = Time.Now;
 
-			predicted = shadowRunner.Predict(batch.Peek());
-
 			var result = commands.Execute(batch.Peek());
 
 			if (result == null && !commands.InProgress())
@@ -243,6 +217,15 @@ namespace LLE
 
 			if (result != null)
 				OnCommandFinished(result);
+		}
+
+		// Closing the slots is what frees the channel; until then the model waits, as it always did.
+		private void AckBatch()
+		{
+			batchAcked = true;
+			AnswerCall("[RUNNING] Started, still going. Answer continue or cancel.");
+			for (int i = 1; i < batch.Count; ++i)
+				AnswerCall("[PENDING] Queued behind the running command.");
 		}
 
 		public void Append(string text, Color consoleColor, Destination d = Destination.All)
@@ -256,7 +239,7 @@ namespace LLE
 			++quietTicks;
 			++newsTicks;
 
-			PollChannels();
+			PollChannel();
 
 			var ec = commands.GetEngineerCenter();
 
@@ -285,29 +268,29 @@ namespace LLE
 				{	var result = commands.Update();
 					if (result != null)
 						OnCommandFinished(result);
+					else if (!batchAcked && commands.LongRunning)
+						AckBatch();
 				}
 				else
 					RunNextPending();
 			}
 
-			// Every stream is waited out: the batches can only be compared once they all exist.
-			foreach(var channel in channels)
-				if(channel.Busy) return;
+			if(channel.Busy) return;
 
 			// Must stay ahead of the send below: an async VISION/STATUS report would otherwise
 			// fire that send and orphan it, and the next response appends its calls onto it.
-			if(answered)
-				ProcessAnswers();
+			if(response != null || responseError != null)
+				ProcessAnswer();
 
 			if(pause) return;
 
 			// Slots still open: sending now would leave the model's own tool calls unanswered.
-			if (batch.Count != 0) return;
+			if (batch.Count != 0 && !batchAcked) return;
 
 			if (hasNews && (quietTicks >= NewsQuietTicks || newsTicks >= NewsMaxTicks))
 			{
 				int used = ContextUsed;
-				int total = channels[0].ContextChars;
+				int total = channel.ContextChars;
 
 				if (total <= 0)
 				{	output.Clear();
@@ -356,8 +339,7 @@ namespace LLE
 				logBuf.Clear();
 				hasNews = false;
 
-				var request = Request();
-				foreach(var channel in channels) channel.Send(request);
+				channel.Send(Request());
 				turn++;
 				return;
 			}
@@ -402,100 +384,37 @@ namespace LLE
 
 		private void ContextStatistic()
 		{
-			int total = channels[0].ContextChars;
+			int total = channel.ContextChars;
 			if (total <= 0) return;
 			int used = ContextUsed;
 			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({used * 100 / total}%)", Color.LightPink);
 		}
 
-		private void PollChannels()
+		private void PollChannel()
 		{
-			for (int i = 0; i < channels.Length; ++i)
-			{
-				Answer payload;
-				string errorText;
+			Answer payload;
+			string errorText;
 
-				var polled = channels[i].Poll(out payload, out errorText);
-				if (polled == ChannelEvent.None) continue;
+			var polled = channel.Poll(out payload, out errorText);
+			if (polled == ChannelEvent.None) return;
 
-				if (polled == ChannelEvent.Error)
-				{	Log($"channel {i} died: {errorText}");
-					errors[i] = errorText;
-				}
-				else answers[i] = payload;
-
-				answered = true;
+			if (polled == ChannelEvent.Error)
+			{	Log($"channel died: {errorText}");
+				responseError = errorText;
 			}
-		}
+			else response = payload;
 
-		// Every stream answered the same question, so the shadow decides which answer survives
-		// contact with the world. The losers are dropped whole: the transcript keeps one voice, and
-		// the model is never told it was one of several.
-		private void ProcessAnswers()
-		{
-			answered = false;
 			ContextStatistic();
-
-			var scores = new BatchScore[answers.Length];
-			int winner = -1;
-
-			for (int i = 0; i < answers.Length; ++i)
-			{
-				if (answers[i] == null) continue;
-
-				scores[i] = Score(answers[i]);
-				if (winner < 0 || scores[i].Beats(scores[winner])) winner = i;
-			}
-
-			if (channels.Length > 1 && winner >= 0) ReportChoice(scores, winner);
-
-			var answer = winner < 0 ? null : answers[winner];
-			var error = winner >= 0 ? null : FirstError();
-
-			for (int i = 0; i < answers.Length; ++i)
-			{	answers[i] = null;
-				errors[i] = null;
-			}
-
-			ProcessAnswer(answer, error);
 		}
 
-		// An answer that cannot be used at all still costs the turn: it has to lose to any batch that
-		// runs, and it has to remain the answer when every stream produced one.
-		private BatchScore Score(Answer answer)
+		private void ProcessAnswer()
 		{
-			if (answer.Error != null || answer.Calls.Count == 0)
-				return new BatchScore { Valid = -1, Broken = true, Stopped = "unusable" };
+			var answer = response;
+			response = null;
 
-			return shadowRunner.Score(answer.Calls);
-		}
-
-		private void ReportChoice(BatchScore[] scores, int winner)
-		{
-			for (int i = 0; i < scores.Length; ++i)
-			{
-				if (scores[i] == null) continue;
-
-				var line = $"[PICK] {i}{(i == winner ? "*" : " ")} {scores[i].Valid} valid"
-					+ (scores[i].Stopped == null ? "" : ", " + scores[i].Stopped)
-					+ $" | {Join("; ", answers[i].Calls)}\n";
-
-				Append(line, i == winner ? Color.MediumPurple : Color.Gray, Destination.Console);
-				Log(line);
-			}
-		}
-
-		private string FirstError()
-		{
-			foreach (var error in errors)
-				if (error != null) return error;
-			return "no answer";
-		}
-
-		private void ProcessAnswer(Answer answer, string channelError)
-		{
 			if (answer == null)
-			{	MyConsole.AddMultiline("\n[LLM ERROR] " + channelError + "\n", Color.Red);
+			{	MyConsole.AddMultiline("\n[LLM ERROR] " + responseError + "\n", Color.Red);
+				responseError = null;
 				pause = true;
 				return;
 			}
@@ -512,6 +431,19 @@ namespace LLE
 			if (error != null)
 			{	Log($"turn {turn} unusable: {error.Trim()}");
 				Append(error, Color.Red);
+				return;
+			}
+
+			// Not InProgress(): the head may have ended this very tick with its batch still unfinished,
+			// and mixing a new answer's calls into that batch would put its slots out of step.
+			if (batch.Count != 0)
+			{	RunningAnswer(cc);
+				return;
+			}
+
+			// The command outran the turn it asked about; its result is already on the way.
+			if (cc.Count == 1 && (cc[0].Is("continue") || cc[0].Is("cancel")))
+			{	AnswerCall("[OK] It already finished.", false);
 				return;
 			}
 
@@ -546,9 +478,34 @@ namespace LLE
 				}
 			}
 
+			batchAcked = false;
 			for (int i = 0; i < cc.Count; ++i) batch.Enqueue(cc[i]);
 
 			RunNextPending();
+		}
+
+		// A running command answers [RUNNING] at once, so its slots are already closed and the
+		// model is free to think. The only thing it may decide is whether that command survives.
+		private void RunningAnswer(List<ToolCall> cc)
+		{
+			if (cc.Count == 1 && cc[0].Is("continue"))
+			{	Append("→ continue\n", Color.Cornsilk, Destination.Console | Destination.Log);
+				AnswerCall("[OK] Still running.", false);
+				return;
+			}
+
+			if (cc.Count == 1 && cc[0].Is("cancel"))
+			{	CancelBatch();
+				return;
+			}
+
+			Append("[ERROR] A command is running: continue or cancel, nothing else.\n", Color.Red,
+				Destination.Console | Destination.Log);
+
+			// Silent on purpose: answering with news here would ask again at once, and a model
+			// that keeps calling the wrong tool would spin at full inference until the command ends.
+			AnswerRest(cc.Count, "Not executed: a command is running. While it runs the only calls"
+				+ " you may make are continue and cancel.", false);
 		}
 	}
 }
