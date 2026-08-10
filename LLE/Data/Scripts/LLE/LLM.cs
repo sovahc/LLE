@@ -415,7 +415,7 @@ namespace LLE
 				if (answers[i] == null) continue;
 
 				scores[i] = Score(answers[i], out refusals[i]);
-				if (winner < 0 || scores[i] > scores[winner]) winner = i;
+				if (winner < 0 || Beats(scores, i, winner)) winner = i;
 			}
 
 			if (channels.Length > 1 && winner >= 0) ReportChoice(scores, refusals, winner);
@@ -429,6 +429,14 @@ namespace LLE
 			}
 
 			ProcessAnswer(answer, error);
+		}
+
+		// Only the head of a batch is checked, so a longer batch wins on the strength of its head
+		// alone. That is the point: one turn spent on four calls beats four turns spent on one.
+		private bool Beats(int[] scores, int challenger, int best)
+		{
+			if (scores[challenger] != scores[best]) return scores[challenger] > scores[best];
+			return answers[challenger].Calls.Count > answers[best].Calls.Count;
 		}
 
 		private const int ScoreRuns = 2;
