@@ -189,6 +189,11 @@ namespace LLE
 
 		public void RemovePilot(IMyCockpit cockpit) => Unsure("where the engineer ends up after leaving a seat");
 
+		public void Say(string message) { }
+		public void PlaySound(string sound) { }
+		public void StopSound() { }
+		public void PauseBot() { }
+
 		public bool PlaceBlock(IGridView grid, MyObjectBuilder_CubeBlock ob)
 		{
 			var shadow = grid as ShadowGrid;
@@ -238,6 +243,63 @@ namespace LLE
 				amounts.Add(inventory, byId);
 			}
 			byId[item] = amount;
+		}
+	}
+
+	// What the shadow says will happen. A run that hit Unknown has no outcome to compare, so the
+	// two fields are exclusive.
+	internal class Prediction
+	{
+		public readonly CommandResult Result;
+		public readonly string Unknown;
+
+		public Prediction(CommandResult result_, string unknown_)
+		{	Result = result_;
+			Unknown = unknown_;
+		}
+	}
+
+	// Runs a command against a shadow world before the real world runs it. The prediction lives on
+	// a second Commands, so it cannot touch the real bookkeeping — the selected grid, the draft,
+	// the coroutine stack — and the whole command finishes inside one tick.
+	internal class ShadowRunner
+	{
+		private readonly Commands real;
+		private readonly Commands shadow;
+
+		public ShadowRunner(Commands real_)
+		{	real = real_;
+			shadow = real_.Shadow();
+		}
+
+		public Prediction Predict(ToolCall call)
+		{
+			// Recharge fills the character's real health and gas by hand and paces itself off the
+			// clock, which does not move inside one tick.
+			if (call.Is("recharge")) return new Prediction(null, "how a recharge goes");
+
+			var overlay = new ShadowWorld(real.world);
+			shadow.world = overlay;
+			shadow.AbortCommand();
+			shadow.CopyStateFrom(real);
+
+			CommandResult result;
+			try
+			{
+				result = shadow.Execute(call);
+				while (result == null && shadow.InProgress() && overlay.Step())
+					result = shadow.Update();
+			}
+			catch (Exception e)
+			{	return new Prediction(null, $"the prediction threw {e.GetType().Name}: {e.Message}");
+			}
+			finally
+			{	shadow.AbortCommand();
+			}
+
+			if (overlay.Unknown != null) return new Prediction(null, overlay.Unknown);
+			if (result == null) return new Prediction(null, "the prediction ended without a result");
+			return new Prediction(result, null);
 		}
 	}
 

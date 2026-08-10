@@ -113,13 +113,40 @@ namespace LLE
 		{	loopDetector.Reset();
 		}
 
+		private readonly ShadowRunner shadowRunner;
+		private Prediction predicted;
+
 		public LLM(Commands commands_)
 		{	commands = commands_;
+			shadowRunner = new ShadowRunner(commands_);
+		}
+
+		// Stage 6 of the shadow world: the prediction runs against every command and only the
+		// divergences are worth reading. Nothing acts on it yet.
+		private void ReportPrediction(ToolCall call, CommandResult actual)
+		{
+			if (predicted == null) return;
+
+			var line = predicted.Unknown != null
+				? $"[SHADOW] {call.Text}: unknown — {predicted.Unknown}\n"
+				: predicted.Result.Status == actual.Status ? null
+				: $"[SHADOW] {call.Text}: predicted [{predicted.Result.Status}] {predicted.Result.Message}\n"
+					+ $"[SHADOW] actual [{actual.Status}] {actual.Message}\n";
+
+			predicted = null;
+			if (line == null) return;
+
+			// Not through Destination.Log: that buffer is dumped as "toLLM:", and the model never
+			// sees any of this.
+			Append(line, Color.MediumPurple, Destination.Console);
+			Log(line);
 		}
 
 		public void OnCommandFinished(CommandResult result)
 		{
 			var currentCommand = batch.Dequeue();
+
+			ReportPrediction(currentCommand, result);
 
 			string tag;
 			switch(result.Status)
@@ -209,6 +236,8 @@ namespace LLE
 			if (batch.Count == 0) return;
 
 			commandStartTime = Time.Now;
+
+			predicted = shadowRunner.Predict(batch.Peek());
 
 			var result = commands.Execute(batch.Peek());
 

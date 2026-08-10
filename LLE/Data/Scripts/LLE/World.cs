@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using VRage;
 using VRageMath;
 using VRage.Game;
+using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using Sandbox.ModAPI;
 using Sandbox.Definitions;
@@ -119,6 +120,13 @@ namespace LLE
 		bool AttachPilot(IMyCockpit cockpit);
 		void RemovePilot(IMyCockpit cockpit);
 
+		// Reaches the player rather than the world, and just as real: a prediction that speaks,
+		// beeps or stops the bot has already happened by the time it is thrown away.
+		void Say(string message);
+		void PlaySound(string sound);
+		void StopSound();
+		void PauseBot();
+
 		bool PlaceBlock(IGridView grid, MyObjectBuilder_CubeBlock ob);
 		void RazeBlock(IMySlimBlock block);
 		bool TransferItemTo(IMyInventory from, int fromIndex, IMyInventory to, MyFixedPoint amount, bool requireConveyor);
@@ -196,6 +204,29 @@ namespace LLE
 		}
 
 		public void RemovePilot(IMyCockpit cockpit) => cockpit.RemovePilot();
+
+		public void Say(string message)
+		{
+			MyVisualScriptLogicProvider.SendChatMessage(
+				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
+			LLE_Loader.Speak(message);
+		}
+
+		private MyEntity3DSoundEmitter soundEmitter;
+
+		public void PlaySound(string sound)
+		{
+			if (soundEmitter == null) soundEmitter = new MyEntity3DSoundEmitter(character as MyEntity);
+			soundEmitter.PlaySound(new MySoundPair(sound));
+		}
+
+		public void StopSound()
+		{
+			if (soundEmitter == null) return;
+			soundEmitter.StopSound(false);
+		}
+
+		public void PauseBot() => LLM.pause = true;
 
 		public bool PlaceBlock(IGridView grid, MyObjectBuilder_CubeBlock ob) => grid.Grid.AddBlock(ob, false) != null;
 

@@ -415,7 +415,7 @@ namespace LLE
 
 			if(somethingTransferred)
 			{
-				PlaySound("PlayDropItem");
+				world.PlaySound("PlayDropItem");
 			}
 			else
 			{	result.Append($"No items transferred!\n");

@@ -181,7 +181,7 @@ namespace LLE
 				const float EnergyFillSeconds = 5.6f;
 				const float HydrogenFillSeconds = 1.7f;
 
-				PlaySound("BlockMedicalProgress");
+				world.PlaySound("BlockMedicalProgress");
 
 				for(;;)
 				{	double t0 = Time.Now;
@@ -227,7 +227,7 @@ namespace LLE
 					if(hasPower && needMoreEnergy) continue;
 					if(hasHydrogen && needMoreHydrogen) continue;
 
-					StopSound();
+					world.StopSound();
 					yield return Success(status.ReportAll());
 				}
 			}

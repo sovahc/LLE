@@ -108,8 +108,8 @@ find now than under thirty more edits.
 - [x] Real effects found while sweeping and routed so the shadow cannot fire them for real:
       `MoveItemsToConstructionStockpile`, `AttachPilot`, `RemovePilot`
 - [x] Leave `WorldToGridInteger` / `GridIntegerToWorld` alone — pure transforms
-- [ ] Second in-game run: `place`, `weld`, `grind`, `fly`, `approach`, `get`/`put`, `enter`,
-      `inventories`, `overview`, `draft`/`build` — **do not start the shadow before this box**
+- [x] Second in-game run: `place`, `weld`, `grind`, `fly`, `approach`, `get`/`put`, `enter`,
+      `inventories`, `overview`, `draft`/`build` — base behaviour unchanged
 
 ### 5. Shadow (T)
 
@@ -133,10 +133,30 @@ block state off the handle still bypass it — that is stage 3b.
 
 ### 6. T against R
 
-- [ ] Every command that really executes runs through T first, then through R
-- [ ] Divergences are logged: what the shadow predicted, what actually happened
+- [x] Every command that really executes runs through T first, then through R
+      (`ShadowRunner.Predict` in `LLM.RunNextPending`)
+- [x] The prediction runs on a second `Commands` seeded from the real one. Sharing the
+      instance would have let a prediction move the selected grid, the draft and the
+      coroutine stack of the real bot
+- [x] The whole command finishes inside one tick, so anything paced by the clock rather than
+      by `IWorld` spins to the cap. `recharge` is the only one — it also writes the
+      character's health and gas by hand — and is refused up front as Unknown
+- [x] Player-facing effects routed so a prediction cannot fire them: `Say`, `PlaySound`,
+      `StopSound`, `PauseBot`, and the three `SwitchCubePlacer` calls in `finally` blocks
+- [x] A prediction that throws is caught and logged as Unknown. The shadow must not be able
+      to take the game down
+- [x] Divergences are logged: predicted status and message against the actual, console and
+      log, never to the model
 - [ ] Keep running in this mode until the log stays empty over a normal session
 - [ ] The list of divergences is the task list for this stage
+- [ ] Two divergences already visible in the code, before any log. `weld` on a projection
+      reads the block back off the projector's real grid and finds nothing there, so the
+      shadow predicts an error where the real weld succeeds — a false rejection, the
+      expensive kind. `grind` predicts Success on the first shot, while the real one often
+      ends Incomplete (inventory full) or stale — harmless, it only ever over-accepts
+- [ ] Watch the frame cost: T replays whatever the command computes for real — EQS in
+      `approach`, the conveyor A* in `route` — compressed into one frame. `fly` is cheap,
+      its search lives inside `RealFly`, which the shadow replaces wholesale
 
 ### 7. Prediction: the experiment itself
 

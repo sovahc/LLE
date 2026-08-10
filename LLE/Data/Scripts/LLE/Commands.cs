@@ -90,23 +90,17 @@ namespace LLE
 			return world.EngineerCenter;
 		}
 
-		private MyEntity3DSoundEmitter soundEmitter;
+		internal Commands Shadow() => new Commands(character);
 
-		private void PlaySound(string sound)
+		// What a command reads besides the world and its own arguments. The shadow runs on its own
+		// instance and needs this handed to it before every prediction.
+		internal void CopyStateFrom(Commands source)
 		{
-			if (soundEmitter == null)
-			{
-				soundEmitter = new MyEntity3DSoundEmitter(character as MyEntity);
-			}
-			if (soundEmitter != null)
-			{
-				soundEmitter.PlaySound(new MySoundPair(sound));
-			}
-		}
+			selectedGrid = source.selectedGrid == null ? null : world.View(source.selectedGrid.Grid);
 
-		private void StopSound()
-		{	if (soundEmitter == null) return;
-			soundEmitter.StopSound(false);
+			draft.Clear();
+			draft.AddRange(source.draft);
+			draftBase = source.draftBase;
 		}
 
 		private static bool Include(string searchTerm, string text)
@@ -138,9 +132,7 @@ namespace LLE
 			if (string.IsNullOrEmpty(message))
 				return call.Need("message");
 
-			MyVisualScriptLogicProvider.SendChatMessage(
-				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
-			LLE_Loader.Speak(message);
+			world.Say(message);
 			return Success("Done");
 		}
 
@@ -428,7 +420,7 @@ namespace LLE
 			switch(call.Name)
 			{
 				case "pause":
-					LLM.pause = true;
+					world.PauseBot();
 					return Success("OK");
 
 				case "position":       return Position();

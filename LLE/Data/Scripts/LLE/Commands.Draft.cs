@@ -338,7 +338,7 @@ namespace LLE
 			}
 			finally
 			{	// An error above disposes the whole coroutine stack; the placer must not stay in hand.
-				SwitchCubePlacer(false);
+				world.SwitchCubePlacer(false);
 			}
 
 			if(draft.Count == 0) ClearDraft(); else TouchDraft();

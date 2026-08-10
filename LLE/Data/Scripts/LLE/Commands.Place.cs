@@ -138,7 +138,7 @@ namespace LLE
 
 		private IEnumerator HoldCubePlacer(bool hold)
 		{
-			SwitchCubePlacer(hold);
+			world.SwitchCubePlacer(hold);
 
 			world.SetPause(1);
 			while(world.IsPaused()) yield return null;
@@ -248,7 +248,7 @@ namespace LLE
 			}
 			finally
 			{	// An error above disposes the whole coroutine stack; the placer must not stay in hand.
-				SwitchCubePlacer(false);
+				world.SwitchCubePlacer(false);
 			}
 
 			yield return Success($"Placed {Quote(definition.DisplayNameText)} at {IJK(ijk)}, touching {Quote(Name(neighbour))} at {IJK(neighbourCell)}");
