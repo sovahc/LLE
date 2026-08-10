@@ -272,10 +272,10 @@ namespace LLE
 			if(projector == null)
 				return "Error: could not find the projector owning this projection.";
 
-			var realGrid = projector.CubeGrid;
+			var builtGrid = projector.CubeGrid;
 
 			var md = new MyMarkdown();
-			md.Append($"Real grid (select this to weld already-placed blocks): {Quote(Name(realGrid))}");
+			md.Append($"Real grid (select this to weld already-placed blocks): {Quote(Name(builtGrid))}");
 			md.Append($"Total blocks: {projector.TotalBlocks}");
 			md.Append($"Not yet built: {projector.RemainingBlocks}");
 			md.Append($"Buildable now: {projector.BuildableBlocksCount}");
@@ -290,8 +290,8 @@ namespace LLE
 				{
 					// CanBuild's AlreadyBuilt is unreliable for hidden ghosts; match position first.
 					var worldPos = selectedGrid.GridIntegerToWorld(ghost.Position);
-					var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
-					if(realBlock != null && realBlock.BlockDefinition.Id == ghost.BlockDefinition.Id)
+					var builtBlock = builtGrid.GetCubeBlock(builtGrid.WorldToGridInteger(worldPos));
+					if(builtBlock != null && builtBlock.BlockDefinition.Id == ghost.BlockDefinition.Id)
 						continue;
 
 					if(projector.CanBuild(ghost, false) == BuildCheckResult.OK)
@@ -325,7 +325,7 @@ namespace LLE
 				if(projector == null)
 					return "Error: could not find the projector owning this projection.";
 
-				var realGrid = projector.CubeGrid;
+				var builtGrid = projector.CubeGrid;
 
 				var ghosts = new List<IMySlimBlock>();
 				selectedGrid.GetBlocks(ghosts);
@@ -335,12 +335,12 @@ namespace LLE
 				{
 					// CanBuild's AlreadyBuilt is unreliable for hidden ghosts; match position first.
 					var worldPos = selectedGrid.GridIntegerToWorld(ghost.Position);
-					var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
-					if(realBlock == null || realBlock.BlockDefinition.Id != ghost.BlockDefinition.Id)
+					var builtBlock = builtGrid.GetCubeBlock(builtGrid.WorldToGridInteger(worldPos));
+					if(builtBlock == null || builtBlock.BlockDefinition.Id != ghost.BlockDefinition.Id)
 						continue;
 
-					if(realBlock.Integrity < realBlock.MaxIntegrity)
-						damaged.Add(realBlock);
+					if(builtBlock.Integrity < builtBlock.MaxIntegrity)
+						damaged.Add(builtBlock);
 				}
 
 				if(damaged.Count == 0)

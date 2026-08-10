@@ -285,11 +285,11 @@ namespace LLE
 				if(projector == null)
 					yield return "Error: could not find the projector owning this projection.";
 				
-				var realGrid = projector.CubeGrid;
+				var builtGrid = projector.CubeGrid;
 				var worldPos = selectedGrid.GridIntegerToWorld(block.Position);
-				var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
+				var builtBlock = builtGrid.GetCubeBlock(builtGrid.WorldToGridInteger(worldPos));
 
-				if(realBlock == null)
+				if(builtBlock == null)
 				{	welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 					if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
@@ -297,13 +297,13 @@ namespace LLE
 					welderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
 					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 				
-					realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
-					if(realBlock == null)
+					builtBlock = builtGrid.GetCubeBlock(builtGrid.WorldToGridInteger(worldPos));
+					if(builtBlock == null)
 						yield return "Error: can't place block using projection.";
 
-					// switch to real block
-					block = realBlock;
-					result.Append($"Block placed on grid '{realGrid.DisplayName}'\n");
+					// switch to built block
+					block = builtBlock;
+					result.Append($"Block placed on grid '{builtGrid.DisplayName}'\n");
 				}
 			}
 
