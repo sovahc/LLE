@@ -50,17 +50,21 @@ command beats stopping at the first.
 
 - [x] `IGridView` — member names identical to `IMyCubeGrid` so that the 77 uses of
       `selectedGrid` compile unchanged (`World.cs`)
-- [ ] `IInventoryView`: `GetItems`, `GetItemAmount` — take the exact types from the call
-      sites, the mod mixes the ModAPI and Ingame variants
-- [ ] `IEngineerView`: `GetEngineerCenter`, character matrix
-- [ ] `IEffector`: movement, `TransferItem`, `RemoveBlock`, `RazeBlock`,
-      `SwitchCubePlacer`, block placement, weld/grind step
+- [x] `IWorld` — engineer, block state, inventory reads, pacing and all effects in one
+      interface; separate view interfaces turned out to be needless, the shadow state is
+      one object (`World.cs`)
+- [x] Block state (`Integrity`, `IsDestroyed`, `StockpileEmpty`) reads through `IWorld`:
+      commands hold `IMySlimBlock` handles, so the shadow cannot move that state otherwise
+- [x] Pacing (`SetPause`, `IsPaused`, `ToolReady`) in `IWorld`: the shadow answers "over
+      already", or every wait loop burns the iteration cap
+- [x] Effects are semantic (`Move`, `ToolShoot`, `PlaceBlock`), not native
+      (`MoveAndRotate`, `Shoot`) — a shadow cannot answer the native ones without physics
 
 ### 2. Passthrough (R)
 
 - [x] `RealGrid` — `IGridView` passthrough to the game
-- [ ] The remaining three implementations, one to one into game calls
-- [ ] The context a command takes its views and effector from
+- [x] `RealWorld` — `IWorld` adapter over the existing `Commands` methods
+- [ ] The context a command takes its world from
 
 ### 3. Move commands onto R
 

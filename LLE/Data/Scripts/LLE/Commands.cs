@@ -62,10 +62,10 @@ namespace LLE
 
 		private double resumeTime;
 
-		private void SetPause(double time)
+		internal void SetPause(double time)
 		{	resumeTime = Time.Now + time;
 		}
-		private bool IsPaused()
+		internal bool IsPaused()
 		{	return Time.Now < resumeTime;			
 		}
 

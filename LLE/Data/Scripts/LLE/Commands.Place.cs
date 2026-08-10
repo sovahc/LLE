@@ -126,7 +126,7 @@ namespace LLE
 				+ " to hold on to. Place it against the existing structure.";
 		}
 
-		private void SwitchCubePlacer(bool hold)
+		internal void SwitchCubePlacer(bool hold)
 		{
 			var controller = character as Sandbox.Game.Entities.IMyControllableEntity;
 
