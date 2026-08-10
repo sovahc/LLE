@@ -102,6 +102,10 @@ namespace LLE
 		{	Id = id;
 		}
 
+		// Only the first stream reaches the console. Three streams interleaved chunk by chunk are
+		// unreadable, and every stream is written to the log in full either way.
+		private bool Verbose => Id == 0;
+
 		public int ContextChars { get { return LLE_Loader.GetContextChars(Id); } }
 		public bool Present { get { return ContextChars > 0; } }
 		public bool Busy { get { return busy; } }
@@ -145,7 +149,7 @@ namespace LLE
 						if (!ReadChunk(m.Payload)) break;
 
 						LLE.Log($"llmLoop[{Id}]: {guard.Tail}");
-						MyConsole.AddMultiline("\n[LOOP] The answer repeated itself and was cut off.\n", Color.Red);
+						MyConsole.AddMultiline($"\n[LOOP {Id}] The answer repeated itself and was cut off.\n", Color.Red);
 						Cancel();
 
 						// A model that keeps falling into it will not be talked out of it, and every
@@ -160,7 +164,7 @@ namespace LLE
 						return ChannelEvent.Response;
 
 					case MessageType.Stop:
-						MyConsole.AddMultiline("\n", Color.White);
+						if (Verbose) MyConsole.AddMultiline("\n", Color.White);
 						busy = false;
 						cuts = 0;
 						answer = Finish();
@@ -198,14 +202,14 @@ namespace LLE
 
 			var think = delta.Field("reasoning_content") ?? delta.Field("reasoning");
 			if (think != null && think.Is(JsonKind.String) && think.String.Length != 0)
-			{	MyConsole.AddMultiline(think.String, Color.LightGray);
+			{	if (Verbose) MyConsole.AddMultiline(think.String, Color.LightGray);
 				reasoning.Append(think.String);
 				looping |= guard.Feed(think.String);
 			}
 
 			var text = delta.Field("content");
 			if (text != null && text.Is(JsonKind.String) && text.String.Length != 0)
-			{	MyConsole.AddMultiline(text.String, Color.Cyan);
+			{	if (Verbose) MyConsole.AddMultiline(text.String, Color.Cyan);
 				content.Append(text.String);
 				looping |= guard.Feed(text.String);
 			}
@@ -296,7 +300,7 @@ namespace LLE
 			if (firstError == null)
 				foreach (var call in calls)
 				{	LLE.Log($"llmToolCall[{Id}]: {call.Text}");
-					MyConsole.AddMultiline(call.Text + "\n", Color.Cyan);
+					if (Verbose) MyConsole.AddMultiline(call.Text + "\n", Color.Cyan);
 				}
 
 			var json = new StringBuilder("{\"role\":\"assistant\",\"content\":");

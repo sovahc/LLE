@@ -68,14 +68,14 @@ passes.
 
 ### 2. Streams and the pick
 
-- [ ] One request fanned out to every configured channel, all of them waited out. This existed at
-      `c2838e2` in LLM.cs and can be lifted from there without the shadow
-- [ ] Only stream 0 prints to the console; the log keeps all of them
-- [ ] Score of a stream: first command passes > first command has no check yet > first command
-      fails > the answer called no tool. Ties go to the lowest channel index
-- [ ] Losing answers are dropped whole — the transcript keeps one voice, and the model is never
+- [x] One request fanned out to every configured channel, all of them waited out
+- [x] Only stream 0 prints to the console; the log keeps all of them
+- [x] Score of a stream: first command runs > first command is refused > the answer called no tool.
+      Ties go to the lowest channel index. A command with no `Validated` scores as running, which is
+      the rule above
+- [x] Losing answers are dropped whole — the transcript keeps one voice, and the model is never
       told it was one of several
-- [ ] The choice is logged: every stream's first command and its verdict
+- [x] The choice is logged: every stream's first command, its verdict and the refusal
 
 ### 3. Runs
 
