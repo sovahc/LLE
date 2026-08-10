@@ -54,6 +54,7 @@ namespace LLELoader
 		public ChannelConfig[] Channels { get; set; }
 		public bool EnableProxy { get; set; } = false;
 		public string ProxyUrl { get; set; } = "";
+		public string TtsUrl { get; set; } = "http://127.0.0.1:8081/say";
 		public float ScreenshotScale { get; set; } = 0.5f;
 		public float SimulationSpeed { get; set; } = 1.0f;
 	}
@@ -210,7 +211,7 @@ namespace LLELoader
 					var c = System.Text.Json.JsonSerializer.Deserialize<LoaderConfig>(text);
 					if (c != null)
 					{
-						Logger.Write($"[Config] Loaded {configPath}: proxy={c.EnableProxy}/{c.ProxyUrl} screenshotScale={c.ScreenshotScale} simulationSpeed={c.SimulationSpeed}");
+						Logger.Write($"[Config] Loaded {configPath}: proxy={c.EnableProxy}/{c.ProxyUrl} screenshotScale={c.ScreenshotScale} simulationSpeed={c.SimulationSpeed} tts={c.TtsUrl}");
 						return c;
 					}
 				}
@@ -285,6 +286,32 @@ namespace LLELoader
 		{
 			var c = Get(channel);
 			return c == null ? 0 : c.Config.ContextChars;
+		}
+
+		private static readonly HttpClient _tts =
+			new HttpClient(new HttpClientHandler { UseProxy = false }) { Timeout = TimeSpan.FromSeconds(5) };
+
+		public static void Speak(string text)
+		{
+			if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(_config.TtsUrl)) return;
+			var _ = PostSpeech(text);
+		}
+
+		private static async Task PostSpeech(string text)
+		{
+			try
+			{
+				var body = "{\"text\":" + System.Text.Json.JsonSerializer.Serialize(text) + "}";
+				var response = await _tts.PostAsync(_config.TtsUrl,
+					new StringContent(body, Encoding.UTF8, "application/json")).ConfigureAwait(false);
+
+				if (!response.IsSuccessStatusCode)
+					Logger.Write($"[TTS] HTTP {(int)response.StatusCode} {response.StatusCode}");
+			}
+			catch (Exception ex)
+			{
+				Logger.Write("[TTS] " + ex.Message);
+			}
 		}
 
 		#region Screenshot
@@ -430,7 +457,7 @@ namespace LLELoader
 		{
 			private static readonly string[] BridgeMethods =
 				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "CancelLLM", "SetSystemPrompt",
-				  "GetContextChars", "RequestScreenshot", "ScreenshotDone", "TakeScreenshot" ];
+				  "GetContextChars", "RequestScreenshot", "ScreenshotDone", "TakeScreenshot", "Speak" ];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -486,6 +513,7 @@ namespace LLELoader
 						case "RequestScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_RequestScreenshot)); break;
 						case "ScreenshotDone": prefix = new HarmonyMethod(smld, nameof(Prefix_ScreenshotDone)); break;
 						case "TakeScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_TakeScreenshot)); break;
+						case "Speak": prefix = new HarmonyMethod(smld, nameof(Prefix_Speak)); break;
 						default: continue;
 					}
 
@@ -544,6 +572,12 @@ namespace LLELoader
 			static bool Prefix_TakeScreenshot(ref string __result)
 			{
 				__result = TakeScreenshot();
+				return false;
+			}
+
+			static bool Prefix_Speak(string text)
+			{
+				Speak(text);
 				return false;
 			}
 

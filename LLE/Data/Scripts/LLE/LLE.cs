@@ -309,6 +309,7 @@ namespace LLE
 		public static string TakeScreenshot() { return null; }
 		public static int GetContextChars(int channel) { return 0; }
 		public static void RequestScreenshot() { }
+		public static void Speak(string text) { }
 		public static bool ScreenshotDone(out bool success) { success = false; return true; }
 	}
 }

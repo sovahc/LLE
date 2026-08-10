@@ -30,6 +30,7 @@
   ],
   "EnableProxy": false,
   "ProxyUrl": "http://127.0.0.1:8118",
+  "TtsUrl": "http://127.0.0.1:8081/say",
   "ScreenshotScale": 0.5,
   "SimulationSpeed": 1.0
 }

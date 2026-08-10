@@ -137,6 +137,7 @@ namespace LLE
 
 			MyVisualScriptLogicProvider.SendChatMessage(
 				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
+			LLE_Loader.Speak(message);
 			return Success("Done");
 		}
 
