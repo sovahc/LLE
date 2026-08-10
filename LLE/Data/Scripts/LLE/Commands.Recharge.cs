@@ -22,7 +22,7 @@ namespace LLE
 			string message;
 			if(!GridIsSet(out message)) return message;
 
-			var grid = selectedGrid;
+			var grid = selectedGrid.Grid;
 
 			string category, name;
 			Description(grid as MyEntity, out category, out name);
@@ -151,9 +151,9 @@ namespace LLE
 				if(!Collisions.GetNearestDetectorCenterByPrefix(block, ec, "block_", out rechargeButton))
 					yield return $"Recharge button not found on {Name(block)}";
 
-				bool hasPower = GridHasPower(selectedGrid);
+				bool hasPower = GridHasPower(selectedGrid.Grid);
 
-				var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
+				var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid.Grid);
 				terminalBlocks.Clear();
 				ts.GetBlocks(terminalBlocks);
 				

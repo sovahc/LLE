@@ -72,9 +72,9 @@ namespace LLE
 			if (CurrentGridIsProjection(out message)) return message;
 
 			StringBuilder sb = new StringBuilder();
-			sb.Append($"# Inventories on {Quote(Name(selectedGrid))}\n");
+			sb.Append($"# Inventories on {Quote(Name(selectedGrid.Grid))}\n");
 
-			var inventories = (selectedGrid as MyCubeGrid).Inventories;
+			var inventories = (selectedGrid.Grid as MyCubeGrid).Inventories;
 			if (inventories.Count == 0) return Success("No blocks with inventories on this grid.");
 
 			foreach (MyCubeBlock block in inventories)

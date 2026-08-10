@@ -57,7 +57,7 @@ namespace LLE
 			var block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
-			if(!EquipTool("Grinder"))
+			if(!world.EquipTool("Grinder"))
 				yield return "Cannot equip grinder. Do you have a Grinder in your inventory?";
 
 			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
@@ -242,7 +242,7 @@ namespace LLE
 			if (block.Integrity >= block.MaxIntegrity && !projection)
 				yield return Success("The block is fully intact; no repairs needed.");
 
-			if (!EquipTool("Welder"))
+			if (!world.EquipTool("Welder"))
 				yield return "Cannot equip handheld welder. Do you have a Welder in your inventory?";
 
 			var welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
@@ -280,7 +280,7 @@ namespace LLE
 
 			if(projection)
 			{	
-				var mcg = selectedGrid as MyCubeGrid;
+				var mcg = selectedGrid.Grid as MyCubeGrid;
 				var projector = mcg.Projector as IMyProjector;
 				if(projector == null)
 					yield return "Error: could not find the projector owning this projection.";

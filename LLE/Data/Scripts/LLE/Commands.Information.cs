@@ -196,12 +196,12 @@ namespace LLE
 			if(!GridIsSet(out message)) return message;
 
 			string category, name;
-			Description(selectedGrid as MyEntity, out category, out name);
+			Description(selectedGrid.Grid as MyEntity, out category, out name);
 
 			var md = new MyMarkdown();
 			md.Append($"# {category} '{name}'");
 
-			if(IsProjection(selectedGrid))
+			if(IsProjection(selectedGrid.Grid))
 			{
 				md.Append("This is a projector's projection preview, not a built object.");
 				md.Append("Use `projection` for build status.");
@@ -210,8 +210,8 @@ namespace LLE
 
 			md.Append($"## Information");
 
-			md.Append($"Powered: {GridHasPower(selectedGrid)}");
-			var cg = selectedGrid as MyCubeGrid;
+			md.Append($"Powered: {GridHasPower(selectedGrid.Grid)}");
+			var cg = selectedGrid.Grid as MyCubeGrid;
 
 			Vector3D size = cg.Max - cg.Min + Vector3I.One;
 			size *= cg.GridSize;
@@ -231,7 +231,7 @@ namespace LLE
 			}
 
 			var group = new List<IMyCubeGrid>();
-			MyAPIGateway.GridGroups.GetGroup(selectedGrid, GridLinkTypeEnum.Physical, group);
+			MyAPIGateway.GridGroups.GetGroup(selectedGrid.Grid, GridLinkTypeEnum.Physical, group);
 			if(group.Count > 1)
 			{	md.Append($"## Physically connected to:");
 				
@@ -241,7 +241,7 @@ namespace LLE
 				}
 			}
 
-			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid);
+			var ts = MyAPIGateway.TerminalActionsHelper.GetTerminalSystemForGrid(selectedGrid.Grid);
 			terminalBlocks.Clear();
 			ts.GetBlocks(terminalBlocks);
 
@@ -264,10 +264,10 @@ namespace LLE
 			string message;
 			if(!GridIsSet(out message)) return message;
 
-			if(!IsProjection(selectedGrid))
+			if(!IsProjection(selectedGrid.Grid))
 				return "Error: selected grid is not a projection.";
 
-			var mcg = selectedGrid as MyCubeGrid;
+			var mcg = selectedGrid.Grid as MyCubeGrid;
 			var projector = mcg.Projector as IMyProjector;
 			if(projector == null)
 				return "Error: could not find the projector owning this projection.";
@@ -311,16 +311,16 @@ namespace LLE
 			if (!GridIsSet(out message)) return message;
 
 			string category, name;
-			Description(selectedGrid as MyEntity, out category, out name);
+			Description(selectedGrid.Grid as MyEntity, out category, out name);
 
 			var md = new MyMarkdown();
 			md.Append($"# Integrity Check {Quote(name)}");
 
 			List<IMySlimBlock> damaged;
 
-			if(IsProjection(selectedGrid))
+			if(IsProjection(selectedGrid.Grid))
 			{
-				var mcg = selectedGrid as MyCubeGrid;
+				var mcg = selectedGrid.Grid as MyCubeGrid;
 				var projector = mcg.Projector as IMyProjector;
 				if(projector == null)
 					return "Error: could not find the projector owning this projection.";
@@ -352,7 +352,7 @@ namespace LLE
 			else
 			{
 				damaged = new List<IMySlimBlock>();
-				foreach (IMySlimBlock block in (selectedGrid as MyCubeGrid).CubeBlocks)
+				foreach (IMySlimBlock block in (selectedGrid.Grid as MyCubeGrid).CubeBlocks)
 				{
 					if (block.Integrity < block.MaxIntegrity)
 						damaged.Add(block);
@@ -497,8 +497,8 @@ namespace LLE
 			var centerBlock = selectedGrid.GetCubeBlock(ijk);
 			var name = Name(centerBlock);
 			
-			var m = CalculateOrientation(selectedGrid);
-			var toLocal = selectedGrid.PositionComp.WorldMatrixNormalizedInv;
+			var m = CalculateOrientation(selectedGrid.Grid);
+			var toLocal = selectedGrid.Grid.PositionComp.WorldMatrixNormalizedInv;
 			labelToAxis.Clear();
 			labelToAxis["forward"]  = AxisVec(m.Forward, ref toLocal);
 			labelToAxis["backward"] = AxisVec(m.Backward, ref toLocal);

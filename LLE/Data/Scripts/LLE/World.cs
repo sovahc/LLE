@@ -6,6 +6,7 @@ using VRageMath;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using Sandbox.ModAPI;
+using Sandbox.Definitions;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using MyInventoryItem = VRage.Game.ModAPI.Ingame.MyInventoryItem;
@@ -19,6 +20,11 @@ namespace LLE
 	// ShadowWorld overlays predicted changes on top of it.
 	public interface IGridView
 	{
+		// What stands in a cell, as opposed to which object stands there. A block the shadow has
+		// placed answers the first question and not the second, so occupancy and adjacency tests
+		// go through here.
+		MyCubeBlockDefinition CellDefinition(Vector3I pos);
+
 		IMySlimBlock GetCubeBlock(Vector3I pos);
 		void GetBlocks(List<IMySlimBlock> blocks, Func<IMySlimBlock, bool> collect = null);
 		Vector3D GridIntegerToWorld(Vector3I gridCoords);
@@ -42,6 +48,12 @@ namespace LLE
 			grid = grid_;
 		}
 
+		public MyCubeBlockDefinition CellDefinition(Vector3I pos)
+		{
+			var block = grid.GetCubeBlock(pos);
+			return block == null ? null : block.BlockDefinition as MyCubeBlockDefinition;
+		}
+
 		public IMySlimBlock GetCubeBlock(Vector3I pos) => grid.GetCubeBlock(pos);
 		public void GetBlocks(List<IMySlimBlock> blocks, Func<IMySlimBlock, bool> collect = null) => grid.GetBlocks(blocks, collect);
 		public Vector3D GridIntegerToWorld(Vector3I gridCoords) => grid.GridIntegerToWorld(gridCoords);
@@ -61,6 +73,8 @@ namespace LLE
 	// block" can.
 	public interface IWorld
 	{
+		IGridView View(IMyCubeGrid grid);
+
 		Vector3D EngineerCenter { get; }
 		MatrixD EngineerMatrix { get; }
 
@@ -82,12 +96,16 @@ namespace LLE
 		void RotateTo(Vector3D target);
 		void SwitchCubePlacer(bool hold);
 
+		// The shadow has no equipped tool of its own; this call is how it learns whether the next
+		// ToolShoot welds or grinds.
+		bool EquipTool(string subtype);
+
 		// Native grinding and welding raycast their own target, so the real world ignores
 		// `target`; the shadow has no raycast and needs to be told what is being worked on.
 		void ToolShoot(IMySlimBlock target);
 		void ToolStop();
 
-		IMySlimBlock PlaceBlock(IGridView grid, MyObjectBuilder_CubeBlock ob);
+		bool PlaceBlock(IGridView grid, MyObjectBuilder_CubeBlock ob);
 		void RazeBlock(IMySlimBlock block);
 		bool TransferItemTo(IMyInventory from, int fromIndex, IMyInventory to, MyFixedPoint amount, bool requireConveyor);
 	}
@@ -105,7 +123,9 @@ namespace LLE
 			character = character_;
 		}
 
-		public Vector3D EngineerCenter => commands.GetEngineerCenter();
+		public IGridView View(IMyCubeGrid grid) => grid == null ? null : new RealGrid(grid);
+
+		public Vector3D EngineerCenter => character.GetPosition() + Constants.EngineerHeight/2 * character.WorldMatrix.Up;
 		public MatrixD EngineerMatrix => character.WorldMatrix;
 
 		public float Integrity(IMySlimBlock block) => block.Integrity;
@@ -133,6 +153,7 @@ namespace LLE
 		public void Move(Vector3D target, double desiredSpeed) => commands.CharacterMove(target, desiredSpeed);
 		public void RotateTo(Vector3D target) => commands.CharacterRotateTo(target);
 		public void SwitchCubePlacer(bool hold) => commands.SwitchCubePlacer(hold);
+		public bool EquipTool(string subtype) => commands.EquipTool(subtype);
 
 		public void ToolShoot(IMySlimBlock target)
 		{
@@ -146,7 +167,7 @@ namespace LLE
 			gun?.EndShoot(MyShootActionEnum.PrimaryAction);
 		}
 
-		public IMySlimBlock PlaceBlock(IGridView grid, MyObjectBuilder_CubeBlock ob) => grid.Grid.AddBlock(ob, false);
+		public bool PlaceBlock(IGridView grid, MyObjectBuilder_CubeBlock ob) => grid.Grid.AddBlock(ob, false) != null;
 
 		public void RazeBlock(IMySlimBlock block)
 		{

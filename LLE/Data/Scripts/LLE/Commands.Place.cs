@@ -98,7 +98,7 @@ namespace LLE
 			return null;
 		}
 
-		private string CheckBuildSite(Vector3I ijk, out IMySlimBlock neighbour, out Vector3I neighbourCell)
+		private string CheckBuildSite(Vector3I ijk, out MyCubeBlockDefinition neighbour, out Vector3I neighbourCell)
 		{
 			neighbour = null;
 			neighbourCell = Vector3I.Zero;
@@ -107,7 +107,7 @@ namespace LLE
 			if (reach > Constants.MaxInteractionDistance)
 				return $"Error: {IJK(ijk)} is too far from you ({Distance(reach)})";
 
-			var occupant = selectedGrid.GetCubeBlock(ijk);
+			var occupant = selectedGrid.CellDefinition(ijk);
 			if (occupant != null)
 				return $"Error: {IJK(ijk)} is not empty — {Quote(Name(occupant))} stands there.";
 
@@ -115,9 +115,9 @@ namespace LLE
 				return $"Error: {IJK(ijk)} is where you stand — you cannot place a block on yourself.";
 
 			foreach (var offset in Constants.SixDirections)
-			{	var b = selectedGrid.GetCubeBlock(ijk + offset);
-				if (b == null) continue;
-				neighbour = b;
+			{	var d = selectedGrid.CellDefinition(ijk + offset);
+				if (d == null) continue;
+				neighbour = d;
 				neighbourCell = ijk + offset;
 				return null;
 			}
@@ -172,8 +172,7 @@ namespace LLE
 			// AddBlock refuses occupied cells but does not check mount points, so a disconnected
 			// block would hang in the air — hence the face-adjacency test in CheckBuildSite.
 
-			var placed = selectedGrid.AddBlock(ob, false);
-			if (placed == null)
+			if (!world.PlaceBlock(selectedGrid, ob))
 				yield return $"Error: the game refused to place {Quote(definition.DisplayNameText)} at {IJK(ijk)}.";
 		}
 
@@ -229,7 +228,7 @@ namespace LLE
 			if (!call.Ijk(out ijk))
 				yield return call.NeedIjk;
 
-			IMySlimBlock neighbour;
+			MyCubeBlockDefinition neighbour;
 			Vector3I neighbourCell;
 			var refusal = CheckBuildSite(ijk, out neighbour, out neighbourCell);
 			if (refusal != null) yield return refusal;

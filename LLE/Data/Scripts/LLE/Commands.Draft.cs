@@ -144,14 +144,14 @@ namespace LLE
 		{
 			if(draft.Count == 0 || draftBase == selectedGrid) return null;
 
-			return $"Error: the draft belongs to {Quote(Name(draftBase))}, but {Quote(Name(selectedGrid))}"
+			return $"Error: the draft belongs to {Quote(Name(draftBase))}, but {Quote(Name(selectedGrid.Grid))}"
 				+ " is selected. Select that grid again, or drop the draft with `draft clear`.";
 		}
 
 		private void AddToDraft(MyCubeBlockDefinition definition, Vector3I ijk,
 			Base6Directions.Direction forward, Base6Directions.Direction up)
 		{
-			draftBase = selectedGrid;
+			draftBase = selectedGrid.Grid;
 			draft.Add(new DraftBlock
 			{	Definition = definition,
 				Cell = ijk,
@@ -319,7 +319,7 @@ namespace LLE
 					{
 						var d = draft[i];
 
-						IMySlimBlock neighbour;
+						MyCubeBlockDefinition neighbour;
 						Vector3I neighbourCell;
 						if(CheckBuildSite(d.Cell, out neighbour, out neighbourCell) != null) continue;
 
@@ -364,7 +364,7 @@ namespace LLE
 
 			var nearest = NearestToEngineer(remaining);
 
-			IMySlimBlock n;
+			MyCubeBlockDefinition n;
 			Vector3I nc;
 			var why = CheckBuildSite(nearest, out n, out nc);
 

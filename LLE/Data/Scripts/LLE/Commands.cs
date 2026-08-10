@@ -46,10 +46,12 @@ namespace LLE
 		private static readonly MyDefinitionId electricityId =
 			new MyDefinitionId(typeof(MyObjectBuilder_GasProperties), "Electricity");
 
-		private IMyCubeGrid selectedGrid;
+		private IGridView selectedGrid;
 		private MyVoxelBase selectedAsteroid;
 
 		private readonly IMyCharacter character;
+
+		internal IWorld world;
 
 		private Status status;
 
@@ -72,6 +74,7 @@ namespace LLE
 		public Commands(IMyCharacter character_)
 		{
 			character = character_;
+			world = new RealWorld(this, character);
 			status = new Status(character);
 
 			ALL_COMPONENTS.Clear();
@@ -84,7 +87,7 @@ namespace LLE
 
 		public Vector3D GetEngineerCenter()
 		{
-			return character.GetPosition() + Constants.EngineerHeight/2 * character.WorldMatrix.Up;
+			return world.EngineerCenter;
 		}
 
 		private MyEntity3DSoundEmitter soundEmitter;
@@ -205,7 +208,7 @@ namespace LLE
 			if(grid != null)
 			{	
 				Debug.Start(grid);
-				selectedGrid = grid;
+				selectedGrid = world.View(grid);
 				selectedAsteroid = null;
 				return Success($"Selected {category} {Quote(name)}\nGrid directions: {GridDirections(grid)}");
 			}
@@ -238,7 +241,7 @@ namespace LLE
 		}
 
 		internal bool CurrentGridIsProjection(out string message)
-		{	if(IsProjection(selectedGrid))
+		{	if(IsProjection(selectedGrid.Grid))
 			{	message = "Error: selected grid is a projection preview, not a built object. Not supported for this command.";
 				return true;
 			}

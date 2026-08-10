@@ -75,6 +75,12 @@ namespace LLE
 			return block.BlockDefinition.DisplayNameText;
 		}
 
+		public static string Name(MyCubeBlockDefinition definition)
+		{
+			if(definition == null) return FreeSpace;
+			return definition.DisplayNameText;
+		}
+
 		public const string LargeBlockMark = "█";
 
 		public static bool IsLargeBlock(IMySlimBlock block)

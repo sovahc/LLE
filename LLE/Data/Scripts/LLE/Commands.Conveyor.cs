@@ -198,7 +198,7 @@ namespace LLE
 				out definition, out orientation, out port1, out port2);
 			if (refusal != null) yield return refusal;
 
-			IMySlimBlock neighbour;
+			MyCubeBlockDefinition neighbour;
 			Vector3I neighbourCell;
 			refusal = CheckBuildSite(ijk, out neighbour, out neighbourCell);
 			if (refusal != null) yield return refusal;

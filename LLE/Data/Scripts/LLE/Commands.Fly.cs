@@ -144,7 +144,7 @@ namespace LLE
 				if(block != null)
 					yield return $"Error: {IJK(ijk)} is occupied by block {Quote(Name(block))}. Cannot build a block on an occupied cell.";
 
-				var producer = EQS.ProduceCells(selectedGrid, ijk, GetEngineerCenter());
+				var producer = EQS.ProduceCells(selectedGrid.Grid, ijk, GetEngineerCenter());
 				var placeCells = new List<Vector3I>();
 				
 				foreach (var c in producer)
@@ -166,7 +166,7 @@ namespace LLE
 				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 				// Only grind/weld make sense on a projection preview — it has no real inventory, power, or seats yet.
-				if(intention.Value != InteractionKind.GrindWeld && IsProjection(selectedGrid))
+				if(intention.Value != InteractionKind.GrindWeld && IsProjection(selectedGrid.Grid))
 					yield return $"Error: selected grid is a projection preview — '{intentionWord}' is not supported on it yet.";
 
 				var eqsr = new List<EQSResult>();
@@ -253,7 +253,7 @@ namespace LLE
 			from = selectedGrid.WorldToGridInteger(engineer);
 			to = destinationCell;
 
-			aStarHelper = new AStarHelper(selectedGrid, to, from); // Reversed: A* only knows how to find a path OUT of the grid (to border), so we search backward and reverse the result
+			aStarHelper = new AStarHelper(selectedGrid.Grid, to, from); // Reversed: A* only knows how to find a path OUT of the grid (to border), so we search backward and reverse the result
 
 			while(!aStarHelper.Tick()) yield return null;
 
@@ -291,7 +291,7 @@ namespace LLE
 		{
 			bool closeBehind = false;
 
-			var up = CalculateUpVector(exitGrid ?? selectedGrid);
+			var up = CalculateUpVector(exitGrid ?? selectedGrid.Grid);
 
 			for(;;)
 			{
@@ -444,7 +444,7 @@ namespace LLE
 			var dirWord = call.Str("direction");
 
 			Vector3I offset;
-			if(!TryDirOffset(selectedGrid, dirWord, out offset))
+			if(!TryDirOffset(selectedGrid.Grid, dirWord, out offset))
 				yield return $"Error: {Quote(dirWord)} is not a direction. Expected: forward backward left right up down";
 
 			int n;

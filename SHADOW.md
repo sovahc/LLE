@@ -30,6 +30,11 @@ In T a command completes instantly: Fly does not fly, it moves the coordinate; W
 weld, it raises integrity to full. Loop exit conditions are read through the layer, so the
 loop exits on its first iteration.
 
+**Cells, not objects.** The shadow can say what stands in a cell; it cannot produce the
+`IMySlimBlock` for a block it has only predicted. So occupancy and adjacency go through
+`IGridView.CellDefinition`, and `GetCubeBlock` on a predicted cell is Unknown. This is what
+lets a batch place several blocks against each other — the case the validator exists for.
+
 **Unknown.** The shadow is allowed not to know. Removing a block can split a grid, and the
 engine will not compute that for us. Such a read returns Unknown, batch validation stops
 there, and the batch score is the length of the validated prefix. Stopping at the fifth
@@ -64,35 +69,61 @@ command beats stopping at the first.
 
 - [x] `RealGrid` — `IGridView` passthrough to the game
 - [x] `RealWorld` — `IWorld` adapter over the existing `Commands` methods
-- [ ] The context a command takes its world from
+- [x] `IWorld.View(grid)` hands out the grid view, so the world has a single entry point
+      while `selectedGrid` keeps its 77 call sites
+- [x] `Commands.world`, set to `RealWorld` in the constructor
 
-### 3. Move commands onto R
+### 3a. Move commands onto R — first slice
 
-- [ ] Change the type of `selectedGrid`, return `GetEngineerCenter` from the context
-- [ ] Inventory reads through `IInventoryView` (`Commands.Inventory.cs`,
-      `Commands.Construction.cs`)
-- [ ] Effects through the effector: `MoveAndRotate` ×4, `SwitchCubePlacer` ×5,
-      `TransferItem` ×2, `RemoveBlock`, `RazeBlock`, `SetPosition`; check `Tools.cs` for
-      tool actuation
-- [ ] Leave `WorldToGridInteger` / `GridIntegerToWorld` alone — pure transforms
+- [x] `selectedGrid` is an `IGridView`; 36 pass-through uses spell `selectedGrid.Grid` and
+      mark exactly where the shadow will be blind
+- [x] `GetEngineerCenter` reads from the world (`RealWorld` computes it from the character —
+      routing it back through `Commands` would recurse)
+- [x] Block placement through `IWorld.PlaceBlock`
+- [x] Silent `as` casts hunted down: eight `selectedGrid as MyCubeGrid` / `as MyEntity`
+      compiled fine against the interface and would have returned null at runtime
+- [x] Builds
 
 ### 4. Test: the game still works
 
-- [ ] Builds
-- [ ] In-game run: flight, block placement, welding, taking from a container, conveyor
-- [ ] Behaviour indistinguishable from today — **do not start the shadow before this box**
+Run this before the second slice, not after — the null-cast class of failure is cheaper to
+find now than under thirty more edits.
+
+- [ ] `overview`, `inventories`, `projection` — these went through the `as` casts
+- [ ] `place` — the first command on the effector
+- [ ] `fly` — `GetEngineerCenter` now comes from the world
+- [ ] Behaviour indistinguishable from today
+
+### 3b. Move commands onto R — the rest
+
+- [ ] **Grep for `as` casts after every type change here.** The compiler stays silent.
+- [ ] Block state (`Integrity` ×17, `MaxIntegrity` ×10, `IsDestroyed`, `StockpileEmpty`)
+      through `IWorld` — without it welding and grinding report "No progress" in the shadow
+- [ ] Inventory reads and `TransferItemTo` through `IWorld` (`Commands.Inventory.cs`,
+      `Commands.Construction.cs`)
+- [ ] Movement: `CharacterMove` / `CharacterRotateTo` call sites onto `IWorld.Move` /
+      `RotateTo`; check `Tools.cs` for tool actuation
+- [ ] Wait loops onto `IWorld.IsPaused` / `ToolReady`
+- [ ] `RazeBlock` and the grinder path
+- [ ] Leave `WorldToGridInteger` / `GridIntegerToWorld` alone — pure transforms
+- [ ] Second in-game run, same checks as stage 4 — **do not start the shadow before this box**
 
 ### 5. Shadow (T)
 
-- [ ] State: engineer position, placed and removed cells, inventory amounts, block
-      integrity and components
-- [ ] Lazy reads through R, writes into the overlay
-- [ ] Instant execution: the T effector applies the result immediately, no animation
-- [ ] Iteration cap → Unknown
-- [ ] Unknown rules: block removal ⇒ grid topology Unknown; conveyor reachability after a
-      topology change ⇒ Unknown
-- [ ] Check `Commands.Draft.cs` — if it already keeps a shadow set of blocks with undo,
-      reuse it instead of writing the cell overlay from scratch
+`ShadowWorld.cs`. Written and building; nothing drives it yet, and the commands that read
+block state off the handle still bypass it — that is stage 3b.
+
+- [x] State: engineer position, placed and removed cells, inventory amounts, block integrity
+- [x] Lazy reads through R, writes into the overlay
+- [x] Instant execution: pauses are over on the spot, the tool is always ready, welding
+      fills integrity and grinding empties it in one shot
+- [x] Iteration cap → Unknown (`ShadowWorld.Step`, called by the runner in stage 6)
+- [x] Unknown rules: once a grid's overlay is non-empty, `Grid` and `GetBlocks` are Unknown —
+      which covers EQS, AStar, conveyor reachability and grid split in one place
+- [x] `Commands.Draft.cs` keeps planned blocks and a preview grid, not an overlay with undo
+      over an existing grid — nothing to reuse, `ShadowGrid` holds the same shape itself
+- [ ] Inventory transfers address slots by index; the second transfer out of one inventory
+      is Unknown. Enough for take-then-weld, not for a repacking batch
 
 ### 6. T against R
 
