@@ -76,11 +76,6 @@ namespace LLE
 			new Tool("pause", "Pause the bot until something happens. Must be the only call of the batch.", None),
 			new Tool("restart", "Reset the context, keeping memory. Must be the only call of the batch.", None),
 
-			new Tool("continue", "Let the running command carry on. Only while one is running,"
-				+ " and only as the single call of the batch.", None),
-			new Tool("cancel", "Stop the running command and drop the rest of its batch. Only while one is"
-				+ " running, and only as the single call of the batch.", None),
-
 			new Tool("fly", "Land at a specific grid cell.",
 				Join(Ijk(), Bool("headfirst", "Fly head first (use for tight spaces or unstuck)."))),
 			new Tool("fly_direction", "Fly a number of cells along one of the grid axes.", new[]
