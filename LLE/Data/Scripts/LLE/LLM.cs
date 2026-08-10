@@ -23,7 +23,7 @@ namespace LLE
 			}
 
 			if (calls.Count == 0)
-			{	message = "!ERROR: Your last message called no tool. Every turn is one to three tool calls.\n";
+			{	message = "!ERROR: Your last message called no tool. Every turn is one to four tool calls.\n";
 				return repeats >= 4;
 			}
 
@@ -115,8 +115,6 @@ namespace LLE
 
 		private double commandStartTime;
 
-		private bool batchAcked;
-
 		private const int NewsQuietTicks = 2;
 		private const int NewsMaxTicks = 10;
 
@@ -181,11 +179,10 @@ namespace LLE
 				took = $" (Took {elapsed:F1}s)";
 			commandStartTime = 0;
 
-			// Once the batch is acked its slots are closed; the outcome can only come as an event.
-			var destination = batchAcked ? Destination.All : Destination.Console | Destination.Log;
+			var destination = Destination.Console | Destination.Log;
 
 			Append($"→ {currentCommand.Text}: [{tag}] {result.Message}{took}\n", Color.Cornsilk, destination);
-			if(!batchAcked) AnswerCall($"[{tag}] {result.Message}{took}");
+			AnswerCall($"[{tag}] {result.Message}{took}");
 
 			if(result.Status != CommandStatus.Success && batch.Count > 0)
 			{	Append($"Remaining {batch.Count} command(s) ignored: {Join("; ", new List<ToolCall>(batch))}\n",
@@ -193,28 +190,9 @@ namespace LLE
 
 				while(batch.Count > 0)
 				{	batch.Dequeue();
-					if(!batchAcked) AnswerCall("Not executed: an earlier call in this batch failed.");
+					AnswerCall("Not executed: an earlier call in this batch failed.");
 				}
 			}
-		}
-
-		private void CancelBatch()
-		{
-			commands.Cancel();
-
-			string took = commandStartTime == 0 ? "" : $" after {Time.Now - commandStartTime:F1}s";
-			commandStartTime = 0;
-
-			var stopped = batch.Dequeue();
-			Append($"→ {stopped.Text}: [CANCELLED] Stopped{took}.\n", Color.Cornsilk);
-
-			if(batch.Count > 0)
-			{	Append($"Cancelled {batch.Count} queued command(s): {Join("; ", new List<ToolCall>(batch))}\n",
-					Color.Cornsilk);
-				batch.Clear();
-			}
-
-			AnswerCall("[OK] Stopped.");
 		}
 
 		private void AddAssistant(Answer answer)
@@ -267,15 +245,6 @@ namespace LLE
 				OnCommandFinished(result);
 		}
 
-		// Closing the slots is what frees the channel; until then the model waits, as it always did.
-		private void AckBatch()
-		{
-			batchAcked = true;
-			AnswerCall("[RUNNING] Started, still going. Answer continue or cancel.");
-			for (int i = 1; i < batch.Count; ++i)
-				AnswerCall("[PENDING] Queued behind the running command.");
-		}
-
 		public void Append(string text, Color consoleColor, Destination d = Destination.All)
 		{	if((d & Destination.Console) != 0) MyConsole.AddMultiline(text, consoleColor);
 			if((d & Destination.Log)     != 0) logBuf.Append(text);
@@ -316,8 +285,6 @@ namespace LLE
 				{	var result = commands.Update();
 					if (result != null)
 						OnCommandFinished(result);
-					else if (!batchAcked && commands.LongRunning)
-						AckBatch();
 				}
 				else
 					RunNextPending();
@@ -335,7 +302,7 @@ namespace LLE
 			if(pause) return;
 
 			// Slots still open: sending now would leave the model's own tool calls unanswered.
-			if (batch.Count != 0 && !batchAcked) return;
+			if (batch.Count != 0) return;
 
 			if (hasNews && (quietTicks >= NewsQuietTicks || newsTicks >= NewsMaxTicks))
 			{
@@ -469,25 +436,18 @@ namespace LLE
 			answered = false;
 			ContextStatistic();
 
-			// While a command runs the only answer worth anything is continue or cancel. The shadow
-			// scores those at nothing, so left alone it would hand the turn to whichever stream
-			// ignored the rule.
-			int winner = batch.Count == 0 ? -1 : FirstControl();
+			var scores = new BatchScore[answers.Length];
+			int winner = -1;
 
-			if (winner < 0)
+			for (int i = 0; i < answers.Length; ++i)
 			{
-				var scores = new BatchScore[answers.Length];
+				if (answers[i] == null) continue;
 
-				for (int i = 0; i < answers.Length; ++i)
-				{
-					if (answers[i] == null) continue;
-
-					scores[i] = Score(answers[i]);
-					if (winner < 0 || scores[i].Beats(scores[winner])) winner = i;
-				}
-
-				if (channels.Length > 1 && winner >= 0) ReportChoice(scores, winner);
+				scores[i] = Score(answers[i]);
+				if (winner < 0 || scores[i].Beats(scores[winner])) winner = i;
 			}
+
+			if (channels.Length > 1 && winner >= 0) ReportChoice(scores, winner);
 
 			var answer = winner < 0 ? null : answers[winner];
 			var error = winner >= 0 ? null : FirstError();
@@ -525,17 +485,6 @@ namespace LLE
 			}
 		}
 
-		private int FirstControl()
-		{
-			for (int i = 0; i < answers.Length; ++i)
-			{
-				var answer = answers[i];
-				if (answer == null || answer.Error != null || answer.Calls.Count != 1) continue;
-				if (answer.Calls[0].Is("continue") || answer.Calls[0].Is("cancel")) return i;
-			}
-			return -1;
-		}
-
 		private string FirstError()
 		{
 			foreach (var error in errors)
@@ -563,19 +512,6 @@ namespace LLE
 			if (error != null)
 			{	Log($"turn {turn} unusable: {error.Trim()}");
 				Append(error, Color.Red);
-				return;
-			}
-
-			// Not InProgress(): the head may have ended this very tick with its batch still unfinished,
-			// and mixing a new answer's calls into that batch would put its slots out of step.
-			if (batch.Count != 0)
-			{	RunningAnswer(cc);
-				return;
-			}
-
-			// The command outran the turn it asked about; its result is already on the way.
-			if (cc.Count == 1 && (cc[0].Is("continue") || cc[0].Is("cancel")))
-			{	AnswerCall("[OK] It already finished.", false);
 				return;
 			}
 
@@ -610,34 +546,9 @@ namespace LLE
 				}
 			}
 
-			batchAcked = false;
 			for (int i = 0; i < cc.Count; ++i) batch.Enqueue(cc[i]);
 
 			RunNextPending();
-		}
-
-		// A running command answers [RUNNING] at once, so its slots are already closed and the
-		// model is free to think. The only thing it may decide is whether that command survives.
-		private void RunningAnswer(List<ToolCall> cc)
-		{
-			if (cc.Count == 1 && cc[0].Is("continue"))
-			{	Append("→ continue\n", Color.Cornsilk, Destination.Console | Destination.Log);
-				AnswerCall("[OK] Still running.", false);
-				return;
-			}
-
-			if (cc.Count == 1 && cc[0].Is("cancel"))
-			{	CancelBatch();
-				return;
-			}
-
-			Append("[ERROR] A command is running: continue or cancel, nothing else.\n", Color.Red,
-				Destination.Console | Destination.Log);
-
-			// Silent on purpose: answering with news here would ask again at once, and a model
-			// that keeps calling the wrong tool would spin at full inference until the command ends.
-			AnswerRest(cc.Count, "Not executed: a command is running. While it runs the only calls"
-				+ " you may make are continue and cancel.", false);
 		}
 	}
 }

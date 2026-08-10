@@ -334,10 +334,9 @@ namespace LLE
 			// clock, which does not move inside one tick.
 			if (call.Is("recharge")) return new Prediction(null, "how a recharge goes");
 
-			// The control calls are answered by LLM.cs and never reach the dispatcher, which would
-			// say no such tool exists and condemn the whole batch.
-			if (call.Is("restart") || call.Is("continue") || call.Is("cancel"))
-				return new Prediction(null, $"what {call.Name} does — it never reaches the world");
+			// Restart is answered by LLM.cs and never reaches the dispatcher, which would say no such
+			// tool exists and condemn the whole batch.
+			if (call.Is("restart")) return new Prediction(null, "what restart does — it never reaches the world");
 
 			CommandResult result;
 			try

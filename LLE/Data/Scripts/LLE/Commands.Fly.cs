@@ -241,7 +241,6 @@ namespace LLE
 				MyConsole.Add($"path.Count {worldPath.Count}", Color.IndianRed);
 
 				micro.Fly(worldPath);
-				MarkLongFlight(engineer, worldPath);
 
 				yield return NavigationCR(currentGrid, null, headFirst);
 
@@ -266,21 +265,8 @@ namespace LLE
 			MyConsole.Add($"path.Count {worldPath.Count}", Color.IndianRed);
 
 			micro.Fly(worldPath);
-			MarkLongFlight(engineer, worldPath);
 
 			yield return NavigationCR(null, arrivalMessage, headFirst);
-		}
-
-		private const double LongFlightMeters = 25;
-
-		private void MarkLongFlight(Vector3D from, List<PathNode> path)
-		{
-			double length = 0;
-			foreach(var node in path)
-			{	length += (node.v - from).Length();
-				from = node.v;
-			}
-			LongRunning = length > LongFlightMeters;
 		}
 
 		internal string CharacterCellText()
