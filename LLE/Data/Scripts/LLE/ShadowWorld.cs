@@ -259,6 +259,21 @@ namespace LLE
 		}
 	}
 
+	// How far a batch gets in the shadow. Unknown stops the scoring without condemning the batch:
+	// the prefix already earned still counts, and a batch nobody can judge is never rejected.
+	internal class BatchScore
+	{
+		public int Valid;
+		public bool Broken;
+		public string Stopped;
+
+		public bool Beats(BatchScore other)
+		{
+			if (Valid != other.Valid) return Valid > other.Valid;
+			return other.Broken && !Broken;
+		}
+	}
+
 	// Runs a command against a shadow world before the real world runs it. The prediction lives on
 	// a second Commands, so it cannot touch the real bookkeeping — the selected grid, the draft,
 	// the coroutine stack — and the whole command finishes inside one tick.
@@ -273,15 +288,56 @@ namespace LLE
 		}
 
 		public Prediction Predict(ToolCall call)
+		{	return Run(call, Seed());
+		}
+
+		// One overlay for the whole batch: the second command sees what the first one left behind,
+		// which is the only way a batch that builds on itself can score above one.
+		public BatchScore Score(List<ToolCall> calls)
+		{
+			var overlay = Seed();
+			var score = new BatchScore();
+
+			foreach (var call in calls)
+			{
+				var prediction = Run(call, overlay);
+
+				if (prediction.Unknown != null)
+				{	score.Stopped = $"unknown after '{call.Text}': {prediction.Unknown}";
+					break;
+				}
+
+				if (prediction.Result.Status == CommandStatus.Error)
+				{	score.Broken = true;
+					score.Stopped = $"broken at '{call.Text}': {prediction.Result.Message}";
+					break;
+				}
+
+				score.Valid++;
+			}
+
+			return score;
+		}
+
+		private ShadowWorld Seed()
+		{
+			var overlay = new ShadowWorld(real.world);
+			shadow.world = overlay;
+			shadow.AbortCommand();
+			shadow.CopyStateFrom(real);
+			return overlay;
+		}
+
+		private Prediction Run(ToolCall call, ShadowWorld overlay)
 		{
 			// Recharge fills the character's real health and gas by hand and paces itself off the
 			// clock, which does not move inside one tick.
 			if (call.Is("recharge")) return new Prediction(null, "how a recharge goes");
 
-			var overlay = new ShadowWorld(real.world);
-			shadow.world = overlay;
-			shadow.AbortCommand();
-			shadow.CopyStateFrom(real);
+			// The control calls are answered by LLM.cs and never reach the dispatcher, which would
+			// say no such tool exists and condemn the whole batch.
+			if (call.Is("restart") || call.Is("continue") || call.Is("cancel"))
+				return new Prediction(null, $"what {call.Name} does — it never reaches the world");
 
 			CommandResult result;
 			try

@@ -64,10 +64,26 @@ namespace LLE
 
 		private bool hasNews;
 
-		private readonly LlmChannel channel = new LlmChannel(0);
+		private readonly LlmChannel[] channels = BuildChannels();
 
-		private Answer response;
-		private string responseError;
+		private readonly Answer[] answers;
+		private readonly string[] errors;
+		private bool answered;
+
+		// One stream per configured channel. An absent channel reports no context, and channel zero
+		// always exists: without the loader every probe answers zero.
+		private static LlmChannel[] BuildChannels()
+		{
+			var list = new List<LlmChannel>();
+
+			for (int i = 0; i < 8; ++i)
+			{	var channel = new LlmChannel(i);
+				if (i != 0 && !channel.Present) break;
+				list.Add(channel);
+			}
+
+			return list.ToArray();
+		}
 
 		public static string Join(string separator, List<ToolCall> calls)
 		{	var sb = new StringBuilder();
@@ -119,6 +135,9 @@ namespace LLE
 		public LLM(Commands commands_)
 		{	commands = commands_;
 			shadowRunner = new ShadowRunner(commands_);
+
+			answers = new Answer[channels.Length];
+			errors = new string[channels.Length];
 		}
 
 		// Stage 6 of the shadow world: the prediction runs against every command and only the
@@ -268,7 +287,7 @@ namespace LLE
 			++quietTicks;
 			++newsTicks;
 
-			PollChannel();
+			PollChannels();
 
 			var ec = commands.GetEngineerCenter();
 
@@ -304,12 +323,14 @@ namespace LLE
 					RunNextPending();
 			}
 
-			if(channel.Busy) return;
+			// Every stream is waited out: the batches can only be compared once they all exist.
+			foreach(var channel in channels)
+				if(channel.Busy) return;
 
 			// Must stay ahead of the send below: an async VISION/STATUS report would otherwise
 			// fire that send and orphan it, and the next response appends its calls onto it.
-			if(response != null || responseError != null)
-				ProcessAnswer();
+			if(answered)
+				ProcessAnswers();
 
 			if(pause) return;
 
@@ -319,7 +340,7 @@ namespace LLE
 			if (hasNews && (quietTicks >= NewsQuietTicks || newsTicks >= NewsMaxTicks))
 			{
 				int used = ContextUsed;
-				int total = channel.ContextChars;
+				int total = channels[0].ContextChars;
 
 				if (total <= 0)
 				{	output.Clear();
@@ -368,7 +389,8 @@ namespace LLE
 				logBuf.Clear();
 				hasNews = false;
 
-				channel.Send(Request());
+				var request = Request();
+				foreach(var channel in channels) channel.Send(request);
 				turn++;
 				return;
 			}
@@ -413,37 +435,118 @@ namespace LLE
 
 		private void ContextStatistic()
 		{
-			int total = channel.ContextChars;
+			int total = channels[0].ContextChars;
 			if (total <= 0) return;
 			int used = ContextUsed;
 			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({used * 100 / total}%)", Color.LightPink);
 		}
 
-		private void PollChannel()
+		private void PollChannels()
 		{
-			Answer payload;
-			string errorText;
+			for (int i = 0; i < channels.Length; ++i)
+			{
+				Answer payload;
+				string errorText;
 
-			var polled = channel.Poll(out payload, out errorText);
-			if (polled == ChannelEvent.None) return;
+				var polled = channels[i].Poll(out payload, out errorText);
+				if (polled == ChannelEvent.None) continue;
 
-			if (polled == ChannelEvent.Error)
-			{	Log($"channel died: {errorText}");
-				responseError = errorText;
+				if (polled == ChannelEvent.Error)
+				{	Log($"channel {i} died: {errorText}");
+					errors[i] = errorText;
+				}
+				else answers[i] = payload;
+
+				answered = true;
 			}
-			else response = payload;
-
-			ContextStatistic();
 		}
 
-		private void ProcessAnswer()
+		// Every stream answered the same question, so the shadow decides which answer survives
+		// contact with the world. The losers are dropped whole: the transcript keeps one voice, and
+		// the model is never told it was one of several.
+		private void ProcessAnswers()
 		{
-			var answer = response;
-			response = null;
+			answered = false;
+			ContextStatistic();
 
+			// While a command runs the only answer worth anything is continue or cancel. The shadow
+			// scores those at nothing, so left alone it would hand the turn to whichever stream
+			// ignored the rule.
+			int winner = batch.Count == 0 ? -1 : FirstControl();
+
+			if (winner < 0)
+			{
+				var scores = new BatchScore[answers.Length];
+
+				for (int i = 0; i < answers.Length; ++i)
+				{
+					if (answers[i] == null) continue;
+
+					scores[i] = Score(answers[i]);
+					if (winner < 0 || scores[i].Beats(scores[winner])) winner = i;
+				}
+
+				if (channels.Length > 1 && winner >= 0) ReportChoice(scores, winner);
+			}
+
+			var answer = winner < 0 ? null : answers[winner];
+			var error = winner >= 0 ? null : FirstError();
+
+			for (int i = 0; i < answers.Length; ++i)
+			{	answers[i] = null;
+				errors[i] = null;
+			}
+
+			ProcessAnswer(answer, error);
+		}
+
+		// An answer that cannot be used at all still costs the turn: it has to lose to any batch that
+		// runs, and it has to remain the answer when every stream produced one.
+		private BatchScore Score(Answer answer)
+		{
+			if (answer.Error != null || answer.Calls.Count == 0)
+				return new BatchScore { Valid = -1, Broken = true, Stopped = "unusable" };
+
+			return shadowRunner.Score(answer.Calls);
+		}
+
+		private void ReportChoice(BatchScore[] scores, int winner)
+		{
+			for (int i = 0; i < scores.Length; ++i)
+			{
+				if (scores[i] == null) continue;
+
+				var line = $"[PICK] {i}{(i == winner ? "*" : " ")} {scores[i].Valid} valid"
+					+ (scores[i].Stopped == null ? "" : ", " + scores[i].Stopped)
+					+ $" | {Join("; ", answers[i].Calls)}\n";
+
+				Append(line, i == winner ? Color.MediumPurple : Color.Gray, Destination.Console);
+				Log(line);
+			}
+		}
+
+		private int FirstControl()
+		{
+			for (int i = 0; i < answers.Length; ++i)
+			{
+				var answer = answers[i];
+				if (answer == null || answer.Error != null || answer.Calls.Count != 1) continue;
+				if (answer.Calls[0].Is("continue") || answer.Calls[0].Is("cancel")) return i;
+			}
+			return -1;
+		}
+
+		private string FirstError()
+		{
+			foreach (var error in errors)
+				if (error != null) return error;
+			return "no answer";
+		}
+
+		private void ProcessAnswer(Answer answer, string channelError)
+		{
 			if (answer == null)
-			{	MyConsole.AddMultiline("\n[LLM ERROR] " + responseError + "\n", Color.Red);
-				responseError = null;
+			{	MyConsole.AddMultiline("\n[LLM ERROR] " + channelError + "\n", Color.Red);
 				pause = true;
 				return;
 			}

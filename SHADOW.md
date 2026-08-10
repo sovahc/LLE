@@ -160,11 +160,30 @@ block state off the handle still bypass it — that is stage 3b.
 
 ### 7. Prediction: the experiment itself
 
-- [ ] Selector in `LLM.cs`: N batches through T, score = (valid prefix length, error
-      count), the winner executes
-- [ ] Remove the LLM arbitration round
-- [ ] Measure against the current 6x: errors per batch, time to the first executed
-      command, how smart the bot feels
+- [x] One `LlmChannel` per configured channel, sized by probing `Present`. The same request
+      goes to all of them; the transcript lives in `LLM`, so there is no per-stream context
+      to reconcile and "the winner becomes the main stream" is just whose assistant message
+      is kept
+- [x] `ShadowRunner.Score`: the whole batch on **one** overlay, so the second command sees
+      what the first one left. Score = (valid prefix, unbroken), Unknown stops the count
+      without condemning the batch
+- [x] Selector in `LLM.cs`: every stream is waited out, the best batch executes, the losers
+      are dropped whole and the model is never told there were others
+- [x] `restart` / `continue` / `cancel` never reach the dispatcher, which would answer that
+      no such tool exists and condemn the batch — they are Unknown to the shadow. While a
+      command runs, a stream answering `continue` or `cancel` is taken before any scoring:
+      the shadow rates those at nothing and would pick the stream that broke the rule
+- [x] Only stream 0 prints to the console; three interleaved streams are unreadable and the
+      log keeps all of them. One channel configured = today's behaviour, `[PICK]` included
+- [ ] There is no LLM arbitration round to remove — it was never built. The 6x it would have
+      cost is what this stage avoids paying, not what it saves
+- [ ] Diversity comes only from sampling: three identical channels, one model, one request,
+      and the loader never sends a temperature. If the server samples greedily the three
+      streams are the same answer three times
+- [ ] Frame cost: up to N×batch shadow runs at selection, on top of stage 6's one per
+      executed command
+- [ ] A stream that never answers freezes the turn, and there are now three chances of it
+- [ ] Measure: errors per batch, time to the first executed command, how smart the bot feels
 
 ---
 
