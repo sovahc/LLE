@@ -123,6 +123,8 @@ namespace LLE
 
 		private readonly LoopDetector loopDetector = new LoopDetector();
 
+		private bool restartPending;
+
 		public void ResetLoopDetector()
 		{	loopDetector.Reset();
 		}
@@ -268,6 +270,8 @@ namespace LLE
 			// fire that send and orphan it, and the next response appends its calls onto it.
 			if(answered)
 				ProcessAnswers();
+
+			if(restartPending && batch.Count == 0) Restart();
 
 			if(pause) return;
 
@@ -521,25 +525,18 @@ namespace LLE
 			}
 
 			bool hasControl = cc.Any(c => c.Is("restart") || c.Is("pause"));
-			if (hasControl && cc.Count > 1)
+			if (hasControl && !cc.All(Harmless))
 			{
-				Append("[ERROR] pause and restart must be called alone, not mixed with other calls.\n",
+				Append("[ERROR] pause and restart can only be batched with note and say.\n",
 					Color.Red, Destination.Console | Destination.Log);
-				AnswerRest(cc.Count, "Not executed: pause and restart must be called alone,"
-					+ " never in a batch with other calls.");
+				AnswerRest(cc.Count, "Not executed: pause and restart can only be batched"
+					+ " with note and say.");
 				return;
 			}
 
-			if (cc[0].Is("restart"))
-			{	ClearTranscript();
-				commands.SetSystemPromptAndMemory();
-				Append("[CONTEXT RESET]\n", Color.LightGreen);
-				loopDetector.Reset();
-				contextWarnStage = 0;
-				return;
-			}
+			restartPending = cc.Any(c => c.Is("restart"));
 
-			if (!cc[0].Is("pause"))
+			if (!hasControl)
 			{
 				// The note reads differently every turn; left in, no repeat would ever look like one.
 				string loopMsg;
@@ -552,9 +549,24 @@ namespace LLE
 				}
 			}
 
-			for (int i = 0; i < cc.Count; ++i) batch.Enqueue(cc[i]);
+			for (int i = 0; i < cc.Count; ++i)
+				if (!cc[i].Is("restart")) batch.Enqueue(cc[i]);
 
 			RunNextPending();
+		}
+
+		private static bool Harmless(ToolCall call)
+		{	return call.Is("restart") || call.Is("pause") || call.Is("note") || call.Is("say");
+		}
+
+		// The transcript answers the calls of the batch, so it can only be dropped once they are done.
+		private void Restart()
+		{	restartPending = false;
+			ClearTranscript();
+			commands.SetSystemPromptAndMemory();
+			Append("[CONTEXT RESET]\n", Color.LightGreen);
+			loopDetector.Reset();
+			contextWarnStage = 0;
 		}
 	}
 }

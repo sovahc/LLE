@@ -81,8 +81,8 @@ namespace LLE
 
 		public static readonly Tool[] All =
 		{
-			new Tool("pause", "Pause the bot until something happens. Must be the only call of the batch.", None),
-			new Tool("restart", "Reset the context, keeping memory. Must be the only call of the batch.", None),
+			new Tool("pause", "Pause the bot until something happens. Can only be batched with note and say.", None),
+			new Tool("restart", "Reset the context, keeping memory. Can only be batched with note and say.", None),
 
 			new Tool("fly", "Land at a specific grid cell.",
 				Join(Ijk(), Bool("headfirst", "Fly head first (use for tight spaces or unstuck)."))),
