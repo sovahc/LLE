@@ -71,7 +71,7 @@ namespace LLE
 
 			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
 			if(!ip.HasValue)
-				yield return E_BAD_POINT;
+				yield return E_BAD_POSITION;
 
 			var position = ip.Value.chPosition;
 			var target = ip.Value.Target;
@@ -261,7 +261,7 @@ namespace LLE
 
 			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
 			if(!ip.HasValue)
-				yield return E_BAD_POINT;
+				yield return E_BAD_POSITION;
 
 			var position = ip.Value.chPosition;
 			var target = ip.Value.Target;

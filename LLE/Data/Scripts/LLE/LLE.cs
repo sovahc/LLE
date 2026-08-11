@@ -273,6 +273,7 @@ namespace LLE
 				if(bot == null) return;
 
 				commands = new Commands(bot);
+				commands.SetSystemPromptAndMemory();
 				llm = new LLM(commands);
 			}
 			else if(message == ">sp")

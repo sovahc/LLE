@@ -42,7 +42,7 @@ namespace LLE
 	public partial class Commands
 	{
 		private const string IE_NO_INVENTORY = "Internal error: character.GetInventory() is null";
-		private const string E_BAD_POINT = "Error: You are not at the correct interaction point with the block.";
+		private const string E_BAD_POSITION = "Error: You are not at the correct interaction point with the block.";
 
 		internal static CommandResult Success(string message) => CommandResult.Success(message);
 		internal static CommandResult Incomplete(string message) => CommandResult.Incomplete(message);
@@ -367,7 +367,7 @@ namespace LLE
 			{	message = null;
 				return true;
 			}
-			message = E_BAD_POINT;
+			message = E_BAD_POSITION;
 			return false;
 		}
 
@@ -389,7 +389,7 @@ namespace LLE
 				return true;
 			}
 
-			message = E_BAD_POINT;
+			message = E_BAD_POSITION;
 			return false;
 		}
 

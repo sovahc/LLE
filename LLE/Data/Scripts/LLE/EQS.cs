@@ -353,6 +353,7 @@ namespace LLE
 
 			Vector3D engineerCell = grid.WorldToGridInteger(engineerPosition);
 			Vector3D toEngineer = engineerCell - blockCenter;
+			if(toEngineer.LengthSquared() < 1e-4) toEngineer = Vector3D.One;
 			
 			var shiftedCenter = blockCenter + toEngineer.Normalized() * 0.1; // Break tie
 
