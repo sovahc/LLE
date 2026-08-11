@@ -308,16 +308,21 @@ namespace LLE
 				var realBlock = realGrid.GetCubeBlock(realCell);
 
 				if(realBlock == null)
-				{	welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
-					if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
+				{
+					// The projector places the frame itself. A welder shot would have to reach the ghost,
+					// and its raycast disagrees with ours often enough to refuse a good position.
+					var owner = character.ControllerInfo.ControllingIdentityId;
+					projector.Build(block, owner, character.EntityId, true, owner);
 
-					// place block
-					welderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
-					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
-				
-					realBlock = realGrid.GetCubeBlock(realCell);
+					SetPause(Constants.MicronavigationDelay);
+					while(IsPaused())
+					{	realBlock = realGrid.GetCubeBlock(realCell);
+						if(realBlock != null) break;
+						yield return null;
+					}
+
 					if(realBlock == null)
-						yield return "Error: can't place block using projection.";
+						yield return $"Error: the projector did not place {Quote(Name(block))} at {IJK(realCell)}.";
 
 					// switch to real block
 					block = realBlock;
