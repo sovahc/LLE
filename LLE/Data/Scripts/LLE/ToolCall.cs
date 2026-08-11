@@ -12,11 +12,14 @@ namespace LLE
 		public readonly string Name;
 
 		private readonly Dictionary<string, string> args;
+		private readonly Dictionary<string, List<ToolCall>> lists;
 		private string text;
 
-		private ToolCall(string name, Dictionary<string, string> parsed)
+		private ToolCall(string name, Dictionary<string, string> parsed,
+			Dictionary<string, List<ToolCall>> parsedLists)
 		{	Name = name;
 			args = parsed;
+			lists = parsedLists;
 		}
 
 		public string Text
@@ -31,7 +34,22 @@ namespace LLE
 				var tool = Tools.Find(Name);
 				if (tool != null)
 					foreach (var p in tool.Params)
-					{	string v;
+					{
+						if (p.Fields != null)
+						{	List<ToolCall> entries;
+							if (lists == null || !lists.TryGetValue(p.Name, out entries)) continue;
+							if (!first) sb.Append(", ");
+							first = false;
+							sb.Append(p.Name).Append("=[");
+							for (int e = 0; e < entries.Count; ++e)
+							{	if (e != 0) sb.Append("; ");
+								entries[e].AppendValues(sb, p.Fields);
+							}
+							sb.Append(']');
+							continue;
+						}
+
+						string v;
 						if (!args.TryGetValue(p.Name, out v)) continue;
 						if (!first) sb.Append(", ");
 						first = false;
@@ -48,6 +66,24 @@ namespace LLE
 				text = sb.Append(')').ToString();
 				return text;
 			}
+		}
+
+		private void AppendValues(StringBuilder sb, Tools.Param[] fields)
+		{
+			bool first = true;
+			foreach (var f in fields)
+			{	string v;
+				if (!args.TryGetValue(f.Name, out v)) continue;
+				if (!first) sb.Append(' ');
+				first = false;
+				sb.Append(v);
+			}
+		}
+
+		public List<ToolCall> List(string key)
+		{	List<ToolCall> entries;
+			if (lists == null || !lists.TryGetValue(key, out entries)) return null;
+			return entries;
 		}
 
 		private static bool HasParam(Tools.Tool tool, string name)
@@ -126,30 +162,65 @@ namespace LLE
 			var root = Json.Parse(argumentsJson, out error);
 			if (root == null) return null;
 
+			return FromObject(name, root, true, out error);
+		}
+
+		private static ToolCall FromObject(string name, Json root, bool allowLists, out string error)
+		{
+			error = null;
+
 			if (!root.Is(JsonKind.Object))
 			{	error = "the arguments are not an object";
 				return null;
 			}
 
 			var parsed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			Dictionary<string, List<ToolCall>> parsedLists = null;
 
 			foreach (var field in root.Object)
 			{
 				var value = field.Value;
 
-				if (value.Is(JsonKind.Array) || value.Is(JsonKind.Object))
-				{	error = $"'{field.Key}' is a list or an object; every argument is a single value";
-					return null;
+				if (value.Is(JsonKind.Null)) continue;
+
+				if (value.Is(JsonKind.Array))
+				{
+					if (!allowLists)
+					{	error = $"'{field.Key}' is a list inside a list";
+						return null;
+					}
+
+					var entries = new List<ToolCall>();
+
+					foreach (var element in value.Array)
+					{
+						if (!element.Is(JsonKind.Object))
+						{	error = $"every entry of '{field.Key}' must be an object";
+							return null;
+						}
+
+						var entry = FromObject(field.Key, element, false, out error);
+						if (entry == null) return null;
+						entries.Add(entry);
+					}
+
+					if (parsedLists == null)
+						parsedLists = new Dictionary<string, List<ToolCall>>(StringComparer.OrdinalIgnoreCase);
+					parsedLists[field.Key] = entries;
+					continue;
 				}
 
-				if (value.Is(JsonKind.Null)) continue;
+				if (value.Is(JsonKind.Object))
+				{	error = $"'{field.Key}' is an object; every argument is a single value or a list";
+					return null;
+				}
 
 				parsed[field.Key] = value.Is(JsonKind.String) ? value.String
 					: value.Is(JsonKind.Bool) ? (value.Bool ? "true" : "false")
 					: value.Raw;
 			}
 
-			return new ToolCall(name, parsed);
+			return new ToolCall(name, parsed, parsedLists);
 		}
 
 	}

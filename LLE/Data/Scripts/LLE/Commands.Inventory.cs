@@ -146,12 +146,14 @@ namespace LLE
 			if(!GridIsSet(out message)) yield return message;
 			if(CurrentGridIsProjection(out message)) yield return message;
 
-			double count; Vector3I ijk;
+			Vector3I ijk;
 
-			if(!call.Number("count", out count)) yield return call.Need("count");
+			var wanted = call.List("items");
+			if(wanted == null || wanted.Count == 0) yield return call.Need("items");
 
-			var item = call.Str("item");
-			if(string.IsNullOrEmpty(item)) yield return call.Need("item");
+			foreach(var entry in wanted)
+				if(string.IsNullOrEmpty(entry.Str("item")))
+					yield return "Error: every entry of items needs an item name.";
 
 			if(!call.Ijk(out ijk)) yield return call.NeedIjk;
 
@@ -196,14 +198,31 @@ namespace LLE
 
 			toList.Add(character.GetInventory());
 
-			List<string> items = new List<string>() { item };
-
 			StringBuilder sb = new StringBuilder();
 			sb.Append($"Transferring from {fromName} into your inventory\n");
 
-			var full = InventoryTransfer(fromList, toList, items, (MyFixedPoint)count, sb);
+			yield return TransferEach(wanted, fromList, toList, sb);
+		}
 
-			yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
+		// One entry is one call into the transfer: the amount is per item, not per batch.
+		private CommandResult TransferEach(List<ToolCall> wanted,
+			List<IMyInventory> fromList, List<WTF_IMyInventory> toList, StringBuilder sb)
+		{
+			bool everything = true;
+			var one = new List<string>();
+
+			foreach(var entry in wanted)
+			{
+				double count;
+				var amount = entry.Number("count", out count) ? (MyFixedPoint)count : MyFixedPoint.MaxValue;
+
+				one.Clear();
+				one.Add(entry.Str("item"));
+
+				everything &= InventoryTransfer(fromList, toList, one, amount, sb);
+			}
+
+			return everything ? Success(sb.ToString()) : Incomplete(sb.ToString());
 		}
 
 		internal IEnumerator Put(ToolCall call, bool allComponents)
@@ -212,16 +231,15 @@ namespace LLE
 			if(!GridIsSet(out message)) yield return message;
 			if(CurrentGridIsProjection(out message)) yield return message;
 
-			string item = null;
-			double count = 0;
-			bool allOfItem = false;
+			var wanted = allComponents ? null : call.List("items");
 
 			if(!allComponents)
 			{
-				item = call.Str("item");
-				if(string.IsNullOrEmpty(item)) yield return call.Need("item");
+				if(wanted == null || wanted.Count == 0) yield return call.Need("items");
 
-				allOfItem = !call.Number("count", out count);
+				foreach(var entry in wanted)
+					if(string.IsNullOrEmpty(entry.Str("item")))
+						yield return "Error: every entry of items needs an item name.";
 			}
 
 			Vector3I ijk;
@@ -281,12 +299,8 @@ namespace LLE
 
 				yield return full ? Success(sb.ToString()) : Incomplete(sb.ToString());
 			}
-			else
-			{	List<string> items = new List<string>() { item };
-				var amount = allOfItem ? MyFixedPoint.MaxValue : (MyFixedPoint)count;
-				var full2 = InventoryTransfer(fromList, toList, items, amount, sb);
-				yield return full2 ? Success(sb.ToString()) : Incomplete(sb.ToString());
-			}
+
+			yield return TransferEach(wanted, fromList, toList, sb);
 		}
 
 		internal IEnumerator Transfer(ToolCall call, bool allItems)

@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <Compile Include="../LLE/Data/Scripts/LLE/Tools.cs" />
+    <Compile Include="../LLE/Data/Scripts/LLE/ToolCall.cs" />
     <Compile Include="../LLE/Data/Scripts/LLE/Json.cs" />
     <Compile Include="../LLE/Data/Scripts/LLE/Prompts.cs" />
   </ItemGroup>

@@ -18,8 +18,6 @@ Write no text at all. Your answer is tool calls and nothing else — a turn spen
 nothing, and you will be asked the same question again. Tool calls go through the tool interface
 only; a call written as text is not a call.
 
-Calls that belong to one step go in one turn, in the order they must run — for example
-`approach(i=-1, j=1, k=-7, action=put)` and then `put_all_components(i=-1, j=1, k=-7)`.
 The first call that does not end in OK drops the rest of the turn.
 
 ## MEMORY & CONTINUITY

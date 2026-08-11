@@ -104,6 +104,45 @@ def check(shape, call):
     return None, len(items)
 
 
+def rewrite(context, shape):
+    """The same context as if `put` had been list-shaped all along.
+
+    Left alone, the model copies the single-item calls standing in its own transcript and never
+    looks at the schema, which measures self-imitation instead of the shape.
+    """
+    out = []
+
+    for message in context:
+        calls = message.get("tool_calls") if message["role"] == "assistant" else None
+        if not calls:
+            out.append(message)
+            continue
+
+        rewritten = []
+        for call in calls:
+            if call["function"]["name"] != "put":
+                rewritten.append(call)
+                continue
+
+            old = json.loads(call["function"]["arguments"])
+            name, count = old.get("item"), old.get("count")
+            if name is None:
+                rewritten.append(call)
+                continue
+
+            if shape == "A":
+                entry = {"item": name} if count is None else {"item": name, "count": count}
+            else:
+                entry = name if count is None else f"{name} {count:g}"
+
+            new = {"i": old.get("i"), "j": old.get("j"), "k": old.get("k"), "items": [entry]}
+            rewritten.append({**call, "function": {"name": "put", "arguments": json.dumps(new)}})
+
+        out.append({**message, "tool_calls": rewritten})
+
+    return out
+
+
 def run(args):
     turns = replay.parse_log(args.log)
     system = (HERE / "variants" / "base.txt").read_text() + replay.memory_of(turns, args.turn)
@@ -119,7 +158,7 @@ def run(args):
             "max_tokens": args.max_tokens,
             "stream": False,
             "chat_template_kwargs": {"enable_thinking": True},
-            "messages": context,
+            "messages": context if args.raw else rewrite(context, shape),
             "tools": schema_with(shape),
         }
 
@@ -155,6 +194,8 @@ def main():
     parser.add_argument("--turn", type=int, required=True)
     parser.add_argument("--shape", action="append", default=None, choices=list(SHAPES))
     parser.add_argument("--n", type=int, default=20)
+    parser.add_argument("--raw", action="store_true",
+                        help="leave the recorded single-item calls in the context")
     parser.add_argument("--url", default="http://localhost:8080/v1/chat/completions")
     parser.add_argument("--model", default="/home/cat/LLM/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf")
     parser.add_argument("--max-tokens", type=int, default=4000)

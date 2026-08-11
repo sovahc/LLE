@@ -10,8 +10,13 @@ namespace LLE
 			public readonly string[] Values;
 			public readonly bool Required;
 
-			public Param(string name, string type, string description, bool required, string[] values)
+			// Set on a list parameter: the shape of one entry.
+			public readonly Param[] Fields;
+
+			public Param(string name, string type, string description, bool required, string[] values,
+				Param[] fields = null)
 			{	Name = name; Type = type; Description = description; Required = required; Values = values;
+				Fields = fields;
 			}
 		}
 
@@ -39,6 +44,9 @@ namespace LLE
 		}
 		private static Param Enum(string name, string description, bool required, params string[] values)
 		{	return new Param(name, "string", description, required, values);
+		}
+		private static Param List(string name, string description, params Param[] fields)
+		{	return new Param(name, "array", description, true, null, fields);
 		}
 
 		private static Param[] None = new Param[0];
@@ -146,11 +154,16 @@ namespace LLE
 
 			new Tool("grind", "Grind the block at a cell.", Ijk()),
 			new Tool("weld", "Weld the block at a cell. Incremental: several trips may be needed.", Ijk()),
-			new Tool("get", "Take items out of a block's inventory into your own.",
-				Join(Ijk(), Str("item", "Exact item name."), Num("count", "How many to take."))),
-			new Tool("put", "Put items from your inventory into a block's.",
-				Join(Ijk(), Str("item", "Exact item name."),
-					Num("count", "How many to put. Omit to put all of them.", false))),
+			new Tool("get", "Take things out of a block's inventory. Write down everything you need"
+				+ " from it — one entry per item type, all in one call.",
+				Join(Ijk(), List("items", "What to take. One entry per item type.",
+					Str("item", "Exact item name."),
+					Num("count", "How many. Omit to take all of them.", false)))),
+			new Tool("put", "Put things away. Write down everything you are carrying that has to go"
+				+ " into this block — one entry per item type, all in one call.",
+				Join(Ijk(), List("items", "What to put in. One entry per item type.",
+					Str("item", "Exact item name."),
+					Num("count", "How many. Omit to put all of them.", false)))),
 			new Tool("put_all_components", "Put every component you carry into a block's inventory.", Ijk()),
 			new Tool("build", "Build every drafted block within reach. Needs the player's approval first."
 				+ " Repeat after moving.", None),
@@ -191,45 +204,58 @@ namespace LLE
 				sb.Append(",\"description\":");
 				Json.Quoted(sb, tool.Description);
 
-				sb.Append(",\"parameters\":{\"type\":\"object\",\"properties\":{");
-
-				for (int p = 0; p < tool.Params.Length; ++p)
-				{
-					var param = tool.Params[p];
-					if (p != 0) sb.Append(',');
-
-					Json.Quoted(sb, param.Name);
-					sb.Append(":{\"type\":");
-					Json.Quoted(sb, param.Type);
-					sb.Append(",\"description\":");
-					Json.Quoted(sb, param.Description);
-
-					if (param.Values != null)
-					{	sb.Append(",\"enum\":[");
-						for (int v = 0; v < param.Values.Length; ++v)
-						{	if (v != 0) sb.Append(',');
-							Json.Quoted(sb, param.Values[v]);
-						}
-						sb.Append(']');
-					}
-					sb.Append('}');
-				}
-
-				sb.Append("},\"required\":[");
-
-				bool first = true;
-				foreach (var param in tool.Params)
-				{	if (!param.Required) continue;
-					if (!first) sb.Append(',');
-					first = false;
-					Json.Quoted(sb, param.Name);
-				}
-
-				sb.Append("]}}}");
+				sb.Append(",\"parameters\":");
+				AppendObject(sb, tool.Params);
+				sb.Append("}}");
 			}
 
 			sb.Append(']');
 			return schema = sb.ToString();
+		}
+
+		private static void AppendObject(StringBuilder sb, Param[] parameters)
+		{
+			sb.Append("{\"type\":\"object\",\"properties\":{");
+
+			for (int p = 0; p < parameters.Length; ++p)
+			{
+				var param = parameters[p];
+				if (p != 0) sb.Append(',');
+
+				Json.Quoted(sb, param.Name);
+				sb.Append(":{\"type\":");
+				Json.Quoted(sb, param.Type);
+				sb.Append(",\"description\":");
+				Json.Quoted(sb, param.Description);
+
+				if (param.Values != null)
+				{	sb.Append(",\"enum\":[");
+					for (int v = 0; v < param.Values.Length; ++v)
+					{	if (v != 0) sb.Append(',');
+						Json.Quoted(sb, param.Values[v]);
+					}
+					sb.Append(']');
+				}
+
+				if (param.Fields != null)
+				{	sb.Append(",\"items\":");
+					AppendObject(sb, param.Fields);
+				}
+
+				sb.Append('}');
+			}
+
+			sb.Append("},\"required\":[");
+
+			bool first = true;
+			foreach (var param in parameters)
+			{	if (!param.Required) continue;
+				if (!first) sb.Append(',');
+				first = false;
+				Json.Quoted(sb, param.Name);
+			}
+
+			sb.Append("]}");
 		}
 	}
 }
