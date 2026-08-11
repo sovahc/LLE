@@ -111,6 +111,8 @@ namespace LLE
 		private readonly IMyCubeGrid grid;
 		private readonly int resolutionBits;
 
+		public Vector3I? engineerCell;
+
 		public TraversabilityCalculator(IMyCubeGrid grid_, int resolutionBits_)
 		{
 			grid = grid_;
@@ -178,6 +180,16 @@ namespace LLE
 		}
 
 		public Traversability GetTraversability(Vector3I position, List<MyVoxelBase> voxels, List<IMyCubeGrid> grids)
+		{
+			var t = Probe(position, voxels, grids);
+
+			// The engineer already stands here, so a closed center is no reason to refuse to move.
+			if (position == engineerCell) t[0, 0, 0] = false;
+
+			return t;
+		}
+
+		private Traversability Probe(Vector3I position, List<MyVoxelBase> voxels, List<IMyCubeGrid> grids)
 		{
 			// Small grid blocks are always treated as fully blocked.
 			if (grid.GridSizeEnum == MyCubeSize.Small)

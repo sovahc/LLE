@@ -210,7 +210,8 @@ namespace LLE
 			var startChunk = Chunk(start);
 			int startLocal = AStarChunk.Local(start);
 
-			if (GetTraversability(startChunk, startLocal, start).Center)
+			var startT = GetTraversability(startChunk, startLocal, start);
+			if (startT.Center)
 			{	MyConsole.Add($"FindPath Error - start is obstructed", Color.Red);
 				yield break;
 			}
@@ -339,6 +340,7 @@ namespace LLE
 				}
 			}
 
+			MyConsole.Add($"FindPath Error - no path from {start} {startT}", Color.Red);
 			yield break;
 		}
 

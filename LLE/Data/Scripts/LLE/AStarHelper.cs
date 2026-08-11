@@ -107,7 +107,7 @@ namespace LLE
 			return cell >> ResolutionBits;
 		}
 
-		internal AStarHelper(IMyCubeGrid grid_, Vector3I point_A, Vector3I point_B)
+		internal AStarHelper(IMyCubeGrid grid_, Vector3I point_A, Vector3I point_B, Vector3I? engineerCell = null)
 		{	grid = grid_;
 
 			if(grid.GridSizeEnum == MyCubeSize.Large) AStarBorder = 2;
@@ -120,7 +120,7 @@ namespace LLE
 			var boxMin = (grid.Min - AStarBorder) << ResolutionBits;
 			var boxMax = ((grid.Max + AStarBorder) << ResolutionBits) + ((1 << ResolutionBits) - 1);
 
-			var source = new TraversabilityCalculator(grid, ResolutionBits);
+			var source = new TraversabilityCalculator(grid, ResolutionBits) { engineerCell = engineerCell };
 
 			astar = new AStar(boxMin, boxMax, source);
 

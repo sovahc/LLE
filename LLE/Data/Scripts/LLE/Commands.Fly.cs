@@ -73,9 +73,12 @@ namespace LLE
 			var result = new List<PathNode>();
 			if (path.Count == 0) return result;
 
-			result.Add(new PathNode() { v = helper.CellToWorld(path[0]) });
-			if (path.Count == 1) return result;
+			if (path.Count == 1)
+			{	result.Add(new PathNode() { v = helper.CellToWorld(path[0]) });
+				return result;
+			}
 
+			// path[0] is skipped: the engineer stands there already, and its center may be inside the block he stands on.
 			for (int i = 1; i < path.Count - 1; i++)
 			{
 				Vector3I prevDir = path[i] - path[i - 1];
@@ -235,7 +238,7 @@ namespace LLE
 				from = currentGrid.WorldToGridInteger(engineer);
 				to = currentGrid.WorldToGridInteger(destination);
 
-				aStarHelper = new AStarHelper(currentGrid, from, to);
+				aStarHelper = new AStarHelper(currentGrid, from, to, from);
 
 				while(!aStarHelper.Tick()) yield return null;
 
@@ -257,7 +260,7 @@ namespace LLE
 			from = selectedGrid.WorldToGridInteger(engineer);
 			to = destinationCell;
 
-			aStarHelper = new AStarHelper(selectedGrid, to, from); // Reversed: A* only knows how to find a path OUT of the grid (to border), so we search backward and reverse the result
+			aStarHelper = new AStarHelper(selectedGrid, to, from, from); // Reversed: A* only knows how to find a path OUT of the grid (to border), so we search backward and reverse the result
 
 			while(!aStarHelper.Tick()) yield return null;
 
