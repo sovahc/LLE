@@ -232,7 +232,7 @@ namespace LLE
 
 			var currentGrid = GetCurrentEngineerGrid(engineer);
 
-			if(currentGrid != null && currentGrid != selectedGrid && !IsInsideGrid(destination, currentGrid))
+			if(currentGrid != null && currentGrid != selectedGrid && !IsInsideGrid(engineer, selectedGrid))
 			{	MyConsole.Add("Fly out of the current grid toward the target.");
 
 				from = currentGrid.WorldToGridInteger(engineer);

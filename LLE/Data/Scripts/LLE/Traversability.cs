@@ -110,6 +110,7 @@ namespace LLE
 	{
 		private readonly IMyCubeGrid grid;
 		private readonly int resolutionBits;
+		private readonly bool gridIsProjection;
 
 		public Vector3I? engineerCell;
 
@@ -117,6 +118,7 @@ namespace LLE
 		{
 			grid = grid_;
 			resolutionBits = resolutionBits_;
+			gridIsProjection = Commands.IsProjection(grid_);
 		}
 
 		public BoundingBoxD CellRangeToWorld(Vector3I cellMin, Vector3I cellMax)
@@ -198,6 +200,9 @@ namespace LLE
 			foreach (var g in grids)
 				if (Collisions.CheckSphereVsGrid(g, center, Constants.CollisionProbeRadius))
 					return Traversability.Blocked;
+
+			// Projected blocks are not solid, and welding them means flying inside the projection.
+			if (gridIsProjection) return Traversability.Free;
 
 			// Small grid blocks are always treated as fully blocked.
 			if (grid.GridSizeEnum == MyCubeSize.Small)
