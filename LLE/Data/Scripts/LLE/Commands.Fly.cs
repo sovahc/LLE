@@ -19,13 +19,13 @@ namespace LLE
 
 		private AStarHelper aStarHelper;
 
-		internal bool IsEngineerInsideGrid(Vector3D engineer, IMyCubeGrid grid)
+		internal bool IsInsideGrid(Vector3D point, IMyCubeGrid grid)
 		{
 			int border = 0;
 			if(grid.GridSizeEnum == MyCubeSize.Large) border = 1;
 			if(grid.GridSizeEnum == MyCubeSize.Small) border = 6;
 
-			var local = grid.WorldToGridInteger(engineer);
+			var local = grid.WorldToGridInteger(point);
 			return local.X >= grid.Min.X - border && local.X <= grid.Max.X + border &&
 				   local.Y >= grid.Min.Y - border && local.Y <= grid.Max.Y + border &&
 				   local.Z >= grid.Min.Z - border && local.Z <= grid.Max.Z + border;
@@ -44,7 +44,7 @@ namespace LLE
 				var g = e as IMyCubeGrid;
 				if (g == null || g.GridSizeEnum != MyCubeSize.Large) continue;
 
-				if(!IsEngineerInsideGrid(engineer, g)) continue;
+				if(!IsInsideGrid(engineer, g)) continue;
 
 				double distanceSq = (engineer - g.PositionComp.WorldAABB.Center).LengthSquared();
 				if(distanceSq > minimalDistanceSq) continue;
@@ -232,7 +232,7 @@ namespace LLE
 
 			var currentGrid = GetCurrentEngineerGrid(engineer);
 
-			if(currentGrid != null && currentGrid != selectedGrid)
+			if(currentGrid != null && currentGrid != selectedGrid && !IsInsideGrid(destination, currentGrid))
 			{	MyConsole.Add("Fly out of the current grid toward the target.");
 
 				from = currentGrid.WorldToGridInteger(engineer);
@@ -292,10 +292,15 @@ namespace LLE
 				var ec = GetEngineerCenter();
 
 				// Fly-out mode: stop when the engineer has left the grid.
-				if(exitGrid != null && !IsEngineerInsideGrid(ec, exitGrid))
+				if(exitGrid != null && !IsInsideGrid(ec, exitGrid))
 					yield break; // no answer to LLM, continue
 
-				if(micro.Arrived()) { yield return Success(arrivalMessage ?? $"Arrived. Position: {CharacterCellText()}"); }
+				if(micro.Arrived())
+				{	// Flying out is only half of the trip; answering here would end the command before it starts.
+					if(exitGrid != null) yield break;
+
+					yield return Success(arrivalMessage ?? $"Arrived. Position: {CharacterCellText()}");
+				}
 
 				if(micro.Stuck)
 				{	micro.Stop();

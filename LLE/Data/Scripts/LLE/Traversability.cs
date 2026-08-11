@@ -135,7 +135,7 @@ namespace LLE
 				box.Include(grid.GridIntegerToWorld(corner));
 			}
 
-			// Probes reach one block past the range (face sub-cell, neighbour scan) plus the 1.25 m voxel sphere.
+			// Probes reach one block past the range (face sub-cell, neighbour scan) plus the half-cell voxel sphere.
 			box.Inflate(grid.GridSize + 2.0);
 			return box;
 		}
@@ -147,7 +147,7 @@ namespace LLE
 			foreach (var entity in MyAPIGateway.Entities.GetTopMostEntitiesInBox(ref worldBox))
 			{
 				var g = entity as IMyCubeGrid;
-				if (g != null && g != grid)
+				if (g != null && g != grid && !Commands.IsProjection(g))
 					grids.Add(g);
 			}
 		}
@@ -191,20 +191,6 @@ namespace LLE
 
 		private Traversability Probe(Vector3I position, List<MyVoxelBase> voxels, List<IMyCubeGrid> grids)
 		{
-			// Small grid blocks are always treated as fully blocked.
-			if (grid.GridSizeEnum == MyCubeSize.Small)
-			{	
-				// !not optimized!
-				Vector3I v;
-				for(v.Z = -1; v.Z <= 1; ++v.Z)
-					for(v.Y = -1; v.Y <= 1; ++v.Y)
-						for(v.X = -1; v.X <= 1; ++v.X)
-						{	if(grid.GetCubeBlock(position + v) != null) return Traversability.Blocked;
-						}
-				
-				return Traversability.Free;
-			}
-
 			foreach(var voxel in voxels)
 				if(!IsVoxelTraversable(voxel, position)) return Traversability.Blocked;
 
@@ -212,6 +198,20 @@ namespace LLE
 			foreach (var g in grids)
 				if (Collisions.CheckSphereVsGrid(g, center, Constants.CollisionProbeRadius))
 					return Traversability.Blocked;
+
+			// Small grid blocks are always treated as fully blocked.
+			if (grid.GridSizeEnum == MyCubeSize.Small)
+			{
+				// !not optimized!
+				Vector3I v;
+				for(v.Z = -1; v.Z <= 1; ++v.Z)
+					for(v.Y = -1; v.Y <= 1; ++v.Y)
+						for(v.X = -1; v.X <= 1; ++v.X)
+						{	if(grid.GetCubeBlock(position + v) != null) return Traversability.Blocked;
+						}
+
+				return Traversability.Free;
+			}
 
 			var slim = grid.GetCubeBlock(position);
 			if (slim == null)
@@ -237,7 +237,7 @@ namespace LLE
 			HasMaterialsInBox(wb, voxel, 0, out hasMaterials, out hasSpace); // 0.02 // Super fast
 			//bool i2 = voxel.IsAnyAabbCornerInside(ref MatrixD.Identity, wb); // 0.04 // A bit slower
 			if(hasMaterials && hasSpace)
-			{	BoundingSphereD sphere = new BoundingSphereD(vc, 1.25); // 0.2 // Very slow but precise
+			{	BoundingSphereD sphere = new BoundingSphereD(vc, grid.GridSize * 0.5); // 0.2 // Very slow but precise
 				return ! voxel.GetIntersectionWithSphere(ref sphere);
 			}
 
