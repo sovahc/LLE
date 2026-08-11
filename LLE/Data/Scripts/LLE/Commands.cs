@@ -284,6 +284,47 @@ namespace LLE
 			return mcg != null && mcg.Projector != null;
 		}
 
+		// Works from either side: the projection knows its projector, the real grid carries it as a block.
+		public static IMyProjector ProjectorOf(IMyCubeGrid grid)
+		{
+			var mcg = grid as MyCubeGrid;
+			if(mcg != null && mcg.Projector != null) return mcg.Projector as IMyProjector;
+
+			var projectors = new List<IMySlimBlock>();
+			grid.GetBlocks(projectors, b => b.FatBlock is IMyProjector);
+
+			foreach(var slim in projectors)
+			{	var projector = slim.FatBlock as IMyProjector;
+				if(projector != null && projector.ProjectedGrid != null) return projector;
+			}
+
+			return null;
+		}
+
+		// A cell of the real grid can be empty and still be covered by a block of its projection.
+		internal IMySlimBlock GhostAt(Vector3I ijk)
+		{
+			var projector = ProjectorOf(selectedGrid);
+			if(projector == null || projector.CubeGrid != selectedGrid) return null;
+
+			var projection = projector.ProjectedGrid;
+			if(projection == null) return null;
+
+			return projection.GetCubeBlock(projection.WorldToGridInteger(selectedGrid.GridIntegerToWorld(ijk)));
+		}
+
+		internal IMySlimBlock BlockAt(Vector3I ijk)
+		{
+			return selectedGrid.GetCubeBlock(ijk) ?? GhostAt(ijk);
+		}
+
+		// Everything the bot reads or writes is in the selected grid's coordinates, projection included.
+		internal Vector3I ToSelectedGrid(IMyCubeGrid from, Vector3I cell)
+		{
+			if(from == selectedGrid) return cell;
+			return selectedGrid.WorldToGridInteger(from.GridIntegerToWorld(cell));
+		}
+
 		internal bool CurrentGridIsProjection(out string message)
 		{	if(IsProjection(selectedGrid))
 			{	message = "Error: selected grid is a projection preview, not a built object. Not supported for this command.";
@@ -335,7 +376,7 @@ namespace LLE
 
 		internal void AppendInteractionPoints(Vector3I ijk, StringBuilder sb)
 		{	
-			var block = selectedGrid.GetCubeBlock(ijk);
+			var block = BlockAt(ijk);
 
 			var eqsr = new List<EQSResult>();
 			int totalCount = 0;
@@ -345,7 +386,7 @@ namespace LLE
 
 			if(eqsr.Count != 0)
 			{	sb.Append("* Get/Put: ");
-				var ip = eqsr.Select(r => r.Cell).ToList();
+				var ip = eqsr.Select(r => ToSelectedGrid(block.CubeGrid, r.Cell)).ToList();
 				AppendList(ip, sb);
 			}
 
@@ -354,7 +395,7 @@ namespace LLE
 
 			if(eqsr.Count != 0)
 			{	sb.Append("* Recharge: ");
-				var ip = eqsr.Select(r => r.Cell).ToList();
+				var ip = eqsr.Select(r => ToSelectedGrid(block.CubeGrid, r.Cell)).ToList();
 				AppendList(ip, sb);
 			}
 			
@@ -363,7 +404,7 @@ namespace LLE
 			
 			if(eqsr.Count != 0)
 			{	sb.Append("* Grind/Weld: ");
-				var ip = eqsr.Select(r => r.Cell).ToList();
+				var ip = eqsr.Select(r => ToSelectedGrid(block.CubeGrid, r.Cell)).ToList();
 				AppendList(ip, sb);
 			}
 

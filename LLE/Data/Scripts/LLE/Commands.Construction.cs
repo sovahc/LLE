@@ -247,7 +247,7 @@ namespace LLE
 			Vector3I ijk;
 			if (!call.Ijk(out ijk)) yield return call.NeedIjk;
 
-			var block = selectedGrid.GetCubeBlock(ijk);
+			var block = BlockAt(ijk);
 			if (block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			bool projection = IsProjection(block.CubeGrid);
@@ -288,7 +288,7 @@ namespace LLE
 			}
 
 			// check if block still exists
-			block = selectedGrid.GetCubeBlock(ijk);
+			block = BlockAt(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			var inventory = character.GetInventory();
@@ -298,14 +298,14 @@ namespace LLE
 
 			if(projection)
 			{	
-				var mcg = selectedGrid as MyCubeGrid;
-				var projector = mcg.Projector as IMyProjector;
+				var projector = ProjectorOf(block.CubeGrid);
 				if(projector == null)
 					yield return "Error: could not find the projector owning this projection.";
-				
+
 				var realGrid = projector.CubeGrid;
-				var worldPos = selectedGrid.GridIntegerToWorld(block.Position);
-				var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
+				var worldPos = block.CubeGrid.GridIntegerToWorld(block.Position);
+				var realCell = realGrid.WorldToGridInteger(worldPos);
+				var realBlock = realGrid.GetCubeBlock(realCell);
 
 				if(realBlock == null)
 				{	welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
@@ -315,13 +315,13 @@ namespace LLE
 					welderGun.Shoot(MyShootActionEnum.PrimaryAction, (Vector3)character.WorldMatrix.Forward, null);
 					welderGun.EndShoot(MyShootActionEnum.PrimaryAction);
 				
-					realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
+					realBlock = realGrid.GetCubeBlock(realCell);
 					if(realBlock == null)
 						yield return "Error: can't place block using projection.";
 
 					// switch to real block
 					block = realBlock;
-					result.Append($"Block placed on grid '{realGrid.DisplayName}'\n");
+					result.Append($"Block placed on grid '{realGrid.DisplayName}' at {IJK(realCell)}\n");
 				}
 			}
 

@@ -116,7 +116,7 @@ namespace LLE
 			return "Other";
 		}
 
-		internal void ListDescription(List<Vector3I> coordinates, bool byCategory, MyMarkdown md)
+		internal void ListDescription(List<Vector3I> coordinates, bool byCategory, MyMarkdown md, bool ghosts = false)
 		{	md.Append($"Legend: `Name at P1; P2; ...` means a block called Name stands at each of those positions."
 				+ $" `{FreeSpace} at ...` means those cells are empty."
 				+ $" A name prefixed with `{LargeBlockMark}` is a large block occupying more than a single 1x1x1 cell.");
@@ -127,7 +127,7 @@ namespace LLE
 
 			foreach (var position in coordinates)
 			{	
-				var cubeBlock = selectedGrid.GetCubeBlock(position);
+				var cubeBlock = ghosts ? BlockAt(position) : selectedGrid.GetCubeBlock(position);
 				var name = Name(cubeBlock);
 
 				List<Vector3I> pp;
@@ -264,18 +264,18 @@ namespace LLE
 			string message;
 			if(!GridIsSet(out message)) return message;
 
-			if(!IsProjection(selectedGrid))
-				return "Error: selected grid is not a projection.";
-
-			var mcg = selectedGrid as MyCubeGrid;
-			var projector = mcg.Projector as IMyProjector;
+			var projector = ProjectorOf(selectedGrid);
 			if(projector == null)
-				return "Error: could not find the projector owning this projection.";
+				return "Error: no projection on the selected grid.";
+
+			var projection = projector.ProjectedGrid;
+			if(projection == null)
+				return "Error: the projector is off — nothing is projected.";
 
 			var realGrid = projector.CubeGrid;
 
 			var md = new MyMarkdown();
-			md.Append($"Real grid (select this to weld already-placed blocks): {Quote(Name(realGrid))}");
+			md.Append($"Projection of {Quote(Name(realGrid))}. Weld it on that grid; coordinates below are its own.");
 			md.Append($"Total blocks: {projector.TotalBlocks}");
 			md.Append($"Not yet built: {projector.RemainingBlocks}");
 			md.Append($"Buildable now: {projector.BuildableBlocksCount}");
@@ -283,23 +283,23 @@ namespace LLE
 			if(projector.BuildableBlocksCount > 0)
 			{
 				var allBlocks = new List<IMySlimBlock>();
-				selectedGrid.GetBlocks(allBlocks);
+				projection.GetBlocks(allBlocks);
 
 				var buildable = new List<Vector3I>();
 				foreach(var ghost in allBlocks)
 				{
 					// CanBuild's AlreadyBuilt is unreliable for hidden ghosts; match position first.
-					var worldPos = selectedGrid.GridIntegerToWorld(ghost.Position);
+					var worldPos = projection.GridIntegerToWorld(ghost.Position);
 					var realBlock = realGrid.GetCubeBlock(realGrid.WorldToGridInteger(worldPos));
 					if(realBlock != null && realBlock.BlockDefinition.Id == ghost.BlockDefinition.Id)
 						continue;
 
 					if(projector.CanBuild(ghost, false) == BuildCheckResult.OK)
-						buildable.Add(ghost.Position);
+						buildable.Add(ToSelectedGrid(projection, ghost.Position));
 				}
 
 				md.Append($"### Buildable now");
-				ListDescription(buildable, false, md);
+				ListDescription(buildable, false, md, true);
 			}
 
 			return Success(md.Result());
@@ -404,7 +404,7 @@ namespace LLE
 			Vector3I ijk;
 			if(!call.Ijk(out ijk)) return call.NeedIjk;
 
-			var block = selectedGrid.GetCubeBlock(ijk);
+			var block = BlockAt(ijk);
 			if(block == null) return $"Error: no block at {IJK(ijk)}";
 
 			var sb = new StringBuilder();
@@ -422,7 +422,7 @@ namespace LLE
 			Vector3I ijk;
 			if(!call.Ijk(out ijk)) return call.NeedIjk;
 
-			var block = selectedGrid.GetCubeBlock(ijk);
+			var block = BlockAt(ijk);
 			if(block == null) return $"Error: no block at {IJK(ijk)}";
 
 			var md = new MyMarkdown();

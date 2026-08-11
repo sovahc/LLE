@@ -155,15 +155,16 @@ namespace LLE
 			if(string.IsNullOrEmpty(intentionWord))
 				yield return call.Need("action");
 
-			var block = selectedGrid.GetCubeBlock(ijk);
-			
+			var block = BlockAt(ijk);
+
 			Vector3I destinationCell;
 			string arrivalMessage;
 
 			if(string.Equals(intentionWord, "place", StringComparison.OrdinalIgnoreCase))
 			{
-				if(block != null)
-					yield return $"Error: {IJK(ijk)} is occupied by block {Quote(Name(block))}. Cannot build a block on an occupied cell.";
+				var occupant = selectedGrid.GetCubeBlock(ijk);
+				if(occupant != null)
+					yield return $"Error: {IJK(ijk)} is occupied by block {Quote(Name(occupant))}. Cannot build a block on an occupied cell.";
 
 				var producer = EQS.ProduceCells(selectedGrid, ijk, GetEngineerCenter());
 				var placeCells = new List<Vector3I>();
@@ -189,8 +190,8 @@ namespace LLE
 				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 				// Only grind/weld make sense on a projection preview — it has no real inventory, power, or seats yet.
-				if(intention.Value != InteractionKind.GrindWeld && IsProjection(selectedGrid))
-					yield return $"Error: selected grid is a projection preview — '{intentionWord}' is not supported on it yet.";
+				if(intention.Value != InteractionKind.GrindWeld && IsProjection(block.CubeGrid))
+					yield return $"Error: {IJK(ijk)} is not built yet — '{intentionWord}' needs a real block.";
 
 				var eqsr = new List<EQSResult>();
 				EQS.Query(block, GetEngineerCenter(), intention.Value, eqsr, 10);
@@ -199,7 +200,7 @@ namespace LLE
 					yield return $"Error: no {intentionWord} interaction points found for {Name(block)} at {IJK(ijk)}";
 
 				var cells = new List<Vector3I>();
-				foreach(var r in eqsr) cells.Add(r.Cell);
+				foreach(var r in eqsr) cells.Add(ToSelectedGrid(block.CubeGrid, r.Cell));
 
 				destinationCell = NearestToEngineer(cells);
 				arrivalMessage = $"Arrived at '{intentionWord}' point for {Quote(Name(block))} at {IJK(ijk)}. Your position: {IJK(destinationCell)}.";
