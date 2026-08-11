@@ -110,6 +110,9 @@ namespace LLE
 			new Tool("say", "Send a chat message to the player. Keep it extremely short.", new[]
 			{	Str("message", "What to say."),
 			}),
+			new Tool("player_says", "Put a message into the chat as if the player had sent it to you.", new[]
+			{	Str("message", "What the player says."),
+			}),
 			new Tool("exit", "Leave the cockpit or seat you are in.", None),
 			new Tool("overview", "List the blocks of the selected grid by category.", None),
 			new Tool("integrity", "List the damaged blocks of the selected grid.", None),

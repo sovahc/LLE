@@ -142,6 +142,7 @@ namespace LLE
 			yield return Validated;
 
 			LLM.pause = true;
+			LLE_Loader.PushDebugEvent("pause", "");
 			yield return Success("OK");
 		}
 
@@ -156,6 +157,19 @@ namespace LLE
 			MyVisualScriptLogicProvider.SendChatMessage(
 				message, character.DisplayName, character.ControllerInfo.ControllingIdentityId, "Yellow");
 			LLE_Loader.Speak(message);
+			LLE_Loader.PushDebugEvent("say", message);
+			yield return Success("Done");
+		}
+
+		internal IEnumerator PlayerSays(ToolCall call)
+		{
+			var message = call.Str("message");
+			if (string.IsNullOrEmpty(message))
+				yield return call.Need("message");
+
+			yield return Validated;
+
+			LLE.InjectChat(message);
 			yield return Success("Done");
 		}
 
@@ -492,6 +506,7 @@ namespace LLE
 			{
 				case "pause":          return Pause();
 				case "say":            return Say(call);
+				case "player_says":    return PlayerSays(call);
 				case "memory":         return Memory(call);
 				case "select":         return Select(call);
 				case "enter":          return Enter(call);

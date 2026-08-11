@@ -57,6 +57,7 @@ namespace LLELoader
 		public string TtsUrl { get; set; } = "http://127.0.0.1:8081/say";
 		public float ScreenshotScale { get; set; } = 0.5f;
 		public float SimulationSpeed { get; set; } = 1.0f;
+		public int DebugPort { get; set; } = 0;
 	}
 
 	class Channel
@@ -91,7 +92,30 @@ namespace LLELoader
 
 			var request = new Request();
 			_current = request;
+
+			if (Debug.OnSend(Id, requestJson)) return;
+
 			var _ = AskLlmStreaming(requestJson, request);
+		}
+
+		// The debug channel answers in the model's place, or lets the request go on to it.
+		public bool Inject(string chunkData)
+		{
+			var request = _current;
+			if (request == null) return false;
+
+			request.Chunks.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Chunk, Payload = chunkData });
+			request.Chunks.Enqueue(new LLE.FromLLM { Type = LLE.MessageType.Stop, Payload = null });
+			return true;
+		}
+
+		public bool Resume(string requestJson)
+		{
+			var request = _current;
+			if (request == null || requestJson == null) return false;
+
+			var _ = AskLlmStreaming(requestJson, request);
+			return true;
 		}
 
 		public void Cancel()
@@ -246,7 +270,9 @@ namespace LLELoader
 			return channels;
 		}
 
-		private static Channel Get(int channel)
+		public static int DebugPort { get { return _config.DebugPort; } }
+
+		public static Channel Get(int channel)
 		{
 			if (channel < 0 || channel >= _channels.Length) return null;
 			return _channels[channel];
@@ -457,7 +483,8 @@ namespace LLELoader
 		{
 			private static readonly string[] BridgeMethods =
 				[ "IsPresent", "GetChunkFromLLM", "SendMessageToLLM", "CancelLLM", "SetSystemPrompt",
-				  "GetContextChars", "RequestScreenshot", "ScreenshotDone", "TakeScreenshot", "Speak" ];
+				  "GetContextChars", "RequestScreenshot", "ScreenshotDone", "TakeScreenshot", "Speak",
+				  "GetDebugChat", "PushDebugEvent" ];
 			private static readonly HashSet<MethodInfo> _patchedMethods = new HashSet<MethodInfo>();
 
 			[HarmonyPatch("Sandbox.Game.World.MyScriptManager, Sandbox.Game", "LoadData")]
@@ -514,6 +541,8 @@ namespace LLELoader
 						case "ScreenshotDone": prefix = new HarmonyMethod(smld, nameof(Prefix_ScreenshotDone)); break;
 						case "TakeScreenshot": prefix = new HarmonyMethod(smld, nameof(Prefix_TakeScreenshot)); break;
 						case "Speak": prefix = new HarmonyMethod(smld, nameof(Prefix_Speak)); break;
+						case "GetDebugChat": prefix = new HarmonyMethod(smld, nameof(Prefix_GetDebugChat)); break;
+						case "PushDebugEvent": prefix = new HarmonyMethod(smld, nameof(Prefix_PushDebugEvent)); break;
 						default: continue;
 					}
 
@@ -581,6 +610,18 @@ namespace LLELoader
 				return false;
 			}
 
+			static bool Prefix_GetDebugChat(out string message, ref bool __result)
+			{
+				__result = Debug.TakeChat(out message);
+				return false;
+			}
+
+			static bool Prefix_PushDebugEvent(string kind, string text)
+			{
+				Debug.PushEvent(kind, text);
+				return false;
+			}
+
 		}
 
 		static class Program
@@ -593,6 +634,8 @@ namespace LLELoader
 
 				new Harmony("lle.loader.early").PatchCategory("Early");
 				new Harmony("lle.loader.late").PatchCategory("Late");
+
+				Debug.Start(MessageBroker.DebugPort);
 
 				try
 				{

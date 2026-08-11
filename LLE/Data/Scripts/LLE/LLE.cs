@@ -7,6 +7,7 @@ using VRage.Game.ModAPI;
 using VRage.Input;
 using VRage.ModAPI;
 using VRage.Utils;
+using Sandbox.Game;
 using Sandbox.ModAPI;
 
 namespace LLE
@@ -172,6 +173,15 @@ namespace LLE
 				llm = new LLM(commands);
 			}
 
+			string incoming;
+			while (LLE_Loader.GetDebugChat(out incoming)) injectedChat.Enqueue(incoming);
+
+			while (injectedChat.Count != 0)
+			{	var injected = injectedChat.Dequeue();
+				MyVisualScriptLogicProvider.SendChatMessage(injected, player.DisplayName, player.IdentityId, "White");
+				ChatToLlm(player.DisplayName, injected);
+			}
+
 			llm.Tick();
 		}
 
@@ -292,11 +302,20 @@ namespace LLE
 			{	MyConsole.Add("Commands from chat are gone — the model calls tools directly.", Color.Red);
 			}
 			else
-			{	llm.Append("[GAME CHAT]", Color.Red);
-				llm.Append($" {player.DisplayName}: {message}\n", Color.Magenta);
-				LLM.pause = false;
-				llm.ResetLoopDetector();
-			}
+				ChatToLlm(player.DisplayName, message);
+		}
+
+		private static readonly Queue<string> injectedChat = new Queue<string>();
+
+		public static void InjectChat(string message)
+		{	injectedChat.Enqueue(message);
+		}
+
+		void ChatToLlm(string speaker, string message)
+		{	llm.Append("[GAME CHAT]", Color.Red);
+			llm.Append($" {speaker}: {message}\n", Color.Magenta);
+			LLM.pause = false;
+			llm.ResetLoopDetector();
 		}
 	}
 
@@ -311,6 +330,8 @@ namespace LLE
 		public static int GetContextChars(int channel) { return 0; }
 		public static void RequestScreenshot() { }
 		public static void Speak(string text) { }
+		public static bool GetDebugChat(out string message) { message = null; return false; }
+		public static void PushDebugEvent(string kind, string text) { }
 		public static bool ScreenshotDone(out bool success) { success = false; return true; }
 	}
 }
