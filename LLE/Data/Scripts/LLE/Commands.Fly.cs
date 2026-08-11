@@ -56,6 +56,24 @@ namespace LLE
 			return result;
 		}
 
+		// The same test A* applies to its endpoints, so a surviving cell is one the search will accept.
+		private void KeepNavigableCells(List<Vector3I> cells)
+		{
+			var source = new TraversabilityCalculator(selectedGrid, 0);
+
+			var box = BoundingBoxD.CreateInvalid();
+			foreach(var c in cells) box.Include(selectedGrid.GridIntegerToWorld(c));
+			box.Inflate(selectedGrid.GridSize + 2.0);
+
+			var voxels = new List<Sandbox.Game.Entities.MyVoxelBase>();
+			var grids = new List<IMyCubeGrid>();
+			source.QueryObstacles(box, voxels, grids);
+
+			for(int i = cells.Count - 1; i >= 0; --i)
+				if(source.GetTraversability(cells[i], voxels, grids).Center)
+					cells.RemoveAt(i);
+		}
+
 		internal IMyDoor GetDoorAt(Vector3I ijk)
 		{
 			var block = selectedGrid?.GetCubeBlock(ijk);
@@ -155,6 +173,8 @@ namespace LLE
 					placeCells.Add(c);
 				}
 
+				KeepNavigableCells(placeCells);
+
 				if(placeCells.Count == 0)
 					yield return $"Error: no free cells next to {IJK(ijk)}";
 
@@ -180,7 +200,12 @@ namespace LLE
 
 				var cells = new List<Vector3I>();
 				foreach(var r in eqsr) cells.Add(r.Cell);
-				
+
+				KeepNavigableCells(cells);
+
+				if(cells.Count == 0)
+					yield return $"Error: every {intentionWord} point for {Name(block)} at {IJK(ijk)} is blocked";
+
 				destinationCell = NearestToEngineer(cells);
 				arrivalMessage = $"Arrived at '{intentionWord}' point for {Quote(Name(block))} at {IJK(ijk)}. Your position: {IJK(destinationCell)}.";
 			}

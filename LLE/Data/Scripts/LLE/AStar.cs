@@ -212,7 +212,7 @@ namespace LLE
 
 			var startT = GetTraversability(startChunk, startLocal, start);
 			if (startT.Center)
-			{	MyConsole.Add($"FindPath Error - start is obstructed", Color.Red);
+			{	MyConsole.Add($"FindPath Error - start {start} is obstructed {startT}", Color.Red);
 				yield break;
 			}
 
