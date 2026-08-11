@@ -146,13 +146,9 @@ namespace LLE
 
 			new Tool("grind", "Grind the block at a cell.", Ijk()),
 			new Tool("weld", "Weld the block at a cell. Incremental: several trips may be needed.", Ijk()),
-			new Tool("get", "Take items out of a block's inventory into your own."
-				+ " One call takes one item type: when you need several, call `get` once per item"
-				+ " and put every one of those calls into the same turn.",
+			new Tool("get", "Take items out of a block's inventory into your own.",
 				Join(Ijk(), Str("item", "Exact item name."), Num("count", "How many to take."))),
-			new Tool("put", "Put items from your inventory into a block's."
-				+ " One call puts one item type: when you need several, call `put` once per item"
-				+ " and put every one of those calls into the same turn.",
+			new Tool("put", "Put items from your inventory into a block's.",
 				Join(Ijk(), Str("item", "Exact item name."),
 					Num("count", "How many to put. Omit to put all of them.", false))),
 			new Tool("put_all_components", "Put every component you carry into a block's inventory.", Ijk()),
