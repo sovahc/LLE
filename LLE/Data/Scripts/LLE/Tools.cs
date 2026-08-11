@@ -95,11 +95,8 @@ namespace LLE
 				Join(Ijk(), Enum("action", "What you intend to do at that block once you arrive.", true,
 					"grind", "weld", "get", "put", "recharge", "enter", "place"))),
 
-			new Tool("note", "Your notepad, and the first call of every turn. Whatever you work out"
-				+ " — the plan, what you just learned, what to do next — goes here and stays in front"
-				+ " of you. What you only think is lost when the turn ends; only what you write down"
-				+ " survives.", new[]
-			{	Str("text", "What you have worked out. Short."),
+			new Tool("note", "Your notepad.", new[]
+			{	Str("text", "Your plan or notes."),
 			}),
 			new Tool("memory", "Store a persistent key-value pair; it survives a context reset.", new[]
 			{	Str("key", "Short name of what is being remembered."),
@@ -164,11 +161,9 @@ namespace LLE
 				Join(Ijk(), List("items", "What to put in. One entry per item type.",
 					Str("item", "Exact item name."),
 					Num("count", "How many. Omit to put all of them.", false)))),
-			new Tool("put_all_components", "Put every component you carry into a block's inventory.", Ijk()),
-			new Tool("build", "Build every drafted block within reach. Needs the player's approval first."
-				+ " Repeat after moving.", None),
-			new Tool("place", "Build one block right now, at minimum integrity. For a single block the player"
-				+ " asked for by name; a structure is drafted instead.",
+			new Tool("put_all_components", "Put every component you carry into a block's inventory. Use it to free up your inventory quickly.", Ijk()),
+			new Tool("build", "Build every drafted block within reach.", None),
+			new Tool("place", "Build one block right now, at minimum integrity.",
 				Join(Ijk(), Str("type", "Block type name."),
 					Enum("facing", "Which way the block looks.", false, Facings),
 					Enum("up", "Which way its top points. Only together with facing.", false, Ups))),
