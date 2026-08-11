@@ -205,6 +205,13 @@ namespace LLE
 
 			var gridUp = Commands.CalculateUpVector(grid);
 
+			// The predicate the path search uses, so a point offered here is one it will accept.
+			int reach = grid.GridSizeEnum == MyCubeSize.Small ? 6 : 0;
+			var space = new TraversabilityCalculator(grid, 0);
+			var voxels = new List<MyVoxelBase>();
+			var grids = new List<IMyCubeGrid>();
+			space.QueryObstacles(space.CellRangeToWorld(min - reach, max + reach), voxels, grids);
+
 			var producer = ProduceCells(block, min, max, engineerPosition);
 
 			Vector3D blockCenterWorld = (grid.GridIntegerToWorld(block.Min) + grid.GridIntegerToWorld(block.Max)) * 0.5;
@@ -217,6 +224,8 @@ namespace LLE
 
 			foreach (var ijk in producer)
 			{
+				if(space.GetTraversability(ijk, voxels, grids).Center) continue;
+
 				Vector3D ijkWorld = grid.GridIntegerToWorld(ijk);
 				Vector3D ijkDirection = (ijkWorld-blockCenterWorld).Normalized();
 
@@ -273,19 +282,6 @@ namespace LLE
 
 				var world = MatrixD.CreateWorld(worldFrom, worldTo-worldFrom, up); // normalization is inside.
 
-				tmp.Clear();
-				var capsule = tmp;
-				for (int i = 0; i < capsuleModel.Count; i++)
-					capsule.Add(Vector3D.Transform(capsuleModel[i], world));
-				
-				Vector3I capMin, capMax;
-				MinMax(grid, capsule, out capMin, out capMax);
-				bool capsuleClear = !Collisions.ConvexVsGridGeometry(grid, capsule, capMin, capMax, null);
-
-				Drawing.ConvexOutline(capsule, 1e-4f, capsuleClear ? Color.Cyan : Color.DarkGray);
-
-				if(!capsuleClear) continue;
-				
 				results.Add(new EQSResult
 				{
 					Cell = ijk,

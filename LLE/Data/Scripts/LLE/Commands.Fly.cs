@@ -201,11 +201,6 @@ namespace LLE
 				var cells = new List<Vector3I>();
 				foreach(var r in eqsr) cells.Add(r.Cell);
 
-				KeepNavigableCells(cells);
-
-				if(cells.Count == 0)
-					yield return $"Error: every {intentionWord} point for {Name(block)} at {IJK(ijk)} is blocked";
-
 				destinationCell = NearestToEngineer(cells);
 				arrivalMessage = $"Arrived at '{intentionWord}' point for {Quote(Name(block))} at {IJK(ijk)}. Your position: {IJK(destinationCell)}.";
 			}
