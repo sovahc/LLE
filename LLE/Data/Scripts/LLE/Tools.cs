@@ -87,6 +87,12 @@ namespace LLE
 				Join(Ijk(), Enum("action", "What you intend to do at that block once you arrive.", true,
 					"grind", "weld", "get", "put", "recharge", "enter", "place"))),
 
+			new Tool("plan", "Write down the goal and the steps of a task that spans several turns."
+				+ " This is where planning happens — never in text. The plan stays in front of you"
+				+ " for the rest of the task.", new[]
+			{	Str("goal", "The objective from [GAME CHAT], in your own words. One line."),
+				Str("steps", "The steps you are going to run, in order. One line."),
+			}),
 			new Tool("memory", "Store a persistent key-value pair; it survives a context reset.", new[]
 			{	Str("key", "Short name of what is being remembered."),
 				Str("value", "What to remember."),
@@ -140,9 +146,13 @@ namespace LLE
 
 			new Tool("grind", "Grind the block at a cell.", Ijk()),
 			new Tool("weld", "Weld the block at a cell. Incremental: several trips may be needed.", Ijk()),
-			new Tool("get", "Take items out of a block's inventory into your own.",
+			new Tool("get", "Take items out of a block's inventory into your own."
+				+ " One call takes one item type: when you need several, call `get` once per item"
+				+ " and put every one of those calls into the same turn.",
 				Join(Ijk(), Str("item", "Exact item name."), Num("count", "How many to take."))),
-			new Tool("put", "Put items from your inventory into a block's.",
+			new Tool("put", "Put items from your inventory into a block's."
+				+ " One call puts one item type: when you need several, call `put` once per item"
+				+ " and put every one of those calls into the same turn.",
 				Join(Ijk(), Str("item", "Exact item name."),
 					Num("count", "How many to put. Omit to put all of them.", false))),
 			new Tool("put_all_components", "Put every component you carry into a block's inventory.", Ijk()),

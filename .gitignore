@@ -7,3 +7,6 @@
 */win
 *.log
 __pycache__
+Replay/*
+!Replay/*.py
+!Replay/*.cs*

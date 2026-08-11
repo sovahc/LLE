@@ -68,16 +68,28 @@ def parse_call(text):
     return {"name": name, "arguments": arguments}
 
 
+# What the mod writes to the model rather than to the command answer. A report can arrive after a
+# command has finished, and then it stands inside that command's block in the log.
+REPORT = ("[GAME CHAT]", "[VISION]", "[STATUS]", "[CONTEXT", "[ERROR]", "!Warning", "!WARNING", "!ERROR")
+
+
 def split_report(text):
     """A toLLM block into (user text, command results). Results are the lines opened by an arrow."""
     user, results = [], []
+    inside = False
+
     for line in text.splitlines():
         if line.startswith("→ "):
             _, _, rest = line.partition(": ")
             results.append([rest])
-        elif results:
+            inside = True
+        elif line.startswith(REPORT) or line.startswith("[YOU]:"):
+            inside = False
+            if not line.startswith("[YOU]:"):
+                user.append(line)
+        elif inside:
             results[-1].append(line)
-        elif line.strip() and not line.startswith("[YOU]:"):
+        elif line.strip():
             user.append(line)
 
     return "\n".join(user).strip(), ["\n".join(r).strip() for r in results]

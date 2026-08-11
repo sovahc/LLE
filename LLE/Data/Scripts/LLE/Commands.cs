@@ -159,6 +159,18 @@ namespace LLE
 			yield return Success("Done");
 		}
 
+		// The plan is the call itself: written into the transcript, it stays in front of the model
+		// for the rest of the task. Nothing is stored on this side.
+		internal CommandResult Plan(ToolCall call)
+		{
+			var goal = call.Str("goal");
+			var steps = call.Str("steps");
+			if (string.IsNullOrEmpty(goal) || string.IsNullOrEmpty(steps))
+				return "Error: plan needs both a goal and the steps.";
+
+			return Success("Noted. Follow it.");
+		}
+
 		internal IEnumerator Memory(ToolCall call)
 		{
 			var key = call.Str("key");
@@ -452,6 +464,7 @@ namespace LLE
 		{
 			switch(call.Name)
 			{
+				case "plan":           return Plan(call);
 				case "position":       return Position();
 				case "overview":       return Overview();
 				case "integrity":      return Integrity();
