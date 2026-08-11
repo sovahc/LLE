@@ -9,10 +9,6 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-BATCH_EXAMPLE = """Calls that belong to one step go in one turn, in the order they must run — for example
-`approach(i=-1, j=1, k=-7, action=put)` and then `put_all_components(i=-1, j=1, k=-7)`.
-The first call that does not end in OK drops the rest of the turn."""
-
 VARIANTS = {
     "base": [],
 
@@ -25,11 +21,6 @@ only; a call written as text is not a call.""",
          """Tool calls go through the tool interface only. A call written as text is not a call.
 
 Write the plan as text first, then call the tools."""),
-    ],
-
-    # The batching example has never once produced a batch. This drops it, to see what it costs.
-    "no-batch-example": [
-        (BATCH_EXAMPLE, "The first call that does not end in OK drops the rest of the turn."),
     ],
 }
 

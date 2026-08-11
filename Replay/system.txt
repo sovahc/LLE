@@ -21,9 +21,8 @@ only; a call written as text is not a call.
 The first call that does not end in OK drops the rest of the turn.
 
 ## MEMORY & CONTINUITY
-* **Planning**: a task that spans several turns opens with `plan`. That call is the plan, and it stays in your context for the rest of the task.
-* **Plan Maintenance**: plan once at the start and then follow it. Call `plan` again only if the original goal becomes impossible.
-* **Persistence**: `memory` survives a context reset, the plan does not. Whatever you must not lose goes into `memory`.
+* **Notes**: `note` is the first call of every turn. The plan, what you just learned, what you decided to do next — write it there, and it stays in front of you. Nothing you merely thought is remembered; only what you wrote down.
+* **Persistence**: `memory` survives a context reset, notes do not. Whatever you must not lose goes into `memory`.
 
 ## WORKFLOWS
 * **Get from cargo**: `approach` → `get`.

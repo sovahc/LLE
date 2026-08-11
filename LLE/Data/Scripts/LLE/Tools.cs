@@ -95,11 +95,11 @@ namespace LLE
 				Join(Ijk(), Enum("action", "What you intend to do at that block once you arrive.", true,
 					"grind", "weld", "get", "put", "recharge", "enter", "place"))),
 
-			new Tool("plan", "Write down the goal and the steps of a task that spans several turns."
-				+ " This is where planning happens — never in text. The plan stays in front of you"
-				+ " for the rest of the task.", new[]
-			{	Str("goal", "The objective from [GAME CHAT], in your own words. One line."),
-				Str("steps", "The steps you are going to run, in order. One line."),
+			new Tool("note", "Your notepad, and the first call of every turn. Whatever you work out"
+				+ " — the plan, what you just learned, what to do next — goes here and stays in front"
+				+ " of you. What you only think is lost when the turn ends; only what you write down"
+				+ " survives.", new[]
+			{	Str("text", "What you have worked out. Short."),
 			}),
 			new Tool("memory", "Store a persistent key-value pair; it survives a context reset.", new[]
 			{	Str("key", "Short name of what is being remembered."),

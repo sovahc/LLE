@@ -443,8 +443,17 @@ namespace LLE
 		private const int ScoreRefused = 1;
 		private const int ScoreUnusable = 0;
 
-		// Only the first call is checked — it decides whether the turn does anything at all. An
-		// answer that called no tool still has to lose to any answer that did, and still has to
+		// `note` touches nothing, so checking it says nothing about the answer.
+		private static List<ToolCall> Acting(List<ToolCall> calls)
+		{
+			var acting = new List<ToolCall>();
+			foreach (var call in calls)
+				if (!call.Is("note")) acting.Add(call);
+			return acting;
+		}
+
+		// Only the first acting call is checked — it decides whether the turn does anything at all.
+		// An answer that called no tool still has to lose to any answer that did, and still has to
 		// remain the answer when no stream did better.
 		private int Score(Answer answer, out string refusal)
 		{
@@ -452,10 +461,13 @@ namespace LLE
 
 			if (answer.Error != null || answer.Calls.Count == 0) return ScoreUnusable;
 
-			// restart is answered by the transcript, not by a command, so there is nothing to check.
-			if (answer.Calls[0].Is("restart")) return ScoreRuns;
+			var acting = Acting(answer.Calls);
+			if (acting.Count == 0) return ScoreRuns;
 
-			refusal = commands.Validate(answer.Calls[0]);
+			// restart is answered by the transcript, not by a command, so there is nothing to check.
+			if (acting[0].Is("restart")) return ScoreRuns;
+
+			refusal = commands.Validate(acting[0]);
 			return refusal == null ? ScoreRuns : ScoreRefused;
 		}
 
@@ -529,8 +541,9 @@ namespace LLE
 
 			if (!cc[0].Is("pause"))
 			{
+				// The note reads differently every turn; left in, no repeat would ever look like one.
 				string loopMsg;
-				bool blocked = loopDetector.IsLoop(cc, out loopMsg);
+				bool blocked = loopDetector.IsLoop(Acting(cc), out loopMsg);
 				if (loopMsg != null)
 					Append(loopMsg, blocked ? Color.Red : Color.Yellow);
 				if (blocked)
