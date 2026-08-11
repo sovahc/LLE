@@ -57,8 +57,8 @@ namespace LLE
 
 		private static Param[] IjkOptional()
 		{	return new[] { Int("i", "Grid coordinate I. Omit all three to use your own cell.", false),
-			               Int("j", "Grid coordinate J.", false),
-			               Int("k", "Grid coordinate K.", false) };
+							Int("j", "Grid coordinate J.", false),
+							Int("k", "Grid coordinate K.", false) };
 		}
 
 		private static Param[] Join(Param[] a, params Param[] b)

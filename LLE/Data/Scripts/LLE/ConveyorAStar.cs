@@ -53,7 +53,7 @@ namespace LLE
 
 			Vector3I lo = new Vector3I(int.MaxValue), hi = new Vector3I(int.MinValue);
 			foreach (var p in startPorts_) { lo = Vector3I.Min(lo, p.Cell); hi = Vector3I.Max(hi, p.Cell); }
-			foreach (var p in goalPorts_)  { lo = Vector3I.Min(lo, p.Cell); hi = Vector3I.Max(hi, p.Cell); }
+			foreach (var p in goalPorts_) { lo = Vector3I.Min(lo, p.Cell); hi = Vector3I.Max(hi, p.Cell); }
 			lo = Vector3I.Max(lo - new Vector3I(Border), grid.Min);
 			hi = Vector3I.Min(hi + new Vector3I(Border), grid.Max);
 
@@ -253,8 +253,8 @@ namespace LLE
 			float min = float.MaxValue;
 			for (int i = 0; i < goalPositions.Count; ++i)
 			{	float d = Math.Abs(cell.X - goalPositions[i].X)
-					   + Math.Abs(cell.Y - goalPositions[i].Y)
-					   + Math.Abs(cell.Z - goalPositions[i].Z);
+						+ Math.Abs(cell.Y - goalPositions[i].Y)
+						+ Math.Abs(cell.Z - goalPositions[i].Z);
 				if (d < min) min = d;
 			}
 			return min;

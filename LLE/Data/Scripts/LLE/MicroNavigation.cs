@@ -112,9 +112,9 @@ namespace LLE
 			{
 				// Head-first: align Up toward target via pitch+roll, align Forward toward gridUp via yaw.
 				// Each error must match its rotation axis:
-				//   pitch (around Right) tilts Up toward Forward
-				//   roll  (around Forward) tilts Up toward Right
-				//   yaw   (around Up) rotates Forward toward gridUp
+				// pitch (around Right) tilts Up toward Forward
+				// roll (around Forward) tilts Up toward Right
+				// yaw (around Up) rotates Forward toward gridUp
 				double toTargetLen = toTarget.Length();
 				if(toTargetLen < 0.001)
 				{ 	rotation = Vector2.Zero; roll = 0; return; 

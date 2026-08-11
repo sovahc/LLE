@@ -104,7 +104,7 @@ namespace LLE
 		}
 
 		private readonly StringBuilder output = new StringBuilder();
-		private readonly StringBuilder logBuf  = new StringBuilder();
+		private readonly StringBuilder logBuf = new StringBuilder();
 
 		public static bool pause;
 		public static int contextWarnStage;

@@ -101,7 +101,7 @@ namespace LLE
 
 			// check if block still exists
 			block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
+			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			var integrity0 = block.Integrity;
 
@@ -289,7 +289,7 @@ namespace LLE
 
 			// check if block still exists
 			block = selectedGrid.GetCubeBlock(ijk);
-			if(block == null) yield return  $"Error: no block at {IJK(ijk)}";
+			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
 
 			var inventory = character.GetInventory();
 			if (inventory == null) yield return IE_NO_INVENTORY;

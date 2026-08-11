@@ -47,8 +47,8 @@ The first call that does not end in OK drops the rest of the turn.
 
 Radio subsystem (vision like)
 * approach I J K — fly close to coordinates, but without A* into the grid
-? wait N  -> Wait N seconds.
-? sound 'name'  -> play sound
+? wait N -> Wait N seconds.
+? sound 'name' -> play sound
 
 ? scan Scan the visible sector and return contents?
 ? select nearest grid
@@ -62,7 +62,7 @@ Radio subsystem (vision like)
 * off I J K
 ? toggle I J K
 ? set I J K 'property' 'value' — set TerminalProperty (rotor angle, light color, limit)
-? mark I J K 'label'  -> e.g. mark 10 0 -2 'main cargo'
+? mark I J K 'label' -> e.g. mark 10 0 -2 'main cargo'
 
 ? take all 'item' from I J K
 ? put all 'item' into I J K
@@ -73,23 +73,23 @@ Radio subsystem (vision like)
 
 * move forward 5
 * go 'Assembler' && go 'Cargo' = search block 'Assembler' 1 && fly I J K
-* open I J K  -> Open door
-* close I J K  -> Close door
+* open I J K -> Open door
+* close I J K -> Close door
 
 * press I J K [buttonIndex] - Press a button on a Button Panel.
 
 look at 'name'
-  Rotate to face an object
+ Rotate to face an object
 symmetric command returning - "what am I looking at"
 
 hack 'block_name'
-  Grind a specific block just below the hacking point (weld it back to restore functionality).
+ Grind a specific block just below the hacking point (weld it back to restore functionality).
 mine 'ore_name'
-  Mine a specific ore deposit.
+ Mine a specific ore deposit.
 pickup 'name'
-  Pick up a specified object.
+ Pick up a specified object.
 drop [quantity|all] 'name'
-  Drop a specified object.
+ Drop a specified object.
 ? move {forward|backward|left|right|up|down} {distance} - Move in a direction
 
 ! Pathfinding: safest (default) / shortest / scouting / prefer open space

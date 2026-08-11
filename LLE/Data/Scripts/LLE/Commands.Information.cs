@@ -461,8 +461,8 @@ namespace LLE
 			for(; iter.IsValid(); iter.MoveNext())
 			{	var p = iter.Current;
 				if(p.X >= block.Min.X && p.X <= block.Max.X &&
-				   p.Y >= block.Min.Y && p.Y <= block.Max.Y &&
-				   p.Z >= block.Min.Z && p.Z <= block.Max.Z) continue;
+					p.Y >= block.Min.Y && p.Y <= block.Max.Y &&
+					p.Z >= block.Min.Z && p.Z <= block.Max.Z) continue;
 				ring.Add(p);
 			}
 			ListDescription(ring, false, md);
@@ -842,8 +842,8 @@ namespace LLE
 			{	foreach (var b in cg.GetFatBlocks())
 				{	if (b is IMyShipController)
 					{	m = b.WorldMatrix;
-        				break;
-    				}
+		 				break;
+	 				}
 				}
 			}
 
@@ -867,7 +867,7 @@ namespace LLE
 			double ax = System.Math.Abs(v.X), ay = System.Math.Abs(v.Y), az = System.Math.Abs(v.Z);
 
 			if (ax >= ay && ax >= az) return new Vector3I(System.Math.Sign(v.X), 0, 0);
-			if (ay >= az)             return new Vector3I(0, System.Math.Sign(v.Y), 0);
+			if (ay >= az) return new Vector3I(0, System.Math.Sign(v.Y), 0);
 			return new Vector3I(0, 0, System.Math.Sign(v.Z));
 		}
 

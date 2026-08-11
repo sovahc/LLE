@@ -189,13 +189,13 @@ namespace LLE
 
 		private bool InBox(Vector3I v)
 		{	return v.X >= _boxMin.X && v.X <= _boxMax.X &&
-				   v.Y >= _boxMin.Y && v.Y <= _boxMax.Y &&
-				   v.Z >= _boxMin.Z && v.Z <= _boxMax.Z;
+					v.Y >= _boxMin.Y && v.Y <= _boxMax.Y &&
+					v.Z >= _boxMin.Z && v.Z <= _boxMax.Z;
 		}
 
 		private bool OnBorder(Vector3I v)
 		{	return v.X == _boxMin.X || v.Y == _boxMin.Y || v.Z == _boxMin.Z ||
-				   v.X == _boxMax.X || v.Y == _boxMax.Y || v.Z == _boxMax.Z;
+					v.X == _boxMax.X || v.Y == _boxMax.Y || v.Z == _boxMax.Z;
 		}
 
 		public IEnumerator FindPath(Vector3I start, Vector3I goal)
@@ -211,12 +211,12 @@ namespace LLE
 			int startLocal = AStarChunk.Local(start);
 
 			if (GetTraversability(startChunk, startLocal, start).Center)
-			{   MyConsole.Add($"FindPath Error - start is obstructed", Color.Red);
+			{	MyConsole.Add($"FindPath Error - start is obstructed", Color.Red);
 				yield break;
 			}
 
 			if (!goalOutside && GetTraversability(goal).Center)
-			{   MyConsole.Add($"FindPath Error - goal is obstructed", Color.Red);
+			{	MyConsole.Add($"FindPath Error - goal is obstructed", Color.Red);
 				yield break;
 			}
 

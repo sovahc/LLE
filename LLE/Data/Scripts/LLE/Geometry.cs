@@ -72,13 +72,13 @@ namespace LLE
 			float step = 2f * (float)Math.PI / 5f;
 
 			Vector3[] icoVerts = new Vector3[12];
-			icoVerts[0] = new Vector3(0, 0, 1);   // north pole
-			for (int k = 0; k < 5; k++)           // upper ring
+			icoVerts[0] = new Vector3(0, 0, 1);	// north pole
+			for (int k = 0; k < 5; k++)	// upper ring
 			{
 				float a = k * step;
 				icoVerts[1 + k] = new Vector3(r * (float)Math.Cos(a), r * (float)Math.Sin(a), h);
 			}
-			for (int k = 0; k < 5; k++)           // lower ring (offset by 36°)
+			for (int k = 0; k < 5; k++) // lower ring (offset by 36°)
 			{
 				float a = k * step + (float)Math.PI / 5f;
 				icoVerts[6 + k] = new Vector3(r * (float)Math.Cos(a), r * (float)Math.Sin(a), -h);

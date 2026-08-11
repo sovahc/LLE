@@ -47,7 +47,7 @@ namespace LLE
 		}
 
 		public static void AddNewLine()
-		{   _lines.Add(new Line());
+		{	_lines.Add(new Line());
 		}
 
 		public static void AddMultiline(string chunk, Color color)

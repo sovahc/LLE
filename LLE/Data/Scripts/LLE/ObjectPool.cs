@@ -52,7 +52,7 @@ public class ObjectPool<T> where T : class, new()
 			}
 		}
 		else
-		{   item = new T();
+		{	item = new T();
 		}
 
 		++_currentIndex;

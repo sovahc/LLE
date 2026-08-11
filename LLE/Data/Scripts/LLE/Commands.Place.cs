@@ -133,7 +133,7 @@ namespace LLE
 			// null binds to the MyToolbarItemWeapon overload; MyDefinitionId is a struct and
 			// cannot express "nothing".
 			if (hold) controller.SwitchToWeapon(new MyDefinitionId(typeof(MyObjectBuilder_CubePlacer)));
-			else      controller.SwitchToWeapon(null);
+			else controller.SwitchToWeapon(null);
 		}
 
 		private IEnumerator HoldCubePlacer(bool hold)

@@ -411,7 +411,7 @@ namespace LLE
 			MatrixD modelToWorld, float thickness, Vector4 color)
 		{
 			var combined = (MatrixD)shapeTransform * modelToWorld;
-			var worldSpace = modelSpace.Select(v =>  Vector3D.Transform(v, combined)).ToList();
+			var worldSpace = modelSpace.Select(v => Vector3D.Transform(v, combined)).ToList();
 			var screenSpace = WorldToScreen(worldSpace);
 			var hull = Geometry.ConvexHull(screenSpace);
 			Contour(hull, true, thickness, color);

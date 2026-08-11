@@ -118,7 +118,7 @@ namespace LLE
 						double totalGas = gasContainer.GasLevel * oxygenDef.Capacity * (double)item.Amount;
 						double maxGas = oxygenDef.Capacity * (double)item.Amount;
 						string gasName = oxygenDef.StoredGasId.SubtypeName;
-						output.Append($"  ({Percent(gasContainer.GasLevel)} {gasName}, {Volume(totalGas)}/{Volume(maxGas)})\n");
+						output.Append($" ({Percent(gasContainer.GasLevel)} {gasName}, {Volume(totalGas)}/{Volume(maxGas)})\n");
 					}
 				}
 			}
@@ -136,7 +136,7 @@ namespace LLE
 			double current = tank.FilledRatio * tank.Capacity;
 			double max = tank.Capacity;
 
-			output.Append($"  ({Percent((float)tank.FilledRatio)} {gasName}, {Volume(current)}/{Volume(max)})\n");
+			output.Append($" ({Percent((float)tank.FilledRatio)} {gasName}, {Volume(current)}/{Volume(max)})\n");
 		}
 
 		internal IEnumerator Get(ToolCall call)
@@ -327,7 +327,7 @@ namespace LLE
 			if(blockFrom == null) yield return $"Error: no block at {IJK(ijkFrom)}";
 
 			var blockTo = selectedGrid.GetCubeBlock(ijkTo);
-			if(blockTo == null) yield return  $"Error: no block at {IJK(ijkTo)}";
+			if(blockTo == null) yield return $"Error: no block at {IJK(ijkTo)}";
 
 			var fatFrom = blockFrom.FatBlock;
 			var fromName = Name(blockFrom);

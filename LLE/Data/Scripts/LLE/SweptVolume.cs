@@ -25,7 +25,7 @@ namespace LLE
 			MatrixD invWorld = grid.PositionComp.WorldMatrixNormalizedInv;
 			Vector3D halfOffset = new Vector3D(grid.GridSize * 0.5f);
 			Vector3D localFrom = Vector3D.Transform(lineFrom, invWorld) + halfOffset;
-			Vector3D localTo   = Vector3D.Transform(lineTo,   invWorld) + halfOffset;
+			Vector3D localTo = Vector3D.Transform(lineTo, invWorld) + halfOffset;
 
 			_ddaCells.Clear();
 			GridIntersection.Calculate(_ddaCells, grid.GridSize, localFrom, localTo, grid.Min, grid.Max);

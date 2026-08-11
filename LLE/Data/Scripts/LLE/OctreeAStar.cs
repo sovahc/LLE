@@ -39,9 +39,9 @@ namespace LLE
 	// Cell coordinates are lod-0, starting at (0,0,0).
 	public interface ICells
 	{
-		Vector3I Size { get; }        // in cells (lod 0)
-		int CoarseLod { get; }        // nodes with lod >= CoarseLod are always subdivided (Top)
-		double CellSize { get; }      // meters per cell
+		Vector3I Size { get; } // in cells (lod 0)
+		int CoarseLod { get; } // nodes with lod >= CoarseLod are always subdivided (Top)
+		double CellSize { get; } // meters per cell
 		bool IsValid { get; }
 		NodeType CellType(Vector3I min, Vector3I max, int lod);
 		MatrixD LocalToWorld { get; } // cell space -> world (includes CellSize scale); queried per use (grids move)

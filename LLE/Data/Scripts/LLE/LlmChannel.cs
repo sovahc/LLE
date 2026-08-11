@@ -268,7 +268,7 @@ namespace LLE
 		private Answer Finish()
 		{
 			if (reasoning.Length != 0) LLE.Log($"llmReasoning[{Id}]:\n{reasoning}");
-			if (content.Length != 0)   LLE.Log($"llmContent[{Id}]:\n{content}");
+			if (content.Length != 0) LLE.Log($"llmContent[{Id}]:\n{content}");
 
 			var calls = new List<ToolCall>();
 			var escaped = new List<string>();

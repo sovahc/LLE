@@ -32,7 +32,7 @@ namespace LLE
 		}
 
 		private static Charge Undefined()
-		{	return new Charge() { Health = -1, Energy = -1, Hydrogen = -1  };
+		{	return new Charge() { Health = -1, Energy = -1, Hydrogen = -1 };
 		}
 
 		private Charge previous = Undefined();
