@@ -341,7 +341,40 @@ namespace LLE
 			}
 
 			MyConsole.Add($"FindPath Error - no path from {start} {startT}", Color.Red);
+			ReportDeadEnd(start, goal, cellsAnalyzed);
 			yield break;
+		}
+
+		// Which test killed the frontier. Few cells analyzed and every direction refused means it
+		// never left the start; many means it died somewhere else and the start says nothing.
+		private void ReportDeadEnd(Vector3I start, Vector3I goal, int cellsAnalyzed)
+		{
+			MyConsole.Add($"  analyzed {cellsAnalyzed}, goal {goal}, box {_boxMin} .. {_boxMax}", Color.Red);
+
+			var currentT = GetTraversability(start);
+			int totalDirs = Constants.SixDirections.Length + Constants.TwelveEdgeDirections.Length;
+
+			for (int d = 0; d < totalDirs; ++d)
+			{
+				var direction = d < Constants.SixDirections.Length
+					? Constants.SixDirections[d]
+					: Constants.TwelveEdgeDirections[d - Constants.SixDirections.Length];
+
+				var next = start + direction;
+				string reason;
+
+				if (!InBox(next)) reason = "out of box";
+				else
+				{
+					var nextT = GetTraversability(next);
+					reason = nextT.Center ? "center blocked"
+						: currentT[direction] ? "face out"
+						: nextT[-direction] ? "face in"
+						: null;
+				}
+
+				if (reason != null) MyConsole.Add($"  {direction} {reason}", Color.Gray);
+			}
 		}
 
 		private void ReconstructPath(int goalIndex)

@@ -112,7 +112,9 @@ namespace LLE
 			new Tool("exit", "Leave the cockpit or seat you are in.", None),
 			new Tool("overview", "List the blocks of the selected grid by category.", None),
 			new Tool("integrity", "List the damaged blocks of the selected grid.", None),
-			new Tool("projection", "Build status of the projection on the selected grid.", None),
+			new Tool("projection", "Build status of the projection on the selected grid.", new[]
+			{	Int("n", "How many buildable blocks to list, nearest to the projector first. Default 3.", false),
+			}),
 			new Tool("near", "Describe the 3x3x3 cube of cells around a point.", IjkOptional()),
 			new Tool("free", "List the free cells of the 3x3x3 cube around a point.", IjkOptional()),
 			new Tool("inventory", "List the items you are carrying.", None),

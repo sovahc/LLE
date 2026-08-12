@@ -259,10 +259,14 @@ namespace LLE
 			return Success(md.Result());
 		}
 
-		internal CommandResult Projection()
+		internal CommandResult Projection(ToolCall call)
 		{
 			string message;
 			if(!GridIsSet(out message)) return message;
+
+			int wanted;
+			if(!call.Int("n", out wanted)) wanted = 3;
+			if(wanted < 1) return $"Error: n must be positive, got {wanted}";
 
 			var projector = ProjectorOf(selectedGrid);
 			if(projector == null)
@@ -298,7 +302,14 @@ namespace LLE
 						buildable.Add(ToSelectedGrid(projection, ghost.Position));
 				}
 
-				md.Append($"### Buildable now");
+				var projectorPosition = projector.GetPosition();
+				buildable.Sort((a, b) =>
+					Vector3D.DistanceSquared(selectedGrid.GridIntegerToWorld(a), projectorPosition).CompareTo(
+					Vector3D.DistanceSquared(selectedGrid.GridIntegerToWorld(b), projectorPosition)));
+
+				if(buildable.Count > wanted) buildable.RemoveRange(wanted, buildable.Count - wanted);
+
+				md.Append($"### Buildable now, {buildable.Count} nearest to the projector");
 				ListDescription(buildable, false, md, true);
 			}
 

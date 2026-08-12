@@ -217,7 +217,10 @@ namespace LLE
 			Vector3D blockCenterWorld = (grid.GridIntegerToWorld(block.Min) + grid.GridIntegerToWorld(block.Max)) * 0.5;
 			var horizontalEngineer = blockCenterWorld - engineerPosition;
 			horizontalEngineer -= gridUp * Vector3D.Dot(horizontalEngineer, gridUp);
-			if (horizontalEngineer.LengthSquared() < 1e-8)
+			// Straight above the block this direction is noise, and it decides where the eye sits:
+			// a random sideways shift throws every ray off the block and the query returns nothing.
+			var minimalOffset = grid.GridSize * 0.5;
+			if (horizontalEngineer.LengthSquared() < minimalOffset * minimalOffset)
 				horizontalEngineer = Vector3D.CalculatePerpendicularVector(gridUp);
 			else
 				horizontalEngineer.Normalize();

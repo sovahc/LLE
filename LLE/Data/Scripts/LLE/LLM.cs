@@ -439,7 +439,12 @@ namespace LLE
 		private bool Beats(int[] scores, int challenger, int best)
 		{
 			if (scores[challenger] != scores[best]) return scores[challenger] > scores[best];
-			return answers[challenger].Calls.Count > answers[best].Calls.Count;
+
+			var calls = answers[challenger].Calls.Count - answers[best].Calls.Count;
+			if (calls != 0) return calls > 0;
+
+			// Two answers of the same shape: the one that spelled out more of what it is doing.
+			return Join("; ", answers[challenger].Calls).Length > Join("; ", answers[best].Calls).Length;
 		}
 
 		private const int ScoreRuns = 2;

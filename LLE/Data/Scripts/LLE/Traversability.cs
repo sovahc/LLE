@@ -185,8 +185,10 @@ namespace LLE
 		{
 			var t = Probe(position, voxels, grids);
 
-			// The engineer already stands here, so a closed center is no reason to refuse to move.
-			if (position == engineerCell) t[0, 0, 0] = false;
+			// The engineer already stands here, so this cell may not refuse him - and a closed face
+			// would refuse every step into it, which is the same as refusing him. The step is still
+			// checked against the neighbour's own probe.
+			if (position == engineerCell) t.SetAll(false);
 
 			return t;
 		}

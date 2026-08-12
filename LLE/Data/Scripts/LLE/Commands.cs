@@ -521,7 +521,7 @@ namespace LLE
 				case "position":       return Position();
 				case "overview":       return Overview();
 				case "integrity":      return Integrity();
-				case "projection":     return Projection();
+				case "projection":     return Projection(call);
 				case "status":         return Success(status.ReportAll());
 				case "inventories":    return Inventories();
 
