@@ -9,6 +9,8 @@ protocol for running the game without a human. `Loader/game.py` drives it — `u
 loads the last save, `task TEXT` gives the bot a task and returns with its answer, `shot` takes a
 screenshot, `quit` exits. Changes to the loader or the mod need a game restart to take effect.
 
+Prompt bench (`~/Projects/LLE/Replay/`): rebuilds a turn's context from a game log and replays it against a local LLM server to compare system prompt variants.
+
 Reference locations:
 - Existing mods: `~/Projects/SpaceEngineers_mods/`, `~/Projects/SpaceEngineers_mods_selected/`
 - Game API and `*.sbc` definitions: `~/Projects/SpaceEngineers/`
