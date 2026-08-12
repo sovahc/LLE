@@ -330,11 +330,17 @@ namespace LLE
 				}
 			}
 
+			// CanContinueBuild is false both when components are missing and when there is nothing left to build.
+			if (block.Integrity >= block.MaxIntegrity)
+			{	result.Append("The block is complete.\n");
+				yield return Success(result.ToString());
+			}
+
 			if (!block.CanContinueBuild(inventory))
-			{	
+			{
 				result.Append("You don't have the required components in your inventory\n");
 				AddMissingComponentsString(block, result);
-				
+
 				yield return Incomplete(result.ToString());
 			}
 

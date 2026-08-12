@@ -290,9 +290,7 @@ namespace LLE
 					return;
 				}
 
-				int reserve = total / 5;
-
-				if (used + reserve > total)
+				if (used > total)
 				{
 					ClearTranscript();
 					commands.SetSystemPromptAndMemory();

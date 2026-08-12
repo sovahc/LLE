@@ -261,28 +261,38 @@ def run(args):
     picked = picked if isinstance(picked, list) else [picked]
 
     print(f"turns {picked}, {args.n} samples each, model {args.model}\n")
-    print(f"{'variant':<24} {'turn':>5} {'called':>8} {'calls/answer':>13}")
+    print(f"{'variant':<24} {'turn':>5} {'called':>8} {'calls/answer':>13}  tools")
 
     for path in args.system:
         system = Path(path).read_text()
         for index in picked:
+            memory = "\n## MEMORY\n" + "".join(f"* {m}\n" for m in args.memory) \
+                if args.memory else memory_of(turns, index)
+
             body = {
                 "model": args.model,
                 "max_tokens": args.max_tokens,
                 "stream": False,
                 "chat_template_kwargs": {"enable_thinking": True},
-                "messages": messages(turns, index, system + memory_of(turns, index)),
+                "messages": messages(turns, index, system + memory),
                 "tools": schema,
             }
 
-            called, total = 0, 0
+            called, total, names = 0, 0, {}
             for _ in range(args.n):
                 answer = ask(args.url, args.model, body)
                 calls = answer["choices"][0]["message"].get("tool_calls") or []
                 called += 1 if calls else 0
                 total += len(calls)
+                for call in calls:
+                    name = call["function"]["name"]
+                    names[name] = names.get(name, 0) + 1
 
-            print(f"{Path(path).name:<24} {index:>5} {called * 100 // args.n:>7}% {total / args.n:>13.2f}")
+            ranked = sorted(names.items(), key=lambda kv: -kv[1])
+            histogram = " ".join(f"{name}:{count}" for name, count in ranked)
+
+            print(f"{Path(path).name:<24} {index:>5} {called * 100 // args.n:>7}%"
+                  f" {total / args.n:>13.2f}  {histogram}")
 
 
 def main():
@@ -294,6 +304,8 @@ def main():
     parser.add_argument("--system", action="append", default=None,
                         help="system prompt file; repeatable, one column per file")
     parser.add_argument("--n", type=int, default=10, help="samples per variant per turn")
+    parser.add_argument("--memory", action="append", default=[],
+                        help="'key = value' line to put in MEMORY instead of what the log remembered")
     parser.add_argument("--url", default="http://localhost:8080/v1/chat/completions")
     parser.add_argument("--model", default="google/gemma-4-31b-it")
     parser.add_argument("--max-tokens", type=int, default=4000)
