@@ -22,8 +22,9 @@ namespace LLE
 				repeats = 1;
 			}
 
+			// An answer with no call at all never gets here, so the batch was notes and nothing else.
 			if (calls.Count == 0)
-			{	message = "!ERROR: Your last message called no tool. Every turn is one to three tool calls.\n";
+			{	message = "!ERROR: A note is not a command. Follow it with the command you decided on.\n";
 				return repeats >= 4;
 			}
 
