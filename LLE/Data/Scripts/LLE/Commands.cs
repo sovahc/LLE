@@ -559,7 +559,7 @@ namespace LLE
 				case "draft_clear":    return DraftClear();
 
 				case "fly":            return Fly(call);
-				case "fly_direction":  return Fly_Direction_N(call);
+				case "unstuck":        return Unstuck();
 				case "approach":       return Approach(call);
 				case "grind":          return Grind(call);
 				case "weld":           return Weld(call);

@@ -86,14 +86,10 @@ namespace LLE
 
 			new Tool("fly", "Land at a specific grid cell.",
 				Join(Ijk(), Bool("headfirst", "Fly head first (use for tight spaces or unstuck)."))),
-			new Tool("fly_direction", "Fly a number of cells along one of the grid axes.", new[]
-			{	Enum("direction", "Which way to fly, relative to the grid.", true,
-					"forward", "backward", "left", "right", "up", "down"),
-				Int("n", "How many cells to cross. Positive."),
-			}),
+			new Tool("unstuck", "Push into the nearest open space. Use when flying reports no path or being stuck.", None),
 			new Tool("approach", "Fly to the interaction point of a block, from where the action below is possible.",
 				Join(Ijk(), Enum("action", "What you intend to do at that block once you arrive.", true,
-					"grind", "weld", "get", "put", "recharge", "enter", "place"))),
+					"grind", "weld", "get", "put", "recharge", "enter"))),
 
 			new Tool("note", "Your notepad.", new[]
 			{	Str("text", "Your plan or notes."),
@@ -140,6 +136,8 @@ namespace LLE
 			new Tool("transfer_all", "Move everything from one block's inventory to another's.",
 				Join(Ijk(), IjkTo)),
 
+			// TEMPORARY: draft/place/build hidden for a welding-only navigation test.
+			/*
 			new Tool("draft", "Plan one block. Nothing is built; the player sees the whole draft as a projection.",
 				Join(Ijk(), Str("type", "Block type name, e.g. 'Light Armor Block'."),
 					Enum("facing", "Which way the block looks.", false, Facings),
@@ -151,6 +149,7 @@ namespace LLE
 			new Tool("draft_show", "List what is in the draft.", None),
 			new Tool("draft_undo", "Drop the last block from the draft.", None),
 			new Tool("draft_clear", "Drop the whole draft.", None),
+			*/
 
 			new Tool("grind", "Grind the block at a cell.", Ijk()),
 			new Tool("weld", "Weld the block at a cell. Incremental: several trips may be needed.", Ijk()),
@@ -165,6 +164,7 @@ namespace LLE
 					Str("item", "Exact item name."),
 					Num("count", "How many. Omit to put all of them.", false)))),
 			new Tool("put_all_components", "Put every component you carry into a block's inventory. Use it to free up your inventory quickly.", Ijk()),
+			/*
 			new Tool("build", "Build every drafted block within reach.", None),
 			new Tool("place", "Build one block right now, at minimum integrity.",
 				Join(Ijk(), Str("type", "Block type name."),
@@ -174,6 +174,7 @@ namespace LLE
 				Join(Ijk(), Enum("port1", "First opening.", true, Ports),
 					Enum("port2", "Second opening, different from the first.", true, Ports),
 					Enum("kind", "Tube family. Default square.", false, TubeKinds))),
+			*/
 			new Tool("enter", "Enter the cockpit or seat at a cell.", Ijk()),
 			new Tool("recharge", "Recharge from the block at a cell.", Ijk()),
 		};

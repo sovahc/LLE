@@ -9,6 +9,7 @@ using Sandbox.ModAPI;
 using System;
 
 using DoorStatus = Sandbox.ModAPI.Ingame.DoorStatus;
+using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 
 namespace LLE
 {
@@ -324,8 +325,22 @@ namespace LLE
 				}
 
 				if(micro.Stuck)
-				{	micro.Stop();
-					yield return $"Stuck at position: {CharacterCellText()}";
+				{	var back = Vector3D.Normalize(ec - micro.Target.v);
+					micro.Stop();
+
+					var point = ec + back * 2.5;
+
+					SetPause(Constants.MicronavigationDelay);
+					while(IsPaused())
+					{	CharacterMove(point);
+						yield return null;
+					}
+
+					character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
+
+					yield return Vector3D.Distance(GetEngineerCenter(), ec) > 1.0
+						? $"The flight was interrupted: you got stuck and backed off to {CharacterCellText()}."
+						: $"The flight was interrupted: you are stuck at {CharacterCellText()} and could not back off. Try unstuck.";
 				}
 
 				if(micro.Done != null)
@@ -432,50 +447,117 @@ namespace LLE
 			character.MoveAndRotate(moveIndicator, Vector2.Zero, 0);
 		}
 
-		private static bool TryDirOffset(IMyCubeGrid grid, string s, out Vector3I offset)
+		private double FreeDistance(Vector3D from, Vector3D direction, double length, List<IHitInfo> hits)
 		{
-			offset = Vector3I.Zero;
-			if(s == null) return false;
+			hits.Clear();
+			MyAPIGateway.Physics.CastRay(from, from + direction * length, hits, CollisionLayers.CharacterCollisionLayer);
 
-			var m = CalculateOrientation(grid);
-			Vector3D worldDir;
+			var nearest = length;
 
-			switch(s.ToLowerInvariant())
+			foreach(var hit in hits)
 			{
-				case "forward":  worldDir = m.Forward;  break;
-				case "backward": worldDir = m.Backward; break;
-				case "left":     worldDir = m.Left;     break;
-				case "right":    worldDir = m.Right;    break;
-				case "up":       worldDir = m.Up;       break;
-				case "down":     worldDir = m.Down;     break;
-				default:         return false;
+				var entity = hit.HitEntity;
+				if(entity == null || entity == character) continue;
+				if(entity == character.EquippedTool) continue;
+
+				nearest = Math.Min(nearest, hit.Fraction * length);
 			}
 
-			var toLocal = grid.PositionComp.WorldMatrixNormalizedInv;
-			offset = AxisVec(worldDir, ref toLocal);
-			return true;
+			return nearest;
 		}
 
-		internal IEnumerator Fly_Direction_N(ToolCall call)
+		private void MoveHeadFirst(Vector3D point, Vector3D up, bool thrust)
+		{
+			var ec = GetEngineerCenter();
+
+			Vector2 rotation;
+			float roll;
+			springController.Update(ec, character.WorldMatrix.Forward, character.WorldMatrix.Up,
+				point, up, 0.2, true, out rotation, out roll);
+
+			var move = Vector3.Zero;
+
+			if(thrust)
+			{	var desiredVelocity = Vector3D.Normalize(point - ec) * 5.0;
+				move = micro.ComputeMoveInput(desiredVelocity, character.Physics.LinearVelocity, character.WorldMatrix);
+			}
+
+			character.MoveAndRotate(move, rotation, roll);
+		}
+
+		internal IEnumerator Unstuck()
 		{
 			string message;
 			if(!GridIsSet(out message)) yield return message;
 
-			var dirWord = call.Str("direction");
+			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
+			if(jetComp == null) yield return "Error: character has no jetpack.";
 
-			Vector3I offset;
-			if(!TryDirOffset(selectedGrid, dirWord, out offset))
-				yield return $"Error: {Quote(dirWord)} is not a direction. Expected: forward backward left right up down";
+			yield return Validated;
 
-			int n;
-			if(!call.Int("n", out n))
-				yield return call.Need("n");
-			if(n <= 0)
-				yield return $"Error: n must be positive, got {n}";
+			jetComp.TurnOnJetpack(true);
 
-			var here = selectedGrid.WorldToGridInteger(GetEngineerCenter());
+			const double probeLength = 6.0;
+			const double minimalGap = 1.2;
+			const int maximalAttempts = 6;
 
-			yield return FlyTo(here + offset * n, false);
+			var start = GetEngineerCenter();
+			var m = CalculateOrientation(selectedGrid);
+			var up = CalculateUpVector(selectedGrid);
+
+			var hits = new List<IHitInfo>();
+			var candidates = new List<KeyValuePair<double, Vector3D>>();
+
+			Vector3I d;
+			for(d.Z = -1; d.Z <= 1; ++d.Z)
+				for(d.Y = -1; d.Y <= 1; ++d.Y)
+					for(d.X = -1; d.X <= 1; ++d.X)
+					{
+						if(d == Vector3I.Zero) continue;
+
+						var direction = Vector3D.Normalize(d.X * m.Right + d.Y * m.Up + d.Z * m.Forward);
+						var free = FreeDistance(start, direction, probeLength, hits);
+
+						if(free >= minimalGap)
+							candidates.Add(new KeyValuePair<double, Vector3D>(free, direction));
+					}
+
+			if(candidates.Count == 0)
+				yield return $"Error: you are wedged in — every direction is blocked within {minimalGap} m.";
+
+			candidates.Sort((a, b) => b.Key.CompareTo(a.Key));
+
+			var attempts = Math.Min(candidates.Count, maximalAttempts);
+
+			// A ray is thinner than the engineer, so an open direction may still not let him through.
+			for(int i = 0; i < attempts; ++i)
+			{
+				var direction = candidates[i].Value;
+				var point = start + direction * (candidates[i].Key - 0.5);
+
+				// The engineer is long and thin: a gap that fits him lengthwise will not fit him sideways.
+				SetPause(Constants.MicronavigationDelay);
+				while(IsPaused())
+				{	if(Vector3D.Dot(character.WorldMatrix.Up, direction) > 0.95) break;
+					MoveHeadFirst(point, up, false);
+					yield return null;
+				}
+
+				SetPause(Constants.MicronavigationDelay);
+				while(IsPaused())
+				{	if(Vector3D.DistanceSquared(GetEngineerCenter(), point) < 1.0) break;
+					MoveHeadFirst(point, up, true);
+					yield return null;
+				}
+
+				character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
+
+				var moved = Vector3D.Distance(GetEngineerCenter(), start);
+				if(moved > 1.0)
+					yield return Success($"Broke free, moved {moved:F1} m. Position: {CharacterCellText()}");
+			}
+
+			yield return $"Error: could not break free — tried {attempts} open directions, the engineer does not move.";
 		}
 	}
 }
