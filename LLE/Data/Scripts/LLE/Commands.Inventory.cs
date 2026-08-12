@@ -175,11 +175,7 @@ namespace LLE
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
-			{	CharacterRotateTo(bp);
-				yield return null;
-			}
+			yield return CharacterRotateCR(bp);
 
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";
@@ -267,11 +263,7 @@ namespace LLE
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
 				block.ComputeWorldCenter(out bp);
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
-			{	CharacterRotateTo(bp);
-				yield return null;
-			}
+			yield return CharacterRotateCR(bp);
 
 			block = selectedGrid.GetCubeBlock(ijk);
 			if(block == null) yield return $"Error: no block at {IJK(ijk)}";

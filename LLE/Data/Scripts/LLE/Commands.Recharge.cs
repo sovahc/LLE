@@ -169,11 +169,7 @@ namespace LLE
 
 				// Simulating the process since the game once again locked the necessary API
 
-				SetPause(Constants.MicronavigationDelay);
-				while(IsPaused())
-				{	CharacterRotateTo(rechargeButton);
-					yield return null;
-				}
+				yield return CharacterRotateCR(rechargeButton);
 
 				var oc = character.Components?.Get<MyCharacterOxygenComponent>();
 				if(oc == null) yield return "Internal error: Character has no MyCharacterOxygenComponent.";

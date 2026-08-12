@@ -153,12 +153,7 @@ namespace LLE
 
 			var target = selectedGrid.GridIntegerToWorld(ijk);
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
-			{
-				CharacterRotateTo(target);
-				yield return null;
-			}
+			yield return CharacterRotateCR(target);
 
 			ob.EntityId = 0;
 			ob.Min = ijk;

@@ -330,11 +330,7 @@ namespace LLE
 
 					var point = ec + back * 2.5;
 
-					SetPause(Constants.MicronavigationDelay);
-					while(IsPaused())
-					{	CharacterMove(point);
-						yield return null;
-					}
+					yield return CharacterMoveCR(point);
 
 					character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
 
@@ -412,6 +408,50 @@ namespace LLE
 
 				yield return null; // in progress
 			}
+		}
+
+		internal IEnumerator CharacterMoveCR(Vector3D position)
+		{
+			const int budget = 90; // 1.5 s at 60 ticks
+			const double arrivalDistance = 0.2;
+			const double arrivalSpeed = 0.2;
+
+			double distance = 0;
+
+			for(int tick = 0; tick < budget; ++tick)
+			{
+				distance = Vector3D.Distance(GetEngineerCenter(), position);
+
+				if(distance < arrivalDistance
+					&& character.Physics.LinearVelocity.LengthSquared() < arrivalSpeed * arrivalSpeed)
+					yield break;
+
+				CharacterMove(position);
+				yield return null;
+			}
+
+			MyConsole.Add($"CharacterMoveCR: {distance:F2} m short after {budget} ticks", Color.Red);
+		}
+
+		internal IEnumerator CharacterRotateCR(Vector3D target)
+		{
+			const int budget = 90;
+			const double aimDot = 0.999; // ~2.5 degrees
+
+			double aim = 0;
+
+			for(int tick = 0; tick < budget; ++tick)
+			{
+				var head = character.GetHeadMatrix(true, true);
+				aim = Vector3D.Dot(head.Forward, Vector3D.Normalize(target - head.Translation));
+
+				if(aim > aimDot) yield break;
+
+				CharacterRotateTo(target);
+				yield return null;
+			}
+
+			MyConsole.Add($"CharacterRotateCR: aim {aim:F3} after {budget} ticks", Color.Red);
 		}
 
 		public void CharacterRotateTo(Vector3D target)

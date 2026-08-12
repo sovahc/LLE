@@ -85,19 +85,8 @@ namespace LLE
 			var grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
-			{
-				CharacterMove(position);
-				yield return null;
-			}
-
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
-			{
-				CharacterRotateTo(target);
-				yield return null;
-			}
+			yield return CharacterMoveCR(position);
+			yield return CharacterRotateCR(target);
 
 			// check if block still exists
 			block = selectedGrid.GetCubeBlock(ijk);
@@ -273,19 +262,8 @@ namespace LLE
 			var welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
-			{
-				CharacterMove(position);
-				yield return null;
-			}
-
-			SetPause(Constants.MicronavigationDelay);
-			while(IsPaused())
-			{
-				CharacterRotateTo(target);
-				yield return null;
-			}
+			yield return CharacterMoveCR(position);
+			yield return CharacterRotateCR(target);
 
 			// check if block still exists
 			block = BlockAt(ijk);
