@@ -166,10 +166,12 @@ namespace LLE
 			if(fat == null || !fat.HasInventory)
 				yield return $"Block {Quote(fromName)} does not have an inventory.";
 
-			if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
-				yield return message;
+			if(InteractionCell(block, InteractionKind.Inventory) == null)
+				yield return E_UNREACHABLE;
 
 			yield return Validated;
+
+			yield return ReachCR(block, InteractionKind.Inventory);
 
 			Vector3D bp;
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))
@@ -254,10 +256,12 @@ namespace LLE
 			if(fat == null || !fat.HasInventory)
 				yield return $"Block {Quote(toName)} does not have an inventory.";
 
-			if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
-				yield return message;
+			if(InteractionCell(block, InteractionKind.Inventory) == null)
+				yield return E_UNREACHABLE;
 
 			yield return Validated;
+
+			yield return ReachCR(block, InteractionKind.Inventory);
 
 			Vector3D bp;
 			if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "conveyor_", out bp))

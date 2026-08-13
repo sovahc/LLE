@@ -43,6 +43,8 @@ namespace LLE
 	{
 		private const string IE_NO_INVENTORY = "Internal error: character.GetInventory() is null";
 		private const string E_BAD_POSITION = "Error: You are not at the correct interaction point with the block.";
+		private const string E_UNREACHABLE = "Error: there is no cell to stand in to reach this block;"
+			+ " it is obstructed. Try 'points' to see for yourself.";
 
 		internal static CommandResult Success(string message) => CommandResult.Success(message);
 		internal static CommandResult Incomplete(string message) => CommandResult.Incomplete(message);

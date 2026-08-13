@@ -144,6 +144,54 @@ namespace LLE
 			return null;
 		}
 
+		// Pure read: the cell to stand in for this interaction, nearest to the engineer.
+		private Vector3I? InteractionCell(IMySlimBlock block, InteractionKind kind)
+		{
+			var eqsr = new List<EQSResult>();
+			EQS.Query(block, GetEngineerCenter(), kind, eqsr, 10);
+
+			if(eqsr.Count == 0) return null;
+
+			var cells = new List<Vector3I>();
+			foreach(var r in eqsr) cells.Add(ToSelectedGrid(block.CubeGrid, r.Cell));
+
+			return NearestToEngineer(cells);
+		}
+
+		// The interaction point nearest to where the engineer stands now — after a flight that is the one
+		// he flew to. Positions here are world space, so a projection block needs no cell conversion.
+		private EQSResult? NearestInteractionPoint(IMySlimBlock block, InteractionKind kind)
+		{
+			var eqsr = new List<EQSResult>();
+			EQS.Query(block, GetEngineerCenter(), kind, eqsr, 10);
+
+			if(eqsr.Count == 0) return null;
+
+			var engineer = GetEngineerCenter();
+			var best = eqsr[0];
+
+			foreach(var r in eqsr)
+				if(Vector3D.DistanceSquared(engineer, r.chPosition)
+					< Vector3D.DistanceSquared(engineer, best.chPosition)) best = r;
+
+			return best;
+		}
+
+		// Every action tool flies to its own interaction point, so the model spends no turn on approach.
+		// The nearest free point decides: standing on it means no flight, and CharacterMoveCR covers the
+		// last metre. Asking whether we are already at an interaction point cannot decide it — on a small
+		// grid that query ignores the cell it is given and answers yes from anywhere.
+		private IEnumerator ReachCR(IMySlimBlock block, InteractionKind kind)
+		{
+			var cell = InteractionCell(block, kind);
+			if(cell == null) yield return E_UNREACHABLE;
+
+			var distance = Vector3D.Distance(GetEngineerCenter(), selectedGrid.GridIntegerToWorld(cell.Value));
+			if(distance <= Constants.MaxInteractionDistance) yield break;
+
+			yield return RealFly(cell.Value, null, false, true);
+		}
+
 		internal IEnumerator Approach(ToolCall call)
 		{
 			string message;
@@ -194,16 +242,11 @@ namespace LLE
 				if(intention.Value != InteractionKind.GrindWeld && IsProjection(block.CubeGrid))
 					yield return $"Error: {IJK(ijk)} is not built yet — '{intentionWord}' needs a real block.";
 
-				var eqsr = new List<EQSResult>();
-				EQS.Query(block, GetEngineerCenter(), intention.Value, eqsr, 10);
-
-				if(eqsr.Count == 0)
+				var cell = InteractionCell(block, intention.Value);
+				if(cell == null)
 					yield return $"Error: no {intentionWord} interaction points found for {Name(block)} at {IJK(ijk)}";
 
-				var cells = new List<Vector3I>();
-				foreach(var r in eqsr) cells.Add(ToSelectedGrid(block.CubeGrid, r.Cell));
-
-				destinationCell = NearestToEngineer(cells);
+				destinationCell = cell.Value;
 				arrivalMessage = $"Arrived at '{intentionWord}' point for {Quote(Name(block))} at {IJK(ijk)}. Your position: {IJK(destinationCell)}.";
 			}
 
@@ -236,7 +279,8 @@ namespace LLE
 			yield return RealFly(ijk, "", headFirst);
 		}
 
-		internal IEnumerator RealFly(Vector3I destinationCell, string arrivalMessage, bool headFirst)
+		internal IEnumerator RealFly(Vector3I destinationCell, string arrivalMessage, bool headFirst,
+			bool silent = false)
 		{
 			var jetComp = character.Components.Get<MyCharacterJetpackComponent>();
 			if(jetComp == null) yield return "Error: character has no jetpack.";
@@ -296,14 +340,15 @@ namespace LLE
 
 			micro.Fly(worldPath);
 
-			yield return NavigationCR(null, arrivalMessage, headFirst);
+			yield return NavigationCR(null, arrivalMessage, headFirst, silent);
 		}
 
 		internal string CharacterCellText()
 		{	return IJK(selectedGrid.WorldToGridInteger(GetEngineerCenter()));
 		}
 
-		internal IEnumerator NavigationCR(IMyCubeGrid exitGrid = null, string arrivalMessage = null, bool headFirst = false)
+		internal IEnumerator NavigationCR(IMyCubeGrid exitGrid = null, string arrivalMessage = null,
+			bool headFirst = false, bool silent = false)
 		{
 			bool closeBehind = false;
 
@@ -319,7 +364,8 @@ namespace LLE
 
 				if(micro.Arrived())
 				{	// Flying out is only half of the trip; answering here would end the command before it starts.
-					if(exitGrid != null) yield break;
+					// The same holds for a flight another command started to reach its own target.
+					if(exitGrid != null || silent) yield break;
 
 					yield return Success(arrivalMessage ?? $"Arrived. Position: {CharacterCellText()}");
 				}
@@ -330,7 +376,8 @@ namespace LLE
 
 					var point = ec + back * 2.5;
 
-					yield return CharacterMoveCR(point);
+					// Backing off is best-effort: the two answers below say how far it got.
+					yield return CharacterMoveCR(point, false);
 
 					character.MoveAndRotate(Vector3.Zero, Vector2.Zero, 0);
 
@@ -410,7 +457,7 @@ namespace LLE
 			}
 		}
 
-		internal IEnumerator CharacterMoveCR(Vector3D position)
+		internal IEnumerator CharacterMoveCR(Vector3D position, bool required = true)
 		{
 			const int budget = 90; // 1.5 s at 60 ticks
 			const double arrivalDistance = 0.2;
@@ -431,6 +478,12 @@ namespace LLE
 			}
 
 			MyConsole.Add($"CharacterMoveCR: {distance:F2} m short after {budget} ticks", Color.Red);
+
+			// Running out of budget is not failing to arrive: the loop also waits for the drift to settle,
+			// and standing within a body length of the spot is inside the reach of every tool.
+			if(required && distance > Constants.EngineerCapsuleHeight)
+				yield return $"Error: could not take position, {distance:F1} m short — something is in the way."
+					+ " Try 'points' for another side of the block, or 'unstuck'.";
 		}
 
 		internal IEnumerator CharacterRotateCR(Vector3D target)

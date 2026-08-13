@@ -94,10 +94,12 @@ namespace LLE
 			if(cockpit != null)
 			{	if(!cockpit.IsFunctional) yield return $"Error: {Name(block)} at {IJK(ijk)} is not functional.";
 
-				if(!IsAtInteractionPoint(block, InteractionKind.Inventory, out message))
-					yield return message;
+				if(InteractionCell(block, InteractionKind.Inventory) == null)
+					yield return E_UNREACHABLE;
 
 				yield return Validated;
+
+				yield return ReachCR(block, InteractionKind.Inventory);
 
 				if(!EnterCockpit(cockpit, out message)) yield return message;
 
@@ -145,13 +147,8 @@ namespace LLE
 
 			if(IsSurvivalKit(tb) || tb is IMyMedicalRoom)
 			{
-				if(!IsAtInteractionPoint(block, InteractionKind.Recharge, out message))
-					yield return message;
-
-				var ec = GetEngineerCenter();
-				Vector3D rechargeButton;
-				if(!Collisions.GetNearestDetectorCenterByPrefix(block, ec, "block_", out rechargeButton))
-					yield return $"Recharge button not found on {Name(block)}";
+				if(InteractionCell(block, InteractionKind.Recharge) == null)
+					yield return E_UNREACHABLE;
 
 				bool hasPower = GridHasPower(selectedGrid);
 
@@ -167,7 +164,13 @@ namespace LLE
 
 				yield return Validated;
 
+				yield return ReachCR(block, InteractionKind.Recharge);
+
 				// Simulating the process since the game once again locked the necessary API
+
+				Vector3D rechargeButton;
+				if(!Collisions.GetNearestDetectorCenterByPrefix(block, GetEngineerCenter(), "block_", out rechargeButton))
+					yield return $"Recharge button not found on {Name(block)}";
 
 				yield return CharacterRotateCR(rechargeButton);
 

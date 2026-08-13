@@ -87,9 +87,12 @@ namespace LLE
 			new Tool("fly", "Land at a specific grid cell.",
 				Join(Ijk(), Bool("headfirst", "Fly head first (use for tight spaces or unstuck)."))),
 			new Tool("unstuck", "Push into the nearest open space. Use when flying reports no path or being stuck.", None),
+			// Hidden: grind/weld/get/put/recharge fly to their own point. The tool still runs if called.
+			/*
 			new Tool("approach", "Fly to the interaction point of a block, from where the action below is possible.",
 				Join(Ijk(), Enum("action", "What you intend to do at that block once you arrive.", true,
 					"grind", "weld", "get", "put", "recharge", "enter"))),
+			*/
 
 			new Tool("note", "Your notepad.", new[]
 			{	Str("text", "Your plan or notes."),
@@ -153,19 +156,21 @@ namespace LLE
 			new Tool("draft_clear", "Drop the whole draft.", None),
 			*/
 
-			new Tool("grind", "Grind the block at a cell.", Ijk()),
-			new Tool("weld", "Weld the block at a cell. Incremental: several trips may be needed.", Ijk()),
-			new Tool("get", "Take things out of a block's inventory. Write down everything you need"
+			new Tool("grind", "Grind the block at a cell. Flies you there first.", Ijk()),
+			new Tool("weld", "Weld the block at a cell. Flies you there first."
+				+ " Incremental: several trips may be needed.", Ijk()),
+			new Tool("get", "Take things out of a block's inventory. Flies you there first. Write down everything you need"
 				+ " from it — one entry per item type, all in one call.",
 				Join(Ijk(), List("items", "What to take. One entry per item type.",
 					Str("item", "Exact item name."),
 					Num("count", "How many. Omit to take all of them.", false)))),
-			new Tool("put", "Put things away. Write down everything you are carrying that has to go"
+			new Tool("put", "Put things away. Flies you there first. Write down everything you are carrying that has to go"
 				+ " into this block — one entry per item type, all in one call.",
 				Join(Ijk(), List("items", "What to put in. One entry per item type.",
 					Str("item", "Exact item name."),
 					Num("count", "How many. Omit to put all of them.", false)))),
-			new Tool("put_all_components", "Put every component you carry into a block's inventory. Use it to free up your inventory quickly.", Ijk()),
+			new Tool("put_all_components", "Put every component you carry into a block's inventory. Flies you there first."
+				+ " Use it to free up your inventory quickly.", Ijk()),
 			/*
 			new Tool("build", "Build every drafted block within reach.", None),
 			new Tool("place", "Build one block right now, at minimum integrity.",
@@ -178,7 +183,7 @@ namespace LLE
 					Enum("kind", "Tube family. Default square.", false, TubeKinds))),
 			*/
 			new Tool("enter", "Enter the cockpit or seat at a cell.", Ijk()),
-			new Tool("recharge", "Recharge from the block at a cell.", Ijk()),
+			new Tool("recharge", "Recharge from the block at a cell. Flies you there first.", Ijk()),
 		};
 
 		public static Tool Find(string name)

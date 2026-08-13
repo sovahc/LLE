@@ -69,12 +69,8 @@ namespace LLE
 			if(!FindTool("Grinder", out grinder))
 				yield return "Cannot equip grinder. Do you have a Grinder in your inventory?";
 
-			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
-			if(!ip.HasValue)
-				yield return E_BAD_POSITION;
-
-			var position = ip.Value.chPosition;
-			var target = ip.Value.Target;
+			if(InteractionCell(block, InteractionKind.GrindWeld) == null)
+				yield return E_UNREACHABLE;
 
 			yield return Validated;
 
@@ -85,8 +81,13 @@ namespace LLE
 			var grinderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(grinderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
-			yield return CharacterMoveCR(position);
-			yield return CharacterRotateCR(target);
+			yield return ReachCR(block, InteractionKind.GrindWeld);
+
+			var ip = NearestInteractionPoint(block, InteractionKind.GrindWeld);
+			if(!ip.HasValue) yield return E_UNREACHABLE;
+
+			yield return CharacterMoveCR(ip.Value.chPosition);
+			yield return CharacterRotateCR(ip.Value.Target);
 
 			// check if block still exists
 			block = selectedGrid.GetCubeBlock(ijk);
@@ -248,12 +249,8 @@ namespace LLE
 			if (!FindTool("Welder", out welder))
 				yield return "Cannot equip handheld welder. Do you have a Welder in your inventory?";
 
-			var ip = GetInteractionPointAt(block, InteractionKind.GrindWeld, GetEngineerCenter());
-			if(!ip.HasValue)
-				yield return E_BAD_POSITION;
-
-			var position = ip.Value.chPosition;
-			var target = ip.Value.Target;
+			if(InteractionCell(block, InteractionKind.GrindWeld) == null)
+				yield return E_UNREACHABLE;
 
 			yield return Validated;
 
@@ -262,8 +259,13 @@ namespace LLE
 			var welderGun = character.EquippedTool as IMyGunObject<MyDeviceBase>;
 			if(welderGun == null) yield return "Internal error: equipped tool is not IMyGunObject<MyDeviceBase>";
 
-			yield return CharacterMoveCR(position);
-			yield return CharacterRotateCR(target);
+			yield return ReachCR(block, InteractionKind.GrindWeld);
+
+			var ip = NearestInteractionPoint(block, InteractionKind.GrindWeld);
+			if(!ip.HasValue) yield return E_UNREACHABLE;
+
+			yield return CharacterMoveCR(ip.Value.chPosition);
+			yield return CharacterRotateCR(ip.Value.Target);
 
 			// check if block still exists
 			block = BlockAt(ijk);
