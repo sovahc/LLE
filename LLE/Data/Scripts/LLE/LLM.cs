@@ -116,12 +116,6 @@ namespace LLE
 
 		private double commandStartTime;
 
-		private const int NewsQuietTicks = 2;
-		private const int NewsMaxTicks = 10;
-
-		private int quietTicks;
-		private int newsTicks;
-
 		private readonly LoopDetector loopDetector = new LoopDetector();
 
 		private bool restartPending;
@@ -194,13 +188,7 @@ namespace LLE
 			transcript.Add(json.ToString());
 			transcriptChars += json.Length;
 			callCursor++;
-			if (news) News();
-		}
-
-		private void News()
-		{	if (!hasNews) newsTicks = 0;
-			hasNews = true;
-			quietTicks = 0;
+			if (news) hasNews = true;
 		}
 
 		private void RunNextPending()
@@ -221,14 +209,11 @@ namespace LLE
 		public void Append(string text, Color consoleColor, Destination d = Destination.All)
 		{	if((d & Destination.Console) != 0) MyConsole.AddMultiline(text, consoleColor);
 			if((d & Destination.Log)     != 0) logBuf.Append(text);
-			if((d & Destination.LLM)     != 0) { output.Append(text); News(); }
+			if((d & Destination.LLM)     != 0) { output.Append(text); hasNews = true; }
 		}
 
 		public void Tick()
 		{
-			++quietTicks;
-			++newsTicks;
-
 			PollChannels();
 
 			var ec = commands.GetEngineerCenter();
@@ -279,7 +264,7 @@ namespace LLE
 			// Slots still open: sending now would leave the model's own tool calls unanswered.
 			if (batch.Count != 0) return;
 
-			if (hasNews && (quietTicks >= NewsQuietTicks || newsTicks >= NewsMaxTicks))
+			if (hasNews)
 			{
 				int used = ContextUsed;
 				int total = channels[0].ContextChars;
