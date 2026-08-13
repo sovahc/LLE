@@ -377,7 +377,6 @@ namespace LLE
 			var why = CheckBuildSite(nearest, out n, out nc);
 
 			result.Append($"{draft.Count} block(s) still in the draft. Nearest is {IJK(nearest)} — {why}\n");
-			result.Append($"Move to it (`approach {IJK(nearest)} for place`) and run `build` again.");
 
 			yield return Incomplete(result.ToString());
 		}

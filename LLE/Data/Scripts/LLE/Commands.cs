@@ -562,7 +562,6 @@ namespace LLE
 
 				case "fly":            return Fly(call);
 				case "unstuck":        return Unstuck();
-				case "approach":       return Approach(call);
 				case "grind":          return Grind(call);
 				case "weld":           return Weld(call);
 				case "get":            return Get(call);

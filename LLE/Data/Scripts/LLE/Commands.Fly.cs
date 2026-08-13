@@ -177,10 +177,6 @@ namespace LLE
 			return best;
 		}
 
-		// Every action tool flies to its own interaction point, so the model spends no turn on approach.
-		// The nearest free point decides: standing on it means no flight, and CharacterMoveCR covers the
-		// last metre. Asking whether we are already at an interaction point cannot decide it — on a small
-		// grid that query ignores the cell it is given and answers yes from anywhere.
 		private IEnumerator ReachCR(IMySlimBlock block, InteractionKind kind)
 		{
 			var cell = InteractionCell(block, kind);
@@ -190,69 +186,6 @@ namespace LLE
 			if(distance <= Constants.MaxInteractionDistance) yield break;
 
 			yield return RealFly(cell.Value, null, false, true);
-		}
-
-		internal IEnumerator Approach(ToolCall call)
-		{
-			string message;
-			if(!GridIsSet(out message)) yield return message;
-
-			Vector3I ijk;
-			if(!call.Ijk(out ijk)) yield return call.NeedIjk;
-
-			var intentionWord = call.Str("action");
-			if(string.IsNullOrEmpty(intentionWord))
-				yield return call.Need("action");
-
-			var block = BlockAt(ijk);
-
-			Vector3I destinationCell;
-			string arrivalMessage;
-
-			if(string.Equals(intentionWord, "place", StringComparison.OrdinalIgnoreCase))
-			{
-				var occupant = selectedGrid.GetCubeBlock(ijk);
-				if(occupant != null)
-					yield return $"Error: {IJK(ijk)} is occupied by block {Quote(Name(occupant))}. Cannot build a block on an occupied cell.";
-
-				var producer = EQS.ProduceCells(selectedGrid, ijk, GetEngineerCenter());
-				var placeCells = new List<Vector3I>();
-				
-				foreach (var c in producer)
-				{	if(c == ijk) continue;
-					placeCells.Add(c);
-				}
-
-				KeepNavigableCells(placeCells);
-
-				if(placeCells.Count == 0)
-					yield return $"Error: no free cells next to {IJK(ijk)}";
-
-				destinationCell = NearestToEngineer(placeCells);
-				arrivalMessage = $"Arrived next to free space at {IJK(ijk)}. Your position: {IJK(destinationCell)}";
-			}
-			else
-			{	// calculate free cell
-				var intention = ParseIntention(intentionWord, block);
-				if(intention == null)
-					yield return $"Error: unknown fly intention '{intentionWord}'. Expected: grind, weld, get, put, recharge, enter, place";
-				if(block == null) yield return $"Error: no block at {IJK(ijk)}";
-
-				// Only grind/weld make sense on a projection preview — it has no real inventory, power, or seats yet.
-				if(intention.Value != InteractionKind.GrindWeld && IsProjection(block.CubeGrid))
-					yield return $"Error: {IJK(ijk)} is not built yet — '{intentionWord}' needs a real block.";
-
-				var cell = InteractionCell(block, intention.Value);
-				if(cell == null)
-					yield return $"Error: no {intentionWord} interaction points found for {Name(block)} at {IJK(ijk)}";
-
-				destinationCell = cell.Value;
-				arrivalMessage = $"Arrived at '{intentionWord}' point for {Quote(Name(block))} at {IJK(ijk)}. Your position: {IJK(destinationCell)}.";
-			}
-
-			yield return Validated;
-
-			yield return RealFly(destinationCell, arrivalMessage, false);
 		}
 
 		internal IEnumerator Fly(ToolCall call)
@@ -272,8 +205,7 @@ namespace LLE
 
 			if(!Collisions.CenterIsFree(block, ijk))
 			{
-				yield return $"Destination {IJK(ijk)} is blocked by {Name(block)}. "
-					+ $"Use approach if you need interact with the block.";
+				yield return $"Destination {IJK(ijk)} is blocked by {Name(block)}.";
 			}
 
 			yield return RealFly(ijk, "", headFirst);

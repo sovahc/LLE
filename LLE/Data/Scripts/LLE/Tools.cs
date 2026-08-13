@@ -87,12 +87,6 @@ namespace LLE
 			new Tool("fly", "Land at a specific grid cell.",
 				Join(Ijk(), Bool("headfirst", "Fly head first (use for tight spaces or unstuck)."))),
 			new Tool("unstuck", "Push into the nearest open space. Use when flying reports no path or being stuck.", None),
-			// Hidden: grind/weld/get/put/recharge fly to their own point. The tool still runs if called.
-			/*
-			new Tool("approach", "Fly to the interaction point of a block, from where the action below is possible.",
-				Join(Ijk(), Enum("action", "What you intend to do at that block once you arrive.", true,
-					"grind", "weld", "get", "put", "recharge", "enter"))),
-			*/
 
 			new Tool("note", "Your notepad.", new[]
 			{	Str("text", "Your plan or notes."),
