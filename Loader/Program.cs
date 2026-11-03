@@ -478,6 +478,35 @@ namespace LLELoader
 			}
 		}
 
+		[HarmonyPatchCategory("Early")]
+		static class Patch_ScenarioMods
+		{
+			[HarmonyPatch("Sandbox.Game.Screens.MyGuiScreenWorldSettings, Sandbox.Game", "scenario_SelectedChanged")]
+			[HarmonyPostfix]
+			static void Postfix(object __instance)
+			{
+				try
+				{
+					var screenType = __instance.GetType();
+					var group = AccessTools.Field(screenType, "m_scenarioTypesGroup").GetValue(__instance);
+					var button = group?.GetType().GetProperty("SelectedButton")?.GetValue(group);
+					var scenarioPath = button?.GetType().GetProperty("UserData")?.GetValue(button) as string;
+					if (scenarioPath == null) return;
+
+					ulong size;
+					var checkpoint = Sandbox.Engine.Networking.MyLocalCache.LoadCheckpoint(scenarioPath, out size);
+					if (checkpoint?.Mods == null) return;
+
+					AccessTools.Field(screenType, "m_mods").SetValue(__instance, checkpoint.Mods);
+					Logger.Write($"[ScenarioMods] {checkpoint.Mods.Count} mods taken from {Path.GetFileName(scenarioPath)}");
+				}
+				catch (Exception ex)
+				{
+					Logger.Write("[ScenarioMods] patch failed: " + ex);
+				}
+			}
+		}
+
 		[HarmonyPatchCategory("Late")]
 		static class Patch_ScriptManagerLoadData
 		{
