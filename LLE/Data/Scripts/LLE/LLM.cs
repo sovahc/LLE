@@ -65,26 +65,12 @@ namespace LLE
 
 		private bool hasNews;
 
-		private readonly LlmChannel[] channels = BuildChannels();
+		// Without the loader the stream reports no context, and every turn stops before the send.
+		private readonly LlmChannel channel = new LlmChannel();
 
-		private readonly Answer[] answers;
-		private readonly string[] errors;
+		private Answer answer;
+		private string error;
 		private bool answered;
-
-		// One stream per configured channel. An absent channel reports no context, and channel zero
-		// always exists: without the loader every probe answers zero.
-		private static LlmChannel[] BuildChannels()
-		{
-			var list = new List<LlmChannel>();
-
-			for (int i = 0; i < 8; ++i)
-			{	var channel = new LlmChannel(i);
-				if (i != 0 && !channel.Present) break;
-				list.Add(channel);
-			}
-
-			return list.ToArray();
-		}
 
 		public static string Join(string separator, List<ToolCall> calls)
 		{	var sb = new StringBuilder();
@@ -126,8 +112,6 @@ namespace LLE
 
 		public LLM(Commands commands_)
 		{	commands = commands_;
-			answers = new Answer[channels.Length];
-			errors = new string[channels.Length];
 		}
 
 		public void OnCommandFinished(CommandResult result)
@@ -214,7 +198,7 @@ namespace LLE
 
 		public void Tick()
 		{
-			PollChannels();
+			Poll();
 
 			var ec = commands.GetEngineerCenter();
 
@@ -248,14 +232,14 @@ namespace LLE
 					RunNextPending();
 			}
 
-			// Every stream is waited out: the answers can only be compared once they all exist.
-			foreach(var channel in channels)
-				if(channel.Busy) return;
+			// A turn is not over until its stream is: the send below would be abandoned by the
+			// answer still on its way.
+			if(channel.Busy) return;
 
 			// Must stay ahead of the send below: an async VISION/STATUS report would otherwise
 			// fire that send and orphan it, and the next response appends its calls onto it.
 			if(answered)
-				ProcessAnswers();
+				ProcessAnswer();
 
 			if(restartPending && batch.Count == 0) Restart();
 
@@ -267,7 +251,7 @@ namespace LLE
 			if (hasNews)
 			{
 				int used = ContextUsed;
-				int total = channels[0].ContextChars;
+				int total = channel.ContextChars;
 
 				if (total <= 0)
 				{	output.Clear();
@@ -314,8 +298,7 @@ namespace LLE
 				logBuf.Clear();
 				hasNews = false;
 
-				var request = Request();
-				foreach(var channel in channels) channel.Send(request);
+				channel.Send(Request());
 				turn++;
 				return;
 			}
@@ -360,81 +343,34 @@ namespace LLE
 
 		private void ContextStatistic()
 		{
-			int total = channels[0].ContextChars;
+			int total = channel.ContextChars;
 			if (total <= 0) return;
 			int used = ContextUsed;
 			MyConsole.Add($"[CONTEXT] {used}/{total} chars ({used * 100 / total}%)", Color.LightPink);
 		}
 
-		private void PollChannels()
+		// Both fields are written on every event: once `answered` is set, exactly one of them
+		// is filled, and a fresh event never leaves the previous turn's answer behind.
+		private void Poll()
 		{
-			for (int i = 0; i < channels.Length; ++i)
-			{
-				Answer payload;
-				string errorText;
+			Answer payload;
+			string errorText;
 
-				var polled = channels[i].Poll(out payload, out errorText);
-				if (polled == ChannelEvent.None) continue;
+			var polled = channel.Poll(out payload, out errorText);
+			if (polled == ChannelEvent.None) return;
 
-				if (polled == ChannelEvent.Error)
-				{	Log($"channel {i} died: {errorText}");
-					errors[i] = errorText;
-				}
-				else answers[i] = payload;
-
-				answered = true;
+			if (polled == ChannelEvent.Error)
+			{	Log($"llm died: {errorText}");
+				answer = null;
+				error = errorText;
 			}
-		}
-
-		// Every stream answered the same question, so the turn goes to the one whose first command
-		// would actually run. The losers are dropped whole: the transcript keeps one voice, and the
-		// model is never told it was one of several.
-		private void ProcessAnswers()
-		{
-			answered = false;
-			ContextStatistic();
-
-			var scores = new int[answers.Length];
-			var refusals = new string[answers.Length];
-			int winner = -1;
-
-			for (int i = 0; i < answers.Length; ++i)
-			{
-				if (answers[i] == null) continue;
-
-				scores[i] = Score(answers[i], out refusals[i]);
-				if (winner < 0 || Beats(scores, i, winner)) winner = i;
+			else
+			{	answer = payload;
+				error = null;
 			}
 
-			if (channels.Length > 1 && winner >= 0) ReportChoice(scores, refusals, winner);
-
-			var answer = winner < 0 ? null : answers[winner];
-			var error = winner >= 0 ? null : FirstError();
-
-			for (int i = 0; i < answers.Length; ++i)
-			{	answers[i] = null;
-				errors[i] = null;
-			}
-
-			ProcessAnswer(answer, error);
+			answered = true;
 		}
-
-		// Only the head of a batch is checked, so a longer batch wins on the strength of its head
-		// alone. That is the point: one turn spent on four calls beats four turns spent on one.
-		private bool Beats(int[] scores, int challenger, int best)
-		{
-			if (scores[challenger] != scores[best]) return scores[challenger] > scores[best];
-
-			var calls = answers[challenger].Calls.Count - answers[best].Calls.Count;
-			if (calls != 0) return calls > 0;
-
-			// Two answers of the same shape: the one that spelled out more of what it is doing.
-			return Join("; ", answers[challenger].Calls).Length > Join("; ", answers[best].Calls).Length;
-		}
-
-		private const int ScoreRuns = 2;
-		private const int ScoreRefused = 1;
-		private const int ScoreUnusable = 0;
 
 		// `note` touches nothing, so checking it says nothing about the answer.
 		private static List<ToolCall> Acting(List<ToolCall> calls)
@@ -445,71 +381,29 @@ namespace LLE
 			return acting;
 		}
 
-		// Only the first acting call is checked — it decides whether the turn does anything at all.
-		// An answer that called no tool still has to lose to any answer that did, and still has to
-		// remain the answer when no stream did better.
-		private int Score(Answer answer, out string refusal)
+		private void ProcessAnswer()
 		{
-			refusal = null;
+			answered = false;
+			ContextStatistic();
 
-			if (answer.Error != null || answer.Calls.Count == 0) return ScoreUnusable;
-
-			var acting = Acting(answer.Calls);
-			if (acting.Count == 0) return ScoreRuns;
-
-			// restart is answered by the transcript, not by a command, so there is nothing to check.
-			if (acting[0].Is("restart")) return ScoreRuns;
-
-			refusal = commands.Validate(acting[0]);
-			return refusal == null ? ScoreRuns : ScoreRefused;
-		}
-
-		private static string ScoreName(int score)
-		{	return score == ScoreRuns ? "ok" : score == ScoreRefused ? "refused" : "no call";
-		}
-
-		private void ReportChoice(int[] scores, string[] refusals, int winner)
-		{
-			for (int i = 0; i < scores.Length; ++i)
-			{
-				if (answers[i] == null) continue;
-
-				var line = $"[PICK] {i}{(i == winner ? "*" : " ")} {ScoreName(scores[i])}"
-					+ (refusals[i] == null ? "" : ": " + refusals[i].Trim())
-					+ $" | {Join("; ", answers[i].Calls)}\n";
-
-				Append(line, i == winner ? Color.MediumPurple : Color.Gray, Destination.Console);
-				Log(line);
-			}
-		}
-
-		private string FirstError()
-		{
-			foreach (var error in errors)
-				if (error != null) return error;
-			return "no answer";
-		}
-
-		private void ProcessAnswer(Answer answer, string channelError)
-		{
 			if (answer == null)
-			{	MyConsole.AddMultiline("\n[LLM ERROR] " + channelError + "\n", Color.Red);
+			{	MyConsole.AddMultiline("\n[LLM ERROR] " + error + "\n", Color.Red);
 				pause = true;
 				return;
 			}
 
 			var cc = answer.Calls;
 
-			string error = answer.Error;
-			if (error == null && cc.Count == 0)
-				error = "[ERROR] You called no tool.\n";
+			string answerError = answer.Error;
+			if (answerError == null && cc.Count == 0)
+				answerError = "[ERROR] You called no tool.\n";
 
 			Append("[YOU]: /llmContent/\n", Color.Cyan, Destination.Log);
 			AddAssistant(answer);
 
-			if (error != null)
-			{	Log($"turn {turn} unusable: {error.Trim()}");
-				Append(error, Color.Red);
+			if (answerError != null)
+			{	Log($"turn {turn} unusable: {answerError.Trim()}");
+				Append(answerError, Color.Red);
 				return;
 			}
 

@@ -38,7 +38,7 @@ namespace LLELoader
 		}
 	}
 
-	class ChannelConfig
+	class LoaderConfig
 	{
 		public string LlmUrl { get; set; } = "http://localhost:8080/v1/chat/completions";
 		public string Model { get; set; } = "qwen";
@@ -47,11 +47,6 @@ namespace LLELoader
 		public bool EnableThinking { get; set; } = false;
 		public int ContextChars { get; set; } = 100000;
 		public int MaxTokens { get; set; } = 20000;
-	}
-
-	class LoaderConfig
-	{
-		public ChannelConfig[] Channels { get; set; }
 		public bool EnableProxy { get; set; } = false;
 		public string ProxyUrl { get; set; } = "";
 		public string TtsUrl { get; set; } = "http://127.0.0.1:8081/say";
@@ -60,46 +55,84 @@ namespace LLELoader
 		public int DebugPort { get; set; } = 0;
 	}
 
-	class Channel
+	static class MessageBroker
 	{
-		public readonly int Id;
-		public readonly ChannelConfig Config;
+		private static readonly LoaderConfig _config = LoadConfig();
 
+		private static LoaderConfig LoadConfig()
+		{
+			try
+			{
+				string exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+				string configPath = Path.Combine(exeDir, "LLELoader.json");
+				if (File.Exists(configPath))
+				{
+					var text = File.ReadAllText(configPath);
+					var c = System.Text.Json.JsonSerializer.Deserialize<LoaderConfig>(text);
+					if (c != null)
+					{
+						Logger.Write($"[Config] Loaded {configPath}: url={c.LlmUrl} model={c.Model} provider={c.Provider}"
+							+ $" thinking={c.EnableThinking} contextChars={c.ContextChars} maxTokens={c.MaxTokens}"
+							+ $" proxy={c.EnableProxy}/{c.ProxyUrl} screenshotScale={c.ScreenshotScale} simulationSpeed={c.SimulationSpeed} tts={c.TtsUrl}");
+						return c;
+					}
+				}
+				Logger.Write("[Config] LLELoader.json not found, using defaults (local)");
+			}
+			catch (Exception ex)
+			{
+				Logger.Write("[Config] Failed to load config: " + ex.Message);
+			}
+			return new LoaderConfig();
+		}
+
+		// An abandoned stream must not write into the queue of the request that replaced it, so each
+		// request owns its queue and its cancellation.
 		private class Request
 		{
 			public readonly ConcurrentQueue<LLE.FromLLM> Chunks = new ConcurrentQueue<LLE.FromLLM>();
 			public readonly CancellationTokenSource Cancel = new CancellationTokenSource();
 		}
 
-		private volatile Request _current;
+		private static volatile Request _current;
 
-		public Channel(int id, ChannelConfig config)
+		public static int DebugPort { get { return _config.DebugPort; } }
+
+		public static readonly HttpClient Http = new HttpClient(new HttpClientHandler
 		{
-			Id = id;
-			Config = config;
-		}
+			Proxy = (_config.EnableProxy && !string.IsNullOrEmpty(_config.ProxyUrl))
+				? new WebProxy(_config.ProxyUrl) : null
+		}) { Timeout = TimeSpan.FromSeconds(300) };
 
-		public bool GetChunk(out LLE.FromLLM m)
+		public static bool GetChunkFromLLM(out LLE.FromLLM cmd)
 		{
 			var request = _current;
-			if (request == null) { m = null; return false; }
-			return request.Chunks.TryDequeue(out m);
+			if (request == null) { cmd = null; return false; }
+			return request.Chunks.TryDequeue(out cmd);
 		}
 
-		public void Send(string requestJson)
+		public static void SendMessageToLLM(string requestJson)
 		{
 			Abandon();
 
 			var request = new Request();
 			_current = request;
 
-			if (Debug.OnSend(Id, requestJson)) return;
+			if (Debug.OnSend(requestJson)) return;
 
 			var _ = AskLlmStreaming(requestJson, request);
 		}
 
+		public static void CancelLLM()
+		{
+			Abandon();
+			Logger.Write("[LLM] cancelled");
+		}
+
+		public static int GetContextChars() { return _config.ContextChars; }
+
 		// The debug channel answers in the model's place, or lets the request go on to it.
-		public bool Inject(string chunkData)
+		public static bool Inject(string chunkData)
 		{
 			var request = _current;
 			if (request == null) return false;
@@ -109,7 +142,7 @@ namespace LLELoader
 			return true;
 		}
 
-		public bool Resume(string requestJson)
+		public static bool Resume(string requestJson)
 		{
 			var request = _current;
 			if (request == null || requestJson == null) return false;
@@ -118,13 +151,7 @@ namespace LLELoader
 			return true;
 		}
 
-		public void Cancel()
-		{
-			Abandon();
-			Logger.Write($"[LLM:{Id}] cancelled");
-		}
-
-		private void Abandon()
+		private static void Abandon()
 		{
 			var request = _current;
 			if (request == null) return;
@@ -144,7 +171,7 @@ namespace LLELoader
 			sb.Append('"');
 		}
 
-		private async Task AskLlmStreaming(string requestJson, Request request)
+		private static async Task AskLlmStreaming(string requestJson, Request request)
 		{
 			var token = request.Cancel.Token;
 
@@ -154,35 +181,35 @@ namespace LLELoader
 			try
 			{
 				var head = new StringBuilder("{\"model\":");
-				Quoted(head, Config.Model);
-				head.Append(",\"max_tokens\":").Append(Config.MaxTokens);
+				Quoted(head, _config.Model);
+				head.Append(",\"max_tokens\":").Append(_config.MaxTokens);
 				head.Append(",\"stream\":true");
 
-				if (Config.Provider == "local")
+				if (_config.Provider == "local")
 					head.Append(",\"chat_template_kwargs\":{\"enable_thinking\":")
-						.Append(Config.EnableThinking ? "true" : "false").Append('}');
-				else if (Config.Provider == "zai")
+						.Append(_config.EnableThinking ? "true" : "false").Append('}');
+				else if (_config.Provider == "zai")
 					head.Append(",\"thinking\":{\"type\":\"")
-						.Append(Config.EnableThinking ? "enabled" : "disabled").Append("\"}");
-				else //if (Config.Provider == "openrouter")
+						.Append(_config.EnableThinking ? "enabled" : "disabled").Append("\"}");
+				else //if (_config.Provider == "openrouter")
 					head.Append(",\"reasoning\":{\"enabled\":")
-						.Append(Config.EnableThinking ? "true" : "false").Append('}');
+						.Append(_config.EnableThinking ? "true" : "false").Append('}');
 
 				head.Append(',').Append(requestJson).Append('}');
 
 				var body = head.ToString();
 
-				var httpRequest = new HttpRequestMessage(HttpMethod.Post, Config.LlmUrl)
+				var httpRequest = new HttpRequestMessage(HttpMethod.Post, _config.LlmUrl)
 				{	Content = new StringContent(body, Encoding.UTF8, "application/json")
 				};
-				if (!string.IsNullOrEmpty(Config.ApiKey))
-					httpRequest.Headers.Add("Authorization", "Bearer " + Config.ApiKey);
-				var response = await MessageBroker.Http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+				if (!string.IsNullOrEmpty(_config.ApiKey))
+					httpRequest.Headers.Add("Authorization", "Bearer " + _config.ApiKey);
+				var response = await Http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
 
 				if (!response.IsSuccessStatusCode)
 				{
 					string errBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-					Logger.Write($"[LLM:{Id}] HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}");
+					Logger.Write($"[LLM] HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}");
 					emit(LLE.MessageType.Error, $"HTTP {(int)response.StatusCode} {response.StatusCode}: {errBody}");
 					return;
 				}
@@ -205,7 +232,7 @@ namespace LLELoader
 					emit(LLE.MessageType.Chunk, data);
 				}
 
-				Logger.Write($"[LLM:{Id}] stream done: chunks={chunks}");
+				Logger.Write($"[LLM] stream done: chunks={chunks}");
 
 				emit(LLE.MessageType.Stop, null);
 			}
@@ -213,105 +240,9 @@ namespace LLELoader
 			{
 				if (token.IsCancellationRequested) return;
 
-				Logger.Write($"[LLM:{Id}] streaming error: " + ex.Message);
+				Logger.Write("[LLM] streaming error: " + ex.Message);
 				emit(LLE.MessageType.Error, ex.Message);
 			}
-		}
-	}
-
-	static class MessageBroker
-	{
-		private static readonly LoaderConfig _config = LoadConfig();
-
-		private static LoaderConfig LoadConfig()
-		{
-			try
-			{
-				string exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-				string configPath = Path.Combine(exeDir, "LLELoader.json");
-				if (File.Exists(configPath))
-				{
-					var text = File.ReadAllText(configPath);
-					var c = System.Text.Json.JsonSerializer.Deserialize<LoaderConfig>(text);
-					if (c != null)
-					{
-						Logger.Write($"[Config] Loaded {configPath}: proxy={c.EnableProxy}/{c.ProxyUrl} screenshotScale={c.ScreenshotScale} simulationSpeed={c.SimulationSpeed} tts={c.TtsUrl}");
-						return c;
-					}
-				}
-				Logger.Write("[Config] LLELoader.json not found, using defaults (local)");
-			}
-			catch (Exception ex)
-			{
-				Logger.Write("[Config] Failed to load config: " + ex.Message);
-			}
-			return new LoaderConfig();
-		}
-
-		private static readonly Channel[] _channels = BuildChannels();
-
-		private static Channel[] BuildChannels()
-		{
-			var configs = _config.Channels;
-			if (configs == null || configs.Length == 0)
-			{
-				Logger.Write("[Config] ERROR: no Channels in config, falling back to one default channel");
-				configs = new[] { new ChannelConfig() };
-			}
-
-			var channels = new Channel[configs.Length];
-			for (int i = 0; i < configs.Length; i++)
-			{
-				channels[i] = new Channel(i, configs[i]);
-				var c = configs[i];
-				Logger.Write($"[Config] channel {i}: url={c.LlmUrl} model={c.Model} provider={c.Provider}"
-					+ $" thinking={c.EnableThinking} contextChars={c.ContextChars} maxTokens={c.MaxTokens}");
-			}
-			return channels;
-		}
-
-		public static int DebugPort { get { return _config.DebugPort; } }
-
-		public static Channel Get(int channel)
-		{
-			if (channel < 0 || channel >= _channels.Length) return null;
-			return _channels[channel];
-		}
-
-		public static readonly HttpClient Http = new HttpClient(new HttpClientHandler
-		{
-			Proxy = (_config.EnableProxy && !string.IsNullOrEmpty(_config.ProxyUrl))
-				? new WebProxy(_config.ProxyUrl) : null
-		}) { Timeout = TimeSpan.FromSeconds(300) };
-
-		public static bool GetChunkFromLLM(int channel, out LLE.FromLLM cmd)
-		{
-			var c = Get(channel);
-			if (c == null) { cmd = null; return false; }
-			return c.GetChunk(out cmd);
-		}
-
-		public static void SendMessageToLLM(int channel, string requestJson)
-		{
-			var c = Get(channel);
-			if (c == null)
-			{	Logger.Write($"[LLM] send to unknown channel {channel}, dropped");
-				return;
-			}
-
-			c.Send(requestJson);
-		}
-
-		public static void CancelLLM(int channel)
-		{
-			var c = Get(channel);
-			if (c != null) c.Cancel();
-		}
-
-		public static int GetContextChars(int channel)
-		{
-			var c = Get(channel);
-			return c == null ? 0 : c.Config.ContextChars;
 		}
 
 		private static readonly HttpClient _tts =
@@ -562,27 +493,27 @@ namespace LLELoader
 				return false;
 			}
 
-			static bool Prefix_GetChunkFromLLM(int channel, out LLE.FromLLM m, ref bool __result)
+			static bool Prefix_GetChunkFromLLM(out LLE.FromLLM m, ref bool __result)
 			{
-				__result = GetChunkFromLLM(channel, out m);
+				__result = GetChunkFromLLM(out m);
 				return false;
 			}
 
-			static bool Prefix_SendMessageToLLM(int channel, string requestJson)
+			static bool Prefix_SendMessageToLLM(string requestJson)
 			{
-				SendMessageToLLM(channel, requestJson);
+				SendMessageToLLM(requestJson);
 				return false;
 			}
 
-			static bool Prefix_CancelLLM(int channel)
+			static bool Prefix_CancelLLM()
 			{
-				CancelLLM(channel);
+				CancelLLM();
 				return false;
 			}
 
-			static bool Prefix_GetContextChars(int channel, ref int __result)
+			static bool Prefix_GetContextChars(ref int __result)
 			{
-				__result = GetContextChars(channel);
+				__result = GetContextChars();
 				return false;
 			}
 

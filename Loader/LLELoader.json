@@ -1,33 +1,11 @@
 {
-  "Channels": [
-    {
-      "LlmUrl": "http://localhost:8080/v1/chat/completions",
-      "Model": "google/gemma-4-31b-it",
-      "ApiKey": "",
-      "Provider": "local",
-      "EnableThinking": true,
-      "ContextChars": 100000,
-      "MaxTokens": 5000
-    },
-    {
-      "LlmUrl": "http://localhost:8080/v1/chat/completions",
-      "Model": "google/gemma-4-31b-it",
-      "ApiKey": "",
-      "Provider": "local",
-      "EnableThinking": true,
-      "ContextChars": 100000,
-      "MaxTokens": 5000
-    },
-    {
-      "LlmUrl": "http://localhost:8080/v1/chat/completions",
-      "Model": "google/gemma-4-31b-it",
-      "ApiKey": "",
-      "Provider": "local",
-      "EnableThinking": true,
-      "ContextChars": 100000,
-      "MaxTokens": 5000
-    }
-  ],
+  "LlmUrl": "http://localhost:8080/v1/chat/completions",
+  "Model": "google/gemma-4-31b-it",
+  "ApiKey": "",
+  "Provider": "local",
+  "EnableThinking": true,
+  "ContextChars": 100000,
+  "MaxTokens": 5000,
   "EnableProxy": false,
   "ProxyUrl": "http://127.0.0.1:8118",
   "TtsUrl": "http://127.0.0.1:8081/say",

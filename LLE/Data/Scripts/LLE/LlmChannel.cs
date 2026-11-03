@@ -85,8 +85,6 @@ namespace LLE
 
 	class LlmChannel
 	{
-		public readonly int Id;
-
 		private readonly StringBuilder reasoning = new StringBuilder();
 		private readonly StringBuilder content = new StringBuilder();
 
@@ -98,20 +96,11 @@ namespace LLE
 		private readonly LoopGuard guard = new LoopGuard();
 		private int cuts;
 
-		public LlmChannel(int id)
-		{	Id = id;
-		}
-
-		// Only the first stream reaches the console. Three streams interleaved chunk by chunk are
-		// unreadable, and every stream is written to the log in full either way.
-		private bool Verbose => Id == 0;
-
-		public int ContextChars { get { return LLE_Loader.GetContextChars(Id); } }
-		public bool Present { get { return ContextChars > 0; } }
+		public int ContextChars { get { return LLE_Loader.GetContextChars(); } }
 		public bool Busy { get { return busy; } }
 
 		public void Send(string requestJson)
-		{	LLE_Loader.SendMessageToLLM(Id, requestJson);
+		{	LLE_Loader.SendMessageToLLM(requestJson);
 			busy = true;
 		}
 
@@ -119,7 +108,7 @@ namespace LLE
 		{
 			if (!busy) return;
 
-			LLE_Loader.CancelLLM(Id);
+			LLE_Loader.CancelLLM();
 			Reset();
 			busy = false;
 		}
@@ -141,15 +130,15 @@ namespace LLE
 			for (int i = 0; i < 10; ++i)
 			{
 				FromLLM m;
-				if (!LLE_Loader.GetChunkFromLLM(Id, out m)) return ChannelEvent.None;
+				if (!LLE_Loader.GetChunkFromLLM(out m)) return ChannelEvent.None;
 
 				switch (m.Type)
 				{
 					case MessageType.Chunk:
 						if (!ReadChunk(m.Payload)) break;
 
-						LLE.Log($"llmLoop[{Id}]: {guard.Tail}");
-						MyConsole.AddMultiline($"\n[LOOP {Id}] The answer repeated itself and was cut off.\n", Color.Red);
+						LLE.Log($"llmLoop: {guard.Tail}");
+						MyConsole.AddMultiline("\n[LOOP] The answer repeated itself and was cut off.\n", Color.Red);
 						Cancel();
 
 						// A model that keeps falling into it will not be talked out of it, and every
@@ -164,7 +153,7 @@ namespace LLE
 						return ChannelEvent.Response;
 
 					case MessageType.Stop:
-						if (Verbose) MyConsole.AddMultiline("\n", Color.White);
+						MyConsole.AddMultiline("\n", Color.White);
 						busy = false;
 						cuts = 0;
 						answer = Finish();
@@ -188,7 +177,7 @@ namespace LLE
 			string error;
 			var root = Json.Parse(data, out error);
 			if (root == null)
-			{	LLE.Log($"llmChunk[{Id}] unreadable: {error}: {data}");
+			{	LLE.Log($"llmChunk unreadable: {error}: {data}");
 				return false;
 			}
 
@@ -202,14 +191,14 @@ namespace LLE
 
 			var think = delta.Field("reasoning_content") ?? delta.Field("reasoning");
 			if (think != null && think.Is(JsonKind.String) && think.String.Length != 0)
-			{	if (Verbose) MyConsole.AddMultiline(think.String, Color.LightGray);
+			{	MyConsole.AddMultiline(think.String, Color.LightGray);
 				reasoning.Append(think.String);
 				looping |= guard.Feed(think.String);
 			}
 
 			var text = delta.Field("content");
 			if (text != null && text.Is(JsonKind.String) && text.String.Length != 0)
-			{	if (Verbose) MyConsole.AddMultiline(text.String, Color.Cyan);
+			{	MyConsole.AddMultiline(text.String, Color.Cyan);
 				content.Append(text.String);
 				looping |= guard.Feed(text.String);
 			}
@@ -267,8 +256,8 @@ namespace LLE
 
 		private Answer Finish()
 		{
-			if (reasoning.Length != 0) LLE.Log($"llmReasoning[{Id}]:\n{reasoning}");
-			if (content.Length != 0) LLE.Log($"llmContent[{Id}]:\n{content}");
+			if (reasoning.Length != 0) LLE.Log($"llmReasoning:\n{reasoning}");
+			if (content.Length != 0) LLE.Log($"llmContent:\n{content}");
 
 			var calls = new List<ToolCall>();
 			var escaped = new List<string>();
@@ -287,7 +276,7 @@ namespace LLE
 				var call = text == null ? null : ToolCall.Parse(name, text, out error);
 
 				if (call == null)
-				{	LLE.Log($"llmToolCall[{Id}]: unreadable {name} {arguments}: {error}");
+				{	LLE.Log($"llmToolCall unreadable: {name} {arguments}: {error}");
 					if (firstError == null)
 						firstError = $"[ERROR] The arguments of '{name}' could not be read: {error}\n";
 					continue;
@@ -299,8 +288,8 @@ namespace LLE
 
 			if (firstError == null)
 				foreach (var call in calls)
-				{	LLE.Log($"llmToolCall[{Id}]: {call.Text}");
-					if (Verbose) MyConsole.AddMultiline(call.Text + "\n", Color.Cyan);
+				{	LLE.Log($"llmToolCall: {call.Text}");
+					MyConsole.AddMultiline(call.Text + "\n", Color.Cyan);
 				}
 
 			var json = new StringBuilder("{\"role\":\"assistant\",\"content\":");

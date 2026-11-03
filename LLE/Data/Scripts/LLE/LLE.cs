@@ -326,11 +326,11 @@ namespace LLE
 	public static class LLE_Loader
 	{
 		public static bool IsPresent() => false;
-		public static bool GetChunkFromLLM(int channel, out FromLLM m) { m = null; return false; }
-		public static void SendMessageToLLM(int channel, string requestJson) { }
-		public static void CancelLLM(int channel) { }
+		public static bool GetChunkFromLLM(out FromLLM m) { m = null; return false; }
+		public static void SendMessageToLLM(string requestJson) { }
+		public static void CancelLLM() { }
 		public static string TakeScreenshot() { return null; }
-		public static int GetContextChars(int channel) { return 0; }
+		public static int GetContextChars() { return 0; }
 		public static void RequestScreenshot() { }
 		public static void Speak(string text) { }
 		public static bool GetDebugChat(out string message) { message = null; return false; }

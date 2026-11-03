@@ -13,11 +13,12 @@ namespace LLELoader
 	// One line of JSON in, one line of JSON out. Silent unless DebugPort is set in the config.
 	static class Debug
 	{
-		private const int MaxChannels = 16;
-
 		private static bool _hold;
-		private static readonly string[] _request = new string[MaxChannels];
-		private static readonly bool[] _held = new bool[MaxChannels];
+		private static string _request;
+		private static bool _held;
+
+		// The socket thread answers a held request while the game thread sends the next one.
+		private static readonly object _gate = new object();
 
 		private static volatile bool _running;
 
@@ -115,9 +116,9 @@ namespace LLELoader
 					case "chat":       return Chat(root);
 					case "wait":       return Wait(root);
 					case "mode":       return Mode(root);
-					case "request":    return Request(root);
+					case "request":    return Request();
 					case "call":       return Call(root);
-					case "release":    return Release(root);
+					case "release":    return Release();
 					case "load_last":  return LoadLast();
 					case "screenshot": return Screenshot();
 					case "quit":       return Quit();
@@ -135,17 +136,10 @@ namespace LLELoader
 			Quoted(sb, State());
 			sb.Append(",\"mode\":").Append(_hold ? "\"hold\"" : "\"pass\"");
 
-			sb.Append(",\"held\":[");
-			bool first = true;
-			lock (_request)
-				for (int i = 0; i < MaxChannels; ++i)
-				{
-					if (!_held[i]) continue;
-					if (!first) sb.Append(',');
-					first = false;
-					sb.Append(i);
-				}
-			sb.Append("]}");
+			bool held;
+			lock (_gate) held = _held;
+
+			sb.Append(",\"held\":").Append(held ? "true" : "false").Append('}');
 
 			return sb.ToString();
 		}
@@ -230,14 +224,11 @@ namespace LLELoader
 		}
 
 		// The exact request JSON the mod built. The game log does not keep it.
-		private static string Request(JsonElement root)
+		private static string Request()
 		{
-			int channel = Channel(root);
-			if (channel < 0) return Failed("bad channel");
-
 			string request;
-			lock (_request) request = _request[channel];
-			if (request == null) return Failed("no request seen on channel " + channel);
+			lock (_gate) request = _request;
+			if (request == null) return Failed("the mod has not sent a request yet");
 
 			var sb = new StringBuilder("{\"ok\":true,\"request\":");
 			Quoted(sb, request);
@@ -247,17 +238,12 @@ namespace LLELoader
 		// Answers a held request the way the model would have: SSE chunks, then Stop.
 		private static string Call(JsonElement root)
 		{
-			int channel = Channel(root);
-			if (channel < 0) return Failed("bad channel");
-
 			var chunk = BuildChunk(root);
 			if (chunk == null) return Failed("call needs content or calls");
 
-			var target = MessageBroker.Get(channel);
-			if (target == null) return Failed("no channel " + channel);
-			if (!target.Inject(chunk)) return Failed("channel " + channel + " is not waiting for an answer");
+			if (!MessageBroker.Inject(chunk)) return Failed("the request has already gone to the model");
 
-			lock (_request) _held[channel] = false;
+			lock (_gate) _held = false;
 			return "{\"ok\":true}";
 		}
 
@@ -308,22 +294,17 @@ namespace LLELoader
 		}
 
 		// Lets a held request go to the real model after all.
-		private static string Release(JsonElement root)
+		private static string Release()
 		{
-			int channel = Channel(root);
-			if (channel < 0) return Failed("bad channel");
-
 			string request;
-			lock (_request)
+			lock (_gate)
 			{
-				if (!_held[channel]) return Failed("channel " + channel + " is not held");
-				request = _request[channel];
-				_held[channel] = false;
+				if (!_held) return Failed("no request is held");
+				request = _request;
+				_held = false;
 			}
 
-			var target = MessageBroker.Get(channel);
-			if (target == null) return Failed("no channel " + channel);
-			if (!target.Resume(request)) return Failed("channel " + channel + " has no pending request");
+			if (!MessageBroker.Resume(request)) return Failed("the mod is no longer waiting for an answer");
 
 			return "{\"ok\":true}";
 		}
@@ -356,29 +337,19 @@ namespace LLELoader
 		#endregion
 
 		// Called on every request the mod sends. True keeps it here instead of the model.
-		public static bool OnSend(int id, string requestJson)
+		public static bool OnSend(string requestJson)
 		{
-			if (!_running || id < 0 || id >= MaxChannels) return false;
+			if (!_running) return false;
 
-			lock (_request)
+			lock (_gate)
 			{
-				_request[id] = requestJson;
+				_request = requestJson;
 				if (!_hold) return false;
-				_held[id] = true;
+				_held = true;
 			}
 
-			Logger.Write($"[Debug] holding request on channel {id}");
+			Logger.Write("[Debug] holding the request");
 			return true;
-		}
-
-		private static int Channel(JsonElement root)
-		{
-			JsonElement value;
-			if (!root.TryGetProperty("channel", out value)) return 0;
-			if (value.ValueKind != JsonValueKind.Number) return -1;
-
-			int channel = value.GetInt32();
-			return channel >= 0 && channel < MaxChannels ? channel : -1;
 		}
 
 		private static string Failed(string reason)

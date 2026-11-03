@@ -117,15 +117,12 @@ def task(text, seconds=120):
             return
 
 
-# The mod waits out every stream it started, so all held channels get the same answer.
 def answer(name, arguments):
-    held = send("status")["held"]
-    if not held:
+    if not send("status")["held"]:
         sys.exit("no request is being held — is the mode set to hold?")
 
-    for channel in held:
-        send("call", channel=channel, calls=[{"name": name, "arguments": arguments}])
-    print(f"{name} sent to channel " + ", ".join(str(c) for c in held))
+    send("call", calls=[{"name": name, "arguments": arguments}])
+    print(name + " sent in the model's place")
 
 
 def shot(destination=None):
@@ -174,7 +171,7 @@ def main(argv):
         send("mode", value=cmd)
         print(cmd)
     elif cmd == "request":
-        print(send("request", channel=int(rest[0]) if rest else 0)["request"])
+        print(send("request")["request"])
     elif cmd == "call":
         if not rest:
             sys.exit("call needs a tool name")
@@ -187,7 +184,7 @@ def main(argv):
     elif cmd == "wait":
         wait(int(rest[0]) if rest else 60)
     elif cmd == "release":
-        send("release", channel=int(rest[0]) if rest else 0)
+        send("release")
         print("released to the model")
     elif cmd == "shot":
         shot(rest[0] if rest else None)
