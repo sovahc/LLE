@@ -295,6 +295,15 @@ namespace LLE
 			var json = new StringBuilder("{\"role\":\"assistant\",\"content\":");
 			Json.Quoted(json, content.ToString().Trim());
 
+			// The thinking is sent back as reasoning_content, which is the field the stream carried it
+			// in: the model's own template renders an assistant message's reasoning_content into the
+			// history, so the model reads its own conclusions instead of deriving them again.
+			var thought = reasoning.ToString().Trim();
+			if (thought.Length != 0)
+			{	json.Append(",\"reasoning_content\":");
+				Json.Quoted(json, thought);
+			}
+
 			if (firstError != null) return new Answer(calls, json.Append('}').ToString(), 0, firstError);
 
 			int firstId = nextCallId;
