@@ -135,8 +135,6 @@ namespace LLE
 			new Tool("transfer_all", "Move everything from one block's inventory to another's.",
 				Join(Ijk(), IjkTo)),
 
-			// TEMPORARY: draft/place/build hidden for a welding-only navigation test.
-			/*
 			new Tool("draft", "Plan one block. Nothing is built; the player sees the whole draft as a projection.",
 				Join(Ijk(), Str("type", "Block type name, e.g. 'Light Armor Block'."),
 					Enum("facing", "Which way the block looks.", false, Facings),
@@ -148,7 +146,6 @@ namespace LLE
 			new Tool("draft_show", "List what is in the draft.", None),
 			new Tool("draft_undo", "Drop the last block from the draft.", None),
 			new Tool("draft_clear", "Drop the whole draft.", None),
-			*/
 
 			new Tool("grind", "Grind the block at a cell. Flies you there first.", Ijk()),
 			new Tool("weld", "Weld the block at a cell. Flies you there first."
@@ -165,7 +162,6 @@ namespace LLE
 					Num("count", "How many. Omit to put all of them.", false)))),
 			new Tool("put_all_components", "Put every component you carry into a block's inventory. Flies you there first."
 				+ " Use it to free up your inventory quickly.", Ijk()),
-			/*
 			new Tool("build", "Build every drafted block within reach.", None),
 			new Tool("place", "Build one block right now, at minimum integrity.",
 				Join(Ijk(), Str("type", "Block type name."),
@@ -175,7 +171,6 @@ namespace LLE
 				Join(Ijk(), Enum("port1", "First opening.", true, Ports),
 					Enum("port2", "Second opening, different from the first.", true, Ports),
 					Enum("kind", "Tube family. Default square.", false, TubeKinds))),
-			*/
 			new Tool("enter", "Enter the cockpit or seat at a cell.", Ijk()),
 			new Tool("recharge", "Recharge from the block at a cell. Flies you there first.", Ijk()),
 		};
