@@ -276,6 +276,13 @@ namespace LLE
 			{	message = "Error: you should select a grid first. Use `select name`";
 				return false;
 			}
+			// The game deletes a grid as soon as its last block is gone, but the reference survives it.
+			// Closed is the one member of a closed grid that is safe to read; do not add anything else here.
+			if(selectedGrid.Closed)
+			{	message = "Error: the selected grid no longer exists, it was destroyed or dismantled "
+					+ "to the last block. Use `select name` to select another grid.";
+				return false;
+			}
 			message = null;
 			return true;
 		}

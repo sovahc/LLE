@@ -175,13 +175,24 @@ namespace LLE
 			if (news) hasNews = true;
 		}
 
+		// A throwing command has to stop here: an exception escaping the update loop reaches
+		// MyProgram.Main and takes the game down with it.
+		private CommandResult CommandCrashed(ToolCall call, Exception e)
+		{	LLE.Log($"Command '{call.Text}' threw: {e}");
+			return $"Internal error: command '{call.Text}' crashed with {e.GetType().Name}: {e.Message}";
+		}
+
 		private void RunNextPending()
 		{
 			if (batch.Count == 0) return;
 
 			commandStartTime = Time.Now;
 
-			var result = commands.Execute(batch.Peek());
+			CommandResult result;
+			try
+			{	result = commands.Execute(batch.Peek()); }
+			catch(Exception e)
+			{	result = CommandCrashed(batch.Peek(), e); }
 
 			if (result == null && !commands.InProgress())
 				result = $"Internal error: command '{batch.Peek().Text}' produced no result.";
@@ -224,7 +235,15 @@ namespace LLE
 			if (batch.Count != 0)
 			{
 				if(commands.InProgress())
-				{	var result = commands.Update();
+				{	CommandResult result;
+					try
+					{	result = commands.Update(); }
+					catch(Exception e)
+					{	// The half-run coroutine goes with the exception: left on the stack it walks
+						// back into the same crash on the next tick.
+						commands.AbortCommand();
+						result = CommandCrashed(batch.Peek(), e);
+					}
 					if (result != null)
 						OnCommandFinished(result);
 				}
